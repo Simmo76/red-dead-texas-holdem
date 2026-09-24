@@ -6,7 +6,9 @@
 
 <PageTitle>Cinematic Poker</PageTitle>
 
-<div class="game">
+<div class="game3d">
+
+    <canvas id="poker-canvas"></canvas>
 
     <header class="topbar">
         <div class="brand">CINEMATIC <span>POKER</span></div>
@@ -21,81 +23,15 @@
         </div>
     </header>
 
-    <div class="table-area">
-        <div class="table">
-            <div class="table-rail"></div>
-            <div class="table-felt">
-                @if (Round != null)
-                {
-                    <div class="board">
-                        @foreach (Card card in Round.Board)
-                        {
-                            @CardFace(card)
-                        }
-                        @for (int i = Round.Board.Count; i < 5; i++)
-                        {
-                            <div class="card slot"></div>
-                        }
-                    </div>
-                    <div class="pot">POT&nbsp;<b>$@Round.PotTotal</b></div>
-                }
-                @if (_banner != null)
-                {
-                    <div class="banner">@_banner</div>
-                }
-            </div>
-        </div>
+    @if (Round != null)
+    {
+        <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b> <span class="hud-stack">· YOU&nbsp;<b>$@(SeatOf(0)?.Stack ?? _game.GetPlayer(0).Stack)</b></span></div>
+    }
 
-        @if (_game != null)
-        {
-            @foreach (PokerPlayer player in _game.Players)
-            {
-                SeatState seatState = SeatOf(player.Seat);
-                bool acting = _game.CurrentSeat == player.Seat;
-                bool folded = seatState != null && seatState.Folded;
-                bool eliminated = player.Status == PlayerStatus.Eliminated;
-
-                <div class="seat seat-@player.Seat @(acting ? "acting" : "") @(folded || eliminated ? "muted" : "")">
-                    <div class="seat-cards">
-                        @if (player.Seat == 0)
-                        {
-                            @foreach (Card card in HoleCardsOf(0)) { @CardFace(card) }
-                        }
-                        else if (_revealed.TryGetValue(player.Seat, out var shown))
-                        {
-                            @foreach (Card card in shown) { @CardFace(card) }
-                        }
-                        else if (seatState != null && !folded && !eliminated)
-                        {
-                            <img class="card back" src="img/cards/back.png" alt="face-down card" />
-                            <img class="card back" src="img/cards/back.png" alt="face-down card" />
-                        }
-                    </div>
-                    <div class="seat-plate">
-                        <div class="seat-name">
-                            @player.Name
-                            @if (Round != null && !eliminated)
-                            {
-                                @if (player.Seat == Round.DealerSeat) { <span class="tag dealer">D</span> }
-                                @if (player.Seat == Round.SmallBlindSeat) { <span class="tag">SB</span> }
-                                @if (player.Seat == Round.BigBlindSeat) { <span class="tag">BB</span> }
-                            }
-                        </div>
-                        <div class="seat-stack">
-                            @if (eliminated) { <span class="out">OUT</span> }
-                            else { <text>$@(seatState?.Stack ?? player.Stack)</text> }
-                        </div>
-                        <div class="seat-status">
-                            @if (folded) { <text>folded</text> }
-                            else if (seatState != null && seatState.AllIn) { <text>ALL-IN</text> }
-                            else if (seatState != null && seatState.CommittedThisStreet > 0) { <text>bet $@seatState.CommittedThisStreet</text> }
-                            else if (acting) { <text>@(player.IsHuman ? "your turn" : "thinking…")</text> }
-                        </div>
-                    </div>
-                </div>
-            }
-        }
-    </div>
+    @if (_banner != null)
+    {
+        <div class="banner">@_banner</div>
+    }
 
     <aside class="log">
         @foreach (string line in _log)
@@ -180,6 +116,84 @@
     private const int EquityIterations = 200;
 
     protected override void OnInitialized() => StartSession();
+
+    // ------------------------------------------------------------- 3D scene
+
+    private bool _sceneReady;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // The scene module loads asynchronously; retry until it's there.
+            for (int i = 0; i < 60 && !_sceneReady; i++)
+            {
+                try
+                {
+                    _sceneReady = await JS.InvokeAsync<bool>("pokerScene.init", "poker-canvas");
+                }
+                catch (JSException)
+                {
+                    await Task.Delay(250);
+                }
+            }
+        }
+        if (_sceneReady) await PushSceneState();
+    }
+
+    private async Task PushSceneState()
+    {
+        if (_game == null) return;
+
+        var seats = _game.Players.Select(p =>
+        {
+            SeatState s = SeatOf(p.Seat);
+            bool folded = s != null && s.Folded;
+            bool eliminated = p.Status == PlayerStatus.Eliminated;
+            bool acting = _game.CurrentSeat == p.Seat;
+            string status =
+                folded ? "folded"
+                : s != null && s.AllIn ? "ALL-IN"
+                : s != null && s.CommittedThisStreet > 0 ? $"bet ${s.CommittedThisStreet}"
+                : acting && !p.IsHuman ? "thinking…"
+                : "";
+            return new
+            {
+                seat = p.Seat,
+                name = p.Name,
+                stack = s?.Stack ?? p.Stack,
+                bet = s?.CommittedThisStreet ?? 0,
+                folded,
+                @out = eliminated,
+                actor = acting,
+                active = s != null && !folded && !eliminated,
+                dealer = Round != null && p.Seat == Round.DealerSeat,
+                sb = Round != null && p.Seat == Round.SmallBlindSeat,
+                bb = Round != null && p.Seat == Round.BigBlindSeat,
+                reveal = p.Seat != 0 && _revealed.TryGetValue(p.Seat, out var shown)
+                    ? shown.Select(CardImage).ToArray()
+                    : null,
+                status
+            };
+        }).ToArray();
+
+        var snapshot = new
+        {
+            pot = Round?.PotTotal ?? 0,
+            board = Round?.Board.Select(CardImage).ToArray() ?? Array.Empty<string>(),
+            hole = HoleCardsOf(0).Select(CardImage).ToArray(),
+            seats
+        };
+
+        try { await JS.InvokeVoidAsync("pokerScene.update", snapshot); }
+        catch (JSException) { /* scene not available; HUD still works */ }
+    }
+
+    private void SceneReact(int seat, bool positive)
+    {
+        if (!_sceneReady || seat == 0) return;
+        _ = JS.InvokeVoidAsync("pokerScene.react", seat, positive);
+    }
 
     private void StartSession()
     {
@@ -317,7 +331,13 @@
                 }
                 break;
 
+            case PlayerFolded foldedEvt:
+                SceneReact(foldedEvt.Seat, positive: false);
+                AddLog($"{NameOf(foldedEvt.Seat)} folds");
+                break;
+
             case PotAwarded award:
+                foreach (int seatIdx in award.WinnerSeats) SceneReact(seatIdx, positive: true);
                 string winners = string.Join(" & ", award.WinnerSeats.Select(NameOf));
                 _banner = award.WinningHand.HasValue
                     ? $"{winners} win{(award.WinnerSeats.Count == 1 ? "s" : "")} ${award.Amount} — {Pretty(award.WinningHand.Value.Category)}"
@@ -391,11 +411,6 @@
         string rank = card.Rank == Rank.Ten ? "10" : Card.RankSymbol(card.Rank);
         return $"img/cards/{card.Suit.ToString().ToLowerInvariant()}_{rank}.png";
     }
-
-    private RenderFragment CardFace(Card card) => __builder =>
-    {
-        <img class="card" src="@CardImage(card)" alt="@card" />
-    };
 
     // -------------------------------------------------------------- sounds
 
