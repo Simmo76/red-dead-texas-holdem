@@ -35,6 +35,7 @@ html, body {
 
 .boot-screen {
     height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -66,6 +67,7 @@ html, body {
 
 .lock-screen {
     height: 100vh;
+    height: 100dvh;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -116,6 +118,7 @@ html, body {
 
 .game {
     height: 100vh;
+    height: 100dvh; /* iOS Safari: exclude the collapsing toolbar area */
     display: grid;
     grid-template-columns: 1fr 300px;
     grid-template-rows: 52px 1fr 86px;
@@ -123,6 +126,10 @@ html, body {
         "topbar topbar"
         "table  log"
         "action log";
+    /* Keep clear of the iPhone notch and home indicator. */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ------------------------------------------------------------- topbar */
@@ -529,5 +536,80 @@ img.card {
     .seat-5 { left: 89%; top: 66%; }
 
     .act { padding: 11px 16px; font-size: 13px; }
+    .actionbar { flex-wrap: wrap; gap: 8px; }
     .brand { font-size: 14px; letter-spacing: 3px; }
+}
+
+/* ------------------------------------------- phones held upright (iPhone) */
+
+@media (max-width: 620px) and (orientation: portrait) {
+    .game { grid-template-rows: 44px 1fr 96px; }
+
+    .table {
+        width: 88%;
+        height: min(52%, 430px);
+        top: 47%;
+    }
+
+    .seat-plate { min-width: 86px; padding: 3px 7px; border-radius: 8px; }
+    .seat-name { font-size: 10px; gap: 3px; }
+    .seat-stack { font-size: 11px; }
+    .seat-status { font-size: 9px; min-height: 11px; }
+    .tag { font-size: 8px; padding: 1px 4px; }
+
+    .seat-0 { left: 50%; top: 90%; }
+    .seat-1 { left: 18%; top: 72%; }
+    .seat-2 { left: 18%; top: 25%; }
+    .seat-3 { left: 50%; top: 9%; }
+    .seat-4 { left: 82%; top: 25%; }
+    .seat-5 { left: 82%; top: 72%; }
+
+    .card { width: 34px; }
+    .seat-cards .card { width: 26px; }
+    .seat-cards { min-height: 36px; }
+    .board { gap: 5px; }
+
+    .pot { font-size: 12px; padding: 3px 12px; }
+    .banner { font-size: 11px; bottom: 10%; }
+
+    .topbar { padding: 0 10px; }
+    .chip-btn { padding: 5px 10px; font-size: 10px; letter-spacing: 1px; }
+
+    .act { padding: 12px 14px; font-size: 13px; letter-spacing: 1px; }
+    .slider-row { flex-wrap: wrap; }
+}
+
+/* -------------------------------------- phones held sideways (iPhone 13) */
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .game { grid-template-rows: 38px 1fr 62px; }
+
+    .table { top: 48%; height: 64%; }
+
+    .seat-plate { min-width: 92px; padding: 3px 8px; }
+    .seat-name { font-size: 10px; }
+    .seat-stack { font-size: 11px; }
+    .seat-status { font-size: 9px; min-height: 11px; }
+
+    .seat-0 { top: 86%; }
+    .seat-1 { left: 12%; top: 66%; }
+    .seat-2 { left: 12%; top: 22%; }
+    .seat-3 { top: 10%; }
+    .seat-4 { left: 88%; top: 22%; }
+    .seat-5 { left: 88%; top: 66%; }
+
+    .card { width: 34px; }
+    .seat-cards .card { width: 24px; }
+    .seat-cards { min-height: 33px; }
+
+    .pot { font-size: 12px; padding: 2px 10px; }
+    .banner { font-size: 11px; }
+
+    .topbar { padding: 0 10px; }
+    .chip-btn { padding: 4px 10px; font-size: 10px; }
+    .brand { font-size: 12px; letter-spacing: 2px; }
+
+    .act { padding: 8px 14px; font-size: 12px; }
+    .slider-panel { gap: 4px; }
+    .overlay-box { padding: 22px 30px; gap: 14px; }
 }
