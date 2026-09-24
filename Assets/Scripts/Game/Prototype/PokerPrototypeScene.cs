@@ -63,11 +63,16 @@ namespace CinematicPoker.Game.Prototype
         private Camera _camera;
         private PrototypeHUD _hud;
         private Material _cardMaterial;
+        private AudioSource _audio;
+        private readonly GameObject[][] _npcBacks = new GameObject[NpcCount + 1][];
 
         private void Start()
         {
             BuildWorld();
             BuildController();
+            _audio = gameObject.AddComponent<AudioSource>();
+            _audio.playOnAwake = false;
+            _audio.spatialBlend = 0f;
             _hud = new GameObject("PrototypeHUD").AddComponent<PrototypeHUD>();
             _hud.Build(this, Controller);
             StartNewSession();
@@ -95,13 +100,17 @@ namespace CinematicPoker.Game.Prototype
                 light.intensity = 1.15f;
             }
 
-            CreatePrimitive(PrimitiveType.Plane, "Floor",
+            GameObject floor = CreatePrimitive(PrimitiveType.Plane, "Floor",
                 new Vector3(0f, 0f, 0f), new Vector3(2f, 1f, 2f), new Color(0.16f, 0.13f, 0.11f));
+            PrototypeAssets.ApplyTexture(floor, PrototypeAssets.Wood, new Color(0.45f, 0.38f, 0.32f), new Vector2(6f, 6f));
 
-            CreatePrimitive(PrimitiveType.Cylinder, "Table",
+            GameObject table = CreatePrimitive(PrimitiveType.Cylinder, "Table",
                 new Vector3(0f, TableHeight - 0.03f, 0f), new Vector3(2.7f, 0.03f, 2.7f), new Color(0.05f, 0.35f, 0.16f));
-            CreatePrimitive(PrimitiveType.Cylinder, "TableBase",
+            PrototypeAssets.ApplyTexture(table, PrototypeAssets.Felt, new Color(0.1f, 0.52f, 0.26f), new Vector2(2.5f, 2.5f));
+
+            GameObject tableBase = CreatePrimitive(PrimitiveType.Cylinder, "TableBase",
                 new Vector3(0f, TableHeight * 0.5f, 0f), new Vector3(0.4f, TableHeight * 0.5f, 0.4f), new Color(0.2f, 0.14f, 0.09f));
+            PrototypeAssets.ApplyTexture(tableBase, PrototypeAssets.Wood, new Color(0.5f, 0.38f, 0.28f), new Vector2(1f, 1f));
 
             _cardMaterial = MakeMaterial(new Color(0.95f, 0.94f, 0.9f));
 
@@ -123,6 +132,7 @@ namespace CinematicPoker.Game.Prototype
                     GameObject body = CreatePrimitive(PrimitiveType.Capsule, $"NPC_{seat}",
                         pos + Vector3.up * 0.62f, new Vector3(0.42f, 0.55f, 0.42f), npcColors[seat - 1]);
                     body.transform.LookAt(new Vector3(TableCentre.x, body.transform.position.y, TableCentre.z));
+                    _npcBacks[seat] = CreateNpcBackCards(seat);
                 }
 
                 _seatLabels[seat] = CreateLabel($"SeatLabel_{seat}",
@@ -189,6 +199,29 @@ namespace CinematicPoker.Game.Prototype
             return go;
         }
 
+        /// <summary>Two face-down cards on the felt in front of an NPC seat.</summary>
+        private GameObject[] CreateNpcBackCards(int seat)
+        {
+            Vector3 basePos = SeatPosition(seat, SeatRadius * 0.68f);
+            basePos.y = TableHeight + 0.012f;
+            Vector3 toCentre = (TableCentre - new Vector3(basePos.x, TableCentre.y, basePos.z)).normalized;
+            Vector3 right = Vector3.Cross(Vector3.up, toCentre);
+            float yaw = Mathf.Atan2(toCentre.x, toCentre.z) * Mathf.Rad2Deg;
+
+            Material back = PrototypeAssets.CardBackMaterial();
+            var cards = new GameObject[2];
+            for (int i = 0; i < 2; i++)
+            {
+                GameObject go = CreateCardQuad($"NpcBack_{seat}_{i}", basePos + right * (i == 0 ? -0.075f : 0.075f));
+                go.transform.rotation = Quaternion.Euler(90f, yaw, 0f);
+                go.transform.localScale = new Vector3(0.15f, 0.21f, 1f);
+                if (back != null) go.GetComponent<Renderer>().sharedMaterial = back;
+                go.SetActive(false);
+                cards[i] = go;
+            }
+            return cards;
+        }
+
         private static Material MakeMaterial(Color color)
         {
             Shader shader = Shader.Find("Standard");
@@ -246,6 +279,8 @@ namespace CinematicPoker.Game.Prototype
 
         private void OnEngineEvent(PokerEvent evt)
         {
+            PlaySoundFor(evt);
+
             switch (evt)
             {
                 case HandStarted started:
@@ -283,6 +318,29 @@ namespace CinematicPoker.Game.Prototype
                     if (line != null) _hud.AddLog(line);
                     break;
             }
+        }
+
+        /// <summary>Kenney casino audio (CC0); silent when the pack is absent.</summary>
+        private void PlaySoundFor(PokerEvent evt)
+        {
+            string group = evt switch
+            {
+                HandStarted _ => "card-shuffle",
+                CardDealt dealt when dealt.Seat == 0 => "card-place",
+                FlopDealt _ => "card-slide",
+                TurnDealt _ => "card-slide",
+                RiverDealt _ => "card-slide",
+                BetPlaced _ => "chips-stack",
+                PlayerCalled _ => "chips-stack",
+                PlayerRaised _ => "chips-handle",
+                PlayerAllIn _ => "chips-collide",
+                PlayerFolded _ => "card-shove",
+                PotAwarded _ => "chips-handle",
+                _ => null
+            };
+            if (group == null) return;
+            AudioClip clip = PrototypeAssets.Sound(group);
+            if (clip != null) _audio.PlayOneShot(clip);
         }
 
         private string Describe(PokerEvent evt) => evt switch
@@ -323,17 +381,31 @@ namespace CinematicPoker.Game.Prototype
         private void ShowHoleCard(Card card)
         {
             if (_holeShown >= 2) return;
-            _holeCards[_holeShown].SetActive(true);
-            _holeTexts[_holeShown].text = card.ToString();
-            _holeTexts[_holeShown].color = IsRed(card) ? new Color(0.8f, 0.1f, 0.1f) : Color.black;
+            ApplyCardVisual(_holeCards[_holeShown], _holeTexts[_holeShown], card);
             _holeShown++;
         }
 
         private void ShowBoardCard(int index, Card card)
         {
-            _boardCards[index].SetActive(true);
-            _boardTexts[index].text = card.ToString();
-            _boardTexts[index].color = IsRed(card) ? new Color(0.8f, 0.1f, 0.1f) : Color.black;
+            ApplyCardVisual(_boardCards[index], _boardTexts[index], card);
+        }
+
+        /// <summary>Real card art when the CC0 pack is present, text fallback otherwise.</summary>
+        private void ApplyCardVisual(GameObject quad, TextMesh label, Card card)
+        {
+            quad.SetActive(true);
+            Material face = PrototypeAssets.CardFaceMaterial(card);
+            if (face != null)
+            {
+                quad.GetComponent<Renderer>().sharedMaterial = face;
+                label.text = "";
+            }
+            else
+            {
+                quad.GetComponent<Renderer>().sharedMaterial = _cardMaterial;
+                label.text = card.ToString();
+                label.color = IsRed(card) ? new Color(0.8f, 0.1f, 0.1f) : Color.black;
+            }
         }
 
         private static bool IsRed(Card card) => card.Suit == Suit.Hearts || card.Suit == Suit.Diamonds;
@@ -360,6 +432,14 @@ namespace CinematicPoker.Game.Prototype
 
                 SeatState seatState = inHand ? TryGetSeat(round, player.Seat) : null;
                 long stack = seatState?.Stack ?? player.Stack;
+
+                GameObject[] backs = _npcBacks[player.Seat];
+                if (backs != null)
+                {
+                    bool showBacks = inHand && seatState != null && !seatState.Folded;
+                    foreach (GameObject back in backs)
+                        if (back.activeSelf != showBacks) back.SetActive(showBacks);
+                }
 
                 string status = "";
                 if (player.Status == PlayerStatus.Eliminated) status = "\n<OUT>";

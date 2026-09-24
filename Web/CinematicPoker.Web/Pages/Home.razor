@@ -2,6 +2,7 @@
 @using CinematicPoker.Engine.AI
 @using CinematicPoker.Engine.Players
 @using CinematicPoker.Engine.Poker
+@inject IJSRuntime JS
 
 <PageTitle>Cinematic Poker</PageTitle>
 
@@ -10,6 +11,9 @@
     <header class="topbar">
         <div class="brand">CINEMATIC <span>POKER</span></div>
         <div class="topbar-right">
+            <button class="chip-btn @(_muted ? "" : "active")" @onclick="() => _muted = !_muted">
+                @(_muted ? "SOUND OFF" : "SOUND ON")
+            </button>
             <button class="chip-btn @(_quickMode ? "active" : "")" @onclick="ToggleMode">
                 @(_quickMode ? "QUICK PLAY" : "CINEMATIC")
             </button>
@@ -63,8 +67,8 @@
                         }
                         else if (seatState != null && !folded && !eliminated)
                         {
-                            <div class="card back"></div>
-                            <div class="card back"></div>
+                            <img class="card back" src="img/cards/back.png" alt="face-down card" />
+                            <img class="card back" src="img/cards/back.png" alt="face-down card" />
                         }
                     </div>
                     <div class="seat-plate">
@@ -294,6 +298,8 @@
 
     private void OnEngineEvent(PokerEvent evt)
     {
+        PlaySoundFor(evt);
+
         switch (evt)
         {
             case HandStarted started:
@@ -379,13 +385,57 @@
     private IReadOnlyList<Card> HoleCardsOf(int seat) =>
         SeatOf(seat)?.HoleCards ?? (IReadOnlyList<Card>)Array.Empty<Card>();
 
-    private static bool IsRed(Card card) => card.Suit == Suit.Hearts || card.Suit == Suit.Diamonds;
+    // Kenney boardgame pack card faces (CC0) — see ASSET_LICENSES.md.
+    private static string CardImage(Card card)
+    {
+        string rank = card.Rank == Rank.Ten ? "10" : Card.RankSymbol(card.Rank);
+        return $"img/cards/{card.Suit.ToString().ToLowerInvariant()}_{rank}.png";
+    }
 
     private RenderFragment CardFace(Card card) => __builder =>
     {
-        <div class="card @(IsRed(card) ? "red" : "black")">
-            <span class="rank">@Card.RankSymbol(card.Rank)</span>
-            <span class="suit">@Card.SuitSymbol(card.Suit)</span>
-        </div>
+        <img class="card" src="@CardImage(card)" alt="@card" />
     };
+
+    // -------------------------------------------------------------- sounds
+
+    private bool _muted;
+
+    private static readonly Dictionary<string, string[]> SoundGroups = new()
+    {
+        ["shuffle"] = new[] { "card-shuffle" },
+        ["deal"] = new[] { "card-slide-1", "card-slide-2", "card-slide-3" },
+        ["place"] = new[] { "card-place-1", "card-place-2" },
+        ["fold"] = new[] { "card-shove-1" },
+        ["chips"] = new[] { "chips-stack-1", "chips-stack-2", "chips-stack-3" },
+        ["raise"] = new[] { "chips-handle-1", "chips-handle-2" },
+        ["allin"] = new[] { "chips-collide-1", "chips-collide-2" }
+    };
+
+    private void PlaySound(string group)
+    {
+        if (_muted) return;
+        string[] variants = SoundGroups[group];
+        _ = JS.InvokeVoidAsync("pokerAudio.play", variants[_rng.Next(variants.Length)]);
+    }
+
+    private void PlaySoundFor(PokerEvent evt)
+    {
+        string group = evt switch
+        {
+            HandStarted _ => "shuffle",
+            CardDealt dealt when dealt.Seat == 0 => "place",
+            FlopDealt _ => "deal",
+            TurnDealt _ => "deal",
+            RiverDealt _ => "deal",
+            BetPlaced _ => "chips",
+            PlayerCalled _ => "chips",
+            PlayerRaised _ => "raise",
+            PlayerAllIn _ => "allin",
+            PlayerFolded _ => "fold",
+            PotAwarded _ => "raise",
+            _ => null
+        };
+        if (group != null) PlaySound(group);
+    }
 }

@@ -140,7 +140,10 @@ html, body {
     position: absolute;
     inset: 0;
     border-radius: 50% / 46%;
-    background: linear-gradient(160deg, #4a3524, #2b1e12);
+    background-color: #6b4a2c;
+    background-image: url("../img/wood.jpg");
+    background-size: 420px;
+    background-blend-mode: multiply;
     box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65), inset 0 2px 6px rgba(255, 255, 255, 0.08);
 }
 
@@ -148,7 +151,10 @@ html, body {
     position: absolute;
     inset: 16px;
     border-radius: 50% / 46%;
-    background: radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 85%);
+    background-color: #2a7a4d;
+    background-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.4) 100%), url("../img/felt.jpg");
+    background-size: cover, 340px;
+    background-blend-mode: normal, multiply;
     box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.45);
     display: flex;
     flex-direction: column;
@@ -193,44 +199,26 @@ html, body {
 
 /* ------------------------------------------------------------- cards */
 
+/* Card faces/backs are Kenney boardgame-pack PNGs (140x190, CC0). */
 .card {
-    width: 44px;
-    height: 62px;
-    border-radius: 6px;
-    background: #f4efe4;
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    line-height: 1.05;
-    font-weight: bold;
+    width: 46px;
+    aspect-ratio: 140 / 190;
+    display: block;
     user-select: none;
+    -webkit-user-drag: none;
 }
 
-.card .rank { font-size: 19px; }
-.card .suit { font-size: 17px; }
-.card.red { color: #b1332a; }
-.card.black { color: #1d232e; }
+img.card {
+    filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.55));
+}
 
 .card.slot {
     background: rgba(255, 255, 255, 0.06);
     border: 1px dashed rgba(255, 255, 255, 0.18);
-    box-shadow: none;
+    border-radius: 5px;
 }
 
-.card.back {
-    background: repeating-linear-gradient(45deg, #7d2430, #7d2430 4px, #6a1d28 4px, #6a1d28 8px);
-    border: 2px solid #e8dcc0;
-}
-
-.seat-cards .card {
-    width: 36px;
-    height: 51px;
-}
-
-.seat-cards .card .rank { font-size: 16px; }
-.seat-cards .card .suit { font-size: 14px; }
+.seat-cards .card { width: 38px; }
 
 /* ------------------------------------------------------------- seats */
 
@@ -482,13 +470,8 @@ html, body {
     .seat-name { font-size: 11px; }
     .seat-stack { font-size: 12px; }
 
-    .card { width: 36px; height: 51px; }
-    .card .rank { font-size: 15px; }
-    .card .suit { font-size: 13px; }
-
-    .seat-cards .card { width: 28px; height: 40px; }
-    .seat-cards .card .rank { font-size: 12px; }
-    .seat-cards .card .suit { font-size: 11px; }
+    .card { width: 38px; }
+    .seat-cards .card { width: 30px; }
 
     .seat-1 { left: 11%; top: 66%; }
     .seat-2 { left: 11%; top: 24%; }
