@@ -1,0 +1,18 @@
+{
+    "name": "CinematicPoker.Game",
+    "rootNamespace": "CinematicPoker.Game",
+    "references": [
+        "CinematicPoker.Engine",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
