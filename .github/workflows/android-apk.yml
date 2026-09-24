@@ -1,0 +1,67 @@
+# Builds the Android APK with GameCI.
+#
+# REQUIRED REPOSITORY SECRETS (Settings → Secrets and variables → Actions):
+#   UNITY_LICENSE   — contents of your Unity .ulf license file, OR
+#   UNITY_EMAIL + UNITY_PASSWORD (personal license, activated on the fly)
+#
+# How to get the .ulf: https://game.ci/docs/github/activation
+#
+# Run it from the Actions tab ("Android APK" → Run workflow). The APK is
+# uploaded as a workflow artifact named "CinematicPoker-Android".
+
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "Assets/**"
+      - "Packages/**"
+      - "ProjectSettings/**"
+      - ".github/workflows/android-apk.yml"
+
+jobs:
+  engine-tests:
+    name: Engine tests (no Unity licence needed)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Run test suite incl. 10,000-hand simulation
+        run: dotnet test DotNet --nologo
+
+  build-apk:
+    name: Build APK
+    needs: engine-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: library-android-${{ hashFiles('Packages/manifest.json') }}
+          restore-keys: library-android-
+
+      - name: Build with Unity
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: Android
+          buildMethod: CinematicPoker.Editor.BuildScript.BuildAndroid
+          allowDirtyBuild: true
+        # BuildScript reads BUILD_OUTPUT; default writes to Builds/Android/.
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CinematicPoker-Android
+          path: Builds/Android/CinematicPoker.apk
+          if-no-files-found: error
