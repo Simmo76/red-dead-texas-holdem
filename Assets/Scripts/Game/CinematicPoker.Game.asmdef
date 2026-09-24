@@ -4,7 +4,7 @@
     "references": [
         "CinematicPoker.Engine",
         "Unity.InputSystem",
-        "Unity.TextMeshPro"
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -37,6 +37,15 @@ namespace CinematicPoker.Game.Presentation
         public PokerGame Game { get; private set; }
         public PlayMode Mode { get => playMode; set => playMode = value; }
 
+        /// <summary>Inject settings from code (used by the runtime-generated prototype scene).</summary>
+        public void Configure(PlayModeSettings settings) => playModeSettings = settings;
+
+        private void Awake()
+        {
+            if (playModeSettings == null)
+                playModeSettings = ScriptableObject.CreateInstance<PlayModeSettings>();
+        }
+
         /// <summary>Presentation systems (views, NPCs, audio, cameras, UI) subscribe here.</summary>
         public event Action<PokerEvent> EngineEvent;
 
@@ -55,6 +64,10 @@ namespace CinematicPoker.Game.Presentation
             var players = new List<PokerPlayer> { human };
             players.AddRange(npcs);
 
+            StopSession();
+            _pendingEvents.Clear();
+            _awaitingHuman = false;
+
             Game = new PokerGame(rules, players, seed);
             Game.EventEmitted += evt => _pendingEvents.Enqueue(evt);
 
@@ -64,6 +77,10 @@ namespace CinematicPoker.Game.Presentation
         /// <summary>Restore a session created by SaveSystem (stacks already applied).</summary>
         public void ResumeSession(PokerGame game)
         {
+            StopSession();
+            _pendingEvents.Clear();
+            _awaitingHuman = false;
+
             Game = game;
             Game.EventEmitted += evt => _pendingEvents.Enqueue(evt);
             _loop = StartCoroutine(GameLoop());
