@@ -249,7 +249,17 @@ async function buildScene(canvas) {
   const camera = new THREE.PerspectiveCamera(56, canvas.clientWidth / canvas.clientHeight, 0.05, 30);
   const camPos = seatPos(0, SEAT_RADIUS + 0.12, EYE_HEIGHT);
   camera.position.copy(camPos);
+  camera.rotation.order = 'YXZ';
   camera.lookAt(0, TABLE_TOP - 0.06, 0);
+
+  // One-finger (or mouse-drag) look-around, pivoting from the player's seat.
+  const view = {
+    yaw: camera.rotation.y, pitch: camera.rotation.x,
+    targetYaw: camera.rotation.y, targetPitch: camera.rotation.x,
+    baseYaw: camera.rotation.y, basePitch: camera.rotation.x
+  };
+  state.view = view;
+  setupLookControls(canvas, view);
 
   // ---- lighting: warm lantern over the table, dim saloon ambience
   scene.add(new THREE.AmbientLight(0x8a6a45, 0.7));
@@ -354,6 +364,9 @@ async function buildScene(canvas) {
     obj.scale.setScalar(s);
     obj.position.set(x, 0, z);
     obj.rotation.y = ry;
+    // Ground the prop: some packs use a centred origin, not a base origin.
+    const bb = new THREE.Box3().setFromObject(obj);
+    obj.position.y -= bb.min.y;
     scene.add(obj);
     return obj;
   };
@@ -364,11 +377,11 @@ async function buildScene(canvas) {
     addProp('models/props/survival/box-large.glb', 2.5, -3.6, 0.2, 1.6),
     addProp('models/props/survival/box-large.glb', 3.1, -3.1, 0.9, 1.6),
     addProp('models/props/survival/bottle-large.glb', -2.7, -3.5, 0, 1.5).then(async (b) => {
-      if (b) b.position.y = 0.85; // on the barrel
+      if (b) b.position.y += 0.85; // on the barrel
     }),
     addProp('models/props/survival/barrel.glb', 3.7, 0.6, 2.6, 1.5),
     addProp('models/props/food/mug.glb', 3.7, 0.6, 0, 2.2).then(async (m) => {
-      if (m) m.position.y = 0.85;
+      if (m) m.position.y += 0.85;
     })
   ];
 
@@ -429,9 +442,63 @@ async function buildScene(canvas) {
   renderer.setAnimationLoop(() => {
     const dt = state.clock.getDelta();
     for (const seat of state.seats) if (seat.char) seat.char.mixer.update(dt);
+
+    // Smoothly ease the camera toward where the finger dragged it.
+    const ease = Math.min(1, dt * 14);
+    view.yaw += (view.targetYaw - view.yaw) * ease;
+    view.pitch += (view.targetPitch - view.pitch) * ease;
+    camera.rotation.set(view.pitch, view.yaw, 0);
+
     resizeIfNeeded(canvas, renderer, camera);
     renderer.render(scene, camera);
   });
+}
+
+// ------------------------------------------------------------------ look controls
+
+const PITCH_MIN = -1.05;  // looking down at your cards
+const PITCH_MAX = 0.4;    // looking up at the lamp/ceiling
+
+function setupLookControls(canvas, view) {
+  canvas.style.touchAction = 'none'; // stop iOS Safari from scrolling/zooming the page
+  let activePointer = -1;
+  let lastX = 0, lastY = 0, moved = 0, lastTapAt = 0;
+  const SPEED = 0.0042;
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (activePointer !== -1) return; // one finger only; ignore extra touches
+    activePointer = e.pointerId;
+    lastX = e.clientX; lastY = e.clientY; moved = 0;
+    canvas.setPointerCapture(e.pointerId);
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== activePointer) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    moved += Math.abs(dx) + Math.abs(dy);
+    view.targetYaw -= dx * SPEED;   // swipe right = look right
+    view.targetPitch = THREE.MathUtils.clamp(
+      view.targetPitch - dy * SPEED, PITCH_MIN, PITCH_MAX); // swipe up = look up
+  });
+
+  const release = (e) => {
+    if (e.pointerId !== activePointer) return;
+    activePointer = -1;
+    // Double-tap (without dragging) snaps the view back to the table.
+    if (moved < 8) {
+      const now = performance.now();
+      if (now - lastTapAt < 350) {
+        view.targetYaw = view.baseYaw;
+        view.targetPitch = view.basePitch;
+        lastTapAt = 0;
+      } else {
+        lastTapAt = now;
+      }
+    }
+  };
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
 }
 
 let lastW = 0, lastH = 0;
