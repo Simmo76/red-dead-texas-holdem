@@ -11,7 +11,7 @@ The player competes exclusively against NPCs — no real-money wagering, no mult
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Pure poker engine, AI framework, tests, 10,000-hand simulation | **Done, all tests passing** |
-| 2 | Primitive prototype scene (table plane, capsule NPCs, touch UI) | Scripts scaffolded; scene authoring next |
+| 2 | Primitive prototype: playable table, capsule NPCs, touch UI, Quick/Cinematic toggle, Android build | **Done (code-generated scene; see below)** |
 | 3 | Mates' Kitchen vertical slice | Architecture in place (profiles, dialogue, tells, coaching, save) |
 
 ## Architecture
@@ -88,11 +88,26 @@ The simulation asserts on every hand: no exceptions, no deadlocks, no duplicate 
 TOTAL MONEY BEFORE HAND == TOTAL MONEY AFTER HAND
 ```
 
-## Opening in Unity
+## Playing the Phase 2 prototype
 
-1. Open the project with **Unity 6000.0.32f1** (or newer 6000.x). Packages (URP, Cinemachine, Addressables, Animation Rigging, Input System, Test Framework) restore from `Packages/manifest.json`.
-2. Run **Cinematic Poker → Generate Placeholder Environment Definitions** to create the eleven catalogue assets (Mates' Kitchen … Post-war WA 2041).
-3. Phase 2 next step: author the `PokerPrototype` scene — a table plane, six seat anchors, capsule NPCs — and wire `PokerSessionBootstrap`, `PokerTableController`, `PokerTableView`, `ActionPanel`, `PokerHUD`.
+The prototype scene is **generated entirely at runtime** (`Assets/Scripts/Game/Prototype/`): a green table, five colour-coded capsule NPCs (Davo, Mick, Shazza, Bluey, Kev — maniac, regular, rock, calling station and pro), 3D community/hole cards, dealer button, turn indicator, an action log, and a touch HUD with Fold/Check/Call/Bet/Raise/All-In, a raise slider (½ Pot / Pot / Max / Confirm) and a Quick/Cinematic mode toggle. The .unity file on disk is deliberately empty, so nothing can break through serialized references.
+
+1. Open the project with **Unity 6000.0.32f1** (or newer 6000.x). Packages restore from `Packages/manifest.json` on first open.
+2. Press **Play in any empty scene** (e.g. File → New Scene → Empty) — the prototype bootstraps automatically. Or run **Cinematic Poker → Create Prototype Scene** once to create `Assets/Scenes/PokerPrototype.unity` and play that.
+3. Optional: **Cinematic Poker → Generate Prototype AI Profiles** and **… → Generate Placeholder Environment Definitions** create the tweakable ScriptableObject assets.
+
+## Building the Android APK
+
+In the editor: install Android Build Support via Unity Hub, then **Cinematic Poker → Build → Android APK**. The APK lands in `Builds/Android/CinematicPoker.apk` (IL2CPP, ARM64+ARMv7, landscape, min SDK 23).
+
+Headless/CI:
+
+```bash
+unity -batchmode -quit -projectPath . -buildTarget Android \
+      -executeMethod CinematicPoker.Editor.BuildScript.BuildAndroid
+```
+
+GitHub Actions: `.github/workflows/android-apk.yml` runs the engine tests and then builds the APK with [GameCI](https://game.ci), uploading it as the `CinematicPoker-Android` artifact. It needs Unity licence secrets in the repo (`UNITY_LICENSE`, or `UNITY_EMAIL` + `UNITY_PASSWORD`) — see [game.ci/docs/github/activation](https://game.ci/docs/github/activation).
 
 ## Content & licensing rules
 
