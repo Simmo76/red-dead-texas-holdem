@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Compiles the exact same pure C# sources that Unity compiles into the
+    CinematicPoker.Engine assembly (Assets/Scripts/Engine). This proves the
+    engine has no Unity dependency and lets CI run tests and the 10,000-hand
+    simulation without a Unity licence.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RootNamespace>CinematicPoker.Engine</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../Assets/Scripts/Engine/**/*.cs" />
+  </ItemGroup>
+
+</Project>
