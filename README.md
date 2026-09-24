@@ -135,9 +135,10 @@ GitHub Actions: `.github/workflows/android-apk.yml` runs the engine tests and th
 The prototype and web version use free CC0 game assets — every file is recorded in [`ASSET_LICENSES.md`](ASSET_LICENSES.md):
 
 - **Kenney Boardgame Pack** (card faces, card backs, poker chips) and **Kenney Casino Audio** (shuffle, deal, chip sounds) — [kenney.nl](https://kenney.nl), CC0.
+- **Kenney Mini Characters** — five rigged, animated 3D characters (idle/sit/emote-yes/emote-no/die clips embedded in the FBX) used as the NPCs, and **Kenney Furniture Kit** — chairs, ceiling lamp, rug, potted plant, radio for set dressing. CC0.
 - **Poly Haven** fabric and wood textures (table felt and rail) — [polyhaven.com](https://polyhaven.com), CC0.
 
-In Unity they live under `Assets/Resources/Poker/` and are loaded at runtime by `PrototypeAssets` (card quads get real faces, NPCs get face-down cards, the table gets felt/wood, and engine events trigger casino audio). Everything is null-safe: delete the folder and the prototype falls back to its primitive-and-text look.
+In Unity they live under `Assets/Resources/Poker/` and are loaded at runtime by `PrototypeAssets` (card quads get real faces, NPCs get face-down cards, the table gets felt/wood, and engine events trigger casino audio). The NPCs are Kenney mini-characters seated on furniture-kit chairs: `PrototypeCharacter` drives them with the Playables API directly (no AnimatorController asset needed) — a held frame of the `sit` clip as the seated pose, `emote-yes` when they win a pot, `emote-no` when they fold, and `die` when they bust out. Everything is null-safe: delete the folder and the prototype falls back to its primitive-and-text look (capsule NPCs included).
 
 ## Roadmap
 

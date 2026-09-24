@@ -88,6 +88,38 @@ namespace CinematicPoker.Game.Prototype
             mat.mainTextureScale = tiling;
         }
 
+        // ------------------------------------------------------------ 3D models
+
+        private static readonly Dictionary<string, GameObject> Models = new Dictionary<string, GameObject>();
+        private static readonly Dictionary<string, AnimationClip[]> ModelClips = new Dictionary<string, AnimationClip[]>();
+
+        /// <summary>Imported model prefab (e.g. "Furniture/chairCushion"), or null when absent.</summary>
+        public static GameObject Model(string name)
+        {
+            if (!Models.TryGetValue(name, out GameObject prefab))
+            {
+                prefab = Resources.Load<GameObject>($"Poker/Models/{name}");
+                Models[name] = prefab;
+            }
+            return prefab;
+        }
+
+        /// <summary>Animation clip embedded in a model file (Kenney characters ship idle/sit/emote-yes/emote-no/die).</summary>
+        public static AnimationClip ModelClip(string modelName, string clipName)
+        {
+            if (!ModelClips.TryGetValue(modelName, out AnimationClip[] clips))
+            {
+                clips = Resources.LoadAll<AnimationClip>($"Poker/Models/{modelName}");
+                ModelClips[modelName] = clips;
+            }
+
+            foreach (AnimationClip clip in clips)
+                if (clip != null && clip.name == clipName) return clip;
+            foreach (AnimationClip clip in clips)
+                if (clip != null && clip.name.EndsWith(clipName)) return clip; // import may prefix names
+            return null;
+        }
+
         // --------------------------------------------------------------- audio
 
         /// <summary>

@@ -51,6 +51,16 @@ namespace CinematicPoker.Game.Prototype
             ("Kev", AIProfile.Professional)
         };
 
+        // Kenney mini-character models (CC0) matched to the roster above.
+        private static readonly string[] CharacterModels =
+        {
+            "character-male-a",   // Davo
+            "character-male-b",   // Mick
+            "character-female-a", // Shazza
+            "character-male-c",   // Bluey
+            "character-male-d"    // Kev
+        };
+
         public PokerTableController Controller { get; private set; }
 
         private readonly TextMesh[] _seatLabels = new TextMesh[NpcCount + 1];
@@ -65,6 +75,7 @@ namespace CinematicPoker.Game.Prototype
         private Material _cardMaterial;
         private AudioSource _audio;
         private readonly GameObject[][] _npcBacks = new GameObject[NpcCount + 1][];
+        private readonly PrototypeCharacter[] _characters = new PrototypeCharacter[NpcCount + 1];
 
         private void Start()
         {
@@ -112,6 +123,12 @@ namespace CinematicPoker.Game.Prototype
                 new Vector3(0f, TableHeight * 0.5f, 0f), new Vector3(0.4f, TableHeight * 0.5f, 0.4f), new Color(0.2f, 0.14f, 0.09f));
             PrototypeAssets.ApplyTexture(tableBase, PrototypeAssets.Wood, new Color(0.5f, 0.38f, 0.28f), new Vector2(1f, 1f));
 
+            // Kenney furniture-kit set dressing (all optional, null-safe).
+            SpawnModel("Furniture/rugRound", new Vector3(0f, 0.005f, 0f), Quaternion.identity, 3.4f);
+            SpawnModel("Furniture/lampSquareCeiling", new Vector3(0f, 2.25f, 0f), Quaternion.identity, 1.2f);
+            SpawnModel("Furniture/pottedPlant", new Vector3(2.7f, 0f, 2.3f), Quaternion.Euler(0f, -35f, 0f), 1.4f);
+            SpawnModel("Furniture/radio", new Vector3(-2.7f, 0f, 2.3f), Quaternion.Euler(0f, 35f, 0f), 1.4f);
+
             _cardMaterial = MakeMaterial(new Color(0.95f, 0.94f, 0.9f));
 
             Color[] npcColors =
@@ -129,14 +146,24 @@ namespace CinematicPoker.Game.Prototype
                 Vector3 pos = SeatPosition(seat, SeatRadius);
                 if (seat > 0)
                 {
-                    GameObject body = CreatePrimitive(PrimitiveType.Capsule, $"NPC_{seat}",
-                        pos + Vector3.up * 0.62f, new Vector3(0.42f, 0.55f, 0.42f), npcColors[seat - 1]);
-                    body.transform.LookAt(new Vector3(TableCentre.x, body.transform.position.y, TableCentre.z));
+                    Quaternion faceCentre = Quaternion.LookRotation(new Vector3(-pos.x, 0f, -pos.z).normalized);
+                    SpawnModel("Furniture/chairCushion", pos, faceCentre, 1f);
+
+                    // Real 3D character when the CC0 pack is present; capsule fallback otherwise.
+                    _characters[seat] = PrototypeCharacter.Create(
+                        CharacterModels[seat - 1], pos + Vector3.up * 0.22f, faceCentre);
+                    if (_characters[seat] == null)
+                    {
+                        GameObject body = CreatePrimitive(PrimitiveType.Capsule, $"NPC_{seat}",
+                            pos + Vector3.up * 0.62f, new Vector3(0.42f, 0.55f, 0.42f), npcColors[seat - 1]);
+                        body.transform.LookAt(new Vector3(TableCentre.x, body.transform.position.y, TableCentre.z));
+                    }
+
                     _npcBacks[seat] = CreateNpcBackCards(seat);
                 }
 
-                _seatLabels[seat] = CreateLabel($"SeatLabel_{seat}",
-                    pos + Vector3.up * (seat == 0 ? 0.35f : 1.5f), 0.055f);
+                float labelHeight = seat == 0 ? 0.35f : (_characters[seat] != null ? 1.28f : 1.5f);
+                _seatLabels[seat] = CreateLabel($"SeatLabel_{seat}", pos + Vector3.up * labelHeight, 0.055f);
             }
 
             // Community cards: five flat quads at the table centre.
@@ -172,6 +199,17 @@ namespace CinematicPoker.Game.Prototype
             float angleDeg = -90f + seat * (360f / (NpcCount + 1));
             float rad = angleDeg * Mathf.Deg2Rad;
             return new Vector3(Mathf.Cos(rad) * radius, 0f, Mathf.Sin(rad) * radius);
+        }
+
+        /// <summary>Instantiates an imported CC0 model if present; no-op otherwise.</summary>
+        private static GameObject SpawnModel(string name, Vector3 pos, Quaternion rotation, float scale)
+        {
+            GameObject prefab = PrototypeAssets.Model(name);
+            if (prefab == null) return null;
+            GameObject go = Instantiate(prefab, pos, rotation);
+            go.name = name.Replace('/', '_');
+            go.transform.localScale = Vector3.one * scale;
+            return go;
         }
 
         private GameObject CreatePrimitive(PrimitiveType type, string name, Vector3 pos, Vector3 scale, Color color)
@@ -271,6 +309,7 @@ namespace CinematicPoker.Game.Prototype
             }
 
             ResetTableVisuals();
+            foreach (PrototypeCharacter character in _characters) character?.PoseSit();
             _hud.OnSessionStarted();
             Controller.StartSession(rules, human, npcs);
         }
@@ -311,6 +350,22 @@ namespace CinematicPoker.Game.Prototype
                     foreach (var kv in showdown.RevealedHands)
                         if (kv.Key != 0)
                             _hud.AddLog($"{NameOf(kv.Key)} shows {Join(kv.Value)}");
+                    break;
+
+                case PotAwarded award:
+                    foreach (int winnerSeat in award.WinnerSeats)
+                        if (winnerSeat > 0) _characters[winnerSeat]?.React(true);
+                    _hud.AddLog(Describe(award));
+                    break;
+
+                case PlayerFolded folded when folded.Seat > 0:
+                    _characters[folded.Seat]?.React(false);
+                    _hud.AddLog(Describe(folded));
+                    break;
+
+                case PlayerEliminated eliminated when eliminated.Seat > 0:
+                    _characters[eliminated.Seat]?.Die();
+                    _hud.AddLog(Describe(eliminated));
                     break;
 
                 default:
@@ -460,7 +515,8 @@ namespace CinematicPoker.Game.Prototype
             {
                 _actorIndicator.SetActive(true);
                 Vector3 pos = SeatPosition(actorSeat, SeatRadius);
-                _actorIndicator.transform.position = pos + Vector3.up * (actorSeat == 0 ? 0.55f : 1.75f);
+                float height = actorSeat == 0 ? 0.55f : (_characters[actorSeat] != null ? 1.45f : 1.75f);
+                _actorIndicator.transform.position = pos + Vector3.up * height;
             }
             else
             {
