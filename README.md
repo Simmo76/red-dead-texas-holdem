@@ -20,6 +20,7 @@ The player competes exclusively against NPCs — no real-money wagering, no mult
 A playable web version lives in `Web/CinematicPoker.Web` — a Blazor WebAssembly app that compiles **the exact same pure C# engine** the Unity game and the test suite use, so the poker rules and the five NPC personalities are identical. It runs entirely client-side (offline once loaded, nothing to install) and works on desktop and mobile browsers.
 
 - **Live link (once merged to `main` and GitHub Pages is enabled):** `https://simmo76.github.io/red-dead-texas-holdem/`
+- **Private table**: the page is gated by a table password (salted SHA-256 checked client-side, remembered per device via localStorage) and carries `noindex` so search engines skip it. Share the link *and* the password only with invited players. To change the password, generate a new hash with the command in the comment above `AccessHash` in `Pages/Home.razor` and replace the constant — never commit the plaintext password. This keeps strangers out; it is not strong security (the game holds nothing sensitive). For real per-person access control, put the site behind an auth proxy such as Cloudflare Access.
 - Deployment is automatic: `.github/workflows/deploy-web.yml` runs the engine tests, publishes the app and deploys it to GitHub Pages on every push to `main`. One-time setup: repo **Settings → Pages → Source: GitHub Actions** (the workflow also attempts to enable this automatically), and the repo must be public (or on a plan with private Pages).
 
 Run it locally:

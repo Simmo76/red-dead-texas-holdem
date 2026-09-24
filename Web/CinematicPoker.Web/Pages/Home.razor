@@ -6,6 +6,24 @@
 
 <PageTitle>Cinematic Poker</PageTitle>
 
+@if (!_unlocked)
+{
+    <div class="lock-screen">
+        <div class="lock-box">
+            <div class="boot-title">CINEMATIC POKER</div>
+            <div class="lock-sub">Private table — invitation only</div>
+            <input class="lock-input" type="password" placeholder="Table password"
+                   @bind="_passwordEntry" @bind:event="oninput" @onkeyup="OnLockKey" autofocus />
+            <button class="act call" @onclick="TryUnlock">TAKE A SEAT</button>
+            @if (_lockError != null)
+            {
+                <div class="lock-error">@_lockError</div>
+            }
+        </div>
+    </div>
+}
+else
+{
 <div class="game">
 
     <header class="topbar">
@@ -145,6 +163,7 @@
         </div>
     }
 </div>
+}
 
 @code {
     private static readonly (string Name, Func<AIProfile> Profile)[] Roster =
@@ -179,7 +198,60 @@
     private int NextHandDelayMs => _quickMode ? 700 : 2600;
     private const int EquityIterations = 200;
 
-    protected override void OnInitialized() => StartSession();
+    // ---------------------------------------------------------- access gate
+    //
+    // Casual lock so only invited mates can play: the salted SHA-256 of the
+    // table password. To change the password run:
+    //   python3 -c "import hashlib; print(hashlib.sha256('cinematic-poker|NEW-PASSWORD'.encode()).hexdigest())"
+    // and paste the result here. (Client-side only — it keeps strangers out,
+    // it is not bank-grade security; the game holds nothing sensitive.)
+    private const string AccessHash = "a40945784d05d2600c3d92b98963c13aa676004190491b362a0048ae1dc31817";
+    private const string AccessStorageKey = "cinematic-poker-access";
+
+    private bool _unlocked;
+    private string _passwordEntry = "";
+    private string _lockError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        string remembered = null;
+        try { remembered = await JS.InvokeAsync<string>("localStorage.getItem", AccessStorageKey); }
+        catch { /* storage blocked (private mode etc.) — just show the lock */ }
+
+        if (remembered == AccessHash)
+        {
+            _unlocked = true;
+            StartSession();
+        }
+    }
+
+    private async Task TryUnlock()
+    {
+        if (HashPassword(_passwordEntry ?? "") == AccessHash)
+        {
+            _lockError = null;
+            _unlocked = true;
+            try { await JS.InvokeVoidAsync("localStorage.setItem", AccessStorageKey, AccessHash); }
+            catch { /* fine — they'll just retype it next visit */ }
+            StartSession();
+        }
+        else
+        {
+            _lockError = "That's not the password. Ask the host!";
+        }
+    }
+
+    private async Task OnLockKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await TryUnlock();
+    }
+
+    private static string HashPassword(string password)
+    {
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes("cinematic-poker|" + password.Trim());
+        byte[] hash = System.Security.Cryptography.SHA256.HashData(bytes);
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
 
     private void StartSession()
     {
