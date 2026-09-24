@@ -1,0 +1,391 @@
+﻿@page "/"
+@using CinematicPoker.Engine.AI
+@using CinematicPoker.Engine.Players
+@using CinematicPoker.Engine.Poker
+
+<PageTitle>Cinematic Poker</PageTitle>
+
+<div class="game">
+
+    <header class="topbar">
+        <div class="brand">CINEMATIC <span>POKER</span></div>
+        <div class="topbar-right">
+            <button class="chip-btn @(_quickMode ? "active" : "")" @onclick="ToggleMode">
+                @(_quickMode ? "QUICK PLAY" : "CINEMATIC")
+            </button>
+            <button class="chip-btn" @onclick="StartSession">RESTART</button>
+        </div>
+    </header>
+
+    <div class="table-area">
+        <div class="table">
+            <div class="table-rail"></div>
+            <div class="table-felt">
+                @if (Round != null)
+                {
+                    <div class="board">
+                        @foreach (Card card in Round.Board)
+                        {
+                            @CardFace(card)
+                        }
+                        @for (int i = Round.Board.Count; i < 5; i++)
+                        {
+                            <div class="card slot"></div>
+                        }
+                    </div>
+                    <div class="pot">POT&nbsp;<b>$@Round.PotTotal</b></div>
+                }
+                @if (_banner != null)
+                {
+                    <div class="banner">@_banner</div>
+                }
+            </div>
+        </div>
+
+        @if (_game != null)
+        {
+            @foreach (PokerPlayer player in _game.Players)
+            {
+                SeatState seatState = SeatOf(player.Seat);
+                bool acting = _game.CurrentSeat == player.Seat;
+                bool folded = seatState != null && seatState.Folded;
+                bool eliminated = player.Status == PlayerStatus.Eliminated;
+
+                <div class="seat seat-@player.Seat @(acting ? "acting" : "") @(folded || eliminated ? "muted" : "")">
+                    <div class="seat-cards">
+                        @if (player.Seat == 0)
+                        {
+                            @foreach (Card card in HoleCardsOf(0)) { @CardFace(card) }
+                        }
+                        else if (_revealed.TryGetValue(player.Seat, out var shown))
+                        {
+                            @foreach (Card card in shown) { @CardFace(card) }
+                        }
+                        else if (seatState != null && !folded && !eliminated)
+                        {
+                            <div class="card back"></div>
+                            <div class="card back"></div>
+                        }
+                    </div>
+                    <div class="seat-plate">
+                        <div class="seat-name">
+                            @player.Name
+                            @if (Round != null && !eliminated)
+                            {
+                                @if (player.Seat == Round.DealerSeat) { <span class="tag dealer">D</span> }
+                                @if (player.Seat == Round.SmallBlindSeat) { <span class="tag">SB</span> }
+                                @if (player.Seat == Round.BigBlindSeat) { <span class="tag">BB</span> }
+                            }
+                        </div>
+                        <div class="seat-stack">
+                            @if (eliminated) { <span class="out">OUT</span> }
+                            else { <text>$@(seatState?.Stack ?? player.Stack)</text> }
+                        </div>
+                        <div class="seat-status">
+                            @if (folded) { <text>folded</text> }
+                            else if (seatState != null && seatState.AllIn) { <text>ALL-IN</text> }
+                            else if (seatState != null && seatState.CommittedThisStreet > 0) { <text>bet $@seatState.CommittedThisStreet</text> }
+                            else if (acting) { <text>@(player.IsHuman ? "your turn" : "thinking…")</text> }
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+
+    <aside class="log">
+        @foreach (string line in _log)
+        {
+            <div class="log-line @(line.StartsWith("—") ? "hand-marker" : "")">@line</div>
+        }
+    </aside>
+
+    <div class="actionbar">
+        @if (_awaitingHuman && _legal != null && !_showSlider)
+        {
+            @if (_legal.CanFold)  { <button class="act fold" @onclick="() => Act(PlayerAction.Fold())">FOLD</button> }
+            @if (_legal.CanCheck) { <button class="act check" @onclick="() => Act(PlayerAction.Check())">CHECK</button> }
+            @if (_legal.CanCall)  { <button class="act call" @onclick="() => Act(PlayerAction.Call())">CALL $@_legal.CallAmount</button> }
+            @if (_legal.CanBet)   { <button class="act bet" @onclick="OpenSlider">BET</button> }
+            @if (_legal.CanRaise) { <button class="act bet" @onclick="OpenSlider">RAISE</button> }
+            @if (_legal.CanAllIn) { <button class="act allin" @onclick="() => Act(PlayerAction.AllIn())">ALL-IN</button> }
+        }
+        else if (_awaitingHuman && _legal != null && _showSlider)
+        {
+            <div class="slider-panel">
+                <input type="range" min="@_legal.MinBetOrRaiseTo" max="@_legal.MaxBetOrRaiseTo" step="5"
+                       @bind="_sliderValue" @bind:event="oninput" />
+                <div class="slider-row">
+                    <span class="slider-amount">$@_sliderValue</span>
+                    <button class="act small" @onclick="() => SetSlider(PotNow / 2)">½ POT</button>
+                    <button class="act small" @onclick="() => SetSlider(PotNow)">POT</button>
+                    <button class="act small" @onclick="() => SetSlider(_legal.MaxBetOrRaiseTo)">MAX</button>
+                    <button class="act call" @onclick="ConfirmSlider">CONFIRM</button>
+                    <button class="act small" @onclick="() => _showSlider = false">BACK</button>
+                </div>
+            </div>
+        }
+        else if (_game != null && !_sessionOver)
+        {
+            <div class="waiting">@_statusLine</div>
+        }
+    </div>
+
+    @if (_sessionOver)
+    {
+        <div class="overlay">
+            <div class="overlay-box">
+                <div class="overlay-title">@_sessionOverMessage</div>
+                <button class="act call big" @onclick="StartSession">PLAY AGAIN</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly (string Name, Func<AIProfile> Profile)[] Roster =
+    {
+        ("Davo", AIProfile.Maniac),
+        ("Mick", AIProfile.Regular),
+        ("Shazza", AIProfile.Rock),
+        ("Bluey", AIProfile.CallingStation),
+        ("Kev", AIProfile.Professional)
+    };
+
+    private PokerGame _game;
+    private readonly Random _rng = new();
+    private readonly Dictionary<int, IReadOnlyList<Card>> _revealed = new();
+    private readonly List<string> _log = new();
+
+    private LegalActions _legal;
+    private bool _awaitingHuman;
+    private bool _showSlider;
+    private long _sliderValue;
+    private bool _quickMode;
+    private bool _sessionOver;
+    private string _sessionOverMessage = "";
+    private string _banner;
+    private string _statusLine = "";
+    private int _loopToken;
+
+    private PokerRound Round => _game?.CurrentRound;
+    private long PotNow => Round?.PotTotal ?? 0;
+
+    private int ThinkTimeMs => _quickMode ? _rng.Next(150, 450) : _rng.Next(650, 1900);
+    private int NextHandDelayMs => _quickMode ? 700 : 2600;
+    private const int EquityIterations = 200;
+
+    protected override void OnInitialized() => StartSession();
+
+    private void StartSession()
+    {
+        var rules = TableRules.Default;
+        var players = new List<PokerPlayer> { new HumanPlayer("human", "You", seat: 0, stack: rules.StartingStack) };
+        for (int i = 0; i < Roster.Length; i++)
+        {
+            players.Add(new AIPlayer($"npc{i}", Roster[i].Name, seat: i + 1, stack: rules.StartingStack,
+                profile: Roster[i].Profile(), seed: _rng.Next()));
+        }
+
+        _game = new PokerGame(rules, players, seed: _rng.Next());
+        _game.EventEmitted += OnEngineEvent;
+
+        _log.Clear();
+        _revealed.Clear();
+        _banner = null;
+        _sessionOver = false;
+        _awaitingHuman = false;
+        _showSlider = false;
+
+        _ = RunLoop(++_loopToken);
+    }
+
+    /// <summary>
+    /// Drives the session: NPC turns with think-time pacing, pauses for human
+    /// input, auto-deals the next hand. Cancelled by token when restarting.
+    /// </summary>
+    private async Task RunLoop(int token)
+    {
+        while (token == _loopToken)
+        {
+            if (_game.IsSessionOver)
+            {
+                var winner = _game.AlivePlayers.Count > 0 ? _game.AlivePlayers[0].Name : "Nobody";
+                _sessionOverMessage = winner == "You"
+                    ? "You cleaned out the whole table!"
+                    : $"{winner} takes the table. Rough night.";
+                _sessionOver = true;
+                StateHasChanged();
+                return;
+            }
+
+            if (_game.Phase == GamePhase.WaitingForHand)
+            {
+                _statusLine = "Next hand…";
+                StateHasChanged();
+                await Task.Delay(NextHandDelayMs);
+                if (token != _loopToken) return;
+                _game.StartHand();
+                StateHasChanged();
+                continue;
+            }
+
+            PokerPlayer actor = _game.CurrentPlayer;
+            if (actor == null) { await Task.Delay(50); continue; }
+
+            if (actor.IsHuman)
+            {
+                _legal = _game.GetLegalActions();
+                _sliderValue = _legal.MinBetOrRaiseTo;
+                _awaitingHuman = true;
+                StateHasChanged();
+                return; // resumes via Act()
+            }
+
+            _statusLine = $"{actor.Name} is thinking…";
+            StateHasChanged();
+            await Task.Delay(ThinkTimeMs);
+            if (token != _loopToken) return;
+
+            var npc = (AIPlayer)actor;
+            DecisionContext context = DecisionContext.ForCurrentActor(_game, EquityIterations);
+            _game.SubmitAction(npc.DecideAction(context));
+            StateHasChanged();
+        }
+    }
+
+    private async Task Act(PlayerAction action)
+    {
+        if (!_awaitingHuman) return;
+        try
+        {
+            _game.SubmitAction(action);
+            _awaitingHuman = false;
+            _showSlider = false;
+        }
+        catch (IllegalActionException)
+        {
+            return; // engine rejected it; keep waiting for a legal choice
+        }
+        StateHasChanged();
+        await RunLoop(_loopToken);
+    }
+
+    private void OpenSlider()
+    {
+        _showSlider = true;
+        _sliderValue = _legal.MinBetOrRaiseTo;
+    }
+
+    private void SetSlider(long amount) =>
+        _sliderValue = Math.Clamp(amount, _legal.MinBetOrRaiseTo, _legal.MaxBetOrRaiseTo);
+
+    private async Task ConfirmSlider()
+    {
+        long amount = _sliderValue;
+        if (amount >= _legal.MaxBetOrRaiseTo) await Act(PlayerAction.AllIn());
+        else if (_legal.CanBet) await Act(PlayerAction.Bet(amount));
+        else await Act(PlayerAction.Raise(amount));
+    }
+
+    private void ToggleMode() => _quickMode = !_quickMode;
+
+    // ------------------------------------------------------------- engine events
+
+    private void OnEngineEvent(PokerEvent evt)
+    {
+        switch (evt)
+        {
+            case HandStarted started:
+                _revealed.Clear();
+                _banner = null;
+                AddLog($"— Hand {started.HandNumber} —");
+                break;
+
+            case ShowdownStarted showdown:
+                foreach (var kv in showdown.RevealedHands)
+                {
+                    _revealed[kv.Key] = kv.Value;
+                    if (kv.Key != 0)
+                        AddLog($"{NameOf(kv.Key)} shows {string.Join(" ", kv.Value)}");
+                }
+                break;
+
+            case PotAwarded award:
+                string winners = string.Join(" & ", award.WinnerSeats.Select(NameOf));
+                _banner = award.WinningHand.HasValue
+                    ? $"{winners} win{(award.WinnerSeats.Count == 1 ? "s" : "")} ${award.Amount} — {Pretty(award.WinningHand.Value.Category)}"
+                    : $"{winners} take{(award.WinnerSeats.Count == 1 ? "s" : "")} ${award.Amount}";
+                AddLog(_banner);
+                break;
+
+            default:
+                string line = Describe(evt);
+                if (line != null) AddLog(line);
+                break;
+        }
+    }
+
+    private string Describe(PokerEvent evt) => evt switch
+    {
+        BlindPosted b => $"{NameOf(b.Seat)} posts {(b.IsBigBlind ? "big blind" : "small blind")} ${b.Amount}",
+        PlayerChecked c => $"{NameOf(c.Seat)} checks",
+        PlayerCalled c => $"{NameOf(c.Seat)} calls ${c.AddedAmount}",
+        BetPlaced b => $"{NameOf(b.Seat)} bets ${b.ToAmount}",
+        PlayerRaised r => $"{NameOf(r.Seat)} raises to ${r.ToAmount}",
+        PlayerFolded f => $"{NameOf(f.Seat)} folds",
+        PlayerAllIn a => $"{NameOf(a.Seat)} is ALL-IN (${a.ToAmount})",
+        UncalledBetReturned u => $"${u.Amount} returned to {NameOf(u.Seat)}",
+        FlopDealt f => $"Flop: {f.Card1} {f.Card2} {f.Card3}",
+        TurnDealt t => $"Turn: {t.Card}",
+        RiverDealt r => $"River: {r.Card}",
+        PlayerEliminated e => $"{NameOf(e.Seat)} is eliminated!",
+        _ => null
+    };
+
+    private void AddLog(string line)
+    {
+        _log.Insert(0, line);
+        while (_log.Count > 60) _log.RemoveAt(_log.Count - 1);
+    }
+
+    // ------------------------------------------------------------------ helpers
+
+    private string NameOf(int seat) => _game.GetPlayer(seat).Name;
+
+    private static string Pretty(HandCategory category) => category switch
+    {
+        HandCategory.HighCard => "high card",
+        HandCategory.Pair => "a pair",
+        HandCategory.TwoPair => "two pair",
+        HandCategory.ThreeOfAKind => "three of a kind",
+        HandCategory.Straight => "a straight",
+        HandCategory.Flush => "a flush",
+        HandCategory.FullHouse => "a full house",
+        HandCategory.FourOfAKind => "four of a kind",
+        HandCategory.StraightFlush => "a straight flush",
+        HandCategory.RoyalFlush => "a ROYAL FLUSH",
+        _ => category.ToString()
+    };
+
+    private SeatState SeatOf(int seat)
+    {
+        if (Round == null) return null;
+        foreach (SeatState s in Round.Seats)
+            if (s.Seat == seat) return s;
+        return null;
+    }
+
+    private IReadOnlyList<Card> HoleCardsOf(int seat) =>
+        SeatOf(seat)?.HoleCards ?? (IReadOnlyList<Card>)Array.Empty<Card>();
+
+    private static bool IsRed(Card card) => card.Suit == Suit.Hearts || card.Suit == Suit.Diamonds;
+
+    private RenderFragment CardFace(Card card) => __builder =>
+    {
+        <div class="card @(IsRed(card) ? "red" : "black")">
+            <span class="rank">@Card.RankSymbol(card.Rank)</span>
+            <span class="suit">@Card.SuitSymbol(card.Suit)</span>
+        </div>
+    };
+}

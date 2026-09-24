@@ -36,10 +36,13 @@ ExportedObj/
 # Keep the standalone dotnet projects (they are hand-authored, not Unity-generated)
 !DotNet/**/*.csproj
 !DotNet/*.sln
+!Web/**/*.csproj
 
 # dotnet build artifacts
 DotNet/**/bin/
 DotNet/**/obj/
+Web/**/bin/
+Web/**/obj/
 
 # Unity crash reports
 sysinfo.txt

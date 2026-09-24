@@ -12,7 +12,22 @@ The player competes exclusively against NPCs — no real-money wagering, no mult
 |---|---|---|
 | 1 | Pure poker engine, AI framework, tests, 10,000-hand simulation | **Done, all tests passing** |
 | 2 | Primitive prototype: playable table, capsule NPCs, touch UI, Quick/Cinematic toggle, Android build | **Done (code-generated scene; see below)** |
+| — | **Shareable web version** (Blazor WebAssembly running the same engine) | **Done — auto-deploys to GitHub Pages** |
 | 3 | Mates' Kitchen vertical slice | Architecture in place (profiles, dialogue, tells, coaching, save) |
+
+## Play it in the browser
+
+A playable web version lives in `Web/CinematicPoker.Web` — a Blazor WebAssembly app that compiles **the exact same pure C# engine** the Unity game and the test suite use, so the poker rules and the five NPC personalities are identical. It runs entirely client-side (offline once loaded, nothing to install) and works on desktop and mobile browsers.
+
+- **Live link (once merged to `main` and GitHub Pages is enabled):** `https://simmo76.github.io/red-dead-texas-holdem/`
+- Deployment is automatic: `.github/workflows/deploy-web.yml` runs the engine tests, publishes the app and deploys it to GitHub Pages on every push to `main`. One-time setup: repo **Settings → Pages → Source: GitHub Actions** (the workflow also attempts to enable this automatically), and the repo must be public (or on a plan with private Pages).
+
+Run it locally:
+
+```bash
+cd Web/CinematicPoker.Web
+dotnet run          # then open the printed http://localhost:xxxx URL
+```
 
 ## Architecture
 
