@@ -198,6 +198,12 @@
         _ = JS.InvokeVoidAsync("pokerScene.react", seat, positive);
     }
 
+    private void SceneAction(int seat, string kind)
+    {
+        if (!_sceneReady || seat == 0) return;
+        _ = JS.InvokeVoidAsync("pokerScene.action", seat, kind);
+    }
+
     private void StartSession()
     {
         var rules = TableRules.Default;
@@ -334,8 +340,13 @@
                 }
                 break;
 
+            case PlayerChecked checkedEvt:
+                SceneAction(checkedEvt.Seat, "check");
+                AddLog($"{NameOf(checkedEvt.Seat)} checks");
+                break;
+
             case PlayerFolded foldedEvt:
-                SceneReact(foldedEvt.Seat, positive: false);
+                SceneAction(foldedEvt.Seat, "fold");
                 AddLog($"{NameOf(foldedEvt.Seat)} folds");
                 break;
 

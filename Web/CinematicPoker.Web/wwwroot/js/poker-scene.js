@@ -244,14 +244,16 @@ function makeCharacter(gltf, texPath) {
   // Reactions play the opening beat of a fight move, then settle back down.
   // The source takes are long combo loops, so we cut away on a timer rather
   // than waiting for the clip to finish.
-  character.playOnce = (name, seconds = 1.5) => {
+  character.playOnce = (name, seconds = 1.5, timeScale = 1) => {
     if (character.dead || character.reacting) return;
     const clip = find(name);
     if (!clip || !sitAction) return;
     character.reacting = true;
     const action = mixer.clipAction(clip);
     action.reset();
+    action.timeScale = timeScale;
     action.setLoop(THREE.LoopOnce, 1);
+    action.clampWhenFinished = true; // hold the last pose until we fade back
     sitAction.crossFadeTo(action, 0.25, false);
     action.play();
     setTimeout(() => {
@@ -882,6 +884,23 @@ window.pokerScene = {
     if (!state.ready) return;
     const seat = state.seats[seatIndex];
     if (seat && seat.char && !seat.char.dead) seat.char.playOnce('Talk', 2.8);
+  },
+
+  // Betting-action gestures: a knuckle tap over the felt for a check, a
+  // toss-the-cards-away flick for a fold (slowed so it reads deliberate).
+  action(seatIndex, kind) {
+    if (!state.ready) return;
+    const seat = state.seats[seatIndex];
+    if (!seat || !seat.char || seat.char.dead) return;
+    if (kind === 'check') {
+      seat.char.playOnce('Check', 1.9);
+    } else if (kind === 'fold') {
+      seat.char.playOnce('Fold', 1.0, 0.55);
+      // Sometimes they grumble about it, too.
+      if (window.pokerAudio && Math.random() < 0.25) {
+        window.pokerAudio.voice(seatIndex, 'lose');
+      }
+    }
   },
 
   react(seatIndex, positive) {
