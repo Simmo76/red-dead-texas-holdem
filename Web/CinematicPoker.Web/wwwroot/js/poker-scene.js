@@ -1,16 +1,18 @@
-// Over-the-shoulder saloon poker scene (Three.js). Props/textures are CC0;
-// the table characters are web-optimised conversions of the repo owner's
-// licensed CrowArt "Hunter" Unity asset — see ASSET_LICENSES.md. No
-// third-party game content is copied from other titles.
+// Over-the-shoulder poker scene (Three.js) set on a neon arcade street.
+// Props/textures are CC0; the table characters and the street backdrop are
+// web-optimised conversions of the repo owner's licensed Unity assets
+// (CrowArt "Hunter", Leartes "Stylized Cyberpunk Arcade") — see
+// ASSET_LICENSES.md. No third-party game content is copied from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';
+import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
 
 const SEATS = 6;               // seat 0 = the player (camera)
 const TABLE_TOP = 0.78;        // table surface height (m)
 const TABLE_RADIUS = 1.12;
 const SEAT_RADIUS = 1.74;
-const EYE_HEIGHT = 1.42;
+const EYE_HEIGHT = 1.70;       // camera shoulder height over the bigger build
 
 // All six players are variations of the owner-licensed CrowArt "Hunter"
 // western character (converted to GLB): different hats plus shirt palette
@@ -28,8 +30,9 @@ const NPC_MODELS = [
 // card-holding sit loop, and his hole cards ride in his raised left hand.
 const PLAYER_MODEL = { model: 'Hunter', hat: 'top', tex: 'hunter_shirt_dark.jpg', cards: true };
 
-// The Hunter GLB is authored at ~0.40 units tall; scale to life size.
-const CHAR_SCALE = 4.3;
+// The Hunter GLB is authored at ~0.40 units tall; scale to a larger-than-life
+// build so the players fill the frame (1.2x the old life-size 4.3).
+const CHAR_SCALE = 5.16;
 
 const _idleQuat = new THREE.Quaternion();
 const _idleEuler = new THREE.Euler();
@@ -196,13 +199,15 @@ function makeDealerArrow() {
   return group;
 }
 
+const ARROW_Y = 1.92; // above the bigger characters' heads
+
 function updateDealerArrow(dealerSeat) {
   const arrow = state.dealerArrow;
   if (!arrow) return;
   if (dealerSeat < 0) { arrow.visible = false; return; }
   const pos = seatPos(dealerSeat, SEAT_RADIUS - 0.1);
   // Hang it above the seated character's head (labels float higher still).
-  arrow.position.set(pos.x, 1.62, pos.z);
+  arrow.position.set(pos.x, ARROW_Y, pos.z);
   arrow.visible = true;
 }
 
@@ -330,16 +335,22 @@ async function buildScene(canvas) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0d0906);
-  scene.fog = new THREE.Fog(0x0d0906, 6, 12);
+  scene.background = new THREE.Color(0x07070f);
+  scene.fog = new THREE.Fog(0x07070f, 12, 58);
 
-  const camera = new THREE.PerspectiveCamera(56, canvas.clientWidth / canvas.clientHeight, 0.05, 30);
-  camera.rotation.order = 'YXZ';
+  const camera = new THREE.PerspectiveCamera(56, canvas.clientWidth / canvas.clientHeight, 0.05, 140);
 
-  // One-finger (or mouse-drag) look-around, pivoting from the camera home.
-  const view = { yaw: 0, pitch: 0, targetYaw: 0, targetPitch: 0, baseYaw: 0, basePitch: 0 };
+  // Orbit rig: the camera circles the point at the centre of the table where
+  // the community cards land. Moving the mouse (no buttons) or dragging a
+  // finger steers yaw/pitch offsets from the over-the-shoulder home framing.
+  const view = {
+    homeYaw: 0, homePitch: 0, dist: 2.8,
+    offYaw: 0, offPitch: 0,
+    targetOffYaw: 0, targetOffPitch: 0
+  };
   state.view = view;
-  state.zoom = { active: false, savedYaw: 0, savedPitch: 0, pos: new THREE.Vector3() };
+  state.pivot = new THREE.Vector3(0, TABLE_TOP, 0);
+  state.zoom = { active: false, kind: 'board', pos: new THREE.Vector3(), look: new THREE.Vector3() };
   state.camHome = new THREE.Vector3();
   state.baseFov = camera.fov;
   state.camera = camera;
@@ -351,22 +362,24 @@ async function buildScene(canvas) {
     const portrait = camera.aspect < 0.8;
     state.camHome.set(
       portrait ? -0.3 : -0.42,
-      EYE_HEIGHT + (portrait ? 0.42 : 0.3),
-      SEAT_RADIUS + (portrait ? 0.94 : 0.76));
+      EYE_HEIGHT + (portrait ? 0.5 : 0.38),
+      SEAT_RADIUS + (portrait ? 1.0 : 0.82));
+    const d = state.camHome.clone().sub(state.pivot);
+    view.dist = d.length();
+    view.homeYaw = Math.atan2(d.x, d.z);
+    view.homePitch = Math.asin(d.y / view.dist);
     if (state.zoom.active) return; // don't yank a zoomed-in view around
     camera.position.copy(state.camHome);
-    camera.lookAt(portrait ? 0 : 0.05, TABLE_TOP - 0.05, -0.25);
-    view.yaw = view.targetYaw = view.baseYaw = camera.rotation.y;
-    view.pitch = view.targetPitch = view.basePitch = camera.rotation.x;
+    camera.lookAt(state.pivot);
   };
   state.applyCameraHome = applyCameraHome;
   applyCameraHome();
   setupLookControls(canvas, view);
 
-  // ---- lighting: warm lantern pool over the table, dim moody saloon around
-  // it, so the felt and faces glow while the room falls off into shadow.
-  scene.add(new THREE.AmbientLight(0x7a5c3c, 0.5));
-  const hemi = new THREE.HemisphereLight(0x5e4b33, 0x120b07, 0.42);
+  // ---- lighting: cool neon night around the street, with the familiar warm
+  // lantern pool kept over the felt so the game still reads like a card den.
+  scene.add(new THREE.AmbientLight(0x4a5578, 0.55));
+  const hemi = new THREE.HemisphereLight(0x35406b, 0x0c0a14, 0.5);
   scene.add(hemi);
 
   const lantern = new THREE.PointLight(0xffc477, 22, 9, 1.9);
@@ -384,13 +397,14 @@ async function buildScene(canvas) {
   keyLight.shadow.camera.far = 11;
   scene.add(keyLight, keyLight.target);
 
-  const fill = new THREE.PointLight(0xff9d4d, 7, 8, 2);
-  fill.position.set(2.6, 1.7, 2.4);
+  // Soft neon spill from the arcade street: a hint of cyan one side and
+  // magenta the other, kept subtle so faces stay skin-toned.
+  const fill = new THREE.PointLight(0x9adfe8, 3.5, 9, 2);
+  fill.position.set(3.2, 2.0, 2.6);
   scene.add(fill);
 
-  // Back-wall glow so the room reads behind the far players.
-  const backFill = new THREE.PointLight(0xffb066, 9, 9, 2);
-  backFill.position.set(-1.8, 1.9, -3.1);
+  const backFill = new THREE.PointLight(0xe08ad8, 4.5, 11, 2);
+  backFill.position.set(-2.4, 2.2, -3.6);
   scene.add(backFill);
 
   // Visible hanging lamp.
@@ -413,35 +427,42 @@ async function buildScene(canvas) {
   state.dealerArrow = makeDealerArrow();
   scene.add(state.dealerArrow);
 
-  // ---- room (Poly Haven CC0 plank textures)
-  const floorTex = texture('img/floor_planks.jpg');
-  floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
-  floorTex.repeat.set(4, 4);
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(10, 10),
-    new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.9 }));
-  floor.rotation.x = -Math.PI / 2;
-  floor.receiveShadow = true;
-  scene.add(floor);
+  // ---- street backdrop: the repo owner's licensed Leartes "Stylized
+  // Cyberpunk Arcade" environment, converted to one merged meshopt GLB.
+  // The poker table sits in the middle of the arcade street.
+  const loader = new GLTFLoader();
+  loader.setMeshoptDecoder(MeshoptDecoder);
+  const backdropPromise = loadGlb(loader, 'models/env/backdrop.glb').then((gltf) => {
+    if (!gltf) return;
+    const env = gltf.scene;
+    env.rotation.y = Math.PI; // arcade frontage wraps around the player's view
+    env.traverse((m) => {
+      if (m.isMesh) {
+        m.castShadow = false;
+        m.receiveShadow = false;
+        // Punch up the neon signage so it glows through the night fog.
+        if (m.material && m.material.emissiveIntensity) {
+          m.material.emissiveIntensity *= 2.2;
+        }
+      }
+    });
+    scene.add(env);
+  });
 
-  const wallTex = texture('img/wall_planks.jpg');
-  wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
-  wallTex.repeat.set(3, 1.2);
-  const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.95, color: 0xb59a78 });
-  for (let i = 0; i < 4; i++) {
-    const wall = new THREE.Mesh(new THREE.PlaneGeometry(10, 3.2), wallMat);
-    const a = (i * Math.PI) / 2;
-    wall.position.set(Math.sin(a) * 4.5, 1.6, Math.cos(a) * 4.5);
-    wall.rotation.y = a + Math.PI;
-    scene.add(wall);
-  }
-  const ceiling = new THREE.Mesh(
-    new THREE.PlaneGeometry(10, 10),
-    new THREE.MeshStandardMaterial({ map: wallTex.clone(), color: 0x4a3a28, roughness: 1 }));
-  ceiling.material.map.repeat.set(4, 4);
-  ceiling.rotation.x = Math.PI / 2;
-  ceiling.position.y = 3.2;
-  scene.add(ceiling);
+  // Faint cool moonlight so the street silhouettes read against the night.
+  const moon = new THREE.DirectionalLight(0x7285c8, 0.5);
+  moon.position.set(-14, 26, 10);
+  scene.add(moon);
+
+  // The backdrop doesn't receive shadows (perf), so a shadow catcher under
+  // the table keeps the players and chairs grounded on the street.
+  const catcher = new THREE.Mesh(
+    new THREE.CircleGeometry(3.6, 40),
+    new THREE.ShadowMaterial({ opacity: 0.45 }));
+  catcher.rotation.x = -Math.PI / 2;
+  catcher.position.y = 0.002;
+  catcher.receiveShadow = true;
+  scene.add(catcher);
 
   // ---- poker table
   const feltTex = texture('img/felt.jpg');
@@ -477,38 +498,9 @@ async function buildScene(canvas) {
   base.position.y = 0.025;
   scene.add(base);
 
-  // ---- props & characters (Kenney CC0 GLBs)
-  const loader = new GLTFLoader();
-  const addProp = async (url, x, z, ry = 0, s = 1) => {
-    const gltf = await loadGlb(loader, url);
-    if (!gltf) return null;
-    const obj = gltf.scene;
-    obj.scale.setScalar(s);
-    obj.position.set(x, 0, z);
-    obj.rotation.y = ry;
-    // Ground the prop: some packs use a centred origin, not a base origin.
-    const bb = new THREE.Box3().setFromObject(obj);
-    obj.position.y -= bb.min.y;
-    obj.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
-    scene.add(obj);
-    return obj;
-  };
-
-  const props = [
-    addProp('models/props/survival/barrel.glb', -2.7, -3.5, 0.4, 1.5),
-    addProp('models/props/survival/barrel.glb', -2.05, -3.7, 1.9, 1.5),
-    addProp('models/props/survival/box-large.glb', 2.5, -3.6, 0.2, 1.6),
-    addProp('models/props/survival/box-large.glb', 3.1, -3.1, 0.9, 1.6),
-    addProp('models/props/survival/bottle-large.glb', -2.7, -3.5, 0, 1.5).then(async (b) => {
-      if (b) b.position.y += 0.85; // on the barrel
-    }),
-    addProp('models/props/survival/barrel.glb', 3.7, 0.6, 2.6, 1.5),
-    addProp('models/props/food/mug.glb', 3.7, 0.6, 0, 2.2).then(async (m) => {
-      if (m) m.position.y += 0.85;
-    })
-  ];
-
   // ---- seats (chairs + characters + cards + labels)
+  // (The street backdrop supplies its own clutter — crates, bottles, arcade
+  // cabinets — so the old saloon barrels/boxes are gone.)
   const chairGltf = await loadGlb(loader, 'models/props/furniture/chair.glb');
   state.seats = [];
   const charPromises = [];
@@ -579,7 +571,7 @@ async function buildScene(canvas) {
     if (chairGltf) {
       const chair = chairGltf.scene.clone(true);
       chair.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
-      chair.scale.setScalar(1.15);
+      chair.scale.setScalar(1.38); // 1.2x bigger, matching the bigger players
       chair.position.copy(pos);
       chair.rotation.y = facing;
       scene.add(chair);
@@ -597,13 +589,13 @@ async function buildScene(canvas) {
     if (i === 0) continue; // no floating name label over the player himself
 
     const label = makeLabel();
-    const labelPos = seatPos(i, SEAT_RADIUS + 0.05, 1.52);
+    const labelPos = seatPos(i, SEAT_RADIUS + 0.05, 1.84);
     label.sprite.position.copy(labelPos);
     scene.add(label.sprite);
     seat.label = label;
   }
 
-  await Promise.all([...props, ...charPromises]);
+  await Promise.all([backdropPromise, ...charPromises]);
 
   // The player's hole cards ride in his character's raised left hand.
   state.playerHand = null;
@@ -628,18 +620,33 @@ async function buildScene(canvas) {
       seat.char.idle(t);
     }
 
-    // Smoothly ease the camera toward where the finger dragged it.
-    const ease = Math.min(1, dt * 14);
-    view.yaw += (view.targetYaw - view.yaw) * ease;
-    view.pitch += (view.targetPitch - view.pitch) * ease;
-    camera.rotation.set(view.pitch, view.yaw, 0);
+    // Ease the orbit offsets toward where the mouse/finger steered them,
+    // then swing the camera around the table-centre pivot (or fly to a
+    // tapped card group while zoomed).
+    const ease = Math.min(1, dt * 8);
+    view.offYaw += (view.targetOffYaw - view.offYaw) * ease;
+    view.offPitch += (view.targetOffPitch - view.offPitch) * ease;
+    if (state.zoom.active) {
+      _desiredPos.copy(state.zoom.pos);
+      _lookTarget.copy(state.zoom.look);
+    } else {
+      const yaw = view.homeYaw + view.offYaw;
+      const pitch = THREE.MathUtils.clamp(
+        view.homePitch + view.offPitch, ORBIT_PITCH_MIN, ORBIT_PITCH_MAX);
+      _desiredPos.set(
+        state.pivot.x + Math.sin(yaw) * Math.cos(pitch) * view.dist,
+        state.pivot.y + Math.sin(pitch) * view.dist,
+        state.pivot.z + Math.cos(yaw) * Math.cos(pitch) * view.dist);
+      _lookTarget.copy(state.pivot);
+    }
+    camera.position.lerp(_desiredPos, Math.min(1, dt * 6));
+    _lookMat.lookAt(camera.position, _lookTarget, _upVec);
+    _desiredQuat.setFromRotationMatrix(_lookMat);
+    camera.quaternion.slerp(_desiredQuat, Math.min(1, dt * 8));
 
-    // Fly the camera between the seat and the top-down card view.
-    camera.position.lerp(state.zoom.active ? state.zoom.pos : state.camHome, Math.min(1, dt * 6));
-
-    // The dealer arrow bobs and slowly spins over the dealer's head.
+    // The turn arrow bobs and slowly spins over the actor's head.
     if (state.dealerArrow && state.dealerArrow.visible) {
-      state.dealerArrow.position.y = 1.62 + Math.sin(t * 2.2) * 0.035;
+      state.dealerArrow.position.y = ARROW_Y + Math.sin(t * 2.2) * 0.035;
       state.dealerArrow.rotation.y = t * 1.2;
     }
 
@@ -651,14 +658,27 @@ async function buildScene(canvas) {
 
 // ------------------------------------------------------------------ look controls
 
-const PITCH_MIN = -1.05;  // looking down at your cards
-const PITCH_MAX = 0.4;    // looking up at the lamp/ceiling
+// Orbit pitch limits: from just above the felt to nearly overhead.
+const ORBIT_PITCH_MIN = 0.06;
+const ORBIT_PITCH_MAX = 1.25;
+// How far mouse position (canvas edges) swings the orbit from home.
+const MOUSE_YAW_RANGE = 0.85;
+const MOUSE_PITCH_RANGE = 0.42;
+
+const _desiredPos = new THREE.Vector3();
+const _lookTarget = new THREE.Vector3();
+const _lookMat = new THREE.Matrix4();
+const _desiredQuat = new THREE.Quaternion();
+const _upVec = new THREE.Vector3(0, 1, 0);
 
 function setupLookControls(canvas, view) {
   canvas.style.touchAction = 'none'; // stop iOS Safari from scrolling/zooming the page
   let activePointer = -1;
   let lastX = 0, lastY = 0, moved = 0, lastTapAt = 0;
-  const SPEED = 0.0042;
+  const TOUCH_SPEED = 0.005;
+
+  const clampPitchOff = (v) => THREE.MathUtils.clamp(
+    v, ORBIT_PITCH_MIN - view.homePitch, ORBIT_PITCH_MAX - view.homePitch);
 
   canvas.addEventListener('pointerdown', (e) => {
     if (activePointer !== -1) return; // one finger only; ignore extra touches
@@ -668,14 +688,29 @@ function setupLookControls(canvas, view) {
   });
 
   canvas.addEventListener('pointermove', (e) => {
-    if (e.pointerId !== activePointer) return;
-    const dx = e.clientX - lastX, dy = e.clientY - lastY;
-    lastX = e.clientX; lastY = e.clientY;
-    moved += Math.abs(dx) + Math.abs(dy);
-    if (state.zoom && state.zoom.active) return; // no look-around while zoomed
-    view.targetYaw -= dx * SPEED;   // swipe right = look right
-    view.targetPitch = THREE.MathUtils.clamp(
-      view.targetPitch - dy * SPEED, PITCH_MIN, PITCH_MAX); // swipe up = look up
+    const isDrag = e.pointerId === activePointer;
+    if (isDrag) {
+      moved += Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY);
+    }
+    if (state.zoom && state.zoom.active) {
+      if (isDrag) { lastX = e.clientX; lastY = e.clientY; }
+      return; // no orbiting while zoomed on cards
+    }
+    if (e.pointerType === 'mouse') {
+      // Just moving the mouse rotates the camera around the table centre:
+      // the cursor's position on the canvas maps directly to the orbit.
+      const rect = canvas.getBoundingClientRect();
+      const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const ny = ((e.clientY - rect.top) / rect.height) * 2 - 1;
+      view.targetOffYaw = -nx * MOUSE_YAW_RANGE;
+      view.targetOffPitch = clampPitchOff(ny * MOUSE_PITCH_RANGE);
+    } else if (isDrag) {
+      // Touch: one-finger drag swings the same orbit.
+      const dx = e.clientX - lastX, dy = e.clientY - lastY;
+      view.targetOffYaw -= dx * TOUCH_SPEED;
+      view.targetOffPitch = clampPitchOff(view.targetOffPitch + dy * TOUCH_SPEED);
+    }
+    if (isDrag) { lastX = e.clientX; lastY = e.clientY; }
   });
 
   const release = (e) => {
@@ -686,28 +721,25 @@ function setupLookControls(canvas, view) {
     // While zoomed on cards, any tap returns the camera to the seat.
     if (state.zoom.active) {
       state.zoom.active = false;
-      view.targetYaw = state.zoom.savedYaw;
-      view.targetPitch = state.zoom.savedPitch;
       return;
     }
 
-    // Tap on a table card: fly to a top-down view over that card group.
+    // Tap on a card: fly in for a close-up (top-down for table cards, up
+    // close for the pair held in the player's hand).
     const target = pickCardZoomTarget(canvas, e);
     if (target) {
       state.zoom.active = true;
-      state.zoom.savedYaw = view.targetYaw;
-      state.zoom.savedPitch = view.targetPitch;
-      state.zoom.pos.copy(target);
-      view.targetYaw = 0;          // cards lie upright toward -z for the player
-      view.targetPitch = -Math.PI / 2 + 0.02; // straight down
+      state.zoom.kind = target.kind;
+      state.zoom.pos.copy(target.pos);
+      state.zoom.look.copy(target.look);
       return;
     }
 
-    // Double-tap (without dragging) snaps the view back to the table.
+    // Double-tap (without dragging) snaps the orbit back to home.
     const now = performance.now();
     if (now - lastTapAt < 350) {
-      view.targetYaw = view.baseYaw;
-      view.targetPitch = view.basePitch;
+      view.targetOffYaw = 0;
+      view.targetOffPitch = 0;
       lastTapAt = 0;
     } else {
       lastTapAt = now;
@@ -717,8 +749,8 @@ function setupLookControls(canvas, view) {
   canvas.addEventListener('pointercancel', release);
 }
 
-// Raycast a tap against the community/seat cards. Returns the camera position
-// for a top-down view centred over the tapped card group, or null on miss.
+// Raycast a tap against the community/seat cards and the player's held pair.
+// Returns { pos, look, kind } for the zoom flight, or null on miss.
 const _raycaster = new THREE.Raycaster();
 const _ndc = new THREE.Vector2();
 function pickCardZoomTarget(canvas, e) {
@@ -728,14 +760,20 @@ function pickCardZoomTarget(canvas, e) {
     ((e.clientX - rect.left) / rect.width) * 2 - 1,
     -((e.clientY - rect.top) / rect.height) * 2 + 1);
   _raycaster.setFromCamera(_ndc, state.camera);
-  const targets = [...state.boardCards];
+  const targets = [...state.boardCards, ...state.holeCards];
   for (const seat of state.seats) targets.push(...seat.cards);
   const hits = _raycaster.intersectObjects(targets, false);
   if (!hits.length) return null;
+  const obj = hits[0].object;
+
+  // The player's own hand: fly to just in front of the held fan. The exact
+  // position keeps tracking the hand each frame (see positionHandCards).
+  if (state.holeCards.includes(obj)) {
+    return { pos: state.camera.position.clone(), look: obj.position.clone(), kind: 'hand' };
+  }
 
   // Hover over the whole group the tapped card belongs to (all five community
   // cards, or an opponent's pair) so every card in it is readable at once.
-  const obj = hits[0].object;
   let group = state.boardCards.includes(obj) ? state.boardCards : null;
   if (!group) {
     for (const seat of state.seats) {
@@ -746,9 +784,15 @@ function pickCardZoomTarget(canvas, e) {
   const centre = new THREE.Vector3();
   for (const c of group) centre.add(c.position);
   centre.divideScalar(group.length);
-  // Height chosen so the group fills the view: wider groups sit higher.
+  // Height chosen so the group fills the view: wider groups sit higher. The
+  // camera hangs a touch behind the group so the top-down view stays stable
+  // and the cards read upright from the player's side of the table.
   const height = group === state.boardCards ? 0.8 : 0.52;
-  return new THREE.Vector3(centre.x, TABLE_TOP + height, centre.z);
+  return {
+    pos: new THREE.Vector3(centre.x, TABLE_TOP + height, centre.z + height * 0.09),
+    look: new THREE.Vector3(centre.x, TABLE_TOP, centre.z),
+    kind: 'board'
+  };
 }
 
 let lastW = 0, lastH = 0;
@@ -800,20 +844,33 @@ function updateHole(paths) {
 // toward the camera so they read over his shoulder, like a held poker hand.
 const _handPos = new THREE.Vector3();
 const _camDir = new THREE.Vector3();
+const _handZoomDir = new THREE.Vector3();
 function positionHandCards(camera) {
   if (!state.holeCards.length) return;
   const bone = state.playerHand;
   if (!bone) return;
+  const handZoom = state.zoom.active && state.zoom.kind === 'hand';
   bone.getWorldPosition(_handPos);
   // Sit the fan just above the palm, nudged toward the camera so the
   // character's fingers don't poke through the card faces.
   _camDir.copy(camera.position).sub(_handPos).normalize();
   _handPos.addScaledVector(_camDir, 0.06);
   _handPos.y += 0.05;
+
+  // While zoomed on the hand, the camera hovers just in front of the fan
+  // (tracking it as the character breathes) so the pair fills the screen.
+  if (handZoom) {
+    _handZoomDir.copy(state.camHome).sub(_handPos).normalize();
+    state.zoom.pos.copy(_handPos).addScaledVector(_handZoomDir, 0.34).setY(_handPos.y + 0.06);
+    state.zoom.look.copy(_handPos);
+  }
+
   for (let i = 0; i < state.holeCards.length; i++) {
     const card = state.holeCards[i];
     const dir = i === 0 ? -1 : 1;
-    card.visible = !state.zoom.active;
+    // Hidden while zoomed on the table, front and centre while zoomed on
+    // the hand itself.
+    card.visible = handZoom || !state.zoom.active;
     card.position.copy(_handPos);
     card.lookAt(camera.position);
     card.rotateZ(dir * 0.16);      // fan the pair like a held hand
