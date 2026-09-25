@@ -23,6 +23,9 @@ const NPC_MODELS = [
   { model: 'Fighter1', tex: 'fighter1_green.jpg' }  // Kev — green gi
 ];
 
+// The player's own body, seen from the over-the-shoulder camera.
+const PLAYER_MODEL = { model: 'Fighter2', tex: 'fighter2_dark.jpg' };
+
 const _idleQuat = new THREE.Quaternion();
 const _idleEuler = new THREE.Euler();
 
@@ -289,31 +292,43 @@ async function buildScene(canvas) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x120b07);
-  scene.fog = new THREE.Fog(0x120b07, 7, 14);
+  scene.background = new THREE.Color(0x0d0906);
+  scene.fog = new THREE.Fog(0x0d0906, 6, 12);
 
   const camera = new THREE.PerspectiveCamera(56, canvas.clientWidth / canvas.clientHeight, 0.05, 30);
-  const camPos = seatPos(0, SEAT_RADIUS + 0.12, EYE_HEIGHT);
-  camera.position.copy(camPos);
   camera.rotation.order = 'YXZ';
-  camera.lookAt(0, TABLE_TOP - 0.06, 0);
 
-  // One-finger (or mouse-drag) look-around, pivoting from the player's seat.
-  const view = {
-    yaw: camera.rotation.y, pitch: camera.rotation.x,
-    targetYaw: camera.rotation.y, targetPitch: camera.rotation.x,
-    baseYaw: camera.rotation.y, basePitch: camera.rotation.x
-  };
+  // One-finger (or mouse-drag) look-around, pivoting from the camera home.
+  const view = { yaw: 0, pitch: 0, targetYaw: 0, targetPitch: 0, baseYaw: 0, basePitch: 0 };
   state.view = view;
   state.zoom = { active: false, savedYaw: 0, savedPitch: 0, pos: new THREE.Vector3() };
-  state.camHome = camPos.clone();
+  state.camHome = new THREE.Vector3();
   state.baseFov = camera.fov;
   state.camera = camera;
+
+  // Cinematic over-the-shoulder framing: the camera hangs behind and beside
+  // the player's own seated character, looking past him at the table. Narrow
+  // portrait screens pull the camera up and back so the table still fits.
+  const applyCameraHome = () => {
+    const portrait = camera.aspect < 0.8;
+    state.camHome.set(
+      portrait ? -0.3 : -0.42,
+      EYE_HEIGHT + (portrait ? 0.42 : 0.3),
+      SEAT_RADIUS + (portrait ? 0.94 : 0.76));
+    if (state.zoom.active) return; // don't yank a zoomed-in view around
+    camera.position.copy(state.camHome);
+    camera.lookAt(portrait ? 0 : 0.05, TABLE_TOP - 0.05, -0.25);
+    view.yaw = view.targetYaw = view.baseYaw = camera.rotation.y;
+    view.pitch = view.targetPitch = view.basePitch = camera.rotation.x;
+  };
+  state.applyCameraHome = applyCameraHome;
+  applyCameraHome();
   setupLookControls(canvas, view);
 
-  // ---- lighting: warm lantern over the table, dim saloon ambience
-  scene.add(new THREE.AmbientLight(0x8a6a45, 0.7));
-  const hemi = new THREE.HemisphereLight(0x6f5a3e, 0x191009, 0.55);
+  // ---- lighting: warm lantern pool over the table, dim moody saloon around
+  // it, so the felt and faces glow while the room falls off into shadow.
+  scene.add(new THREE.AmbientLight(0x7a5c3c, 0.5));
+  const hemi = new THREE.HemisphereLight(0x5e4b33, 0x120b07, 0.42);
   scene.add(hemi);
 
   const lantern = new THREE.PointLight(0xffc477, 22, 9, 1.9);
@@ -391,9 +406,10 @@ async function buildScene(canvas) {
   const feltTex = texture('img/felt.jpg');
   feltTex.wrapS = feltTex.wrapT = THREE.RepeatWrapping;
   feltTex.repeat.set(2, 2);
+  // Classic green baize, the traditional card-table felt.
   const felt = new THREE.Mesh(
     new THREE.CylinderGeometry(TABLE_RADIUS, TABLE_RADIUS, 0.05, 48),
-    new THREE.MeshStandardMaterial({ map: feltTex, color: 0x6e241f, roughness: 0.97 }));
+    new THREE.MeshStandardMaterial({ map: feltTex, color: 0x2f6e3c, roughness: 0.97 }));
   felt.position.y = TABLE_TOP - 0.025;
   felt.castShadow = true;
   felt.receiveShadow = true;
@@ -465,11 +481,58 @@ async function buildScene(canvas) {
     return modelCache.get(name);
   };
 
+  // Position a seated character at seat i: face the table, hips over the
+  // chair, feet on the floor, regardless of the pose's baked root offsets.
+  const placeSeatedCharacter = (character, i, facing) => {
+    character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
+    scene.add(character.root);
+
+    // Apply the frozen 'Sit' pose before measuring any bones.
+    character.mixer.update(0);
+    character.root.updateMatrixWorld(true);
+
+    // GLTFLoader sanitises 'Fighter1 L Foot' -> 'Fighter1_L_Foot'; match by
+    // suffix so both fighters resolve the same skeleton landmarks.
+    const bone = (suffix) => {
+      let found = null;
+      character.root.traverse((o) => {
+        if (!found && o.isBone && o.name.endsWith(suffix)) found = o;
+      });
+      return found;
+    };
+
+    // Rigs differ in which axis they face, so measure the model's own
+    // forward (up x left-to-right-foot) and correct toward the table.
+    const lFoot = bone('L_Foot'), rFoot = bone('R_Foot');
+    let modelYaw = 0;
+    if (lFoot && rFoot) {
+      const l = lFoot.getWorldPosition(new THREE.Vector3());
+      const r = rFoot.getWorldPosition(new THREE.Vector3());
+      const fwd = new THREE.Vector3(0, 1, 0).cross(r.sub(l));
+      if (fwd.lengthSq() > 1e-6) modelYaw = Math.atan2(fwd.x, fwd.z);
+    }
+    character.root.rotation.y = facing - modelYaw;
+    character.root.updateMatrixWorld(true);
+
+    const v = new THREE.Vector3();
+    const hips = bone('Pelvis') || bone('Hips');
+    if (hips) {
+      hips.getWorldPosition(v);
+      const target = seatPos(i, SEAT_RADIUS - 0.02);
+      character.root.position.x += target.x - v.x;
+      character.root.position.z += target.z - v.z;
+    }
+    let minFoot = Infinity;
+    for (const b of [lFoot, rFoot]) {
+      if (b) { b.getWorldPosition(v); minFoot = Math.min(minFoot, v.y); }
+    }
+    if (isFinite(minFoot)) character.root.position.y -= (minFoot - 0.09);
+  };
+
   for (let i = 0; i < SEATS; i++) {
-    const seat = { group: new THREE.Group(), cards: [], chips: null, char: null, label: null };
+    const seat = { group: new THREE.Group(), cards: [], chips: null, stackChips: null, char: null, label: null };
     state.seats.push(seat);
     scene.add(seat.group);
-    if (i === 0) continue; // the player: no chair/character/label needed
 
     const pos = seatPos(i, SEAT_RADIUS);
     const facing = Math.atan2(-pos.x, -pos.z); // yaw toward table centre
@@ -483,57 +546,16 @@ async function buildScene(canvas) {
       scene.add(chair);
     }
 
-    const npc = NPC_MODELS[i - 1];
-    charPromises.push(loadCharacterModel(npc.model).then((gltf) => {
-      const character = makeCharacter(gltf, npc.tex);
+    // Seat 0 is the player's own body, seen from behind by the camera.
+    const spec = i === 0 ? PLAYER_MODEL : NPC_MODELS[i - 1];
+    charPromises.push(loadCharacterModel(spec.model).then((gltf) => {
+      const character = makeCharacter(gltf, spec.tex);
       if (!character) return;
-      character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
-      scene.add(character.root);
-
-      // Apply the frozen 'Sit' pose before measuring any bones.
-      character.mixer.update(0);
-      character.root.updateMatrixWorld(true);
-
-      // GLTFLoader sanitises 'Fighter1 L Foot' -> 'Fighter1_L_Foot'; match by
-      // suffix so both fighters resolve the same skeleton landmarks.
-      const bone = (suffix) => {
-        let found = null;
-        character.root.traverse((o) => {
-          if (!found && o.isBone && o.name.endsWith(suffix)) found = o;
-        });
-        return found;
-      };
-
-      // Rigs differ in which axis they face, so measure the model's own
-      // forward (up x left-to-right-foot) and correct toward the table.
-      const lFoot = bone('L_Foot'), rFoot = bone('R_Foot');
-      let modelYaw = 0;
-      if (lFoot && rFoot) {
-        const l = lFoot.getWorldPosition(new THREE.Vector3());
-        const r = rFoot.getWorldPosition(new THREE.Vector3());
-        const fwd = new THREE.Vector3(0, 1, 0).cross(r.sub(l));
-        if (fwd.lengthSq() > 1e-6) modelYaw = Math.atan2(fwd.x, fwd.z);
-      }
-      character.root.rotation.y = facing - modelYaw;
-      character.root.updateMatrixWorld(true);
-
-      // Snap the seated pose onto the chair: hips over the seat and feet on
-      // the floor, regardless of the pose's baked root offsets.
-      const v = new THREE.Vector3();
-      const hips = bone('Pelvis') || bone('Hips');
-      if (hips) {
-        hips.getWorldPosition(v);
-        const target = seatPos(i, SEAT_RADIUS - 0.02);
-        character.root.position.x += target.x - v.x;
-        character.root.position.z += target.z - v.z;
-      }
-      let minFoot = Infinity;
-      for (const b of [lFoot, rFoot]) {
-        if (b) { b.getWorldPosition(v); minFoot = Math.min(minFoot, v.y); }
-      }
-      if (isFinite(minFoot)) character.root.position.y -= (minFoot - 0.09);
+      placeSeatedCharacter(character, i, facing);
       seat.char = character;
     }));
+
+    if (i === 0) continue; // no floating name label over the player himself
 
     const label = makeLabel();
     const labelPos = seatPos(i, SEAT_RADIUS + 0.05, 1.52);
@@ -695,6 +717,7 @@ function resizeIfNeeded(canvas, renderer, camera) {
   state.baseFov = camera.aspect < 0.8 ? 70 : 56;
   camera.fov = state.baseFov;
   camera.updateProjectionMatrix();
+  if (state.applyCameraHome) state.applyCameraHome();
   layoutHoleCards();
 }
 
@@ -730,19 +753,19 @@ function updateHole(paths) {
   layoutHoleCards();
 }
 
-// Portrait phones stack the HUD over the bottom of the screen, so lift the
-// hole cards up and shrink them a touch; landscape keeps them low and large.
+// The hole cards sit low and to the right of the player's body, reading like
+// a hand he's holding up. Portrait phones lift them clear of the HUD buttons.
 function layoutHoleCards() {
   const portrait = state.camera && state.camera.aspect < 0.8;
   for (let i = 0; i < state.holeCards.length; i++) {
     const card = state.holeCards[i];
     const dir = i === 0 ? -1 : 1;
     if (portrait) {
-      card.position.set(0.035 + dir * 0.042, -0.09, -0.5);
-      card.scale.setScalar(0.78);
+      card.position.set(0.1 + dir * 0.034, -0.17, -0.5);
+      card.scale.setScalar(0.62);
     } else {
-      card.position.set(0.05 + dir * 0.05, -0.26, -0.52);
-      card.scale.setScalar(1);
+      card.position.set(0.19 + dir * 0.045, -0.24, -0.52);
+      card.scale.setScalar(0.85);
     }
     card.rotation.set(-0.3, 0, dir * 0.12);
   }
@@ -768,6 +791,18 @@ function updateSeatCards(seat, i, data) {
     seat.cards.push(card);
     state.scene.add(card);
   }
+}
+
+// Each player's remaining stack sits on the rail in front of them, so the
+// table reads like a live cash game rather than a bare felt.
+function updateStackChips(seat, i, data) {
+  if (seat.stackChips) { state.scene.remove(seat.stackChips); seat.stackChips = null; }
+  if (data.out || !data.stack || data.stack <= 0) return;
+  const pos = seatPos(i, TABLE_RADIUS - 0.16);
+  seat.stackChips = makeChipStacks(data.stack, 0.045);
+  seat.stackChips.position.set(pos.x, TABLE_TOP, pos.z);
+  seat.stackChips.rotation.y = seatAngle(i) + Math.PI / 2; // spread along the rail
+  state.scene.add(seat.stackChips);
 }
 
 function updateSeatChips(seat, i, bet) {
@@ -829,6 +864,9 @@ window.pokerScene = {
         updateSeatCards(seat, data.seat, data);
       }
       if (!prevData || prevData.bet !== data.bet) updateSeatChips(seat, data.seat, data.bet);
+      if (!prevData || prevData.stack !== data.stack || prevData.out !== data.out) {
+        updateStackChips(seat, data.seat, data);
+      }
       if (seat.label) drawLabel(seat.label, data);
       if (seat.char && data.out && !seat.char.dead) seat.char.die();
     }
