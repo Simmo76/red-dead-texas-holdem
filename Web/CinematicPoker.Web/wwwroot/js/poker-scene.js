@@ -176,12 +176,10 @@ function loadGlb(loader, url) {
 function makeCharacter(gltf, texPath) {
   if (!gltf) return null;
   // Two seats can share one fighter model, so clone the skinned rig per seat.
+  // The GLBs are exported in real-world metres (~1.7m standing), so no
+  // rescaling: a bounding-box measure would be wrong anyway, because the
+  // armature root carries an FBX 0.01 scale that skinning compensates for.
   const root = cloneSkinned(gltf.scene);
-
-  // Normalise to a realistic human height using the standing bind pose.
-  const box = new THREE.Box3().setFromObject(root);
-  const height = Math.max(0.01, box.max.y - box.min.y);
-  root.scale.setScalar(1.72 / height);
 
   // Alternate outfit texture (palette swap) so shared meshes look distinct.
   let overrideTex = null;
