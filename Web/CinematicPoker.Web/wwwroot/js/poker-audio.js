@@ -63,6 +63,11 @@ window.pokerAudio = (function () {
             voiceEl.volume = 0.9;
             const p = voiceEl.play();
             if (p) p.catch(function () { });
+            // Idle chatter gets a matching talking gesture in the 3D scene.
+            // (Win/lose lines already come with their own victory/slump moves.)
+            if (kind === 'idle' && window.pokerScene && window.pokerScene.talk) {
+                window.pokerScene.talk(seat);
+            }
         } catch (e) { }
     }
 

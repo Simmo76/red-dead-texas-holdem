@@ -207,31 +207,30 @@ function makeCharacter(gltf, texPath) {
   const clips = gltf.animations || [];
   const find = (name) => THREE.AnimationClip.findByName(clips, name);
 
-  // 'Sit' is a single-frame poker pose baked during conversion; hold it.
+  // 'Sit' is a looping seated idle retargeted from the Quaternius UAL (CC0).
+  // Random start offsets keep the five players from breathing in unison.
   const sitClip = find('Sit');
   let sitAction = null;
   if (sitClip) {
     sitAction = mixer.clipAction(sitClip);
     sitAction.play();
-    sitAction.paused = true;
+    sitAction.time = Math.random() * sitClip.duration;
   }
 
   const character = { root, mixer, sitAction, find, dead: false, reacting: false };
 
-  // Layer subtle life over the held pose: slow breathing through the spine
-  // and an occasional head drift, so seated players never look frozen.
-  // Applied after the mixer writes each frame, so offsets never accumulate.
+  // The sit loop already breathes; just layer a slow head drift on top so
+  // players occasionally glance around the table. Applied after the mixer
+  // writes each frame, so offsets never accumulate.
   const idlePhase = Math.random() * Math.PI * 2;
   const idleBones = [];
   root.traverse((o) => {
-    if (o.isBone && /(_Spine1|_Spine2|_Head)$/.test(o.name)) idleBones.push(o);
+    if (o.isBone && /_Head$/.test(o.name)) idleBones.push(o);
   });
   character.idle = (t) => {
     for (const b of idleBones) {
-      const head = b.name.endsWith('_Head');
-      const breathe = Math.sin(t * (head ? 0.9 : 1.15) + idlePhase) * (head ? 0.03 : 0.02);
-      const drift = head ? Math.sin(t * 0.16 + idlePhase * 2.3) * 0.1 : 0;
-      _idleQuat.setFromEuler(_idleEuler.set(breathe, drift, breathe * 0.5));
+      const drift = Math.sin(t * 0.16 + idlePhase * 2.3) * 0.09;
+      _idleQuat.setFromEuler(_idleEuler.set(0, drift, 0));
       b.quaternion.multiply(_idleQuat);
     }
   };
@@ -247,7 +246,6 @@ function makeCharacter(gltf, texPath) {
     const action = mixer.clipAction(clip);
     action.reset();
     action.setLoop(THREE.LoopOnce, 1);
-    sitAction.paused = false;
     sitAction.crossFadeTo(action, 0.25, false);
     action.play();
     setTimeout(() => {
@@ -255,7 +253,7 @@ function makeCharacter(gltf, texPath) {
       sitAction.reset();
       action.crossFadeTo(sitAction, 0.35, false);
       sitAction.play();
-      setTimeout(() => { sitAction.paused = true; character.reacting = false; }, 450);
+      setTimeout(() => { character.reacting = false; }, 450);
     }, seconds * 1000);
   };
 
@@ -267,7 +265,6 @@ function makeCharacter(gltf, texPath) {
     action.reset();
     action.setLoop(THREE.LoopOnce, 1);
     action.clampWhenFinished = true;
-    sitAction.paused = false;
     sitAction.crossFadeTo(action, 0.4, false);
     action.play();
     // Hold the slumped-down part of the crouch instead of cycling back up.
@@ -826,6 +823,13 @@ window.pokerScene = {
     if (window.pokerAudio && window.pokerAudio.setAlive) {
       window.pokerAudio.setAlive(seats.filter(s => s.seat !== 0 && !s.out).map(s => s.seat));
     }
+  },
+
+  // A short talking gesture, played when a character's voice line fires.
+  talk(seatIndex) {
+    if (!state.ready) return;
+    const seat = state.seats[seatIndex];
+    if (seat && seat.char && !seat.char.dead) seat.char.playOnce('Talk', 2.8);
   },
 
   react(seatIndex, positive) {
