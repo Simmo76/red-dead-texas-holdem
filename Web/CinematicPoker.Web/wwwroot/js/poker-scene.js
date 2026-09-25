@@ -82,10 +82,13 @@ function makeCard(path, w = 0.18, unlit = false) {
   return mesh;
 }
 
-// Board / table cards lean back toward the seated player so they read clearly.
-function placeTableCard(mesh, x, z, lean = 0.95, yaw = 0) {
+// Real playing-card width (63mm); tap-to-zoom handles close reading.
+const CARD_W = 0.064;
+
+// Table cards lie flat on the felt in world space, like real dealt cards.
+function placeTableCard(mesh, x, z, lean = 0, yaw = 0) {
   const h = mesh.geometry.parameters.height;
-  mesh.position.set(x, TABLE_TOP + Math.sin(lean) * h * 0.5 + 0.002, z);
+  mesh.position.set(x, TABLE_TOP + Math.sin(lean) * h * 0.5 + 0.004, z);
   mesh.rotation.order = 'YXZ'; // yaw first, then lean, so flat cards stay flat
   mesh.rotation.set(-(Math.PI / 2 - lean), yaw, 0);
 }
@@ -302,7 +305,8 @@ async function buildScene(canvas) {
     baseYaw: camera.rotation.y, basePitch: camera.rotation.x
   };
   state.view = view;
-  state.zoom = { active: false, savedYaw: 0, savedPitch: 0 };
+  state.zoom = { active: false, savedYaw: 0, savedPitch: 0, pos: new THREE.Vector3() };
+  state.camHome = camPos.clone();
   state.baseFov = camera.fov;
   state.camera = camera;
   setupLookControls(canvas, view);
@@ -567,12 +571,9 @@ async function buildScene(canvas) {
     view.pitch += (view.targetPitch - view.pitch) * ease;
     camera.rotation.set(view.pitch, view.yaw, 0);
 
-    // Ease the card-zoom lens in/out; hide in-hand cards while leaning in.
-    const targetFov = state.zoom.active ? 27 : (state.baseFov || 56);
-    if (Math.abs(camera.fov - targetFov) > 0.05) {
-      camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 8);
-      camera.updateProjectionMatrix();
-    }
+    // Fly the camera between the seat and the top-down card view; hide the
+    // in-hand cards while hovering over the table.
+    camera.position.lerp(state.zoom.active ? state.zoom.pos : state.camHome, Math.min(1, dt * 6));
     holeGroup.visible = !state.zoom.active;
 
     resizeIfNeeded(canvas, renderer, camera);
@@ -603,6 +604,7 @@ function setupLookControls(canvas, view) {
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX; lastY = e.clientY;
     moved += Math.abs(dx) + Math.abs(dy);
+    if (state.zoom && state.zoom.active) return; // no look-around while zoomed
     view.targetYaw -= dx * SPEED;   // swipe right = look right
     view.targetPitch = THREE.MathUtils.clamp(
       view.targetPitch - dy * SPEED, PITCH_MIN, PITCH_MAX); // swipe up = look up
@@ -613,7 +615,7 @@ function setupLookControls(canvas, view) {
     activePointer = -1;
     if (moved >= 8) return; // it was a drag, not a tap
 
-    // While zoomed on a card, any tap zooms back out.
+    // While zoomed on cards, any tap returns the camera to the seat.
     if (state.zoom.active) {
       state.zoom.active = false;
       view.targetYaw = state.zoom.savedYaw;
@@ -621,16 +623,15 @@ function setupLookControls(canvas, view) {
       return;
     }
 
-    // Tap on a table card: lean in for a close look.
-    const hit = pickTableCard(canvas, e);
-    if (hit) {
+    // Tap on a table card: fly to a top-down view over that card group.
+    const target = pickCardZoomTarget(canvas, e);
+    if (target) {
       state.zoom.active = true;
       state.zoom.savedYaw = view.targetYaw;
       state.zoom.savedPitch = view.targetPitch;
-      const d = hit.sub(state.camera.position);
-      const len = d.length();
-      view.targetYaw = Math.atan2(-d.x, -d.z);
-      view.targetPitch = THREE.MathUtils.clamp(Math.asin(d.y / len), PITCH_MIN, PITCH_MAX);
+      state.zoom.pos.copy(target);
+      view.targetYaw = 0;          // cards lie upright toward -z for the player
+      view.targetPitch = -Math.PI / 2 + 0.02; // straight down
       return;
     }
 
@@ -648,11 +649,11 @@ function setupLookControls(canvas, view) {
   canvas.addEventListener('pointercancel', release);
 }
 
-// Raycast a tap against the community/seat cards; returns the hit card's
-// world position (centre of the tapped card group region) or null.
+// Raycast a tap against the community/seat cards. Returns the camera position
+// for a top-down view centred over the tapped card group, or null on miss.
 const _raycaster = new THREE.Raycaster();
 const _ndc = new THREE.Vector2();
-function pickTableCard(canvas, e) {
+function pickCardZoomTarget(canvas, e) {
   if (!state.camera) return null;
   const rect = canvas.getBoundingClientRect();
   _ndc.set(
@@ -663,7 +664,23 @@ function pickTableCard(canvas, e) {
   for (const seat of state.seats) targets.push(...seat.cards);
   const hits = _raycaster.intersectObjects(targets, false);
   if (!hits.length) return null;
-  return hits[0].object.getWorldPosition(new THREE.Vector3());
+
+  // Hover over the whole group the tapped card belongs to (all five community
+  // cards, or an opponent's pair) so every card in it is readable at once.
+  const obj = hits[0].object;
+  let group = state.boardCards.includes(obj) ? state.boardCards : null;
+  if (!group) {
+    for (const seat of state.seats) {
+      if (seat.cards.includes(obj)) { group = seat.cards; break; }
+    }
+  }
+  if (!group || !group.length) return null;
+  const centre = new THREE.Vector3();
+  for (const c of group) centre.add(c.position);
+  centre.divideScalar(group.length);
+  // Height chosen so the group fills the view: wider groups sit higher.
+  const height = group === state.boardCards ? 0.42 : 0.28;
+  return new THREE.Vector3(centre.x, TABLE_TOP + height, centre.z);
 }
 
 let lastW = 0, lastH = 0;
@@ -676,7 +693,7 @@ function resizeIfNeeded(canvas, renderer, camera) {
   camera.aspect = w / h;
   // Tall portrait phones need a wider view to keep the table in frame.
   state.baseFov = camera.aspect < 0.8 ? 70 : 56;
-  if (!state.zoom || !state.zoom.active) camera.fov = state.baseFov;
+  camera.fov = state.baseFov;
   camera.updateProjectionMatrix();
   layoutHoleCards();
 }
@@ -691,11 +708,11 @@ function clearGroupChildren(list, parent) {
 function updateBoard(paths) {
   clearGroupChildren(state.boardCards, state.scene);
   const n = paths.length;
-  const spacing = 0.21;
+  const spacing = CARD_W + 0.014;
   for (let i = 0; i < n; i++) {
-    const card = makeCard(paths[i], 0.19);
-    // Board sits between centre and the player, leaning toward the camera.
-    placeTableCard(card, (i - (n - 1) / 2) * spacing, 0.34, 1.02);
+    const card = makeCard(paths[i], CARD_W);
+    // Flat on the felt, upright when read from the player's seat.
+    placeTableCard(card, (i - (n - 1) / 2) * spacing, 0.34, 0, 0);
     state.boardCards.push(card);
     state.scene.add(card);
   }
@@ -741,16 +758,13 @@ function updateSeatCards(seat, i, data) {
 
   for (let c = 0; c < 2; c++) {
     const path = paths ? paths[c] : 'img/cards/back.png';
-    const card = makeCard(path, paths ? 0.17 : 0.13, !!paths);
-    const offset = (c === 0 ? -0.075 : 0.075);
+    const card = makeCard(path, CARD_W);
+    const offset = (c === 0 ? -0.04 : 0.04);
     const ox = Math.cos(yaw) * offset;
     const oz = -Math.sin(yaw) * offset;
-    // Revealed cards lean up toward the camera; face-down cards lie nearly flat.
-    if (paths) {
-      placeTableCard(card, basePos.x + ox, basePos.z + oz, 1.0, 0);
-    } else {
-      placeTableCard(card, basePos.x + ox, basePos.z + oz, 0.12, yaw);
-    }
+    // All table cards lie flat: revealed ones upright for the player's seat,
+    // face-down backs aligned with their owner's seat.
+    placeTableCard(card, basePos.x + ox, basePos.z + oz, 0, paths ? 0 : yaw);
     seat.cards.push(card);
     state.scene.add(card);
   }
