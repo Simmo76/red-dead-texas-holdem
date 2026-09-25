@@ -85,8 +85,9 @@ function makeCard(path, w = 0.18, unlit = false) {
   return mesh;
 }
 
-// Real playing-card width (63mm); tap-to-zoom handles close reading.
-const CARD_W = 0.064;
+// Table cards are twice real size (63mm -> 126mm wide) so they stay readable
+// from the seat; tap-to-zoom still gives a full close-up.
+const CARD_W = 0.128;
 
 // Table cards lie flat on the felt in world space, like real dealt cards.
 function placeTableCard(mesh, x, z, lean = 0, yaw = 0) {
@@ -703,7 +704,7 @@ function pickCardZoomTarget(canvas, e) {
   for (const c of group) centre.add(c.position);
   centre.divideScalar(group.length);
   // Height chosen so the group fills the view: wider groups sit higher.
-  const height = group === state.boardCards ? 0.42 : 0.28;
+  const height = group === state.boardCards ? 0.8 : 0.52;
   return new THREE.Vector3(centre.x, TABLE_TOP + height, centre.z);
 }
 
@@ -784,7 +785,7 @@ function updateSeatCards(seat, i, data) {
   for (let c = 0; c < 2; c++) {
     const path = paths ? paths[c] : 'img/cards/back.png';
     const card = makeCard(path, CARD_W);
-    const offset = (c === 0 ? -0.04 : 0.04);
+    const offset = (c === 0 ? -1 : 1) * (CARD_W / 2 + 0.008);
     const ox = Math.cos(yaw) * offset;
     const oz = -Math.sin(yaw) * offset;
     // All table cards lie flat: revealed ones upright for the player's seat,
