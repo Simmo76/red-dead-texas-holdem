@@ -153,6 +153,7 @@ function makeChipStacks(amount, spread = 0.05) {
       color: CHIP_COLORS[(i + stack) % CHIP_COLORS.length], roughness: 0.55
     });
     const chip = new THREE.Mesh(geo, mat);
+    chip.castShadow = true;
     chip.position.set(stack * spread * 1.9 - spread, 0.007 + level * 0.0125, (stack % 2) * spread * 0.8);
     chip.rotation.y = Math.random() * Math.PI;
     group.add(chip);
@@ -188,9 +189,15 @@ function makeCharacter(gltf, skinTone) {
     });
   }
 
-  // Tone down the stylised oversized head for more realistic proportions.
+  // Tone down the stylised oversized head and mitts for realistic proportions.
   const headBone = root.getObjectByName('Head');
-  if (headBone) headBone.scale.setScalar(0.74);
+  if (headBone) headBone.scale.setScalar(0.62);
+  for (const n of ['FistL', 'FistR', 'Fist.L', 'Fist.R']) {
+    const fist = root.getObjectByName(n);
+    if (fist) fist.scale.setScalar(0.78);
+  }
+
+  root.traverse((obj) => { if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; } });
 
   const mixer = new THREE.AnimationMixer(root);
   const clips = gltf.animations || [];
@@ -256,6 +263,8 @@ async function buildScene(canvas) {
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x120b07);
@@ -284,6 +293,17 @@ async function buildScene(canvas) {
   const lantern = new THREE.PointLight(0xffc477, 22, 9, 1.9);
   lantern.position.set(0, 2.15, 0);
   scene.add(lantern);
+
+  // Shadow-casting key light from the lamp: grounds characters and props.
+  const keyLight = new THREE.SpotLight(0xffc98a, 30, 11, Math.PI / 2.4, 0.55, 1.6);
+  keyLight.position.set(0, 2.7, 0);
+  keyLight.target.position.set(0, 0, 0);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(1024, 1024);
+  keyLight.shadow.bias = -0.0004;
+  keyLight.shadow.camera.near = 0.5;
+  keyLight.shadow.camera.far = 11;
+  scene.add(keyLight, keyLight.target);
 
   const fill = new THREE.PointLight(0xff9d4d, 7, 8, 2);
   fill.position.set(2.6, 1.7, 2.4);
@@ -319,6 +339,7 @@ async function buildScene(canvas) {
     new THREE.PlaneGeometry(10, 10),
     new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.9 }));
   floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
   scene.add(floor);
 
   const wallTex = texture('img/wall_planks.jpg');
@@ -348,6 +369,8 @@ async function buildScene(canvas) {
     new THREE.CylinderGeometry(TABLE_RADIUS, TABLE_RADIUS, 0.05, 48),
     new THREE.MeshStandardMaterial({ map: feltTex, color: 0x6e241f, roughness: 0.97 }));
   felt.position.y = TABLE_TOP - 0.025;
+  felt.castShadow = true;
+  felt.receiveShadow = true;
   scene.add(felt);
 
   const woodTex = texture('img/wood.jpg');
@@ -356,6 +379,7 @@ async function buildScene(canvas) {
     new THREE.MeshStandardMaterial({ map: woodTex, color: 0x8a5a33, roughness: 0.7 }));
   rail.rotation.x = Math.PI / 2;
   rail.position.y = TABLE_TOP - 0.01;
+  rail.castShadow = true;
   scene.add(rail);
 
   const pedestal = new THREE.Mesh(
@@ -382,6 +406,7 @@ async function buildScene(canvas) {
     // Ground the prop: some packs use a centred origin, not a base origin.
     const bb = new THREE.Box3().setFromObject(obj);
     obj.position.y -= bb.min.y;
+    obj.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
     scene.add(obj);
     return obj;
   };
@@ -416,6 +441,7 @@ async function buildScene(canvas) {
 
     if (chairGltf) {
       const chair = chairGltf.scene.clone(true);
+      chair.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
       chair.scale.setScalar(1.15);
       chair.position.copy(pos);
       chair.rotation.y = facing;

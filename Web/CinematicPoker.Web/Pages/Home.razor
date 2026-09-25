@@ -181,7 +181,10 @@
         {
             pot = Round?.PotTotal ?? 0,
             board = Round?.Board.Select(CardImage).ToArray() ?? Array.Empty<string>(),
-            hole = HoleCardsOf(0).Select(CardImage).ToArray(),
+            // Folding mucks your cards: they leave your hand immediately.
+            hole = SeatOf(0) is { Folded: true }
+                ? Array.Empty<string>()
+                : HoleCardsOf(0).Select(CardImage).ToArray(),
             seats
         };
 
@@ -427,19 +430,28 @@
         ["allin"] = new[] { "chips-collide-1", "chips-collide-2" }
     };
 
-    private void PlaySound(string group)
+    private int _dealSoundIndex;
+
+    private void PlaySound(string group, int delayMs = 0)
     {
         if (_muted) return;
         string[] variants = SoundGroups[group];
-        _ = JS.InvokeVoidAsync("pokerAudio.play", variants[_rng.Next(variants.Length)]);
+        _ = JS.InvokeVoidAsync("pokerAudio.play", variants[_rng.Next(variants.Length)], delayMs);
     }
 
     private void PlaySoundFor(PokerEvent evt)
     {
+        // Your two cards land audibly after the shuffle, not on top of it.
+        if (evt is HandStarted) _dealSoundIndex = 0;
+        if (evt is CardDealt dealtCard && dealtCard.Seat == 0)
+        {
+            PlaySound("place", 700 + _dealSoundIndex++ * 280);
+            return;
+        }
+
         string group = evt switch
         {
             HandStarted _ => "shuffle",
-            CardDealt dealt when dealt.Seat == 0 => "place",
             FlopDealt _ => "deal",
             TurnDealt _ => "deal",
             RiverDealt _ => "deal",
@@ -448,7 +460,7 @@
             PlayerRaised _ => "raise",
             PlayerAllIn _ => "allin",
             PlayerFolded _ => "fold",
-            PotAwarded _ => "raise",
+            PotAwarded _ => "allin", // big pile of chips pushed to the winner
             _ => null
         };
         if (group != null) PlaySound(group);
