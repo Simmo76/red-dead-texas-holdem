@@ -284,11 +284,24 @@ function makeCharacter(gltf, spec) {
 
   // Reactions play the opening beat of a fight move, then settle back down.
   // The source takes are long combo loops, so we cut away on a timer rather
-  // than waiting for the clip to finish.
+  // than waiting for the clip to finish. Every gesture / death / revive bumps
+  // a generation counter so the pending restore timers of an older gesture
+  // become no-ops instead of fighting the newer animation state.
+  let gestureGen = 0;
+
+  // Clean recovery position: drop everything and rejoin the sit loop.
+  const hardSit = () => {
+    mixer.stopAllAction();
+    if (sitAction) { sitAction.reset(); sitAction.play(); }
+  };
+
+  // Returns true only when the gesture actually started, so callers that must
+  // not miss their reaction (e.g. the player's bust slump) can retry later.
   character.playOnce = (name, seconds = 1.5, timeScale = 1) => {
-    if (character.dead || character.reacting) return;
+    if (character.dead || character.reacting) return false;
     const clip = find(name);
-    if (!clip || !sitAction) return;
+    if (!clip || !sitAction) return false;
+    const gen = ++gestureGen;
     character.reacting = true;
     const action = mixer.clipAction(clip);
     action.reset();
@@ -298,26 +311,46 @@ function makeCharacter(gltf, spec) {
     sitAction.crossFadeTo(action, 0.25, false);
     action.play();
     setTimeout(() => {
-      if (character.dead) return;
+      if (character.dead || gen !== gestureGen) return;
       sitAction.reset();
       action.crossFadeTo(sitAction, 0.35, false);
       sitAction.play();
-      setTimeout(() => { character.reacting = false; }, 450);
+      setTimeout(() => {
+        if (character.dead || gen !== gestureGen) return;
+        character.reacting = false;
+        // Safety net: if the fade back got trampled, every action can end up
+        // at weight zero, which drops the rig into its standing rest pose.
+        // Snap cleanly back onto the sit loop instead of standing there.
+        if (sitAction.getEffectiveWeight() < 0.5) hardSit();
+      }, 450);
     }, seconds * 1000);
+    return true;
   };
 
   character.die = () => {
     character.dead = true;
+    character.reacting = false;
+    gestureGen++; // cancel any pending gesture restores
     const clip = find('Crouch');
     if (!clip || !sitAction) { return; }
     const action = mixer.clipAction(clip);
     action.reset();
+    action.timeScale = 1;
     action.setLoop(THREE.LoopOnce, 1);
     action.clampWhenFinished = true;
     sitAction.crossFadeTo(action, 0.4, false);
     action.play();
     // Hold the slumped-down part of the crouch instead of cycling back up.
     setTimeout(() => { action.paused = true; }, 1200);
+  };
+
+  // Sit back up after a bust once a new session starts.
+  character.revive = () => {
+    if (!character.dead) return;
+    character.dead = false;
+    character.reacting = false;
+    gestureGen++; // cancel any pending gesture restores
+    hardSit();
   };
 
   return character;
@@ -979,7 +1012,24 @@ window.pokerScene = {
         updateStackChips(seat, data.seat, data);
       }
       if (seat.label) drawLabel(seat.label, data);
-      if (seat.char && data.out && !seat.char.dead) seat.char.die();
+      if (seat.char && data.out && !seat.char.dead) {
+        if (data.seat === 0) {
+          // The player's own body stays on camera, so his lose animation
+          // plays once and ends (back to sitting) instead of holding the
+          // permanent slump the busted NPCs use. playOnce is skipped while
+          // another gesture (e.g. the all-in chip toss) is mid-flight, so
+          // only latch once the slump really started and retry until then.
+          if (!seat.char.bustReacted && seat.char.playOnce('Crouch', 1.6)) {
+            seat.char.bustReacted = true;
+          }
+        } else {
+          seat.char.die();
+        }
+      }
+      if (seat.char && !data.out) {
+        seat.char.bustReacted = false;
+        seat.char.revive(); // fresh session after a bust: sit back up
+      }
     }
 
     // Busted players stop joining the table chatter.
