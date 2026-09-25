@@ -9,13 +9,15 @@ const TABLE_RADIUS = 1.12;
 const SEAT_RADIUS = 1.74;
 const EYE_HEIGHT = 1.42;
 
-// Kenney mini-character models per NPC seat (1..5), matching the roster order.
+// Quaternius Ultimate Animated Character Pack (CC0) models per NPC seat (1..5).
+// The pack's colour-only export ships a placeholder near-black 'Skin' material,
+// so each seat also carries a proper skin tone to apply on load.
 const NPC_MODELS = [
-  'character-male-a',    // Davo
-  'character-male-b',    // Mick
-  'character-female-a',  // Shazza
-  'character-male-c',    // Bluey
-  'character-male-d'     // Kev
+  { model: 'Cowboy_Male', skin: 0xc4885a },     // Davo — weathered cowboy
+  { model: 'Suit_Male', skin: 0xd7a377 },       // Mick — suited gambler
+  { model: 'Cowboy_Female', skin: 0xdcab84 },   // Shazza — cowgirl
+  { model: 'Casual_Bald', skin: 0xb87950 },     // Bluey — ruddy regular
+  { model: 'OldClassy_Male', skin: 0xcfa07a }   // Kev — old classy pro
 ];
 
 const state = {
@@ -167,27 +169,40 @@ function loadGlb(loader, url) {
   }));
 }
 
-function makeCharacter(gltf) {
+function makeCharacter(gltf, skinTone) {
   if (!gltf) return null;
   const root = gltf.scene;
 
-  // Normalise to a consistent height.
+  // Normalise to a realistic human height (standing pose).
   const box = new THREE.Box3().setFromObject(root);
   const height = Math.max(0.01, box.max.y - box.min.y);
-  const scale = 1.16 / height;
+  const scale = 1.72 / height;
   root.scale.setScalar(scale);
+
+  // Replace the export's placeholder near-black skin with a real skin tone.
+  if (skinTone) {
+    root.traverse((obj) => {
+      if (!obj.isMesh) return;
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      for (const mat of mats) if (mat && mat.name === 'Skin') mat.color.set(skinTone);
+    });
+  }
+
+  // Tone down the stylised oversized head for more realistic proportions.
+  const headBone = root.getObjectByName('Head');
+  if (headBone) headBone.scale.setScalar(0.74);
 
   const mixer = new THREE.AnimationMixer(root);
   const clips = gltf.animations || [];
   const find = (name) => THREE.AnimationClip.findByName(clips, name);
 
-  const sitClip = find('sit') || find('idle');
+  // 'SitDown' animates standing -> seated; freeze at the end for a seated pose.
+  const sitClip = find('SitDown') || find('Idle');
   let sitAction = null;
   if (sitClip) {
     sitAction = mixer.clipAction(sitClip);
     sitAction.play();
-    // Freeze mid-pose so everyone isn't fidgeting in sync.
-    sitAction.time = sitClip.duration * (0.3 + Math.random() * 0.4);
+    sitAction.time = sitClip.duration * 0.995;
     sitAction.paused = true;
   }
 
@@ -209,7 +224,7 @@ function makeCharacter(gltf) {
       mixer.removeEventListener('finished', onDone);
       if (character.dead) return;
       sitAction.reset();
-      sitAction.time = (sitClip ? sitClip.duration * 0.5 : 0);
+      sitAction.time = (sitClip ? sitClip.duration * 0.995 : 0);
       action.crossFadeTo(sitAction, 0.25, false);
       sitAction.play();
       sitAction.paused = false;
@@ -220,7 +235,7 @@ function makeCharacter(gltf) {
 
   character.die = () => {
     character.dead = true;
-    const clip = find('die');
+    const clip = find('Death');
     if (!clip) { root.visible = false; return; }
     const action = mixer.clipAction(clip);
     action.reset();
@@ -407,13 +422,33 @@ async function buildScene(canvas) {
       scene.add(chair);
     }
 
-    const modelName = NPC_MODELS[i - 1];
-    charPromises.push(loadGlb(loader, `models/characters/${modelName}.glb`).then((gltf) => {
-      const character = makeCharacter(gltf);
+    const npc = NPC_MODELS[i - 1];
+    charPromises.push(loadGlb(loader, `models/characters/${npc.model}.gltf`).then((gltf) => {
+      const character = makeCharacter(gltf, npc.skin);
       if (!character) return;
-      character.root.position.copy(pos).add(new THREE.Vector3(0, 0.48, 0));
+      character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
       character.root.rotation.y = facing;
       scene.add(character.root);
+
+      // Snap the frozen seated pose onto the chair: hips over the seat and
+      // feet on the floor, regardless of each clip's baked root offsets.
+      character.mixer.update(0);
+      character.root.updateMatrixWorld(true);
+      const v = new THREE.Vector3();
+      const bone = (n) => character.root.getObjectByName(n) || character.root.getObjectByName(n.replace('.', ''));
+      const hips = bone('Body') || bone('Hips');
+      if (hips) {
+        hips.getWorldPosition(v);
+        const target = seatPos(i, SEAT_RADIUS - 0.02);
+        character.root.position.x += target.x - v.x;
+        character.root.position.z += target.z - v.z;
+      }
+      let minFoot = Infinity;
+      for (const n of ['Foot.L', 'Foot.R']) {
+        const b = bone(n);
+        if (b) { b.getWorldPosition(v); minFoot = Math.min(minFoot, v.y); }
+      }
+      if (isFinite(minFoot)) character.root.position.y -= (minFoot - 0.06);
       seat.char = character;
     }));
 
@@ -640,6 +675,6 @@ window.pokerScene = {
   react(seatIndex, positive) {
     if (!state.ready) return;
     const seat = state.seats[seatIndex];
-    if (seat && seat.char) seat.char.playOnce(positive ? 'emote-yes' : 'emote-no');
+    if (seat && seat.char) seat.char.playOnce(positive ? 'Victory' : 'Defeat');
   }
 };
