@@ -1,7 +1,10 @@
-// First-person saloon poker scene (Three.js). All 3D assets are CC0 —
-// see ASSET_LICENSES.md. Original scene; no third-party game content.
+// First-person saloon poker scene (Three.js). Props/textures are CC0; the
+// table characters are web-optimised conversions of the repo owner's licensed
+// "Arcade Fighters" Unity pack — see ASSET_LICENSES.md. No third-party game
+// content is copied from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
+import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';
 
 const SEATS = 6;               // seat 0 = the player (camera)
 const TABLE_TOP = 0.78;        // table surface height (m)
@@ -9,15 +12,15 @@ const TABLE_RADIUS = 1.12;
 const SEAT_RADIUS = 1.74;
 const EYE_HEIGHT = 1.42;
 
-// Quaternius Ultimate Animated Character Pack (CC0) models per NPC seat (1..5).
-// The pack's colour-only export ships a placeholder near-black 'Skin' material,
-// so each seat also carries a proper skin tone to apply on load.
+// Arcade Fighters (user-licensed, converted to GLB) per NPC seat (1..5).
+// Two base fighters; extra seats use alternate outfit textures so all five
+// opponents read as distinct people.
 const NPC_MODELS = [
-  { model: 'Cowboy_Male', skin: 0xc4885a },     // Davo — weathered cowboy
-  { model: 'Suit_Male', skin: 0xd7a377 },       // Mick — suited gambler
-  { model: 'Cowboy_Female', skin: 0xdcab84 },   // Shazza — cowgirl
-  { model: 'Casual_Bald', skin: 0xb87950 },     // Bluey — ruddy regular
-  { model: 'OldClassy_Male', skin: 0xcfa07a }   // Kev — old classy pro
+  { model: 'Fighter1', tex: null },                 // Davo — purple-gi monk
+  { model: 'Fighter2', tex: null },                 // Mick — red-cap brawler
+  { model: 'Fighter1', tex: 'fighter1_var.jpg' },   // Shazza — crimson gi
+  { model: 'Fighter2', tex: 'fighter2_var.jpg' },   // Bluey — blue brawler
+  { model: 'Fighter1', tex: 'fighter1_green.jpg' }  // Kev — green gi
 ];
 
 const state = {
@@ -170,86 +173,86 @@ function loadGlb(loader, url) {
   }));
 }
 
-function makeCharacter(gltf, skinTone) {
+function makeCharacter(gltf, texPath) {
   if (!gltf) return null;
-  const root = gltf.scene;
+  // Two seats can share one fighter model, so clone the skinned rig per seat.
+  const root = cloneSkinned(gltf.scene);
 
-  // Normalise to a realistic human height (standing pose).
+  // Normalise to a realistic human height using the standing bind pose.
   const box = new THREE.Box3().setFromObject(root);
   const height = Math.max(0.01, box.max.y - box.min.y);
-  const scale = 1.72 / height;
-  root.scale.setScalar(scale);
+  root.scale.setScalar(1.72 / height);
 
-  // Replace the export's placeholder near-black skin with a real skin tone.
-  if (skinTone) {
-    root.traverse((obj) => {
-      if (!obj.isMesh) return;
-      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-      for (const mat of mats) if (mat && mat.name === 'Skin') mat.color.set(skinTone);
-    });
+  // Alternate outfit texture (palette swap) so shared meshes look distinct.
+  let overrideTex = null;
+  if (texPath) {
+    overrideTex = new THREE.TextureLoader().load(`models/characters/${texPath}`);
+    overrideTex.colorSpace = THREE.SRGBColorSpace;
+    overrideTex.flipY = false; // glTF UV convention
   }
 
-  // Tone down the stylised oversized head and mitts for realistic proportions.
-  const headBone = root.getObjectByName('Head');
-  if (headBone) headBone.scale.setScalar(0.62);
-  for (const n of ['FistL', 'FistR', 'Fist.L', 'Fist.R']) {
-    const fist = root.getObjectByName(n);
-    if (fist) fist.scale.setScalar(0.78);
-  }
-
-  root.traverse((obj) => { if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; } });
+  root.traverse((obj) => {
+    if (!obj.isMesh) return;
+    obj.castShadow = true;
+    obj.receiveShadow = true;
+    obj.frustumCulled = false; // skinned mesh bounds lag the animated pose
+    if (overrideTex) {
+      obj.material = obj.material.clone();
+      obj.material.map = overrideTex;
+    }
+  });
 
   const mixer = new THREE.AnimationMixer(root);
   const clips = gltf.animations || [];
   const find = (name) => THREE.AnimationClip.findByName(clips, name);
 
-  // 'SitDown' animates standing -> seated; freeze at the end for a seated pose.
-  const sitClip = find('SitDown') || find('Idle');
+  // 'Sit' is a single-frame poker pose baked during conversion; hold it.
+  const sitClip = find('Sit');
   let sitAction = null;
   if (sitClip) {
     sitAction = mixer.clipAction(sitClip);
     sitAction.play();
-    sitAction.time = sitClip.duration * 0.995;
     sitAction.paused = true;
   }
 
-  const character = { root, mixer, sitAction, find, dead: false };
+  const character = { root, mixer, sitAction, find, dead: false, reacting: false };
 
-  character.playOnce = (name, fallback) => {
-    if (character.dead) return;
-    const clip = find(name) || (fallback ? find(fallback) : null);
+  // Reactions play the opening beat of a fight move, then settle back down.
+  // The source takes are long combo loops, so we cut away on a timer rather
+  // than waiting for the clip to finish.
+  character.playOnce = (name, seconds = 1.5) => {
+    if (character.dead || character.reacting) return;
+    const clip = find(name);
     if (!clip || !sitAction) return;
+    character.reacting = true;
     const action = mixer.clipAction(clip);
     action.reset();
     action.setLoop(THREE.LoopOnce, 1);
-    action.clampWhenFinished = false;
     sitAction.paused = false;
-    sitAction.crossFadeTo(action, 0.2, false);
+    sitAction.crossFadeTo(action, 0.25, false);
     action.play();
-    const onDone = (e) => {
-      if (e.action !== action) return;
-      mixer.removeEventListener('finished', onDone);
+    setTimeout(() => {
       if (character.dead) return;
       sitAction.reset();
-      sitAction.time = (sitClip ? sitClip.duration * 0.995 : 0);
-      action.crossFadeTo(sitAction, 0.25, false);
+      action.crossFadeTo(sitAction, 0.35, false);
       sitAction.play();
-      sitAction.paused = false;
-      setTimeout(() => { sitAction.paused = true; }, 400);
-    };
-    mixer.addEventListener('finished', onDone);
+      setTimeout(() => { sitAction.paused = true; character.reacting = false; }, 450);
+    }, seconds * 1000);
   };
 
   character.die = () => {
     character.dead = true;
-    const clip = find('Death');
-    if (!clip) { root.visible = false; return; }
+    const clip = find('Crouch');
+    if (!clip || !sitAction) { return; }
     const action = mixer.clipAction(clip);
     action.reset();
     action.setLoop(THREE.LoopOnce, 1);
     action.clampWhenFinished = true;
-    if (sitAction) { sitAction.paused = false; sitAction.crossFadeTo(action, 0.3, false); }
+    sitAction.paused = false;
+    sitAction.crossFadeTo(action, 0.4, false);
     action.play();
+    // Hold the slumped-down part of the crouch instead of cycling back up.
+    setTimeout(() => { action.paused = true; }, 1200);
   };
 
   return character;
@@ -430,6 +433,15 @@ async function buildScene(canvas) {
   state.seats = [];
   const charPromises = [];
 
+  // The two fighter GLBs are shared across the five NPC seats.
+  const modelCache = new Map();
+  const loadCharacterModel = (name) => {
+    if (!modelCache.has(name)) {
+      modelCache.set(name, loadGlb(loader, `models/characters/${name}.glb`));
+    }
+    return modelCache.get(name);
+  };
+
   for (let i = 0; i < SEATS; i++) {
     const seat = { group: new THREE.Group(), cards: [], chips: null, char: null, label: null };
     state.seats.push(seat);
@@ -449,20 +461,43 @@ async function buildScene(canvas) {
     }
 
     const npc = NPC_MODELS[i - 1];
-    charPromises.push(loadGlb(loader, `models/characters/${npc.model}.gltf`).then((gltf) => {
-      const character = makeCharacter(gltf, npc.skin);
+    charPromises.push(loadCharacterModel(npc.model).then((gltf) => {
+      const character = makeCharacter(gltf, npc.tex);
       if (!character) return;
       character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
-      character.root.rotation.y = facing;
       scene.add(character.root);
 
-      // Snap the frozen seated pose onto the chair: hips over the seat and
-      // feet on the floor, regardless of each clip's baked root offsets.
+      // Apply the frozen 'Sit' pose before measuring any bones.
       character.mixer.update(0);
       character.root.updateMatrixWorld(true);
+
+      // GLTFLoader sanitises 'Fighter1 L Foot' -> 'Fighter1_L_Foot'; match by
+      // suffix so both fighters resolve the same skeleton landmarks.
+      const bone = (suffix) => {
+        let found = null;
+        character.root.traverse((o) => {
+          if (!found && o.isBone && o.name.endsWith(suffix)) found = o;
+        });
+        return found;
+      };
+
+      // Rigs differ in which axis they face, so measure the model's own
+      // forward (up x left-to-right-foot) and correct toward the table.
+      const lFoot = bone('L_Foot'), rFoot = bone('R_Foot');
+      let modelYaw = 0;
+      if (lFoot && rFoot) {
+        const l = lFoot.getWorldPosition(new THREE.Vector3());
+        const r = rFoot.getWorldPosition(new THREE.Vector3());
+        const fwd = new THREE.Vector3(0, 1, 0).cross(r.sub(l));
+        if (fwd.lengthSq() > 1e-6) modelYaw = Math.atan2(fwd.x, fwd.z);
+      }
+      character.root.rotation.y = facing - modelYaw;
+      character.root.updateMatrixWorld(true);
+
+      // Snap the seated pose onto the chair: hips over the seat and feet on
+      // the floor, regardless of the pose's baked root offsets.
       const v = new THREE.Vector3();
-      const bone = (n) => character.root.getObjectByName(n) || character.root.getObjectByName(n.replace('.', ''));
-      const hips = bone('Body') || bone('Hips');
+      const hips = bone('Pelvis') || bone('Hips');
       if (hips) {
         hips.getWorldPosition(v);
         const target = seatPos(i, SEAT_RADIUS - 0.02);
@@ -470,11 +505,10 @@ async function buildScene(canvas) {
         character.root.position.z += target.z - v.z;
       }
       let minFoot = Infinity;
-      for (const n of ['Foot.L', 'Foot.R']) {
-        const b = bone(n);
+      for (const b of [lFoot, rFoot]) {
         if (b) { b.getWorldPosition(v); minFoot = Math.min(minFoot, v.y); }
       }
-      if (isFinite(minFoot)) character.root.position.y -= (minFoot - 0.06);
+      if (isFinite(minFoot)) character.root.position.y -= (minFoot - 0.09);
       seat.char = character;
     }));
 
@@ -701,6 +735,7 @@ window.pokerScene = {
   react(seatIndex, positive) {
     if (!state.ready) return;
     const seat = state.seats[seatIndex];
-    if (seat && seat.char) seat.char.playOnce(positive ? 'Victory' : 'Defeat');
+    // Winners throw a quick victory strike; losers slump into a crouch.
+    if (seat && seat.char) seat.char.playOnce(positive ? 'Attack' : 'Crouch', positive ? 1.5 : 1.2);
   }
 };

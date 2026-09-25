@@ -1,8 +1,10 @@
 # Asset licence register
 
 Every third-party asset in this repository is listed here **before** being imported,
-per the development plan's licensing rules. Only permissively licensed (CC0 /
-public-domain equivalent) sources are allowed; no third-party IP.
+per the development plan's licensing rules. Sources must be permissively licensed
+(CC0 / public-domain equivalent) or properly licensed to the repository owner (e.g.
+Unity Asset Store purchases, embedded only as converted, integrated derivatives);
+no unlicensed third-party IP.
 
 | Asset | Files in repo | Source | Author | Licence |
 |---|---|---|---|---|
@@ -12,7 +14,7 @@ public-domain equivalent) sources are allowed; no third-party IP.
 | Wood Table 001 — wood texture (diffuse 1K), table rail/base and floor | `Assets/Resources/Poker/Textures/wood.jpg`, `Web/CinematicPoker.Web/wwwroot/img/wood.jpg` | [polyhaven.com/a/wood_table_001](https://polyhaven.com/a/wood_table_001) | Poly Haven (texture team) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | Mini Characters — five rigged 3D NPCs (FBX, embedded idle/sit/emote/die animations) + colormap texture | `Assets/Resources/Poker/Models/Characters/*.fbx`, `Assets/Resources/Poker/Models/Characters/Textures/colormap.png` | [kenney.nl/assets/mini-characters](https://kenney.nl/assets/mini-characters) | Kenney Vleugels (kenney.nl) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | Furniture Kit — chair, ceiling lamp, round rug, potted plant, radio (FBX); chair (GLB) for web scene | `Assets/Resources/Poker/Models/Furniture/*.fbx`, `Web/CinematicPoker.Web/wwwroot/models/props/furniture/chair.glb` | [kenney.nl/assets/furniture-kit](https://kenney.nl/assets/furniture-kit) | Kenney Vleugels (kenney.nl) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
-| Ultimate Animated Character Pack — five rigged human characters (glTF, embedded SitDown/Victory/Defeat/Death etc. animations) for the web 3D scene | `Web/CinematicPoker.Web/wwwroot/models/characters/*.gltf` | [quaternius.com](https://quaternius.com/packs/ultimatedanimatedcharacter.html) | Quaternius | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| Arcade Fighters — two rigged fighter characters used as the web scene's table NPCs. Converted to web-optimised GLB (baked seated pose + Idle/Attack/Crouch/Jump clips) plus recoloured outfit textures. The original `.unitypackage` and its raw FBX/TGA sources are **not** included in this repository — only these converted derivatives. | `Web/CinematicPoker.Web/wwwroot/models/characters/Fighter1.glb`, `Fighter2.glb`, `fighter1_var.jpg`, `fighter1_green.jpg`, `fighter2_var.jpg` | Unity Asset Store (pack licensed to the repository owner, supplied privately for this project) | Original pack author (Unity Asset Store) | [Unity Asset Store EULA](https://unity.com/legal/as-terms) — single-entity licence held by the repo owner; assets embedded as integrated, converted parts of this project only |
 | Survival Kit — barrel, crate, bottles (GLB) + colormap, saloon props | `Web/CinematicPoker.Web/wwwroot/models/props/survival/*.glb`, `Web/CinematicPoker.Web/wwwroot/models/props/survival/Textures/colormap.png` | [kenney.nl/assets/survival-kit](https://kenney.nl/assets/survival-kit) | Kenney Vleugels (kenney.nl) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | Food Kit — mug (GLB) + colormap, saloon prop | `Web/CinematicPoker.Web/wwwroot/models/props/food/mug.glb`, `Web/CinematicPoker.Web/wwwroot/models/props/food/Textures/colormap.png` | [kenney.nl/assets/food-kit](https://kenney.nl/assets/food-kit) | Kenney Vleugels (kenney.nl) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | Worn Planks — wood plank texture (diffuse 1K), saloon floor | `Web/CinematicPoker.Web/wwwroot/img/floor_planks.jpg` | [polyhaven.com/a/worn_planks](https://polyhaven.com/a/worn_planks) | Poly Haven (texture team) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
