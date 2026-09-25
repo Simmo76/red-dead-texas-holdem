@@ -111,7 +111,8 @@
     private PokerRound Round => _game?.CurrentRound;
     private long PotNow => Round?.PotTotal ?? 0;
 
-    private int ThinkTimeMs => _quickMode ? _rng.Next(150, 450) : _rng.Next(650, 1900);
+    // NPC turns are always at least 1 second apart so the table stays readable.
+    private int ThinkTimeMs => _quickMode ? 1000 : _rng.Next(1000, 2200);
     private int NextHandDelayMs => _quickMode ? 700 : 2600;
     private const int EquityIterations = 200;
 
