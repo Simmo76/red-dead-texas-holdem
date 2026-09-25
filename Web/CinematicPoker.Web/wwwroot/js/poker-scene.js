@@ -305,6 +305,9 @@ async function buildScene(canvas) {
     baseYaw: camera.rotation.y, basePitch: camera.rotation.x
   };
   state.view = view;
+  state.zoom = { active: false, savedYaw: 0, savedPitch: 0 };
+  state.baseFov = camera.fov;
+  state.camera = camera;
   setupLookControls(canvas, view);
 
   // ---- lighting: warm lantern over the table, dim saloon ambience
@@ -567,6 +570,14 @@ async function buildScene(canvas) {
     view.pitch += (view.targetPitch - view.pitch) * ease;
     camera.rotation.set(view.pitch, view.yaw, 0);
 
+    // Ease the card-zoom lens in/out; hide in-hand cards while leaning in.
+    const targetFov = state.zoom.active ? 27 : (state.baseFov || 56);
+    if (Math.abs(camera.fov - targetFov) > 0.05) {
+      camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 8);
+      camera.updateProjectionMatrix();
+    }
+    holeGroup.visible = !state.zoom.active;
+
     resizeIfNeeded(canvas, renderer, camera);
     renderer.render(scene, camera);
   });
@@ -603,20 +614,59 @@ function setupLookControls(canvas, view) {
   const release = (e) => {
     if (e.pointerId !== activePointer) return;
     activePointer = -1;
+    if (moved >= 8) return; // it was a drag, not a tap
+
+    // While zoomed on a card, any tap zooms back out.
+    if (state.zoom.active) {
+      state.zoom.active = false;
+      view.targetYaw = state.zoom.savedYaw;
+      view.targetPitch = state.zoom.savedPitch;
+      return;
+    }
+
+    // Tap on a table card: lean in for a close look.
+    const hit = pickTableCard(canvas, e);
+    if (hit) {
+      state.zoom.active = true;
+      state.zoom.savedYaw = view.targetYaw;
+      state.zoom.savedPitch = view.targetPitch;
+      const d = hit.sub(state.camera.position);
+      const len = d.length();
+      view.targetYaw = Math.atan2(-d.x, -d.z);
+      view.targetPitch = THREE.MathUtils.clamp(Math.asin(d.y / len), PITCH_MIN, PITCH_MAX);
+      return;
+    }
+
     // Double-tap (without dragging) snaps the view back to the table.
-    if (moved < 8) {
-      const now = performance.now();
-      if (now - lastTapAt < 350) {
-        view.targetYaw = view.baseYaw;
-        view.targetPitch = view.basePitch;
-        lastTapAt = 0;
-      } else {
-        lastTapAt = now;
-      }
+    const now = performance.now();
+    if (now - lastTapAt < 350) {
+      view.targetYaw = view.baseYaw;
+      view.targetPitch = view.basePitch;
+      lastTapAt = 0;
+    } else {
+      lastTapAt = now;
     }
   };
   canvas.addEventListener('pointerup', release);
   canvas.addEventListener('pointercancel', release);
+}
+
+// Raycast a tap against the community/seat cards; returns the hit card's
+// world position (centre of the tapped card group region) or null.
+const _raycaster = new THREE.Raycaster();
+const _ndc = new THREE.Vector2();
+function pickTableCard(canvas, e) {
+  if (!state.camera) return null;
+  const rect = canvas.getBoundingClientRect();
+  _ndc.set(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1);
+  _raycaster.setFromCamera(_ndc, state.camera);
+  const targets = [...state.boardCards];
+  for (const seat of state.seats) targets.push(...seat.cards);
+  const hits = _raycaster.intersectObjects(targets, false);
+  if (!hits.length) return null;
+  return hits[0].object.getWorldPosition(new THREE.Vector3());
 }
 
 let lastW = 0, lastH = 0;
@@ -628,8 +678,10 @@ function resizeIfNeeded(canvas, renderer, camera) {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   // Tall portrait phones need a wider view to keep the table in frame.
-  camera.fov = camera.aspect < 0.8 ? 70 : 56;
+  state.baseFov = camera.aspect < 0.8 ? 70 : 56;
+  if (!state.zoom || !state.zoom.active) camera.fov = state.baseFov;
   camera.updateProjectionMatrix();
+  layoutHoleCards();
 }
 
 // ------------------------------------------------------------------ state updates
@@ -658,11 +710,27 @@ function updateHole(paths) {
     const card = makeCard(paths[i], 0.15, true);
     card.material.depthTest = false;
     card.renderOrder = 20;
-    const dir = i === 0 ? -1 : 1;
-    card.position.set(0.05 + dir * 0.05, -0.26, -0.52);
-    card.rotation.set(-0.3, 0, dir * 0.12);
     state.holeCards.push(card);
     state.holeGroup.add(card);
+  }
+  layoutHoleCards();
+}
+
+// Portrait phones stack the HUD over the bottom of the screen, so lift the
+// hole cards up and shrink them a touch; landscape keeps them low and large.
+function layoutHoleCards() {
+  const portrait = state.camera && state.camera.aspect < 0.8;
+  for (let i = 0; i < state.holeCards.length; i++) {
+    const card = state.holeCards[i];
+    const dir = i === 0 ? -1 : 1;
+    if (portrait) {
+      card.position.set(0.035 + dir * 0.042, -0.09, -0.5);
+      card.scale.setScalar(0.78);
+    } else {
+      card.position.set(0.05 + dir * 0.05, -0.26, -0.52);
+      card.scale.setScalar(1);
+    }
+    card.rotation.set(-0.3, 0, dir * 0.12);
   }
 }
 
@@ -753,6 +821,11 @@ window.pokerScene = {
       if (seat.label) drawLabel(seat.label, data);
       if (seat.char && data.out && !seat.char.dead) seat.char.die();
     }
+
+    // Busted players stop joining the table chatter.
+    if (window.pokerAudio && window.pokerAudio.setAlive) {
+      window.pokerAudio.setAlive(seats.filter(s => s.seat !== 0 && !s.out).map(s => s.seat));
+    }
   },
 
   react(seatIndex, positive) {
@@ -760,5 +833,9 @@ window.pokerScene = {
     const seat = state.seats[seatIndex];
     // Winners throw a quick victory strike; losers slump into a crouch.
     if (seat && seat.char) seat.char.playOnce(positive ? 'Attack' : 'Crouch', positive ? 1.5 : 1.2);
+    // Sometimes they say something about it, too.
+    if (window.pokerAudio && Math.random() < (positive ? 0.8 : 0.35)) {
+      window.pokerAudio.voice(seatIndex, positive ? 'win' : 'lose');
+    }
   }
 };

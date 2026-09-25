@@ -13,7 +13,7 @@
     <header class="topbar">
         <div class="brand">CINEMATIC <span>POKER</span></div>
         <div class="topbar-right">
-            <button class="chip-btn @(_muted ? "" : "active")" @onclick="() => _muted = !_muted">
+            <button class="chip-btn @(_muted ? "" : "active")" @onclick="ToggleMute">
                 @(_muted ? "SOUND OFF" : "SOUND ON")
             </button>
             <button class="chip-btn @(_quickMode ? "active" : "")" @onclick="ToggleMode">
@@ -418,6 +418,12 @@
     // -------------------------------------------------------------- sounds
 
     private bool _muted;
+
+    private void ToggleMute()
+    {
+        _muted = !_muted;
+        _ = JS.InvokeVoidAsync("pokerAudio.setMuted", _muted);
+    }
 
     private static readonly Dictionary<string, string[]> SoundGroups = new()
     {
