@@ -23,6 +23,9 @@ const NPC_MODELS = [
   { model: 'Fighter1', tex: 'fighter1_green.jpg' }  // Kev — green gi
 ];
 
+const _idleQuat = new THREE.Quaternion();
+const _idleEuler = new THREE.Euler();
+
 const state = {
   ready: false,
   renderer: null, scene: null, camera: null, clock: null,
@@ -214,6 +217,24 @@ function makeCharacter(gltf, texPath) {
   }
 
   const character = { root, mixer, sitAction, find, dead: false, reacting: false };
+
+  // Layer subtle life over the held pose: slow breathing through the spine
+  // and an occasional head drift, so seated players never look frozen.
+  // Applied after the mixer writes each frame, so offsets never accumulate.
+  const idlePhase = Math.random() * Math.PI * 2;
+  const idleBones = [];
+  root.traverse((o) => {
+    if (o.isBone && /(_Spine1|_Spine2|_Head)$/.test(o.name)) idleBones.push(o);
+  });
+  character.idle = (t) => {
+    for (const b of idleBones) {
+      const head = b.name.endsWith('_Head');
+      const breathe = Math.sin(t * (head ? 0.9 : 1.15) + idlePhase) * (head ? 0.03 : 0.02);
+      const drift = head ? Math.sin(t * 0.16 + idlePhase * 2.3) * 0.1 : 0;
+      _idleQuat.setFromEuler(_idleEuler.set(breathe, drift, breathe * 0.5));
+      b.quaternion.multiply(_idleQuat);
+    }
+  };
 
   // Reactions play the opening beat of a fight move, then settle back down.
   // The source takes are long combo loops, so we cut away on a timer rather
@@ -534,7 +555,11 @@ async function buildScene(canvas) {
 
   renderer.setAnimationLoop(() => {
     const dt = state.clock.getDelta();
-    for (const seat of state.seats) if (seat.char) seat.char.mixer.update(dt);
+    const t = state.clock.elapsedTime;
+    for (const seat of state.seats) if (seat.char) {
+      seat.char.mixer.update(dt);
+      seat.char.idle(t);
+    }
 
     // Smoothly ease the camera toward where the finger dragged it.
     const ease = Math.min(1, dt * 14);
