@@ -198,9 +198,11 @@
         _ = JS.InvokeVoidAsync("pokerScene.react", seat, positive);
     }
 
+    // Unlike reactions, action gestures also play on the player's own body
+    // (visible from the over-the-shoulder camera).
     private void SceneAction(int seat, string kind)
     {
-        if (!_sceneReady || seat == 0) return;
+        if (!_sceneReady) return;
         _ = JS.InvokeVoidAsync("pokerScene.action", seat, kind);
     }
 
@@ -360,6 +362,14 @@
                 break;
 
             default:
+                // Chip-toss gesture whenever someone puts chips in the middle.
+                switch (evt)
+                {
+                    case PlayerCalled pc: SceneAction(pc.Seat, "bet"); break;
+                    case BetPlaced bp: SceneAction(bp.Seat, "bet"); break;
+                    case PlayerRaised pr: SceneAction(pr.Seat, "bet"); break;
+                    case PlayerAllIn pa: SceneAction(pa.Seat, "bet"); break;
+                }
                 string line = Describe(evt);
                 if (line != null) AddLog(line);
                 break;

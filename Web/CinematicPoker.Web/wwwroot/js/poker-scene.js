@@ -1,7 +1,7 @@
-// First-person saloon poker scene (Three.js). Props/textures are CC0; the
-// table characters are web-optimised conversions of the repo owner's licensed
-// "Arcade Fighters" Unity pack — see ASSET_LICENSES.md. No third-party game
-// content is copied from other titles.
+// Over-the-shoulder saloon poker scene (Three.js). Props/textures are CC0;
+// the table characters are web-optimised conversions of the repo owner's
+// licensed CrowArt "Hunter" Unity asset — see ASSET_LICENSES.md. No
+// third-party game content is copied from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';
@@ -12,19 +12,24 @@ const TABLE_RADIUS = 1.12;
 const SEAT_RADIUS = 1.74;
 const EYE_HEIGHT = 1.42;
 
-// Arcade Fighters (user-licensed, converted to GLB) per NPC seat (1..5).
-// Two base fighters; extra seats use alternate outfit textures so all five
-// opponents read as distinct people.
+// All six players are variations of the owner-licensed CrowArt "Hunter"
+// western character (converted to GLB): different hats plus shirt palette
+// swaps so everyone at the table reads as a distinct person.
+//   hat: 'top' | 'fedora' | null (bare-headed)
 const NPC_MODELS = [
-  { model: 'Fighter1', tex: null },                 // Davo — purple-gi monk
-  { model: 'Fighter2', tex: null },                 // Mick — red-cap brawler
-  { model: 'Fighter1', tex: 'fighter1_var.jpg' },   // Shazza — crimson gi
-  { model: 'Fighter2', tex: 'fighter2_var.jpg' },   // Bluey — blue brawler
-  { model: 'Fighter1', tex: 'fighter1_green.jpg' }  // Kev — green gi
+  { model: 'Hunter', hat: 'fedora', tex: null },                     // Davo
+  { model: 'Hunter', hat: null, tex: 'hunter_shirt_red.jpg' },       // Mick
+  { model: 'Hunter', hat: 'top', tex: null },                        // Shazza
+  { model: 'Hunter', hat: 'fedora', tex: 'hunter_shirt_blue.jpg' },  // Bluey
+  { model: 'Hunter', hat: null, tex: 'hunter_shirt_green.jpg' }      // Kev
 ];
 
-// The player's own body, seen from the over-the-shoulder camera.
-const PLAYER_MODEL = { model: 'Fighter2', tex: 'fighter2_dark.jpg' };
+// The player's own body, seen from the over-the-shoulder camera. He uses the
+// card-holding sit loop, and his hole cards ride in his raised left hand.
+const PLAYER_MODEL = { model: 'Hunter', hat: 'top', tex: 'hunter_shirt_dark.jpg', cards: true };
+
+// The Hunter GLB is authored at ~0.40 units tall; scale to life size.
+const CHAR_SCALE = 4.3;
 
 const _idleQuat = new THREE.Quaternion();
 const _idleEuler = new THREE.Euler();
@@ -174,6 +179,33 @@ function makeChipStacks(amount, spread = 0.05) {
   return group;
 }
 
+// ------------------------------------------------------------------ dealer arrow
+
+// A golden arrow hanging over the head of whoever must act, pointing down.
+function makeDealerArrow() {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xe8b23c, emissive: 0x8a5f12, roughness: 0.35, metalness: 0.4
+  });
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.12, 12), mat);
+  tip.rotation.x = Math.PI; // point straight down
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.12, 10), mat);
+  shaft.position.y = 0.115;
+  group.add(tip, shaft);
+  group.visible = false;
+  return group;
+}
+
+function updateDealerArrow(dealerSeat) {
+  const arrow = state.dealerArrow;
+  if (!arrow) return;
+  if (dealerSeat < 0) { arrow.visible = false; return; }
+  const pos = seatPos(dealerSeat, SEAT_RADIUS - 0.1);
+  // Hang it above the seated character's head (labels float higher still).
+  arrow.position.set(pos.x, 1.62, pos.z);
+  arrow.visible = true;
+}
+
 // ------------------------------------------------------------------ characters
 
 function loadGlb(loader, url) {
@@ -183,28 +215,30 @@ function loadGlb(loader, url) {
   }));
 }
 
-function makeCharacter(gltf, texPath) {
+function makeCharacter(gltf, spec) {
   if (!gltf) return null;
-  // Two seats can share one fighter model, so clone the skinned rig per seat.
-  // The GLBs are exported in real-world metres (~1.7m standing), so no
-  // rescaling: a bounding-box measure would be wrong anyway, because the
-  // armature root carries an FBX 0.01 scale that skinning compensates for.
+  // All seats share one Hunter model, so clone the skinned rig per seat.
   const root = cloneSkinned(gltf.scene);
+  root.scale.setScalar(CHAR_SCALE);
 
-  // Alternate outfit texture (palette swap) so shared meshes look distinct.
+  // Shirt palette swap so shared meshes look distinct (torso only: the head,
+  // hats and trousers keep their original textures).
   let overrideTex = null;
-  if (texPath) {
-    overrideTex = new THREE.TextureLoader().load(`models/characters/${texPath}`);
+  if (spec.tex) {
+    overrideTex = new THREE.TextureLoader().load(`models/characters/${spec.tex}`);
     overrideTex.colorSpace = THREE.SRGBColorSpace;
     overrideTex.flipY = false; // glTF UV convention
   }
 
   root.traverse((obj) => {
     if (!obj.isMesh) return;
+    // Each seat wears at most one of the two hat meshes in the GLB.
+    if (obj.name === 'top_hat') obj.visible = spec.hat === 'top';
+    if (obj.name === 'fedora_hat') obj.visible = spec.hat === 'fedora';
     obj.castShadow = true;
     obj.receiveShadow = true;
     obj.frustumCulled = false; // skinned mesh bounds lag the animated pose
-    if (overrideTex) {
+    if (overrideTex && obj.name === 'hunting_mesh') {
       obj.material = obj.material.clone();
       obj.material.map = overrideTex;
     }
@@ -215,8 +249,9 @@ function makeCharacter(gltf, texPath) {
   const find = (name) => THREE.AnimationClip.findByName(clips, name);
 
   // 'Sit' is a looping seated idle retargeted from the Quaternius UAL (CC0).
-  // Random start offsets keep the five players from breathing in unison.
-  const sitClip = find('Sit');
+  // The player's own body uses 'SitCards' (left hand raised holding cards).
+  // Random start offsets keep the players from breathing in unison.
+  const sitClip = (spec.cards && find('SitCards')) || find('Sit');
   let sitAction = null;
   if (sitClip) {
     sitAction = mixer.clipAction(sitClip);
@@ -232,7 +267,7 @@ function makeCharacter(gltf, texPath) {
   const idlePhase = Math.random() * Math.PI * 2;
   const idleBones = [];
   root.traverse((o) => {
-    if (o.isBone && /_Head$/.test(o.name)) idleBones.push(o);
+    if (o.isBone && o.name === 'head') idleBones.push(o);
   });
   character.idle = (t) => {
     for (const b of idleBones) {
@@ -375,6 +410,9 @@ async function buildScene(canvas) {
   lampGroup.add(cord, shade, bulb);
   scene.add(lampGroup);
 
+  state.dealerArrow = makeDealerArrow();
+  scene.add(state.dealerArrow);
+
   // ---- room (Poly Haven CC0 plank textures)
   const floorTex = texture('img/floor_planks.jpg');
   floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
@@ -494,19 +532,17 @@ async function buildScene(canvas) {
     character.mixer.update(0);
     character.root.updateMatrixWorld(true);
 
-    // GLTFLoader sanitises 'Fighter1 L Foot' -> 'Fighter1_L_Foot'; match by
-    // suffix so both fighters resolve the same skeleton landmarks.
-    const bone = (suffix) => {
+    const bone = (name) => {
       let found = null;
       character.root.traverse((o) => {
-        if (!found && o.isBone && o.name.endsWith(suffix)) found = o;
+        if (!found && o.isBone && o.name === name) found = o;
       });
       return found;
     };
 
     // Rigs differ in which axis they face, so measure the model's own
     // forward (up x left-to-right-foot) and correct toward the table.
-    const lFoot = bone('L_Foot'), rFoot = bone('R_Foot');
+    const lFoot = bone('L_ankle'), rFoot = bone('R_ankle');
     let modelYaw = 0;
     if (lFoot && rFoot) {
       const l = lFoot.getWorldPosition(new THREE.Vector3());
@@ -518,7 +554,7 @@ async function buildScene(canvas) {
     character.root.updateMatrixWorld(true);
 
     const v = new THREE.Vector3();
-    const hips = bone('Pelvis') || bone('Hips');
+    const hips = bone('hips');
     if (hips) {
       hips.getWorldPosition(v);
       const target = seatPos(i, SEAT_RADIUS - 0.02);
@@ -552,7 +588,7 @@ async function buildScene(canvas) {
     // Seat 0 is the player's own body, seen from behind by the camera.
     const spec = i === 0 ? PLAYER_MODEL : NPC_MODELS[i - 1];
     charPromises.push(loadCharacterModel(spec.model).then((gltf) => {
-      const character = makeCharacter(gltf, spec.tex);
+      const character = makeCharacter(gltf, spec);
       if (!character) return;
       placeSeatedCharacter(character, i, facing);
       seat.char = character;
@@ -569,11 +605,13 @@ async function buildScene(canvas) {
 
   await Promise.all([...props, ...charPromises]);
 
-  // ---- hole cards "in hand", attached to the camera
-  const holeGroup = new THREE.Group();
-  camera.add(holeGroup);
-  scene.add(camera);
-  state.holeGroup = holeGroup;
+  // The player's hole cards ride in his character's raised left hand.
+  state.playerHand = null;
+  if (state.seats[0].char) {
+    state.seats[0].char.root.traverse((o) => {
+      if (!state.playerHand && o.isBone && o.name === 'L_wrist') state.playerHand = o;
+    });
+  }
 
   state.renderer = renderer;
   state.scene = scene;
@@ -596,11 +634,16 @@ async function buildScene(canvas) {
     view.pitch += (view.targetPitch - view.pitch) * ease;
     camera.rotation.set(view.pitch, view.yaw, 0);
 
-    // Fly the camera between the seat and the top-down card view; hide the
-    // in-hand cards while hovering over the table.
+    // Fly the camera between the seat and the top-down card view.
     camera.position.lerp(state.zoom.active ? state.zoom.pos : state.camHome, Math.min(1, dt * 6));
-    holeGroup.visible = !state.zoom.active;
 
+    // The dealer arrow bobs and slowly spins over the dealer's head.
+    if (state.dealerArrow && state.dealerArrow.visible) {
+      state.dealerArrow.position.y = 1.62 + Math.sin(t * 2.2) * 0.035;
+      state.dealerArrow.rotation.y = t * 1.2;
+    }
+
+    positionHandCards(camera);
     resizeIfNeeded(canvas, renderer, camera);
     renderer.render(scene, camera);
   });
@@ -721,7 +764,6 @@ function resizeIfNeeded(canvas, renderer, camera) {
   camera.fov = state.baseFov;
   camera.updateProjectionMatrix();
   if (state.applyCameraHome) state.applyCameraHome();
-  layoutHoleCards();
 }
 
 // ------------------------------------------------------------------ state updates
@@ -745,32 +787,38 @@ function updateBoard(paths) {
 }
 
 function updateHole(paths) {
-  clearGroupChildren(state.holeCards, state.holeGroup);
+  clearGroupChildren(state.holeCards, state.scene);
   for (let i = 0; i < paths.length; i++) {
-    const card = makeCard(paths[i], 0.15, true);
-    card.material.depthTest = false;
-    card.renderOrder = 20;
+    const card = makeCard(paths[i], 0.105, true);
+    card.visible = false; // shown once positioned in the hand
     state.holeCards.push(card);
-    state.holeGroup.add(card);
+    state.scene.add(card);
   }
-  layoutHoleCards();
 }
 
-// The hole cards sit low and to the right of the player's body, reading like
-// a hand he's holding up. Portrait phones lift them clear of the HUD buttons.
-function layoutHoleCards() {
-  const portrait = state.camera && state.camera.aspect < 0.8;
+// Fan the hole cards in the player character's raised left hand, tilted back
+// toward the camera so they read over his shoulder, like a held poker hand.
+const _handPos = new THREE.Vector3();
+const _camDir = new THREE.Vector3();
+function positionHandCards(camera) {
+  if (!state.holeCards.length) return;
+  const bone = state.playerHand;
+  if (!bone) return;
+  bone.getWorldPosition(_handPos);
+  // Sit the fan just above the palm, nudged toward the camera so the
+  // character's fingers don't poke through the card faces.
+  _camDir.copy(camera.position).sub(_handPos).normalize();
+  _handPos.addScaledVector(_camDir, 0.06);
+  _handPos.y += 0.05;
   for (let i = 0; i < state.holeCards.length; i++) {
     const card = state.holeCards[i];
     const dir = i === 0 ? -1 : 1;
-    if (portrait) {
-      card.position.set(0.1 + dir * 0.034, -0.17, -0.5);
-      card.scale.setScalar(0.62);
-    } else {
-      card.position.set(0.19 + dir * 0.045, -0.24, -0.52);
-      card.scale.setScalar(0.85);
-    }
-    card.rotation.set(-0.3, 0, dir * 0.12);
+    card.visible = !state.zoom.active;
+    card.position.copy(_handPos);
+    card.lookAt(camera.position);
+    card.rotateZ(dir * 0.16);      // fan the pair like a held hand
+    card.translateX(dir * 0.026);
+    card.translateY(0.03);
   }
 }
 
@@ -858,6 +906,9 @@ window.pokerScene = {
     if (!prev || prev.pot !== snapshot.pot) updatePot(snapshot.pot);
 
     const seats = snapshot.seats || [];
+    // The arrow tracks whoever currently has to act (including the player).
+    const actor = seats.find(s => s.actor);
+    updateDealerArrow(actor ? actor.seat : -1);
     for (const data of seats) {
       const seat = state.seats[data.seat];
       if (!seat) continue;
@@ -887,15 +938,23 @@ window.pokerScene = {
     if (seat && seat.char && !seat.char.dead) seat.char.playOnce('Talk', 2.8);
   },
 
-  // Betting-action gestures: a knuckle tap over the felt for a check, a
-  // toss-the-cards-away flick for a fold (slowed so it reads deliberate).
+  // Betting-action gestures: a knuckle tap over the felt for a check, a chip
+  // toss for a call/bet/raise, and a fold — opponents flick their cards away,
+  // while the player's own character shakes his head with crossed arms.
   action(seatIndex, kind) {
     if (!state.ready) return;
     const seat = state.seats[seatIndex];
     if (!seat || !seat.char || seat.char.dead) return;
     if (kind === 'check') {
       seat.char.playOnce('Check', 1.9);
+    } else if (kind === 'bet') {
+      // A quick flick of the wrist, tossing chips toward the pot.
+      seat.char.playOnce('Bet', 1.0, 0.7);
     } else if (kind === 'fold') {
+      if (seatIndex === 0) {
+        seat.char.playOnce('FoldShake', 1.9);
+        return;
+      }
       seat.char.playOnce('Fold', 1.0, 0.55);
       // Sometimes they grumble about it, too.
       if (window.pokerAudio && Math.random() < 0.25) {
