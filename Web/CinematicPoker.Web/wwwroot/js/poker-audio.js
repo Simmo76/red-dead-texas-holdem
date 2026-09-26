@@ -66,8 +66,8 @@ window.pokerAudio = (function () {
     // in the desert, disco in the club, the saloon loop everywhere else.
     const MUSIC_BY_SCENE = {
         BEACH: 'audio/music-beach.mp3',
-        DESERT: 'audio/music-western.mp3',
-        CLUB: 'audio/music-disco.mp3'
+        DESERT: 'audio/music-desert.mp3',
+        CLUB: 'audio/music-club.mp3'
     };
     let musicUrl = 'audio/saloon-music.mp3';
 
