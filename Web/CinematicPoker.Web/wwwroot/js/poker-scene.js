@@ -260,17 +260,22 @@ function loadGlb(loader, url) {
   }));
 }
 
-// Clone a material with a hue-rotate + desaturate pass applied to its albedo
-// (Rodrigues rotation about the grey axis), so one shared shirt texture can
-// yield genuinely different colours per seat.
-function shirtRecolour(material, shirt) {
-  const hue = (shirt.hue || 0) * Math.PI / 180;
-  const sat = shirt.sat !== undefined ? shirt.sat : 1;
+// Per-character clone of a mesh material with two shader hooks:
+// - shirt: a hue-rotate + desaturate pass on the albedo (Rodrigues rotation
+//   about the grey axis), so one shared shirt texture can yield genuinely
+//   different colours per seat (a plain colour multiply can only darken).
+// - uGrey: a fold grey-out on the final colour — while raised, the fragment
+//   collapses to luminance, and with the material's opacity lowered the
+//   folded player reads as a grey semi-transparent ghost until the next hand.
+function characterMaterial(material, shirt) {
+  const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
+  const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
   const m = material.clone();
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uHue = { value: hue };
     shader.uniforms.uSat = { value: sat };
-    shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\n' +
+    shader.uniforms.uGrey = { value: m.userData.foldGrey || 0 };
+    shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\nuniform float uGrey;\n' +
       shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
       {
         const vec3 kGrey = vec3(0.57735026919);
@@ -279,9 +284,12 @@ function shirtRecolour(material, shirt) {
         c = c * ca + cross(kGrey, c) * sa + kGrey * dot(kGrey, c) * (1.0 - ca);
         c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uSat);
         diffuseColor.rgb = clamp(c, 0.0, 1.0);
-      }`);
+      }`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
+      gl_FragColor.rgb = mix(gl_FragColor.rgb,
+        vec3(dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114)) * 0.85), uGrey);`);
+    m.userData.foldShader = shader;
   };
-  m.customProgramCacheKey = () => `shirt-${hue.toFixed(3)}-${sat}`;
+  m.customProgramCacheKey = () => `char-${hue.toFixed(3)}-${sat}`;
   return m;
 }
 
@@ -291,16 +299,21 @@ function makeCharacter(gltf, spec) {
   const root = cloneSkinned(gltf.scene);
   root.scale.setScalar(CHAR_SCALE);
 
+  // Every mesh gets a per-seat material clone so this character can grey out
+  // independently when he folds; the uniform top additionally gets the
+  // recolour so seats sharing the model look distinct (the trousers, head
+  // and hair keep their original texture colours).
+  const bodyMeshes = [];
+  const bodyMats = [];
   root.traverse((obj) => {
     if (!obj.isMesh) return;
     obj.castShadow = true;
     obj.receiveShadow = true;
     obj.frustumCulled = false; // skinned mesh bounds lag the animated pose
-    // Uniform-top recolour so seats sharing the model look distinct (the
-    // trousers, head and hair keep their original texture colours).
-    if (spec.shirt && obj.name === 'jimmy_body_top') {
-      obj.material = shirtRecolour(obj.material, spec.shirt);
-    }
+    const shirt = spec.shirt && obj.name === 'jimmy_body_top' ? spec.shirt : null;
+    obj.material = characterMaterial(obj.material, shirt);
+    bodyMeshes.push(obj);
+    bodyMats.push(obj.material);
   });
 
   const mixer = new THREE.AnimationMixer(root);
@@ -325,7 +338,29 @@ function makeCharacter(gltf, spec) {
   const character = {
     root, mixer, sitAction, find,
     dead: false, reacting: false, freezeSit, armPose: null, armW: 1,
-    outlineOn: false,
+    outlineOn: false, folded: false, foldW: 0,
+  };
+
+  // Folded players ghost out for the rest of the hand: grey (uGrey collapses
+  // the fragment to luminance) and semi-transparent, with their shadow
+  // dropped so the ghost look reads. Eased in/out by updateFold each frame;
+  // the flag simply mirrors the engine's per-hand folded state, so everyone
+  // returns to full colour when the next hand starts.
+  character.setFolded = (on) => { character.folded = on; };
+  character.updateFold = (dt) => {
+    const target = character.folded ? 1 : 0;
+    if (character.foldW === target) return;
+    character.foldW += (target - character.foldW) * Math.min(1, dt * 3.5);
+    if (Math.abs(character.foldW - target) < 0.01) character.foldW = target;
+    const w = character.foldW;
+    const ghost = w > 0.001;
+    for (const m of bodyMats) {
+      if (m.transparent !== ghost) { m.transparent = ghost; m.needsUpdate = true; }
+      m.opacity = 1 - w * 0.55;
+      m.userData.foldGrey = w;
+      if (m.userData.foldShader) m.userData.foldShader.uniforms.uGrey.value = w;
+    }
+    for (const mesh of bodyMeshes) mesh.castShadow = w < 0.5;
   };
 
   // Inverted-hull outline (the classic stencil-outline look): a back-face
@@ -781,6 +816,7 @@ async function buildScene(canvas) {
       seat.char.mixer.update(dt);
       seat.char.idle(t);
       seat.char.applyArmPose(dt);
+      seat.char.updateFold(dt);
     }
 
     // Ease the orbit offsets toward where the mouse/finger steered them,
@@ -1830,6 +1866,10 @@ window.pokerScene = {
         updateStackChips(seat, data.seat, data);
       }
       if (seat.label) drawLabel(seat.label, data);
+      // Folded players (the human included) sit out the rest of the hand as
+      // grey semi-transparent ghosts; the flag clears when the next hand
+      // deals, so the fade back in happens on its own.
+      if (seat.char) seat.char.setFolded(!!data.folded && !data.out);
       if (seat.char && data.out) {
         // A bust plays the lose slump once and then settles back to sitting
         // (player and NPCs alike) instead of holding a permanent slump.
