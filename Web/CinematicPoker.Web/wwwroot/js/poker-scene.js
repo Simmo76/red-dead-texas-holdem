@@ -283,6 +283,10 @@ function makeCharacter(gltf, spec) {
     if (o.isBone && o.name === 'head') idleBones.push(o);
   });
   character.idle = (t) => {
+    // Not for the player: his sit pose is paused, so the mixer skips
+    // rewriting bones whose values stopped changing — multiplying a drift
+    // on top every frame would accumulate into an endless head spin.
+    if (character.freezeSit) return;
     for (const b of idleBones) {
       const drift = Math.sin(t * 0.16 + idlePhase * 2.3) * 0.09;
       _idleQuat.setFromEuler(_idleEuler.set(0, drift, 0));
@@ -405,7 +409,8 @@ async function buildScene(canvas) {
   const view = {
     homeYaw: 0, homePitch: 0, dist: 2.8,
     offYaw: 0, offPitch: 0,
-    targetOffYaw: 0, targetOffPitch: 0
+    targetOffYaw: 0, targetOffPitch: 0,
+    distScale: 1, targetDistScale: 1 // pinch zoom scales the orbit radius
   };
   state.view = view;
   state.pivot = new THREE.Vector3(0, TABLE_TOP, 0);
@@ -682,6 +687,7 @@ async function buildScene(canvas) {
     const ease = Math.min(1, dt * 8);
     view.offYaw += (view.targetOffYaw - view.offYaw) * ease;
     view.offPitch += (view.targetOffPitch - view.offPitch) * ease;
+    view.distScale += (view.targetDistScale - view.distScale) * ease;
     if (state.zoom.active) {
       _desiredPos.copy(state.zoom.pos);
       _lookTarget.copy(state.zoom.look);
@@ -689,10 +695,11 @@ async function buildScene(canvas) {
       const yaw = view.homeYaw + view.offYaw;
       const pitch = THREE.MathUtils.clamp(
         view.homePitch + view.offPitch, ORBIT_PITCH_MIN, ORBIT_PITCH_MAX);
+      const dist = view.dist * view.distScale;
       _desiredPos.set(
-        state.pivot.x + Math.sin(yaw) * Math.cos(pitch) * view.dist,
-        state.pivot.y + Math.sin(pitch) * view.dist,
-        state.pivot.z + Math.cos(yaw) * Math.cos(pitch) * view.dist);
+        state.pivot.x + Math.sin(yaw) * Math.cos(pitch) * dist,
+        state.pivot.y + Math.sin(pitch) * dist,
+        state.pivot.z + Math.cos(yaw) * Math.cos(pitch) * dist);
       _lookTarget.copy(state.pivot);
     }
     camera.position.lerp(_desiredPos, Math.min(1, dt * 6));
@@ -727,23 +734,56 @@ const _lookMat = new THREE.Matrix4();
 const _desiredQuat = new THREE.Quaternion();
 const _upVec = new THREE.Vector3(0, 1, 0);
 
+// Pinch-zoom limits on the orbit radius (fraction of the home distance).
+const PINCH_MIN = 0.5;
+const PINCH_MAX = 1.7;
+
 function setupLookControls(canvas, view) {
   canvas.style.touchAction = 'none'; // stop iOS Safari from scrolling/zooming the page
+  const touches = new Map(); // live touch pointers: pointerId -> {x, y}
   let activePointer = -1;
   let lastX = 0, lastY = 0, moved = 0, lastTapAt = 0;
+  let pinchSpan0 = 0, pinchScale0 = 1;
   const TOUCH_SPEED = 0.005;
 
   const clampPitchOff = (v) => THREE.MathUtils.clamp(
     v, ORBIT_PITCH_MIN - view.homePitch, ORBIT_PITCH_MAX - view.homePitch);
 
+  const pinchSpan = () => {
+    const [a, b] = [...touches.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
   canvas.addEventListener('pointerdown', (e) => {
-    if (activePointer !== -1) return; // one finger only; ignore extra touches
+    if (e.pointerType !== 'mouse') {
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touches.size === 2) {
+        // Second finger down: this gesture is a pinch, not a drag or tap.
+        pinchSpan0 = pinchSpan();
+        pinchScale0 = view.targetDistScale;
+        moved = 100;
+      }
+    }
+    if (activePointer !== -1) return;
     activePointer = e.pointerId;
     lastX = e.clientX; lastY = e.clientY; moved = 0;
     canvas.setPointerCapture(e.pointerId);
   });
 
   canvas.addEventListener('pointermove', (e) => {
+    const touch = touches.get(e.pointerId);
+    if (touch) { touch.x = e.clientX; touch.y = e.clientY; }
+    if (touch && touches.size >= 2) {
+      // Pinch: spreading the fingers pulls the camera in, pinching pushes
+      // it back out (scales the orbit radius around the table centre).
+      const span = pinchSpan();
+      if (span > 24 && pinchSpan0 > 24 && !state.zoom.active) {
+        view.targetDistScale = THREE.MathUtils.clamp(
+          pinchScale0 * pinchSpan0 / span, PINCH_MIN, PINCH_MAX);
+      }
+      moved = 100;
+      return; // a two-finger gesture never orbits
+    }
     const isDrag = e.pointerId === activePointer;
     if (isDrag) {
       moved += Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY);
@@ -770,8 +810,18 @@ function setupLookControls(canvas, view) {
   });
 
   const release = (e) => {
+    touches.delete(e.pointerId);
     if (e.pointerId !== activePointer) return;
     activePointer = -1;
+    // If another finger is still down (pinch ending), let it take over the
+    // drag baseline so the view doesn't jump.
+    if (touches.size) {
+      const [id] = touches.keys();
+      const p = touches.get(id);
+      activePointer = id;
+      lastX = p.x; lastY = p.y;
+      return;
+    }
     if (moved >= 8) return; // it was a drag, not a tap
 
     // While zoomed on cards, any tap returns the camera to the seat.
@@ -791,11 +841,12 @@ function setupLookControls(canvas, view) {
       return;
     }
 
-    // Double-tap (without dragging) snaps the orbit back to home.
+    // Double-tap (without dragging) snaps the orbit and zoom back to home.
     const now = performance.now();
     if (now - lastTapAt < 350) {
       view.targetOffYaw = 0;
       view.targetOffPitch = 0;
+      view.targetDistScale = 1;
       lastTapAt = 0;
     } else {
       lastTapAt = now;
@@ -898,9 +949,10 @@ function updateHole(paths) {
 
 // ---- the player's hold pose: hands resting on the table, cards between ----
 
-// Spot on the felt right in front of the player where his card fan rests.
+// Spot on the felt in front of the player where his card fan rests — well
+// inside the rail so the pair reads clearly past his body from the camera.
 // Refined after the arm solve to sit between wherever the hands landed.
-const HOLE_ANCHOR = new THREE.Vector3(0, TABLE_TOP + 0.02, TABLE_RADIUS - 0.02);
+const HOLE_ANCHOR = new THREE.Vector3(0, TABLE_TOP + 0.02, TABLE_RADIUS - 0.24);
 
 // Pose the player's arms reaching forward onto the table edge, genre-typical
 // "cards held low over the felt with both hands" framing. A tiny CCD solve
@@ -919,6 +971,19 @@ function setupPlayerArms() {
     char.root.traverse((o) => { if (!found && o.isBone && o.name === name) found = o; });
     return found;
   };
+
+  // Lean the torso forward over the rail first, so the hands can reach well
+  // onto the felt (and the hunched-over-the-cards posture reads right from
+  // behind). World-space pitch, since the rig's local axes are arbitrary.
+  const spine = bone('spine2') || bone('spine1');
+  if (spine && spine.parent) {
+    const parentQuat = spine.parent.getWorldQuaternion(new THREE.Quaternion());
+    const lean = new THREE.Quaternion()
+      .setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.32); // tip toward the table (-Z)
+    spine.quaternion.premultiply(
+      parentQuat.clone().invert().multiply(lean).multiply(parentQuat));
+    char.root.updateMatrixWorld(true);
+  }
 
   const linkPos = new THREE.Vector3(), linkQuatInv = new THREE.Quaternion();
   const effDir = new THREE.Vector3(), targetDir = new THREE.Vector3();
@@ -983,11 +1048,13 @@ function setupPlayerArms() {
   };
 
   // Hands land just outside the fan's bottom corners, resting on the felt.
-  const lBones = reach('L', new THREE.Vector3(-0.11, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.1));
-  const rBones = reach('R', new THREE.Vector3(0.11, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.1));
+  const lBones = reach('L', new THREE.Vector3(-0.11, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.06));
+  const rBones = reach('R', new THREE.Vector3(0.11, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.06));
   if (!lBones || !rBones) return;
 
-  char.armPose = [...lBones, ...rBones].map((b) => ({ bone: b, quat: b.quaternion.clone() }));
+  const pinned = [...lBones, ...rBones];
+  if (spine) pinned.push(spine); // keep the lean when gestures hand back
+  char.armPose = pinned.map((b) => ({ bone: b, quat: b.quaternion.clone() }));
   char.armW = 1;
 
   // Park the fan midway between wherever the hands actually landed (the
@@ -1015,7 +1082,7 @@ function layoutHoleCards() {
     card.rotateZ(dir * 0.13);         // small fan, like a pair held together
     card.translateX(dir * 0.045);
     card.translateY(0.055);           // bottom edge rests at the anchor
-    card.translateZ(0.004 * (i + 1)); // separated planes: no z-fighting
+    card.translateZ(0.006 * (i + 1)); // separated planes: no z-fighting
   }
 }
 
