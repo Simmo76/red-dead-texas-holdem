@@ -50,6 +50,7 @@ const state = {
   seats: [],            // per seat: { group, label, cards:[], chips, dealerBtn, char }
   potChips: null,
   cardHold: null,       // community card being press-and-held (expands 2x)
+  fx: [],               // live celebration particle systems
   envGroups: [],        // switchable backdrop groups, index matches ENVS
   envIndex: 0,
   envNames: [],
@@ -766,6 +767,7 @@ async function buildScene(canvas) {
       }
     }
 
+    updateFx(dt);
     positionHandCards();
     resizeIfNeeded(canvas, renderer, camera);
     renderer.render(scene, camera);
@@ -1028,6 +1030,146 @@ function pickCardZoomTarget(canvas, e) {
     look: new THREE.Vector3(centre.x, TABLE_TOP, centre.z),
     kind: group === state.boardCards ? 'board' : 'table'
   };
+}
+
+// ------------------------------------------------------------------ celebration fx
+
+const FX_COLORS = [0xffd27a, 0xff6a5e, 0x7ae0ff, 0xfff6d8, 0xc7ff7a, 0xff9df2];
+
+let _fxTex = null;
+function fxTexture() {
+  if (_fxTex) return _fxTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 32;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.4, 'rgba(255,255,255,0.55)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 32, 32);
+  _fxTex = new THREE.CanvasTexture(c);
+  return _fxTex;
+}
+
+function fxMaterial(color, size) {
+  return new THREE.PointsMaterial({
+    color, size, map: fxTexture(), transparent: true, opacity: 1,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+}
+
+// One firework explosion: a shell of sparks flying out from a point,
+// pulled down by gravity and fading over its life.
+function spawnBurst(pos, color, count = 130, speed = 2.4, life = 1.6, size = 0.05) {
+  const positions = new Float32Array(count * 3);
+  const vels = [];
+  for (let i = 0; i < count; i++) {
+    positions.set([pos.x, pos.y, pos.z], i * 3);
+    vels.push(new THREE.Vector3().randomDirection()
+      .multiplyScalar(speed * (0.35 + Math.random() * 0.65)));
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const pts = new THREE.Points(geo, fxMaterial(color, size));
+  pts.frustumCulled = false;
+  state.scene.add(pts);
+  state.fx.push({ kind: 'burst', mesh: pts, vels, life, age: 0 });
+}
+
+// A sparkler: a fountain that keeps respawning short-lived sparks at its
+// base while the emitter is alive.
+function spawnSparkler(pos, color, duration = 3.6) {
+  const count = 180;
+  const positions = new Float32Array(count * 3);
+  const parts = [];
+  for (let i = 0; i < count; i++) {
+    positions.set([pos.x, pos.y, pos.z], i * 3);
+    parts.push({
+      vel: new THREE.Vector3(),
+      life: 0.001,
+      age: Math.random() * 0.5, // stagger the first wave
+    });
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const pts = new THREE.Points(geo, fxMaterial(color, 0.034));
+  pts.frustumCulled = false;
+  state.scene.add(pts);
+  state.fx.push({ kind: 'sparkler', mesh: pts, parts, origin: pos.clone(), duration, age: 0 });
+}
+
+// The full player-win show: staggered fireworks in the air over the table
+// plus a pair of sparklers crackling at the table edge in front of the seats.
+function launchCelebration() {
+  if (!state.ready) return;
+  const rockets = 7;
+  for (let i = 0; i < rockets; i++) {
+    setTimeout(() => {
+      if (!state.scene) return;
+      // Low over the far side of the table, so the show stays inside the
+      // default camera frame.
+      const pos = new THREE.Vector3(
+        (Math.random() - 0.5) * 2.2,
+        1.5 + Math.random() * 0.5,
+        -0.4 - Math.random() * 0.9);
+      spawnBurst(pos, FX_COLORS[Math.floor(Math.random() * FX_COLORS.length)]);
+    }, i * 380 + Math.random() * 120);
+  }
+  spawnSparkler(new THREE.Vector3(-0.92, TABLE_TOP + 0.03, 0.92), 0xffe9b0);
+  spawnSparkler(new THREE.Vector3(0.92, TABLE_TOP + 0.03, 0.92), 0xffe9b0);
+}
+
+const FX_GRAVITY = 2.6;
+
+function updateFx(dt) {
+  // Clamp the step: one huge frame (slow device, tab switch) must age the
+  // show a little, not fast-forward it past its whole lifetime.
+  dt = Math.min(dt, 0.05);
+  for (let i = state.fx.length - 1; i >= 0; i--) {
+    const fx = state.fx[i];
+    fx.age += dt;
+    const attr = fx.mesh.geometry.getAttribute('position');
+    if (fx.kind === 'burst') {
+      for (let p = 0; p < fx.vels.length; p++) {
+        const v = fx.vels[p];
+        v.y -= FX_GRAVITY * dt;
+        attr.setXYZ(p, attr.getX(p) + v.x * dt, attr.getY(p) + v.y * dt, attr.getZ(p) + v.z * dt);
+      }
+      fx.mesh.material.opacity = Math.max(0, 1 - fx.age / fx.life);
+      attr.needsUpdate = true;
+      if (fx.age < fx.life) continue;
+    } else {
+      const emitting = fx.age < fx.duration;
+      let alive = false;
+      for (let p = 0; p < fx.parts.length; p++) {
+        const part = fx.parts[p];
+        part.age += dt;
+        if (part.age >= part.life) {
+          if (!emitting) continue;
+          // Respawn at the emitter: a narrow upward cone of sparks.
+          part.age = 0;
+          part.life = 0.35 + Math.random() * 0.4;
+          part.vel.set((Math.random() - 0.5) * 0.7,
+            0.9 + Math.random() * 0.9,
+            (Math.random() - 0.5) * 0.7);
+          attr.setXYZ(p, fx.origin.x, fx.origin.y, fx.origin.z);
+          alive = true;
+          continue;
+        }
+        alive = true;
+        part.vel.y -= FX_GRAVITY * dt;
+        attr.setXYZ(p, attr.getX(p) + part.vel.x * dt,
+          attr.getY(p) + part.vel.y * dt, attr.getZ(p) + part.vel.z * dt);
+      }
+      attr.needsUpdate = true;
+      if (alive) continue;
+    }
+    state.scene.remove(fx.mesh);
+    fx.mesh.geometry.dispose();
+    fx.mesh.material.dispose();
+    state.fx.splice(i, 1);
+  }
 }
 
 // Raycast a pointer event against the community cards only.
@@ -1635,6 +1777,12 @@ window.pokerScene = {
         window.pokerAudio.voice(seatIndex, 'lose');
       }
     }
+  },
+
+  // Fireworks and sparklers when the player takes a pot.
+  celebrate() {
+    if (!state.ready) return;
+    launchCelebration();
   },
 
   react(seatIndex, positive) {

@@ -455,6 +455,11 @@
 
             case PotAwarded award:
                 foreach (int seatIdx in award.WinnerSeats) SceneReact(seatIdx, positive: true);
+                // The player's own win gets the full show: fireworks + sparklers.
+                if (award.WinnerSeats.Contains(0) && _sceneReady)
+                {
+                    _ = JS.InvokeVoidAsync("pokerScene.celebrate");
+                }
                 string winners = string.Join(" & ", award.WinnerSeats.Select(NameOf));
                 _banner = award.WinningHand.HasValue
                     ? $"{winners} win{(award.WinnerSeats.Count == 1 ? "s" : "")} ${award.Amount} — {Pretty(award.WinningHand.Value.Category)}"
