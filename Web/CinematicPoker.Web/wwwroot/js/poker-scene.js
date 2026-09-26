@@ -49,6 +49,7 @@ const state = {
   holeCards: [],
   seats: [],            // per seat: { group, label, cards:[], chips, dealerBtn, char }
   potChips: null,
+  cardHold: null,       // community card being press-and-held (expands 2x)
   envGroups: [],        // switchable backdrop groups, index matches ENVS
   envIndex: 0,
   envNames: [],
@@ -771,6 +772,17 @@ async function buildScene(canvas) {
       state.dealerArrow.rotation.y = t * 1.2;
     }
 
+    // Press-and-hold magnifier: the held community card eases to 2x and
+    // lifts slightly so it reads cleanly over its neighbours.
+    for (const card of state.boardCards) {
+      const target = card === state.cardHold ? 2 : 1;
+      if (Math.abs(card.scale.x - target) > 0.001) {
+        const s = card.scale.x + (target - card.scale.x) * Math.min(1, dt * 14);
+        card.scale.setScalar(s);
+        card.position.y = TABLE_TOP + 0.004 + (s - 1) * 0.02;
+      }
+    }
+
     positionHandCards();
     resizeIfNeeded(canvas, renderer, camera);
     renderer.render(scene, camera);
@@ -808,7 +820,13 @@ function setupLookControls(canvas, view) {
   let lastX = 0, lastY = 0, moved = 0, lastTapAt = 0;
   let pinchSpan0 = 0, pinchScale0 = 1;
   let pinchMidX = 0, pinchMidY = 0;
+  let holdTimer = 0, holdWasActive = false, downAt = 0;
   const TOUCH_SPEED = 0.005;
+
+  const cancelHold = () => {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = 0; }
+    state.cardHold = null;
+  };
 
   const clampPitchOff = (v) => THREE.MathUtils.clamp(
     v, ORBIT_PITCH_MIN - view.homePitch, ORBIT_PITCH_MAX - view.homePitch);
@@ -833,12 +851,28 @@ function setupLookControls(canvas, view) {
         const mid = pinchMid();
         pinchMidX = mid.x; pinchMidY = mid.y;
         moved = 100;
+        cancelHold();
       }
     }
     if (activePointer !== -1) return;
     activePointer = e.pointerId;
     lastX = e.clientX; lastY = e.clientY; moved = 0;
+    holdWasActive = false;
+    downAt = e.timeStamp;
     canvas.setPointerCapture(e.pointerId);
+
+    // Press-and-hold on a community card magnifies it 2x until the pointer
+    // lifts or drags off the card. Short delay so quick taps still zoom.
+    const held = pickBoardCard(canvas, e);
+    if (held) {
+      const id = e.pointerId;
+      holdTimer = setTimeout(() => {
+        holdTimer = 0;
+        if (activePointer !== id || touches.size >= 2) return;
+        state.cardHold = held;
+        holdWasActive = true;
+      }, 220);
+    }
   });
 
   canvas.addEventListener('pointermove', (e) => {
@@ -869,6 +903,25 @@ function setupLookControls(canvas, view) {
     if (isDrag) {
       moved += Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY);
     }
+    if (isDrag && state.cardHold) {
+      // Holding a magnified card: end the hold once the pointer leaves the
+      // card's (expanded) screen rectangle. The drag stays inert either way
+      // so the view doesn't lurch mid-hold.
+      const r = cardScreenRect(state.cardHold, canvas);
+      if (e.clientX < r.minX - 8 || e.clientX > r.maxX + 8
+          || e.clientY < r.minY - 8 || e.clientY > r.maxY + 8) {
+        state.cardHold = null;
+      }
+      lastX = e.clientX; lastY = e.clientY;
+      return;
+    }
+    if (isDrag && holdWasActive) {
+      // The hold already ended (dragged off the card): keep this pointer
+      // inert until it lifts.
+      lastX = e.clientX; lastY = e.clientY;
+      return;
+    }
+    if (isDrag && holdTimer && moved >= 10) cancelHold(); // a drag, not a hold
     if (state.zoom && state.zoom.active) {
       if (isDrag) { lastX = e.clientX; lastY = e.clientY; }
       return; // no orbiting while zoomed on cards
@@ -894,6 +947,7 @@ function setupLookControls(canvas, view) {
     touches.delete(e.pointerId);
     if (e.pointerId !== activePointer) return;
     activePointer = -1;
+    cancelHold();
     // If another finger is still down (pinch ending), let it take over the
     // drag baseline so the view doesn't jump.
     if (touches.size) {
@@ -901,7 +955,15 @@ function setupLookControls(canvas, view) {
       const p = touches.get(id);
       activePointer = id;
       lastX = p.x; lastY = p.y;
+      holdWasActive = false;
       return;
+    }
+    if (holdWasActive) {
+      holdWasActive = false;
+      // Judge by real press duration (event timestamps): if a slow frame let
+      // the hold timer fire during a genuinely quick tap, still treat it as
+      // a tap rather than swallowing it.
+      if (e.timeStamp - downAt >= 220) return; // hold, not a tap
     }
     if (moved >= 8) return; // it was a drag, not a tap
 
@@ -985,6 +1047,37 @@ function pickCardZoomTarget(canvas, e) {
   };
 }
 
+// Raycast a pointer event against the community cards only.
+function pickBoardCard(canvas, e) {
+  if (!state.camera || !state.boardCards.length) return null;
+  const rect = canvas.getBoundingClientRect();
+  _ndc.set(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1);
+  _raycaster.setFromCamera(_ndc, state.camera);
+  const hits = _raycaster.intersectObjects(state.boardCards, false);
+  return hits.length ? hits[0].object : null;
+}
+
+// The card's current screen-space bounding rectangle (client px), used to end
+// a press-and-hold when the finger drags off the card.
+const _cardCorner = new THREE.Vector3();
+function cardScreenRect(card, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const gw = card.geometry.parameters.width / 2;
+  const gh = card.geometry.parameters.height / 2;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    _cardCorner.set(sx * gw, sy * gh, 0);
+    card.localToWorld(_cardCorner).project(state.camera);
+    const px = rect.left + (_cardCorner.x + 1) / 2 * rect.width;
+    const py = rect.top + (-_cardCorner.y + 1) / 2 * rect.height;
+    minX = Math.min(minX, px); maxX = Math.max(maxX, px);
+    minY = Math.min(minY, py); maxY = Math.max(maxY, py);
+  }
+  return { minX, minY, maxX, maxY };
+}
+
 let lastW = 0, lastH = 0;
 function resizeIfNeeded(canvas, renderer, camera) {
   const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -1008,6 +1101,7 @@ function clearGroupChildren(list, parent) {
 }
 
 function updateBoard(paths) {
+  state.cardHold = null; // the held mesh is being replaced
   clearGroupChildren(state.boardCards, state.scene);
   const n = paths.length;
   const spacing = BOARD_W + 0.014;
