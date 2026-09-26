@@ -3,7 +3,7 @@
 // club) built procedurally from primitives, each with its own mood lighting.
 // Props/textures are CC0; the table characters and the street backdrop are
 // web-optimised conversions of the repo owner's licensed Unity assets
-// (CrowArt "Hunter", Leartes "Stylized Cyberpunk Arcade") — see
+// (Frederic Lierman "Jimmy Lite", Leartes "Stylized Cyberpunk Arcade") — see
 // ASSET_LICENSES.md. No third-party game content is copied from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
@@ -16,25 +16,28 @@ const TABLE_RADIUS = 1.12;
 const SEAT_RADIUS = 1.74;
 const EYE_HEIGHT = 1.70;       // camera shoulder height over the bigger build
 
-// All six players are variations of the owner-licensed CrowArt "Hunter"
-// western character (converted to GLB): different hats plus shirt palette
-// swaps so everyone at the table reads as a distinct person.
-//   hat: 'top' | 'fedora' | null (bare-headed)
+// Every seat uses the owner-licensed "Jimmy Lite" soldier, converted to GLB
+// with the table's seated clips retargeted onto his rig (see
+// ASSET_LICENSES.md). A per-seat tint on the uniform top keeps the shared
+// model distinguishable around the table.
+// shirt: { hue (degrees), sat } — the uniform top's albedo is hue-rotated
+// per seat in the shader (a plain colour multiply can only darken the red
+// base texture, so it cannot produce blue/green shirts).
 const NPC_MODELS = [
-  { model: 'Hunter', hat: 'fedora', tex: null },                     // Davo
-  { model: 'Hunter', hat: null, tex: 'hunter_shirt_red.jpg' },       // Mick
-  { model: 'Hunter', hat: 'top', tex: null },                        // Shazza
-  { model: 'Hunter', hat: 'fedora', tex: 'hunter_shirt_blue.jpg' },  // Bluey
-  { model: 'Hunter', hat: null, tex: 'hunter_shirt_green.jpg' }      // Kev
+  { model: 'Jimmy', shirt: { hue: 40, sat: 0.9 } },    // Davo: orange
+  { model: 'Jimmy', shirt: null },                     // Mick: stock red
+  { model: 'Jimmy', shirt: { hue: -75, sat: 0.9 } },   // Shazza: violet
+  { model: 'Jimmy', shirt: { hue: 190, sat: 0.85 } },  // Bluey: blue
+  { model: 'Jimmy', shirt: { hue: 115, sat: 0.8 } }    // Kev: green
 ];
 
 // The player's own body, seen from the over-the-shoulder camera. He uses the
 // still hold pose, both hands resting on the table with his hole cards
 // parked between them.
-const PLAYER_MODEL = { model: 'Hunter', hat: 'top', tex: 'hunter_shirt_dark.jpg', cards: true };
+const PLAYER_MODEL = { model: 'Jimmy', shirt: { hue: 0, sat: 0.15 }, cards: true };
 
-// The Hunter GLB is authored at ~0.40 units tall; scale to a larger-than-life
-// build so the players fill the frame (1.2x the old life-size 4.3).
+// Jimmy is exported at the same rig height as the old Hunter GLB (~0.40
+// units); scale to a larger-than-life build so the players fill the frame.
 const CHAR_SCALE = 5.16;
 
 const _idleQuat = new THREE.Quaternion();
@@ -257,32 +260,46 @@ function loadGlb(loader, url) {
   }));
 }
 
+// Clone a material with a hue-rotate + desaturate pass applied to its albedo
+// (Rodrigues rotation about the grey axis), so one shared shirt texture can
+// yield genuinely different colours per seat.
+function shirtRecolour(material, shirt) {
+  const hue = (shirt.hue || 0) * Math.PI / 180;
+  const sat = shirt.sat !== undefined ? shirt.sat : 1;
+  const m = material.clone();
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uHue = { value: hue };
+    shader.uniforms.uSat = { value: sat };
+    shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\n' +
+      shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+      {
+        const vec3 kGrey = vec3(0.57735026919);
+        float ca = cos(uHue), sa = sin(uHue);
+        vec3 c = diffuseColor.rgb;
+        c = c * ca + cross(kGrey, c) * sa + kGrey * dot(kGrey, c) * (1.0 - ca);
+        c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uSat);
+        diffuseColor.rgb = clamp(c, 0.0, 1.0);
+      }`);
+  };
+  m.customProgramCacheKey = () => `shirt-${hue.toFixed(3)}-${sat}`;
+  return m;
+}
+
 function makeCharacter(gltf, spec) {
   if (!gltf) return null;
-  // All seats share one Hunter model, so clone the skinned rig per seat.
+  // All seats share one model, so clone the skinned rig per seat.
   const root = cloneSkinned(gltf.scene);
   root.scale.setScalar(CHAR_SCALE);
 
-  // Shirt palette swap so shared meshes look distinct (torso only: the head,
-  // hats and trousers keep their original textures).
-  let overrideTex = null;
-  if (spec.tex) {
-    overrideTex = new THREE.TextureLoader().load(`models/characters/${spec.tex}`);
-    overrideTex.colorSpace = THREE.SRGBColorSpace;
-    overrideTex.flipY = false; // glTF UV convention
-  }
-
   root.traverse((obj) => {
     if (!obj.isMesh) return;
-    // Each seat wears at most one of the two hat meshes in the GLB.
-    if (obj.name === 'top_hat') obj.visible = spec.hat === 'top';
-    if (obj.name === 'fedora_hat') obj.visible = spec.hat === 'fedora';
     obj.castShadow = true;
     obj.receiveShadow = true;
     obj.frustumCulled = false; // skinned mesh bounds lag the animated pose
-    if (overrideTex && obj.name === 'hunting_mesh') {
-      obj.material = obj.material.clone();
-      obj.material.map = overrideTex;
+    // Uniform-top recolour so seats sharing the model look distinct (the
+    // trousers, head and hair keep their original texture colours).
+    if (spec.shirt && obj.name === 'jimmy_body_top') {
+      obj.material = shirtRecolour(obj.material, spec.shirt);
     }
   });
 
