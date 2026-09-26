@@ -221,7 +221,7 @@ function outlineMaterial() {
   _outlineMat.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader.replace(
       '#include <begin_vertex>',
-      '#include <begin_vertex>\n\ttransformed += normalize(normal) * 0.013;');
+      '#include <begin_vertex>\n\ttransformed += normalize(normal) * 0.0026;');
   };
   return _outlineMat;
 }

@@ -180,8 +180,8 @@ html, body {
     transition: width 0.15s ease;
 }
 
-/* Tapping the panel toggles a 20% close-up of the whole hand. */
-.hud-board.expanded .hud-card { width: 59px; }
+/* Tapping the panel toggles a 1.5x close-up of the whole hand. */
+.hud-board.expanded .hud-card { width: 74px; }
 
 .hud-card.facedown { opacity: 0.35; }
 
@@ -400,7 +400,7 @@ html, body {
     .hud-board { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 4px; padding: 4px 5px; }
     .hud-row { gap: 3px; }
     .hud-card { width: 38px; }
-    .hud-board.expanded .hud-card { width: 46px; }
+    .hud-board.expanded .hud-card { width: 57px; }
     .banner { font-size: 12px; top: 30%; }
 
     .log {
@@ -426,7 +426,7 @@ html, body {
     .hud-pot { top: 42px; font-size: 12px; padding: 3px 10px; }
     .hud-board { top: 42px; gap: 4px; padding: 4px 5px; }
     .hud-card { width: 40px; }
-    .hud-board.expanded .hud-card { width: 48px; }
+    .hud-board.expanded .hud-card { width: 60px; }
     .banner { font-size: 12px; top: 26%; }
 
     .log {
