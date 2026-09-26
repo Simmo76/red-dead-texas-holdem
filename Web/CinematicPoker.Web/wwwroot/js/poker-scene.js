@@ -977,7 +977,8 @@ function updateBoard(paths) {
   const n = paths.length;
   const spacing = BOARD_W + 0.014;
   for (let i = 0; i < n; i++) {
-    const card = makeCard(paths[i], BOARD_W);
+    // Unlit: the board must stay readable under every backdrop's lighting.
+    const card = makeCard(paths[i], BOARD_W, true);
     // Flat on the felt, upright when read from the player's seat.
     placeTableCard(card, (i - (n - 1) / 2) * spacing, 0.34, 0, 0);
     state.boardCards.push(card);
