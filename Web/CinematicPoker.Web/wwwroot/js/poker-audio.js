@@ -1,5 +1,6 @@
-// Sound effects (Kenney CC0 casino pack), background music (OpenGameArt CC0
-// loop) and original character voice lines generated with Piper TTS for this
+// Sound effects (Kenney CC0 casino pack), per-backdrop background music
+// (owner-supplied saloon loop + OpenGameArt CC0 beach/western/disco beds)
+// and original character voice lines synthesised with Kokoro TTS for this
 // project. Everything is MP3 (iOS Safari cannot decode Ogg Vorbis) and short
 // clips play through WebAudio: once the context is unlocked by the first tap,
 // timer-driven sounds (NPC chatter, opponent actions) keep working on iOS,
@@ -61,11 +62,25 @@ window.pokerAudio = (function () {
         playBuffer('audio/' + name + '.mp3', 0.55, 0.92 + Math.random() * 0.16);
     }
 
+    // Background music follows the backdrop: tropical on the beach, western
+    // in the desert, disco in the club, the saloon loop everywhere else.
+    const MUSIC_BY_SCENE = {
+        BEACH: 'audio/music-beach.mp3',
+        DESERT: 'audio/music-western.mp3',
+        CLUB: 'audio/music-disco.mp3'
+    };
+    let musicUrl = 'audio/saloon-music.mp3';
+
     function startMusic() {
         if (muted) return;
         try {
+            if (music && music._url !== musicUrl) {
+                music.pause();
+                music = null;
+            }
             if (!music) {
-                music = new Audio('audio/saloon-music.mp3');
+                music = new Audio(musicUrl);
+                music._url = musicUrl;
                 music.loop = true;
                 music.volume = 0.12;
             }
@@ -107,6 +122,21 @@ window.pokerAudio = (function () {
     return {
         play: play,
         voice: voice,
+        // Switch the music bed to match the current backdrop. Called from a
+        // click handler, so play() is allowed even before other audio ran.
+        setScene: function (name) {
+            const url = MUSIC_BY_SCENE[name] || 'audio/saloon-music.mp3';
+            if (url === musicUrl) return;
+            musicUrl = url;
+            const wasPlaying = music && !music.paused;
+            if (music) { music.pause(); music = null; }
+            if (wasPlaying) startMusic();
+        },
+        // Short fanfare when a heads-up showdown crowns its winner (steady
+        // pitch: unlike SFX, a detuned jingle is instantly noticeable).
+        victory: function () {
+            if (!muted) playBuffer('audio/victory.mp3', 0.75, 1);
+        },
         setAlive: function (seats) { aliveSeats = seats || []; },
         setMuted: function (m) {
             muted = m;

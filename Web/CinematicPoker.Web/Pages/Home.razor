@@ -194,6 +194,7 @@
     private PokerGame _game;
     private readonly Random _rng = new();
     private readonly Dictionary<int, IReadOnlyList<Card>> _revealed = new();
+    private int _showdownHandCount; // hands compared at the current showdown
     private readonly List<string> _log = new();
 
     private LegalActions _legal;
@@ -430,11 +431,13 @@
         {
             case HandStarted started:
                 _revealed.Clear();
+                _showdownHandCount = 0;
                 _banner = null;
                 AddLog($"— Hand {started.HandNumber} —");
                 break;
 
             case ShowdownStarted showdown:
+                _showdownHandCount = showdown.RevealedHands.Count;
                 foreach (var kv in showdown.RevealedHands)
                 {
                     _revealed[kv.Key] = kv.Value;
@@ -455,6 +458,13 @@
 
             case PotAwarded award:
                 foreach (int seatIdx in award.WinnerSeats) SceneReact(seatIdx, positive: true);
+                // A heads-up showdown (exactly two hands compared) gets a
+                // victory fanfare for whoever comes out on top.
+                if (_showdownHandCount == 2 && !_muted)
+                {
+                    _ = JS.InvokeVoidAsync("pokerAudio.victory");
+                    _showdownHandCount = 0; // once per showdown (side pots re-award)
+                }
                 // The player's own win gets the full show: fireworks + sparklers.
                 if (award.WinnerSeats.Contains(0) && _sceneReady)
                 {
@@ -549,6 +559,8 @@
     private async Task CycleBackdrop()
     {
         _backdropName = await JS.InvokeAsync<string>("pokerScene.cycleBackdrop");
+        // Each backdrop brings its own music bed (beach/western/disco/saloon).
+        await JS.InvokeVoidAsync("pokerAudio.setScene", _backdropName);
     }
 
     // -------------------------------------------------------------- sounds
