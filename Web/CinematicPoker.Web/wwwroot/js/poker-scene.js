@@ -24,17 +24,17 @@ const EYE_HEIGHT = 1.70;       // camera shoulder height over the bigger build
 // per seat in the shader (a plain colour multiply can only darken the red
 // base texture, so it cannot produce blue/green shirts).
 const NPC_MODELS = [
-  { model: 'Jimmy', shirt: { hue: 40, sat: 0.9 }, hatColor: 0x8a5a30 },    // Davo: orange, tan hat
-  { model: 'Jimmy', shirt: null, hatColor: 0x4a332a },                     // Mick: stock red, dark brown hat
-  { model: 'Jimmy', shirt: { hue: -75, sat: 0.9 }, hatColor: 0xb08a5a },   // Shazza: violet, beige hat
-  { model: 'Jimmy', shirt: { hue: 190, sat: 0.85 }, hatColor: 0x3a3a42 },  // Bluey: blue, charcoal hat
-  { model: 'Jimmy', shirt: { hue: 115, sat: 0.8 }, hatColor: 0x6b4a2f }    // Kev: green, brown hat
+  { model: 'Jimmy', shirt: { hue: 40, sat: 0.9 } },    // Davo: orange
+  { model: 'Jimmy', shirt: null },                     // Mick: stock red
+  { model: 'Jimmy', shirt: { hue: -75, sat: 0.9 } },   // Shazza: violet
+  { model: 'Jimmy', shirt: { hue: 190, sat: 0.85 } },  // Bluey: blue
+  { model: 'Jimmy', shirt: { hue: 115, sat: 0.8 } }    // Kev: green
 ];
 
 // The player's own body, seen from the over-the-shoulder camera. He uses the
 // still hold pose, both hands resting on the table with his hole cards
 // parked between them.
-const PLAYER_MODEL = { model: 'Jimmy', shirt: { hue: 0, sat: 0.15 }, hatColor: 0x241d18, cards: true };
+const PLAYER_MODEL = { model: 'Jimmy', shirt: { hue: 0, sat: 0.15 }, cards: true };
 
 // Jimmy is exported at the same rig height as the old Hunter GLB (~0.40
 // units); scale to a larger-than-life build so the players fill the frame.
@@ -285,27 +285,6 @@ function shirtRecolour(material, shirt) {
   return m;
 }
 
-// A low-poly cowboy hat built from a lathe profile (original procedural
-// geometry, no external asset): domed crown, pinched shoulder, wide brim
-// with an upturned edge. Sized in model units (the ~0.40-unit-tall rig).
-function makeCowboyHat(color) {
-  const profile = [
-    [0.000, 0.036], [0.014, 0.035], [0.023, 0.027], [0.027, 0.007],
-    [0.039, 0.005], [0.047, 0.011], [0.049, 0.006], [0.037, 0.000],
-    [0.027, 0.001], [0.023, 0.004],
-  ];
-  const geo = new THREE.LatheGeometry(
-    profile.map((p) => new THREE.Vector2(p[0], p[1])), 20);
-  geo.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({
-    color, roughness: 0.92, metalness: 0, side: THREE.DoubleSide,
-  });
-  const hat = new THREE.Mesh(geo, mat);
-  hat.name = 'cowboy_hat';
-  hat.castShadow = true;
-  return hat;
-}
-
 function makeCharacter(gltf, spec) {
   if (!gltf) return null;
   // All seats share one model, so clone the skinned rig per seat.
@@ -323,17 +302,6 @@ function makeCharacter(gltf, spec) {
       obj.material = shirtRecolour(obj.material, spec.shirt);
     }
   });
-
-  // Everyone at this table wears a cowboy hat. Parented to the head bone
-  // (before the outline hulls are built, so the hat is outlined too) it
-  // follows every nod and head-shake for free.
-  const headBone = root.getObjectByName('head');
-  if (headBone) {
-    const hat = makeCowboyHat(spec.hatColor !== undefined ? spec.hatColor : 0x6b4a2f);
-    hat.position.set(0, 0.039, 0.004);
-    hat.rotation.x = -0.12; // slight forward tip
-    headBone.add(hat);
-  }
 
   const mixer = new THREE.AnimationMixer(root);
   const clips = gltf.animations || [];
