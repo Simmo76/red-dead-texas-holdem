@@ -383,7 +383,8 @@ html, body {
     .chip-btn { padding: 5px 10px; font-size: 10px; letter-spacing: 1px; }
     .brand { font-size: 12px; letter-spacing: 2px; }
 
-    .hud-pot { top: calc(48px + env(safe-area-inset-top)); font-size: 12px; padding: 4px 12px; }
+    /* Left-aligned: the wrapped second row of topbar buttons owns the right. */
+    .hud-pot { top: calc(48px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); transform: none; font-size: 12px; padding: 4px 12px; }
     /* Below the pot pill so the two never overlap on narrow screens. */
     .hud-board { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 3px; padding: 4px 5px; }
     .hud-card { width: 39px; }

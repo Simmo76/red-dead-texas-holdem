@@ -20,6 +20,7 @@
             <button class="chip-btn @(_quickMode ? "active" : "")" @onclick="ToggleMode">
                 @(_quickMode ? "QUICK PLAY" : "CINEMATIC")
             </button>
+            <button class="chip-btn" @onclick="CycleDifficulty">@DifficultyNames[_difficulty]</button>
             <button class="chip-btn" @onclick="StartSession">RESTART</button>
         </div>
     </header>
@@ -106,6 +107,69 @@
         ("Bluey", AIProfile.CallingStation),
         ("Kev", AIProfile.Professional)
     };
+
+    // ---------------------------------------------------------- difficulty
+
+    private static readonly string[] DifficultyNames = { "AI EASY", "AI NORMAL", "AI HARD" };
+    private int _difficulty = 1; // NORMAL
+
+    private void CycleDifficulty()
+    {
+        _difficulty = (_difficulty + 1) % DifficultyNames.Length;
+        if (_game == null) return;
+        // Retune the live NPCs in place, mid-session: rebuild each personality
+        // preset at the new difficulty and write it into the existing profile.
+        for (int i = 0; i < Roster.Length; i++)
+        {
+            if (_game.GetPlayer(i + 1) is AIPlayer ai)
+                CopyProfile(WithDifficulty(Roster[i].Profile()), ai.Profile);
+        }
+    }
+
+    // Scales each personality's competence up or down without erasing what
+    // makes them distinct: aggression and tightness stay untouched, only the
+    // "how well do they actually play" parameters move.
+    private AIProfile WithDifficulty(AIProfile p)
+    {
+        if (_difficulty == 0) // EASY: sloppier reads, more mistakes, tilts easily
+        {
+            p.Skill *= 0.45;
+            p.PotOddsAccuracy *= 0.45;
+            p.HandReadingAbility *= 0.45;
+            p.PositionAwareness *= 0.5;
+            p.OpponentAwareness *= 0.5;
+            p.BluffFrequency *= 0.7;
+            p.DecisionNoise = Math.Min(1, p.DecisionNoise + 0.15);
+            p.TiltSensitivity = Math.Min(1, p.TiltSensitivity + 0.2);
+        }
+        else if (_difficulty == 2) // HARD: sharper reads, fewer mistakes, cool heads
+        {
+            p.Skill += (1 - p.Skill) * 0.55;
+            p.PotOddsAccuracy += (1 - p.PotOddsAccuracy) * 0.55;
+            p.HandReadingAbility += (1 - p.HandReadingAbility) * 0.55;
+            p.PositionAwareness += (1 - p.PositionAwareness) * 0.5;
+            p.OpponentAwareness += (1 - p.OpponentAwareness) * 0.5;
+            p.DecisionNoise *= 0.35;
+            p.TiltSensitivity *= 0.5;
+        }
+        return p;
+    }
+
+    private static void CopyProfile(AIProfile from, AIProfile into)
+    {
+        into.Skill = from.Skill;
+        into.Aggression = from.Aggression;
+        into.Tightness = from.Tightness;
+        into.BluffFrequency = from.BluffFrequency;
+        into.RiskTolerance = from.RiskTolerance;
+        into.TiltSensitivity = from.TiltSensitivity;
+        into.PositionAwareness = from.PositionAwareness;
+        into.OpponentAwareness = from.OpponentAwareness;
+        into.PotOddsAccuracy = from.PotOddsAccuracy;
+        into.HandReadingAbility = from.HandReadingAbility;
+        into.DecisionNoise = from.DecisionNoise;
+        into.EmotionalBias = from.EmotionalBias;
+    }
 
     private PokerGame _game;
     private readonly Random _rng = new();
@@ -229,7 +293,7 @@
         for (int i = 0; i < Roster.Length; i++)
         {
             players.Add(new AIPlayer($"npc{i}", Roster[i].Name, seat: i + 1, stack: rules.StartingStack,
-                profile: Roster[i].Profile(), seed: _rng.Next()));
+                profile: WithDifficulty(Roster[i].Profile()), seed: _rng.Next()));
         }
 
         _game = new PokerGame(rules, players, seed: _rng.Next());
