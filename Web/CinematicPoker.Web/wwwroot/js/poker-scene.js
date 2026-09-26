@@ -94,9 +94,9 @@ function makeCard(path, w = 0.18, unlit = false) {
   return mesh;
 }
 
-// Table cards are twice real size (63mm -> 126mm wide) so they stay readable
-// from the seat; tap-to-zoom still gives a full close-up.
-const CARD_W = 0.128;
+// Table cards are four times real size (63mm -> 256mm wide) so they read
+// clearly from the seat; tap-to-zoom still gives a full close-up.
+const CARD_W = 0.256;
 
 // Table cards lie flat on the felt in world space, like real dealt cards.
 function placeTableCard(mesh, x, z, lean = 0, yaw = 0) {
@@ -894,7 +894,7 @@ function pickCardZoomTarget(canvas, e) {
   // Height chosen so the group fills the view: wider groups sit higher. The
   // camera hangs a touch behind the group so the top-down view stays stable
   // and the cards read upright from the player's side of the table.
-  const height = group === state.boardCards ? 0.8 : 0.52;
+  const height = group === state.boardCards ? 1.55 : 1.0;
   return {
     pos: new THREE.Vector3(centre.x, TABLE_TOP + height, centre.z + height * 0.09),
     look: new THREE.Vector3(centre.x, TABLE_TOP, centre.z),
@@ -940,7 +940,7 @@ function updateBoard(paths) {
 function updateHole(paths) {
   clearGroupChildren(state.holeCards, state.scene);
   for (let i = 0; i < paths.length; i++) {
-    const card = makeCard(paths[i], 0.145, true);
+    const card = makeCard(paths[i], 0.29, true);
     state.holeCards.push(card);
     state.scene.add(card);
   }
@@ -1048,8 +1048,8 @@ function setupPlayerArms() {
   };
 
   // Hands land just outside the fan's bottom corners, resting on the felt.
-  const lBones = reach('L', new THREE.Vector3(-0.11, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.06));
-  const rBones = reach('R', new THREE.Vector3(0.11, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.06));
+  const lBones = reach('L', new THREE.Vector3(-0.17, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.06));
+  const rBones = reach('R', new THREE.Vector3(0.17, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.06));
   if (!lBones || !rBones) return;
 
   const pinned = [...lBones, ...rBones];
@@ -1080,8 +1080,8 @@ function layoutHoleCards() {
     card.position.copy(state.holeAnchor);
     card.lookAt(_eyePoint);
     card.rotateZ(dir * 0.13);         // small fan, like a pair held together
-    card.translateX(dir * 0.045);
-    card.translateY(0.055);           // bottom edge rests at the anchor
+    card.translateX(dir * 0.09);
+    card.translateY(0.11);            // bottom edge rests at the anchor
     card.translateZ(0.006 * (i + 1)); // separated planes: no z-fighting
   }
 }
@@ -1093,10 +1093,17 @@ function positionHandCards() {
   if (!state.holeCards.length || !state.holeAnchor) return;
   const handZoom = state.zoom.active && state.zoom.kind === 'hand';
   if (handZoom) {
+    // Hover above and just in front of the pair (backing straight toward the
+    // seat would put the camera inside the player's leaned-forward head).
     _handZoomDir.copy(state.camHome).sub(state.holeAnchor).normalize();
-    state.zoom.pos.copy(state.holeAnchor).addScaledVector(_handZoomDir, 0.4)
-      .setY(state.holeAnchor.y + 0.18);
-    state.zoom.look.copy(state.holeAnchor).setY(state.holeAnchor.y + 0.07);
+    // Portrait's narrow horizontal FOV needs more distance to fit the pair.
+    const portrait = state.camera && state.camera.aspect < 0.8;
+    const back = portrait ? 0.3 : 0.2;
+    const up = portrait ? 1.0 : 0.6;
+    const lookUp = portrait ? 0.05 : 0.18;
+    state.zoom.pos.copy(state.holeAnchor).addScaledVector(_handZoomDir, back)
+      .setY(state.holeAnchor.y + up);
+    state.zoom.look.copy(state.holeAnchor).setY(state.holeAnchor.y + lookUp);
   }
   for (const card of state.holeCards) {
     card.visible = handZoom || !state.zoom.active;
