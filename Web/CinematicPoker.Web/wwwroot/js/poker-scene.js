@@ -946,7 +946,7 @@ function pickCardZoomTarget(canvas, e) {
   return {
     pos: new THREE.Vector3(centre.x, TABLE_TOP + height, centre.z + height * 0.09),
     look: new THREE.Vector3(centre.x, TABLE_TOP, centre.z),
-    kind: 'board'
+    kind: group === state.boardCards ? 'board' : 'table'
   };
 }
 
@@ -1122,10 +1122,12 @@ function setupPlayerArms() {
 const _eyePoint = new THREE.Vector3();
 function layoutHoleCards() {
   if (!state.holeAnchor) return;
+  state.holeFlat = false;
   _eyePoint.set(0, EYE_HEIGHT + 0.25, SEAT_RADIUS + 0.9);
   for (let i = 0; i < state.holeCards.length; i++) {
     const card = state.holeCards[i];
     const dir = i === 0 ? -1 : 1;
+    card.scale.setScalar(1);
     card.position.copy(state.holeAnchor);
     card.lookAt(_eyePoint);
     card.rotateZ(dir * 0.13);         // small fan, like a pair held together
@@ -1135,12 +1137,15 @@ function layoutHoleCards() {
   }
 }
 
-// The cards themselves never move; this only handles the hand-zoom camera
-// target and hiding the pair while the board close-up is active.
+// Handles the hand-zoom camera target, plus how the pair behaves during the
+// other zooms: laid flat under the community row while the board close-up is
+// active (so you can read your hand against the board), hidden during an
+// opponent-pair close-up.
 const _handZoomDir = new THREE.Vector3();
 function positionHandCards() {
   if (!state.holeCards.length || !state.holeAnchor) return;
   const handZoom = state.zoom.active && state.zoom.kind === 'hand';
+  const boardZoom = state.zoom.active && state.zoom.kind === 'board';
   if (handZoom) {
     // Hover above and just in front of the pair (backing straight toward the
     // seat would put the camera inside the player's leaned-forward head).
@@ -1149,8 +1154,19 @@ function positionHandCards() {
       .setY(state.holeAnchor.y + 0.18);
     state.zoom.look.copy(state.holeAnchor).setY(state.holeAnchor.y + 0.07);
   }
+  if (boardZoom && !state.holeFlat) {
+    state.holeFlat = true;
+    const spacing = BOARD_W + 0.014;
+    for (let i = 0; i < state.holeCards.length; i++) {
+      const card = state.holeCards[i];
+      card.scale.setScalar(BOARD_W / 0.145); // match the community card size
+      placeTableCard(card, (i - (state.holeCards.length - 1) / 2) * spacing, 0.64, 0, 0);
+    }
+  } else if (!boardZoom && state.holeFlat) {
+    layoutHoleCards(); // back into the character's hands (also resets scale)
+  }
   for (const card of state.holeCards) {
-    card.visible = handZoom || !state.zoom.active;
+    card.visible = handZoom || boardZoom || !state.zoom.active;
   }
 }
 
