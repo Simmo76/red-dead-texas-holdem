@@ -26,6 +26,20 @@
     @if (Round != null)
     {
         <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b> <span class="hud-stack">· YOU&nbsp;<b>$@(SeatOf(0)?.Stack ?? _game.GetPlayer(0).Stack)</b></span></div>
+
+        <div class="hud-board">
+            @for (int i = 0; i < 5; i++)
+            {
+                if (i < Round.Board.Count)
+                {
+                    <img class="hud-card" src="@CardImage(Round.Board[i])" alt="" />
+                }
+                else
+                {
+                    <img class="hud-card facedown" src="img/cards/back.png" alt="" />
+                }
+            }
+        </div>
     }
 
     @if (_banner != null)
