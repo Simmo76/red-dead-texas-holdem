@@ -27,7 +27,8 @@ const NPC_MODELS = [
 ];
 
 // The player's own body, seen from the over-the-shoulder camera. He uses the
-// card-holding sit loop, and his hole cards ride in his raised left hand.
+// still hold pose, both hands resting on the table with his hole cards
+// parked between them.
 const PLAYER_MODEL = { model: 'Hunter', hat: 'top', tex: 'hunter_shirt_dark.jpg', cards: true };
 
 // The Hunter GLB is authored at ~0.40 units tall; scale to a larger-than-life
@@ -254,17 +255,24 @@ function makeCharacter(gltf, spec) {
   const find = (name) => THREE.AnimationClip.findByName(clips, name);
 
   // 'Sit' is a looping seated idle retargeted from the Quaternius UAL (CC0).
-  // The player's own body uses 'SitCards' (left hand raised holding cards).
-  // Random start offsets keep the players from breathing in unison.
-  const sitClip = (spec.cards && find('SitCards')) || find('Sit');
+  // Random start offsets keep the NPCs from breathing in unison. The player's
+  // own body is frozen on the first sit frame instead: his hands rest still
+  // on the table holding the cards (see setupPlayerArms), so the idle sway
+  // must not drag them around.
+  const sitClip = find('Sit');
+  const freezeSit = !!spec.cards;
   let sitAction = null;
   if (sitClip) {
     sitAction = mixer.clipAction(sitClip);
     sitAction.play();
-    sitAction.time = Math.random() * sitClip.duration;
+    if (freezeSit) sitAction.paused = true;
+    else sitAction.time = Math.random() * sitClip.duration;
   }
 
-  const character = { root, mixer, sitAction, find, dead: false, reacting: false };
+  const character = {
+    root, mixer, sitAction, find,
+    dead: false, reacting: false, freezeSit, armPose: null, armW: 1
+  };
 
   // The sit loop already breathes; just layer a slow head drift on top so
   // players occasionally glance around the table. Applied after the mixer
@@ -282,6 +290,18 @@ function makeCharacter(gltf, spec) {
     }
   };
 
+  // The player's arms are pinned to a fixed hold-the-cards pose (solved once
+  // in setupPlayerArms), applied after the mixer each frame so the hands stay
+  // perfectly still. The pin fades out while a gesture owns the arms and
+  // fades back in once the character settles down again.
+  character.applyArmPose = (dt) => {
+    if (!character.armPose) return;
+    const target = (character.dead || character.reacting) ? 0 : 1;
+    character.armW += (target - character.armW) * Math.min(1, dt * 4);
+    if (character.armW < 0.001) return;
+    for (const p of character.armPose) p.bone.quaternion.slerp(p.quat, character.armW);
+  };
+
   // Reactions play the opening beat of a fight move, then settle back down.
   // The source takes are long combo loops, so we cut away on a timer rather
   // than waiting for the clip to finish. Every gesture / death / revive bumps
@@ -289,10 +309,15 @@ function makeCharacter(gltf, spec) {
   // become no-ops instead of fighting the newer animation state.
   let gestureGen = 0;
 
-  // Clean recovery position: drop everything and rejoin the sit loop.
+  // Clean recovery position: drop everything and rejoin the sit loop
+  // (or the frozen first frame of it, for the player's still body).
   const hardSit = () => {
     mixer.stopAllAction();
-    if (sitAction) { sitAction.reset(); sitAction.play(); }
+    if (sitAction) {
+      sitAction.reset();
+      sitAction.play();
+      if (freezeSit) sitAction.paused = true;
+    }
   };
 
   // Returns true only when the gesture actually started, so callers that must
@@ -315,6 +340,7 @@ function makeCharacter(gltf, spec) {
       sitAction.reset();
       action.crossFadeTo(sitAction, 0.35, false);
       sitAction.play();
+      if (freezeSit) sitAction.paused = true;
       setTimeout(() => {
         if (character.dead || gen !== gestureGen) return;
         character.reacting = false;
@@ -630,13 +656,9 @@ async function buildScene(canvas) {
 
   await Promise.all([backdropPromise, ...charPromises]);
 
-  // The player's hole cards ride in his character's raised left hand.
-  state.playerHand = null;
-  if (state.seats[0].char) {
-    state.seats[0].char.root.traverse((o) => {
-      if (!state.playerHand && o.isBone && o.name === 'L_wrist') state.playerHand = o;
-    });
-  }
+  // Pin both of the player's arms in a fixed hold pose — hands resting on
+  // the table edge with the hole cards parked between them.
+  setupPlayerArms();
 
   state.renderer = renderer;
   state.scene = scene;
@@ -651,6 +673,7 @@ async function buildScene(canvas) {
     for (const seat of state.seats) if (seat.char) {
       seat.char.mixer.update(dt);
       seat.char.idle(t);
+      seat.char.applyArmPose(dt);
     }
 
     // Ease the orbit offsets toward where the mouse/finger steered them,
@@ -683,7 +706,7 @@ async function buildScene(canvas) {
       state.dealerArrow.rotation.y = t * 1.2;
     }
 
-    positionHandCards(camera);
+    positionHandCards();
     resizeIfNeeded(canvas, renderer, camera);
     renderer.render(scene, camera);
   });
@@ -799,8 +822,8 @@ function pickCardZoomTarget(canvas, e) {
   if (!hits.length) return null;
   const obj = hits[0].object;
 
-  // The player's own hand: fly to just in front of the held fan. The exact
-  // position keeps tracking the hand each frame (see positionHandCards).
+  // The player's own pair: fly to just in front of the fan resting on the
+  // table (the exact camera spot comes from positionHandCards).
   if (state.holeCards.includes(obj)) {
     return { pos: state.camera.position.clone(), look: obj.position.clone(), kind: 'hand' };
   }
@@ -866,49 +889,150 @@ function updateBoard(paths) {
 function updateHole(paths) {
   clearGroupChildren(state.holeCards, state.scene);
   for (let i = 0; i < paths.length; i++) {
-    const card = makeCard(paths[i], 0.105, true);
-    card.visible = false; // shown once positioned in the hand
+    const card = makeCard(paths[i], 0.145, true);
     state.holeCards.push(card);
     state.scene.add(card);
   }
+  layoutHoleCards();
 }
 
-// Fan the hole cards in the player character's raised left hand, tilted back
-// toward the camera so they read over his shoulder, like a held poker hand.
-const _handPos = new THREE.Vector3();
-const _camDir = new THREE.Vector3();
-const _handZoomDir = new THREE.Vector3();
-function positionHandCards(camera) {
-  if (!state.holeCards.length) return;
-  const bone = state.playerHand;
-  if (!bone) return;
-  const handZoom = state.zoom.active && state.zoom.kind === 'hand';
-  bone.getWorldPosition(_handPos);
-  // Sit the fan just above the palm, nudged toward the camera so the
-  // character's fingers don't poke through the card faces.
-  _camDir.copy(camera.position).sub(_handPos).normalize();
-  _handPos.addScaledVector(_camDir, 0.06);
-  _handPos.y += 0.05;
+// ---- the player's hold pose: hands resting on the table, cards between ----
 
-  // While zoomed on the hand, the camera hovers just in front of the fan
-  // (tracking it as the character breathes) so the pair fills the screen.
-  if (handZoom) {
-    _handZoomDir.copy(state.camHome).sub(_handPos).normalize();
-    state.zoom.pos.copy(_handPos).addScaledVector(_handZoomDir, 0.34).setY(_handPos.y + 0.06);
-    state.zoom.look.copy(_handPos);
-  }
+// Spot on the felt right in front of the player where his card fan rests.
+// Refined after the arm solve to sit between wherever the hands landed.
+const HOLE_ANCHOR = new THREE.Vector3(0, TABLE_TOP + 0.02, TABLE_RADIUS - 0.02);
 
+// Pose the player's arms reaching forward onto the table edge, genre-typical
+// "cards held low over the felt with both hands" framing. A tiny CCD solve
+// bends elbow + shoulder until each wrist lands on its spot; the resulting
+// rotations are then pinned every frame by applyArmPose so the hands stay
+// perfectly still while the body idles.
+function setupPlayerArms() {
+  state.holeAnchor = HOLE_ANCHOR.clone();
+  const char = state.seats[0] && state.seats[0].char;
+  if (!char) return;
+  char.mixer.update(0);
+  char.root.updateMatrixWorld(true);
+
+  const bone = (name) => {
+    let found = null;
+    char.root.traverse((o) => { if (!found && o.isBone && o.name === name) found = o; });
+    return found;
+  };
+
+  const linkPos = new THREE.Vector3(), linkQuatInv = new THREE.Quaternion();
+  const effDir = new THREE.Vector3(), targetDir = new THREE.Vector3();
+  const p1 = new THREE.Vector3(), p2 = new THREE.Vector3(), cr = new THREE.Vector3();
+  const step = new THREE.Quaternion();
+  const reach = (side, target) => {
+    const shoulder = bone(side + '_shoulder');
+    const elbow = bone(side + '_elbow');
+    const wrist = bone(side + '_wrist');
+    if (!shoulder || !elbow || !wrist) return null;
+
+    // The elbow is a hinge: free-axis CCD twists it and candy-wraps the
+    // forearm mesh. Lock its rotation to the bend axis of the rest pose
+    // (perpendicular to the shoulder-elbow-wrist plane, in elbow space).
+    const hinge = wrist.position.clone().normalize()
+      .cross(elbow.worldToLocal(shoulder.getWorldPosition(new THREE.Vector3())).normalize());
+    if (hinge.lengthSq() < 1e-6) return null;
+    hinge.normalize();
+
+    const solve = (iters) => {
+      for (let it = 0; it < iters; it++) {
+        for (const link of [elbow, shoulder]) {
+          link.getWorldPosition(linkPos);
+          link.getWorldQuaternion(linkQuatInv).invert();
+          wrist.getWorldPosition(effDir).sub(linkPos).applyQuaternion(linkQuatInv).normalize();
+          targetDir.copy(target).sub(linkPos).applyQuaternion(linkQuatInv).normalize();
+          let angle;
+          if (link === elbow) {
+            // Signed angle between the two directions projected onto the
+            // hinge plane.
+            p1.copy(effDir).addScaledVector(hinge, -effDir.dot(hinge));
+            p2.copy(targetDir).addScaledVector(hinge, -targetDir.dot(hinge));
+            if (p1.lengthSq() < 1e-8 || p2.lengthSq() < 1e-8) continue;
+            p1.normalize(); p2.normalize();
+            angle = Math.atan2(cr.crossVectors(p1, p2).dot(hinge), p1.dot(p2));
+            angle = THREE.MathUtils.clamp(angle, -0.3, 0.3);
+            if (Math.abs(angle) < 1e-4) continue;
+            step.setFromAxisAngle(hinge, angle);
+          } else {
+            const dot = THREE.MathUtils.clamp(effDir.dot(targetDir), -1, 1);
+            angle = Math.min(Math.acos(dot), 0.25); // small steps keep it stable
+            if (angle < 1e-4) continue;
+            cr.crossVectors(effDir, targetDir);
+            if (cr.lengthSq() < 1e-8) continue;
+            step.setFromAxisAngle(cr.normalize(), angle);
+          }
+          link.quaternion.multiply(step);
+          char.root.updateMatrixWorld(true);
+        }
+      }
+    };
+
+    // If the spot is out of reach, pull the target back toward the shoulder
+    // and settle for a closer grip — the cards re-anchor to the hands anyway.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      solve(16);
+      const err = wrist.getWorldPosition(effDir).distanceTo(target);
+      if (err < 0.05) break;
+      target.lerp(shoulder.getWorldPosition(linkPos), 0.3);
+    }
+    return [shoulder, elbow, wrist];
+  };
+
+  // Hands land just outside the fan's bottom corners, resting on the felt.
+  const lBones = reach('L', new THREE.Vector3(-0.11, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.1));
+  const rBones = reach('R', new THREE.Vector3(0.11, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.1));
+  if (!lBones || !rBones) return;
+
+  char.armPose = [...lBones, ...rBones].map((b) => ({ bone: b, quat: b.quaternion.clone() }));
+  char.armW = 1;
+
+  // Park the fan midway between wherever the hands actually landed (the
+  // reach can fall a touch short of the ideal spot).
+  const lw = lBones[2].getWorldPosition(new THREE.Vector3());
+  const rw = rBones[2].getWorldPosition(new THREE.Vector3());
+  state.holeAnchor.copy(lw).add(rw).multiplyScalar(0.5);
+  state.holeAnchor.y = Math.max(state.holeAnchor.y, TABLE_TOP) + 0.015;
+  state.holeAnchor.z -= 0.03; // fan sits just beyond the knuckles
+  layoutHoleCards();
+}
+
+// The pair rests tilted back toward the player's eyes so the faces read from
+// the seat. A slight fan plus a few millimetres of separation between the
+// two planes keeps the overlapping faces from z-fighting.
+const _eyePoint = new THREE.Vector3();
+function layoutHoleCards() {
+  if (!state.holeAnchor) return;
+  _eyePoint.set(0, EYE_HEIGHT + 0.25, SEAT_RADIUS + 0.9);
   for (let i = 0; i < state.holeCards.length; i++) {
     const card = state.holeCards[i];
     const dir = i === 0 ? -1 : 1;
-    // Hidden while zoomed on the table, front and centre while zoomed on
-    // the hand itself.
+    card.position.copy(state.holeAnchor);
+    card.lookAt(_eyePoint);
+    card.rotateZ(dir * 0.13);         // small fan, like a pair held together
+    card.translateX(dir * 0.045);
+    card.translateY(0.055);           // bottom edge rests at the anchor
+    card.translateZ(0.004 * (i + 1)); // separated planes: no z-fighting
+  }
+}
+
+// The cards themselves never move; this only handles the hand-zoom camera
+// target and hiding the pair while the board close-up is active.
+const _handZoomDir = new THREE.Vector3();
+function positionHandCards() {
+  if (!state.holeCards.length || !state.holeAnchor) return;
+  const handZoom = state.zoom.active && state.zoom.kind === 'hand';
+  if (handZoom) {
+    _handZoomDir.copy(state.camHome).sub(state.holeAnchor).normalize();
+    state.zoom.pos.copy(state.holeAnchor).addScaledVector(_handZoomDir, 0.4)
+      .setY(state.holeAnchor.y + 0.18);
+    state.zoom.look.copy(state.holeAnchor).setY(state.holeAnchor.y + 0.07);
+  }
+  for (const card of state.holeCards) {
     card.visible = handZoom || !state.zoom.active;
-    card.position.copy(_handPos);
-    card.lookAt(camera.position);
-    card.rotateZ(dir * 0.16);      // fan the pair like a held hand
-    card.translateX(dir * 0.026);
-    card.translateY(0.03);
   }
 }
 
