@@ -167,16 +167,21 @@ html, body {
     border: 1px solid var(--line);
     border-radius: 8px;
     z-index: 5;
+    cursor: pointer;
 }
 
 .hud-row { display: flex; gap: 4px; }
 
 .hud-card {
-    width: 61px;
+    width: 49px;
     height: auto;
     border-radius: 3px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    transition: width 0.15s ease;
 }
+
+/* Tapping the panel toggles a 2x close-up of the whole hand. */
+.hud-board.expanded .hud-card { width: 98px; }
 
 .hud-card.facedown { opacity: 0.35; }
 
@@ -394,7 +399,11 @@ html, body {
     /* Below the pot pill so the two never overlap on narrow screens. */
     .hud-board { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 4px; padding: 4px 5px; }
     .hud-row { gap: 3px; }
-    .hud-card { width: 47px; }
+    .hud-card { width: 38px; }
+    /* Clamped just under 2x so five cards still fit a narrow screen. */
+    .hud-board.expanded { right: calc(4px + env(safe-area-inset-right)); }
+    .hud-board.expanded .hud-row { gap: 2px; }
+    .hud-board.expanded .hud-card { width: 72px; }
     .banner { font-size: 12px; top: 30%; }
 
     .log {
@@ -419,7 +428,8 @@ html, body {
 
     .hud-pot { top: 42px; font-size: 12px; padding: 3px 10px; }
     .hud-board { top: 42px; gap: 4px; padding: 4px 5px; }
-    .hud-card { width: 50px; }
+    .hud-card { width: 40px; }
+    .hud-board.expanded .hud-card { width: 80px; }
     .banner { font-size: 12px; top: 26%; }
 
     .log {

@@ -29,7 +29,8 @@
     {
         <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b> <span class="hud-stack">· YOU&nbsp;<b>$@(SeatOf(0)?.Stack ?? _game.GetPlayer(0).Stack)</b></span></div>
 
-        <div class="hud-board">
+        <div class="hud-board @(_hudBoardExpanded ? "expanded" : "")"
+             @onclick="() => _hudBoardExpanded = !_hudBoardExpanded">
             <div class="hud-row">
                 @* Dealt cards fill from the right so they hug the border,
                    aligned above the player's pair. *@
@@ -201,6 +202,7 @@
     private long _sliderValue;
     private bool _quickMode;
     private bool _sessionOver;
+    private bool _hudBoardExpanded;
     private string _sessionOverMessage = "";
     private string _banner;
     private string _statusLine = "";
