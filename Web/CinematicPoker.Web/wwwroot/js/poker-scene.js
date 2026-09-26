@@ -210,6 +210,32 @@ function makeDealerArrow() {
   return group;
 }
 
+// Shared gold hull material for the current actor's outline. The vertex
+// displacement runs before skinning, so the hull inflates in bind space.
+let _outlineMat = null;
+function outlineMaterial() {
+  if (_outlineMat) return _outlineMat;
+  _outlineMat = new THREE.MeshBasicMaterial({
+    color: 0xffc14d, side: THREE.BackSide, toneMapped: false,
+  });
+  _outlineMat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      '#include <begin_vertex>\n\ttransformed += normalize(normal) * 0.013;');
+  };
+  return _outlineMat;
+}
+
+// Outline whoever currently has to act (same signal as the turn arrow).
+function updateActorOutline(seatIndex) {
+  for (let i = 0; i < state.seats.length; i++) {
+    const c = state.seats[i].char;
+    if (c && c.setOutline && c.outlineOn !== (i === seatIndex)) {
+      c.setOutline(i === seatIndex);
+    }
+  }
+}
+
 const ARROW_Y = 1.92; // above the bigger characters' heads
 
 function updateDealerArrow(dealerSeat) {
@@ -281,7 +307,31 @@ function makeCharacter(gltf, spec) {
 
   const character = {
     root, mixer, sitAction, find,
-    dead: false, reacting: false, freezeSit, armPose: null, armW: 1
+    dead: false, reacting: false, freezeSit, armPose: null, armW: 1,
+    outlineOn: false,
+  };
+
+  // Inverted-hull outline (the classic stencil-outline look): a back-face
+  // copy of every mesh, inflated along the normals, shown only while this
+  // character is the one to act. Clones share the source skeleton, so the
+  // hull follows the animation for free.
+  const outlineParts = [];
+  const outlineSources = [];
+  root.traverse((o) => { if (o.isMesh) outlineSources.push(o); });
+  for (const src of outlineSources) {
+    const hull = src.clone();
+    hull.material = outlineMaterial();
+    hull.castShadow = false;
+    hull.receiveShadow = false;
+    hull.frustumCulled = false;
+    hull.visible = false;
+    hull.renderOrder = -1; // draw the hull first, body over it
+    src.parent.add(hull);
+    outlineParts.push({ hull, src });
+  }
+  character.setOutline = (on) => {
+    character.outlineOn = on;
+    for (const p of outlineParts) p.hull.visible = on && p.src.visible;
   };
 
   // The sit loop already breathes; just layer a slow head drift on top so
@@ -1711,6 +1761,7 @@ window.pokerScene = {
     // The arrow tracks whoever currently has to act (including the player).
     const actor = seats.find(s => s.actor);
     updateDealerArrow(actor ? actor.seat : -1);
+    updateActorOutline(actor ? actor.seat : -1);
     for (const data of seats) {
       const seat = state.seats[data.seat];
       if (!seat) continue;
