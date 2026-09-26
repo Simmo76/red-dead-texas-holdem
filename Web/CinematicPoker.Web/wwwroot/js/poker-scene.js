@@ -40,6 +40,18 @@ const PLAYER_MODEL = { model: 'Jimmy', shirt: { hue: 0, sat: 0.15 }, cards: true
 // units); scale to a larger-than-life build so the players fill the frame.
 const CHAR_SCALE = 5.16;
 
+// Opening cinematic: seconds per backdrop sweep (desert, then club). The
+// matching audio parts are sequenced by pokerAudio.playIntro on the same
+// timings.
+const INTRO_PART = 8;
+const _introLook = new THREE.Vector3(0, 0.95, 0);
+
+function endIntro() {
+  if (!state.intro || !state.intro.active) return;
+  state.intro.active = false;
+  if (state.setEnvironment) state.setEnvironment(0); // settle into ARCADE
+}
+
 const _idleQuat = new THREE.Quaternion();
 const _idleEuler = new THREE.Euler();
 
@@ -477,6 +489,7 @@ async function buildScene(canvas) {
   state.view = view;
   state.pivot = new THREE.Vector3(0, TABLE_TOP, 0);
   state.zoom = { active: false, kind: 'board', pos: new THREE.Vector3(), look: new THREE.Vector3() };
+  state.intro = { active: false, start: 0, phase: 0 };
   state.camHome = new THREE.Vector3();
   state.baseFov = camera.fov;
   state.camera = camera;
@@ -792,7 +805,30 @@ async function buildScene(canvas) {
     view.distScale += (view.targetDistScale - view.distScale) * ease;
     view.panRight += (view.targetPanRight - view.panRight) * ease;
     view.panUp += (view.targetPanUp - view.panUp) * ease;
-    if (state.zoom.active) {
+    if (state.intro.active) {
+      // Opening cinematic: two slow aerial sweeps (desert, then a hard cut
+      // to the club) before the camera settles into the normal seat view.
+      // Wall-clock, not frame-time: the audio parts run on wall-clock too,
+      // so picture and sound stay locked even when frames stutter.
+      const it = (performance.now() - state.intro.start) / 1000;
+      if (it >= INTRO_PART * 2) {
+        endIntro();
+      } else {
+        if (it >= INTRO_PART && state.intro.phase === 0) {
+          state.intro.phase = 1;
+          state.setEnvironment(5); // CLUB
+        }
+        const phase = state.intro.phase;
+        const k = (it - phase * INTRO_PART) / INTRO_PART; // 0..1 in segment
+        const s = k * k * (3 - 2 * k);                   // smoothstep drift
+        const yaw = phase === 0 ? -2.3 + 1.25 * s : 0.7 + 1.25 * s;
+        const dist = 6.2 - 2.0 * s;
+        const h = 3.1 - 1.3 * s;
+        camera.position.set(Math.sin(yaw) * dist, h, Math.cos(yaw) * dist);
+        _lookMat.lookAt(camera.position, _introLook, _upVec);
+        camera.quaternion.setFromRotationMatrix(_lookMat);
+      }
+    } else if (state.zoom.active) {
       _desiredPos.copy(state.zoom.pos);
       _lookTarget.copy(state.zoom.look);
     } else {
@@ -812,10 +848,12 @@ async function buildScene(canvas) {
       _desiredPos.x += prx; _desiredPos.z += prz; _desiredPos.y += view.panUp;
       _lookTarget.x += prx; _lookTarget.z += prz; _lookTarget.y += view.panUp;
     }
-    camera.position.lerp(_desiredPos, Math.min(1, dt * 6));
-    _lookMat.lookAt(camera.position, _lookTarget, _upVec);
-    _desiredQuat.setFromRotationMatrix(_lookMat);
-    camera.quaternion.slerp(_desiredQuat, Math.min(1, dt * 8));
+    if (!state.intro.active) {
+      camera.position.lerp(_desiredPos, Math.min(1, dt * 6));
+      _lookMat.lookAt(camera.position, _lookTarget, _upVec);
+      _desiredQuat.setFromRotationMatrix(_lookMat);
+      camera.quaternion.slerp(_desiredQuat, Math.min(1, dt * 8));
+    }
 
     // The turn arrow bobs and slowly spins over the actor's head.
     if (state.dealerArrow && state.dealerArrow.visible) {
@@ -1776,6 +1814,21 @@ function buildClub() {
 
 window.pokerScene = {
   get loaded() { return state.ready; },
+
+  // Opening cinematic: aerial sweep over the desert then the club, ending
+  // on the normal arcade seat view. Returns the total running time (s).
+  playIntro() {
+    if (!state.ready || !state.setEnvironment) return 0;
+    state.intro.start = performance.now();
+    state.intro.phase = 0;
+    state.intro.active = true;
+    state.setEnvironment(2); // DESERT first
+    return INTRO_PART * 2;
+  },
+
+  skipIntro() {
+    endIntro();
+  },
 
   // Cycle to the next backdrop set; returns the new backdrop name for the
   // topbar button label.

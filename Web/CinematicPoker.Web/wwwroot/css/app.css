@@ -129,6 +129,61 @@ html, body {
     background: rgba(35, 26, 12, 0.85);
 }
 
+/* ----------------------------------------------------- intro movie */
+
+.intro-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    background: rgba(4, 4, 10, 0.74);
+    cursor: pointer;
+}
+
+.intro-title {
+    font-size: clamp(30px, 6vw, 52px);
+    letter-spacing: 10px;
+    font-weight: 800;
+    color: var(--text);
+    text-shadow: 0 3px 14px rgba(0, 0, 0, 0.9);
+}
+
+.intro-title span { color: var(--gold); }
+
+.intro-tap {
+    font-size: 14px;
+    letter-spacing: 5px;
+    color: var(--text-dim);
+    animation: intro-pulse 1.7s ease-in-out infinite;
+}
+
+@keyframes intro-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+.intro-skip {
+    position: fixed;
+    right: calc(14px + env(safe-area-inset-right));
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    z-index: 60;
+    background: var(--panel);
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 8px 18px;
+    font-size: 12px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.intro-skip:hover { color: var(--text); border-color: var(--gold-dim); }
+
 /* ------------------------------------------------------------- HUD */
 
 .hud-pot {

@@ -10,6 +10,18 @@
 
     <canvas id="poker-canvas"></canvas>
 
+    @if (!_introStarted)
+    {
+        <div class="intro-overlay" @onclick="StartIntro">
+            <div class="intro-title">CINEMATIC <span>POKER</span></div>
+            <div class="intro-tap">TAP TO PLAY</div>
+        </div>
+    }
+    else if (_introRunning)
+    {
+        <button class="intro-skip" @onclick="SkipIntro">SKIP &#9656;</button>
+    }
+
     <header class="topbar">
         <div class="brand">CINEMATIC <span>POKER</span></div>
         <div class="topbar-right">
@@ -218,6 +230,51 @@
     private const int EquityIterations = 200;
 
     protected override void OnInitialized() => StartSession();
+
+    // -------------------------------------------------------- intro movie
+
+    private bool _introStarted;
+    private bool _introRequested;
+    private bool _introRunning;
+    private int _introToken;
+
+    private async Task StartIntro()
+    {
+        if (_introRequested) return;
+        _introRequested = true; // the tap doubles as the audio-unlock gesture
+        // If the scene is still loading, keep the title card up until it's in.
+        for (int i = 0; i < 24 && !_sceneReady; i++) await Task.Delay(250);
+        _introStarted = true;
+        try
+        {
+            double seconds = await JS.InvokeAsync<double>("pokerScene.playIntro");
+            if (seconds <= 0) return; // scene not ready yet: straight to the game
+            _introRunning = true;
+            if (!_muted) _ = JS.InvokeVoidAsync("pokerAudio.playIntro");
+            int token = ++_introToken;
+            _ = HideSkipAfter(token, (int)(seconds * 1000) + 500);
+        }
+        catch (JSException)
+        {
+            // Scene module still loading: skip the cinematic, play normally.
+        }
+    }
+
+    private async Task HideSkipAfter(int token, int ms)
+    {
+        await Task.Delay(ms);
+        if (token != _introToken || !_introRunning) return;
+        _introRunning = false;
+        StateHasChanged();
+    }
+
+    private async Task SkipIntro()
+    {
+        _introToken++;
+        _introRunning = false;
+        await JS.InvokeVoidAsync("pokerScene.skipIntro");
+        await JS.InvokeVoidAsync("pokerAudio.stopIntro");
+    }
 
     // ------------------------------------------------------------- 3D scene
 

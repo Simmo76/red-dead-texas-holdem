@@ -71,8 +71,47 @@ window.pokerAudio = (function () {
     };
     let musicUrl = 'audio/saloon-music.mp3';
 
+    // Intro movie audio: the two owner-supplied parts played back to back
+    // (desert sweep, then club sweep), each faded in and out. Regular music
+    // stays out of the way until the intro finishes or is skipped.
+    const INTRO_PARTS = ['audio/music-desert.mp3', 'audio/music-club.mp3'];
+    const INTRO_PART_SECONDS = 8;
+    let introAudio = null;
+    let introPlaying = false;
+
+    function stopIntroAudio() {
+        if (introAudio) {
+            clearInterval(introAudio._fadeTimer);
+            try { introAudio.pause(); } catch (e) { }
+            introAudio = null;
+        }
+        introPlaying = false;
+    }
+
+    function playIntroPart(index) {
+        if (index >= INTRO_PARTS.length) { stopIntroAudio(); startMusic(); return; }
+        const a = new Audio(INTRO_PARTS[index]);
+        introAudio = a;
+        a.volume = 0;
+        const p = a.play();
+        if (p) p.catch(function () { });
+        const fade = 0.9, t0 = Date.now();
+        a._fadeTimer = setInterval(function () {
+            if (introAudio !== a) { clearInterval(a._fadeTimer); return; }
+            const t = (Date.now() - t0) / 1000;
+            const vIn = Math.min(1, t / fade);
+            const vOut = Math.max(0, Math.min(1, (INTRO_PART_SECONDS - t) / fade));
+            a.volume = (muted ? 0 : 0.4) * Math.min(vIn, vOut);
+            if (t >= INTRO_PART_SECONDS) {
+                clearInterval(a._fadeTimer);
+                try { a.pause(); } catch (e) { }
+                playIntroPart(index + 1);
+            }
+        }, 100);
+    }
+
     function startMusic() {
-        if (muted) return;
+        if (muted || introPlaying) return;
         try {
             if (music && music._url !== musicUrl) {
                 music.pause();
@@ -122,6 +161,22 @@ window.pokerAudio = (function () {
     return {
         play: play,
         voice: voice,
+        // Start the intro movie audio (called on the same tap that starts
+        // the camera sweep, so autoplay is already unlocked). The tap's own
+        // pointerdown may have started the saloon loop a moment earlier —
+        // silence it for the duration.
+        playIntro: function () {
+            stopIntroAudio();
+            introPlaying = true;
+            if (music) { music.pause(); music = null; }
+            playIntroPart(0);
+        },
+        // Skip (or finish): drop the intro audio and hand over to the
+        // regular backdrop music bed.
+        stopIntro: function () {
+            stopIntroAudio();
+            startMusic();
+        },
         // Switch the music bed to match the current backdrop. Called from a
         // click handler, so play() is allowed even before other audio ran.
         setScene: function (name) {
