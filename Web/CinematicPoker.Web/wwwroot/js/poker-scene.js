@@ -100,9 +100,11 @@ function makeCard(path, w = 0.18, unlit = false) {
   return mesh;
 }
 
-// Table cards are four times real size (63mm -> 256mm wide) so they read
-// clearly from the seat; tap-to-zoom still gives a full close-up.
-const CARD_W = 0.256;
+// Seat reveal cards are twice real size (63mm -> 128mm wide); the community
+// cards in the middle are bigger again (x1.6) so the board reads from the
+// seat, and tap-to-zoom still gives a full close-up.
+const CARD_W = 0.128;
+const BOARD_W = 0.205;
 
 // Table cards lie flat on the felt in world space, like real dealt cards.
 function placeTableCard(mesh, x, z, lean = 0, yaw = 0) {
@@ -535,7 +537,7 @@ async function buildScene(canvas) {
   // bg doubles as the fog colour so distant geometry melts into the sky.
   const ENVS = [
     { name: 'ARCADE', bg: 0x07070f, fog: [12, 58], amb: [0x4a5578, 0.55], hemi: [0x35406b, 0x0c0a14, 0.5], dir: [0x7285c8, 0.5, [-14, 26, 10]], fill: [0x9adfe8, 3.5], back: [0xe08ad8, 4.5], build: null },
-    { name: 'BEACH', bg: 0x9fd4ee, fog: [30, 130], amb: [0xbfd8e8, 1.0], hemi: [0xcfe8ff, 0x8a7a5a, 0.9], dir: [0xfff2d8, 2.6, [18, 30, 12]], fill: [0xbfe8ff, 1.5], back: [0xffe8c8, 1.5], build: buildBeach },
+    { name: 'BEACH', bg: 0x2f9ed3, fog: [30, 130], amb: [0xbfd8e8, 0.65], hemi: [0xcfe8ff, 0x8a7a5a, 0.55], dir: [0xfff2d8, 1.7, [18, 30, 12]], fill: [0xbfe8ff, 1.2], back: [0xffe8c8, 1.2], build: buildBeach },
     { name: 'DESERT', bg: 0xe8b878, fog: [25, 110], amb: [0xd8b890, 0.85], hemi: [0xf0d0a8, 0x9a6a3a, 0.7], dir: [0xffd8a0, 2.4, [-20, 18, 8]], fill: [0xffc890, 1.2], back: [0xff9860, 1.8], build: buildDesert },
     { name: 'SHED', bg: 0x0d0906, fog: [8, 26], amb: [0x584838, 0.35], hemi: [0x4a3828, 0x140c06, 0.35], dir: [0xc8a878, 0.15, [-6, 12, 6]], fill: [0xffb868, 1.2], back: [0x684828, 1.0], build: buildShed },
     { name: 'STATION', bg: 0x02030a, fog: [20, 80], amb: [0x88a0c0, 0.7], hemi: [0xa8c8e8, 0x182028, 0.6], dir: [0xcfe0ff, 1.2, [8, 24, -14]], fill: [0x78c8ff, 2.5], back: [0x4868d8, 2.5], build: buildStation },
@@ -940,7 +942,7 @@ function pickCardZoomTarget(canvas, e) {
   // Height chosen so the group fills the view: wider groups sit higher. The
   // camera hangs a touch behind the group so the top-down view stays stable
   // and the cards read upright from the player's side of the table.
-  const height = group === state.boardCards ? 1.55 : 1.0;
+  const height = group === state.boardCards ? 1.28 : 0.52;
   return {
     pos: new THREE.Vector3(centre.x, TABLE_TOP + height, centre.z + height * 0.09),
     look: new THREE.Vector3(centre.x, TABLE_TOP, centre.z),
@@ -973,9 +975,9 @@ function clearGroupChildren(list, parent) {
 function updateBoard(paths) {
   clearGroupChildren(state.boardCards, state.scene);
   const n = paths.length;
-  const spacing = CARD_W + 0.014;
+  const spacing = BOARD_W + 0.014;
   for (let i = 0; i < n; i++) {
-    const card = makeCard(paths[i], CARD_W);
+    const card = makeCard(paths[i], BOARD_W);
     // Flat on the felt, upright when read from the player's seat.
     placeTableCard(card, (i - (n - 1) / 2) * spacing, 0.34, 0, 0);
     state.boardCards.push(card);
@@ -986,7 +988,7 @@ function updateBoard(paths) {
 function updateHole(paths) {
   clearGroupChildren(state.holeCards, state.scene);
   for (let i = 0; i < paths.length; i++) {
-    const card = makeCard(paths[i], 0.29, true);
+    const card = makeCard(paths[i], 0.145, true);
     state.holeCards.push(card);
     state.scene.add(card);
   }
@@ -1094,8 +1096,8 @@ function setupPlayerArms() {
   };
 
   // Hands land just outside the fan's bottom corners, resting on the felt.
-  const lBones = reach('L', new THREE.Vector3(-0.17, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.06));
-  const rBones = reach('R', new THREE.Vector3(0.17, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.06));
+  const lBones = reach('L', new THREE.Vector3(-0.11, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.06));
+  const rBones = reach('R', new THREE.Vector3(0.11, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.06));
   if (!lBones || !rBones) return;
 
   const pinned = [...lBones, ...rBones];
@@ -1126,8 +1128,8 @@ function layoutHoleCards() {
     card.position.copy(state.holeAnchor);
     card.lookAt(_eyePoint);
     card.rotateZ(dir * 0.13);         // small fan, like a pair held together
-    card.translateX(dir * 0.09);
-    card.translateY(0.11);            // bottom edge rests at the anchor
+    card.translateX(dir * 0.045);
+    card.translateY(0.055);           // bottom edge rests at the anchor
     card.translateZ(0.006 * (i + 1)); // separated planes: no z-fighting
   }
 }
@@ -1142,14 +1144,9 @@ function positionHandCards() {
     // Hover above and just in front of the pair (backing straight toward the
     // seat would put the camera inside the player's leaned-forward head).
     _handZoomDir.copy(state.camHome).sub(state.holeAnchor).normalize();
-    // Portrait's narrow horizontal FOV needs more distance to fit the pair.
-    const portrait = state.camera && state.camera.aspect < 0.8;
-    const back = portrait ? 0.3 : 0.2;
-    const up = portrait ? 1.0 : 0.6;
-    const lookUp = portrait ? 0.05 : 0.18;
-    state.zoom.pos.copy(state.holeAnchor).addScaledVector(_handZoomDir, back)
-      .setY(state.holeAnchor.y + up);
-    state.zoom.look.copy(state.holeAnchor).setY(state.holeAnchor.y + lookUp);
+    state.zoom.pos.copy(state.holeAnchor).addScaledVector(_handZoomDir, 0.4)
+      .setY(state.holeAnchor.y + 0.18);
+    state.zoom.look.copy(state.holeAnchor).setY(state.holeAnchor.y + 0.07);
   }
   for (const card of state.holeCards) {
     card.visible = handZoom || !state.zoom.active;
@@ -1232,37 +1229,27 @@ function envGlow(geo, color) {
 
 function buildBeach() {
   const g = new THREE.Group();
-  g.add(envGround(0xdcc498));
-  // flat sea ring around the sand island
+  // A small sand island under the table, surrounded by water out to the
+  // panorama wall. Sand kept below full white under the noon sun.
+  g.add(envGround(0xd9c8a4, 8.2));
   const sea = new THREE.Mesh(
-    new THREE.RingGeometry(14, 75, 48),
-    envMat(0x2f7fae, { roughness: 0.35, metalness: 0.15 }));
+    new THREE.RingGeometry(8, 41, 48),
+    envMat(0x3fa3c8, { roughness: 0.35, metalness: 0.1 }));
   sea.rotation.x = -Math.PI / 2;
   sea.position.y = -0.06;
   g.add(sea);
-  // low-poly palms scattered on the sand
-  const trunkMat = envMat(0x7a5a38);
-  const frondMat = envMat(0x3f8f42);
-  for (let p = 0; p < 6; p++) {
-    const a = p * (Math.PI * 2 / 6) + 0.4;
-    const r = 7.5 + (p % 3) * 2.2;
-    const palm = new THREE.Group();
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.13, 3, 6), trunkMat);
-    trunk.position.y = 1.5;
-    trunk.rotation.z = 0.14;
-    palm.add(trunk);
-    for (let f = 0; f < 6; f++) {
-      const frond = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.5, 4), frondMat);
-      const fa = f * (Math.PI * 2 / 6);
-      frond.position.set(0.42 + Math.cos(fa) * 0.55, 2.95, Math.sin(fa) * 0.55);
-      frond.rotation.set(Math.sin(fa) * 1.25, 0, -Math.cos(fa) * 1.25 - 0.25);
-      palm.add(frond);
-    }
-    palm.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
-    palm.rotation.y = a;
-    g.add(palm);
-  }
-  g.add((() => { const s = envGlow(new THREE.SphereGeometry(2, 16, 12), 0xfff3c8); s.position.set(30, 34, 18); return s; })());
+  // The repo owner's beach picture wrapped around the inside of a tall
+  // cylinder as the sky/horizon; mirrored repeat hides the wrap seams.
+  const panoTex = texture('img/env/beach-pano.jpg');
+  panoTex.wrapS = THREE.MirroredRepeatWrapping;
+  panoTex.repeat.set(6, 1);
+  const pano = new THREE.Mesh(
+    new THREE.CylinderGeometry(40, 40, 30, 48, 1, true),
+    new THREE.MeshBasicMaterial({ map: panoTex, side: THREE.BackSide, fog: false }));
+  // Centre the photo's sea horizon at camera eye height so it reads level;
+  // the below-ground half is hidden by the sand/sea planes.
+  pano.position.y = 2.0;
+  g.add(pano);
   return g;
 }
 

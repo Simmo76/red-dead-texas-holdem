@@ -166,7 +166,7 @@ html, body {
 }
 
 .hud-card {
-    width: 34px;
+    width: 51px;
     height: auto;
     border-radius: 3px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
@@ -386,7 +386,7 @@ html, body {
     .hud-pot { top: calc(48px + env(safe-area-inset-top)); font-size: 12px; padding: 4px 12px; }
     /* Below the pot pill so the two never overlap on narrow screens. */
     .hud-board { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 3px; padding: 4px 5px; }
-    .hud-card { width: 26px; }
+    .hud-card { width: 39px; }
     .banner { font-size: 12px; top: 30%; }
 
     .log {
@@ -411,7 +411,7 @@ html, body {
 
     .hud-pot { top: 42px; font-size: 12px; padding: 3px 10px; }
     .hud-board { top: 42px; gap: 3px; padding: 4px 5px; }
-    .hud-card { width: 28px; }
+    .hud-card { width: 42px; }
     .banner { font-size: 12px; top: 26%; }
 
     .log {
