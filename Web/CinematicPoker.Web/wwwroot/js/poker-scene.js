@@ -366,26 +366,9 @@ function makeCharacter(gltf, spec) {
     return true;
   };
 
-  character.die = () => {
-    character.dead = true;
-    character.reacting = false;
-    gestureGen++; // cancel any pending gesture restores
-    const clip = find('Crouch');
-    if (!clip || !sitAction) { return; }
-    const action = mixer.clipAction(clip);
-    action.reset();
-    action.timeScale = 1;
-    action.setLoop(THREE.LoopOnce, 1);
-    action.clampWhenFinished = true;
-    sitAction.crossFadeTo(action, 0.4, false);
-    action.play();
-    // Hold the slumped-down part of the crouch instead of cycling back up.
-    setTimeout(() => { action.paused = true; }, 1200);
-  };
-
-  // Sit back up after a bust once a new session starts.
+  // Safety net after a bust: if the slump got stuck (e.g. a restart landed
+  // mid-gesture), cancel it and snap cleanly back onto the sit loop.
   character.revive = () => {
-    if (!character.dead) return;
     character.dead = false;
     character.reacting = false;
     gestureGen++; // cancel any pending gesture restores
@@ -1599,23 +1582,20 @@ window.pokerScene = {
         updateStackChips(seat, data.seat, data);
       }
       if (seat.label) drawLabel(seat.label, data);
-      if (seat.char && data.out && !seat.char.dead) {
-        if (data.seat === 0) {
-          // The player's own body stays on camera, so his lose animation
-          // plays once and ends (back to sitting) instead of holding the
-          // permanent slump the busted NPCs use. playOnce is skipped while
-          // another gesture (e.g. the all-in chip toss) is mid-flight, so
-          // only latch once the slump really started and retry until then.
-          if (!seat.char.bustReacted && seat.char.playOnce('Crouch', 1.6)) {
-            seat.char.bustReacted = true;
-          }
-        } else {
-          seat.char.die();
+      if (seat.char && data.out) {
+        // A bust plays the lose slump once and then settles back to sitting
+        // (player and NPCs alike) instead of holding a permanent slump.
+        // playOnce is skipped while another gesture (e.g. the all-in chip
+        // toss) is mid-flight, so only latch once the slump really started
+        // and retry until then.
+        if (!seat.char.bustReacted && seat.char.playOnce('Crouch', 1.6)) {
+          seat.char.bustReacted = true;
         }
       }
-      if (seat.char && !data.out) {
+      if (seat.char && !data.out && seat.char.bustReacted) {
+        // Fresh session after a bust: make sure they're sitting upright.
         seat.char.bustReacted = false;
-        seat.char.revive(); // fresh session after a bust: sit back up
+        seat.char.revive();
       }
     }
 
