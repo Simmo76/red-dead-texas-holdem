@@ -286,7 +286,7 @@ function characterMaterial(material, shirt) {
         diffuseColor.rgb = clamp(c, 0.0, 1.0);
       }`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
       gl_FragColor.rgb = mix(gl_FragColor.rgb,
-        vec3(dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114)) * 0.85), uGrey);`);
+        vec3(dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114)) * 0.6 + 0.3), uGrey);`);
     m.userData.foldShader = shader;
   };
   m.customProgramCacheKey = () => `char-${hue.toFixed(3)}-${sat}`;
@@ -341,28 +341,6 @@ function makeCharacter(gltf, spec) {
     outlineOn: false, folded: false, foldW: 0,
   };
 
-  // Folded players ghost out for the rest of the hand: grey (uGrey collapses
-  // the fragment to luminance) and semi-transparent, with their shadow
-  // dropped so the ghost look reads. Eased in/out by updateFold each frame;
-  // the flag simply mirrors the engine's per-hand folded state, so everyone
-  // returns to full colour when the next hand starts.
-  character.setFolded = (on) => { character.folded = on; };
-  character.updateFold = (dt) => {
-    const target = character.folded ? 1 : 0;
-    if (character.foldW === target) return;
-    character.foldW += (target - character.foldW) * Math.min(1, dt * 3.5);
-    if (Math.abs(character.foldW - target) < 0.01) character.foldW = target;
-    const w = character.foldW;
-    const ghost = w > 0.001;
-    for (const m of bodyMats) {
-      if (m.transparent !== ghost) { m.transparent = ghost; m.needsUpdate = true; }
-      m.opacity = 1 - w * 0.55;
-      m.userData.foldGrey = w;
-      if (m.userData.foldShader) m.userData.foldShader.uniforms.uGrey.value = w;
-    }
-    for (const mesh of bodyMeshes) mesh.castShadow = w < 0.5;
-  };
-
   // Inverted-hull outline (the classic stencil-outline look): a back-face
   // copy of every mesh, inflated along the normals, shown only while this
   // character is the one to act. Clones share the source skeleton, so the
@@ -384,6 +362,54 @@ function makeCharacter(gltf, spec) {
   character.setOutline = (on) => {
     character.outlineOn = on;
     for (const p of outlineParts) p.hull.visible = on && p.src.visible;
+  };
+
+  // Folded players ghost out for the rest of the hand: pale grey (uGrey
+  // collapses the fragment to lifted luminance) and semi-transparent, with
+  // their shadow dropped so the ghost look reads. The flag simply mirrors the
+  // engine's per-hand folded state, so everyone returns to full colour when
+  // the next hand starts.
+  //
+  // Plain alpha on a multi-part character shows its own insides (the far
+  // side of the head, the eyes from behind). The classic fix: while ghosted,
+  // depth-only copies of every mesh draw first among the transparent objects
+  // (after the opaque scene, so the backdrop keeps its colour) and lay down
+  // the front-surface depth; the body then blends only where it equals that
+  // depth (three's default LessEqual depth test), i.e. its nearest surface.
+  const ghostDepthMat = new THREE.MeshBasicMaterial({ colorWrite: false, transparent: true });
+  const ghostParts = [];
+  for (const src of bodyMeshes) {
+    const depthMesh = src.clone();
+    depthMesh.material = ghostDepthMat;
+    depthMesh.castShadow = false;
+    depthMesh.receiveShadow = false;
+    depthMesh.frustumCulled = false;
+    depthMesh.visible = false;
+    depthMesh.renderOrder = 1; // before the ghosted body (renderOrder 2)
+    src.parent.add(depthMesh);
+    ghostParts.push({ src, depthMesh });
+  }
+
+  character.setFolded = (on) => { character.folded = on; };
+  character.updateFold = (dt) => {
+    const target = character.folded ? 1 : 0;
+    if (character.foldW === target) return;
+    character.foldW += (target - character.foldW) * Math.min(1, dt * 3.5);
+    if (Math.abs(character.foldW - target) < 0.01) character.foldW = target;
+    const w = character.foldW;
+    const ghost = w > 0.001;
+    for (const m of bodyMats) {
+      if (m.transparent !== ghost) { m.transparent = ghost; m.needsUpdate = true; }
+      m.depthWrite = !ghost; // the prepass owns depth while ghosted
+      m.opacity = 1 - w * 0.45;
+      m.userData.foldGrey = w;
+      if (m.userData.foldShader) m.userData.foldShader.uniforms.uGrey.value = w;
+    }
+    for (const p of ghostParts) {
+      p.depthMesh.visible = ghost;
+      p.src.renderOrder = ghost ? 2 : 0;
+      p.src.castShadow = w < 0.5;
+    }
   };
 
   // The sit loop already breathes; just layer a slow head drift on top so
