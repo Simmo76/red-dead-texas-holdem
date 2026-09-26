@@ -751,7 +751,10 @@ async function buildScene(canvas) {
       const chair = chairGltf.scene.clone(true);
       chair.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
       chair.scale.setScalar(2.76); // 2x the previous size
-      chair.position.copy(pos);
+      // Jimmy's hips joint sits further forward in his pelvis than the old
+      // rig's did, so pull the chair toward the table to keep the seat
+      // under him rather than behind him.
+      chair.position.copy(seatPos(i, SEAT_RADIUS - 0.38));
       chair.rotation.y = facing;
       scene.add(chair);
     }
