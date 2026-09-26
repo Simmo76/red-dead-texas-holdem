@@ -13,6 +13,7 @@
     <header class="topbar">
         <div class="brand">CINEMATIC <span>POKER</span></div>
         <div class="topbar-right">
+            <button class="chip-btn" @onclick="CycleBackdrop">@_backdropName</button>
             <button class="chip-btn @(_muted ? "" : "active")" @onclick="ToggleMute">
                 @(_muted ? "SOUND OFF" : "SOUND ON")
             </button>
@@ -449,6 +450,15 @@
     {
         string rank = card.Rank == Rank.Ten ? "10" : Card.RankSymbol(card.Rank);
         return $"img/cards/{card.Suit.ToString().ToLowerInvariant()}_{rank}.png";
+    }
+
+    // -------------------------------------------------------------- backdrop
+
+    private string _backdropName = "ARCADE";
+
+    private async Task CycleBackdrop()
+    {
+        _backdropName = await JS.InvokeAsync<string>("pokerScene.cycleBackdrop");
     }
 
     // -------------------------------------------------------------- sounds

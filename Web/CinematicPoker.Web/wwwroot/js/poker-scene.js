@@ -1,4 +1,6 @@
-// Over-the-shoulder poker scene (Three.js) set on a neon arcade street.
+// Over-the-shoulder poker scene (Three.js) set on a neon arcade street, with
+// five extra switchable backdrops (beach, desert, shed, space station, dance
+// club) built procedurally from primitives, each with its own mood lighting.
 // Props/textures are CC0; the table characters and the street backdrop are
 // web-optimised conversions of the repo owner's licensed Unity assets
 // (CrowArt "Hunter", Leartes "Stylized Cyberpunk Arcade") — see
@@ -47,6 +49,10 @@ const state = {
   holeCards: [],
   seats: [],            // per seat: { group, label, cards:[], chips, dealerBtn, char }
   potChips: null,
+  envGroups: [],        // switchable backdrop groups, index matches ENVS
+  envIndex: 0,
+  envNames: [],
+  setEnvironment: null,
   lastJson: ''
 };
 
@@ -442,7 +448,8 @@ async function buildScene(canvas) {
 
   // ---- lighting: cool neon night around the street, with the familiar warm
   // lantern pool kept over the felt so the game still reads like a card den.
-  scene.add(new THREE.AmbientLight(0x4a5578, 0.55));
+  const ambient = new THREE.AmbientLight(0x4a5578, 0.55);
+  scene.add(ambient);
   const hemi = new THREE.HemisphereLight(0x35406b, 0x0c0a14, 0.5);
   scene.add(hemi);
 
@@ -511,12 +518,51 @@ async function buildScene(canvas) {
       }
     });
     scene.add(env);
+    state.envGroups[0] = env;
+    env.visible = state.envIndex === 0;
   });
 
   // Faint cool moonlight so the street silhouettes read against the night.
+  // (Doubles as the sun/celestial key for the other switchable backdrops.)
   const moon = new THREE.DirectionalLight(0x7285c8, 0.5);
   moon.position.set(-14, 26, 10);
   scene.add(moon);
+
+  // ---- switchable backdrops: the arcade GLB plus five procedural sets that
+  // are built lazily on first visit. Each entry retunes the mood lighting
+  // (ambient / hemisphere / celestial / neon fills) while the warm lantern
+  // pool over the felt stays constant so the game always reads the same.
+  // bg doubles as the fog colour so distant geometry melts into the sky.
+  const ENVS = [
+    { name: 'ARCADE', bg: 0x07070f, fog: [12, 58], amb: [0x4a5578, 0.55], hemi: [0x35406b, 0x0c0a14, 0.5], dir: [0x7285c8, 0.5, [-14, 26, 10]], fill: [0x9adfe8, 3.5], back: [0xe08ad8, 4.5], build: null },
+    { name: 'BEACH', bg: 0x9fd4ee, fog: [30, 130], amb: [0xbfd8e8, 1.0], hemi: [0xcfe8ff, 0x8a7a5a, 0.9], dir: [0xfff2d8, 2.6, [18, 30, 12]], fill: [0xbfe8ff, 1.5], back: [0xffe8c8, 1.5], build: buildBeach },
+    { name: 'DESERT', bg: 0xe8b878, fog: [25, 110], amb: [0xd8b890, 0.85], hemi: [0xf0d0a8, 0x9a6a3a, 0.7], dir: [0xffd8a0, 2.4, [-20, 18, 8]], fill: [0xffc890, 1.2], back: [0xff9860, 1.8], build: buildDesert },
+    { name: 'SHED', bg: 0x0d0906, fog: [8, 26], amb: [0x584838, 0.35], hemi: [0x4a3828, 0x140c06, 0.35], dir: [0xc8a878, 0.15, [-6, 12, 6]], fill: [0xffb868, 1.2], back: [0x684828, 1.0], build: buildShed },
+    { name: 'STATION', bg: 0x02030a, fog: [20, 80], amb: [0x88a0c0, 0.7], hemi: [0xa8c8e8, 0x182028, 0.6], dir: [0xcfe0ff, 1.2, [8, 24, -14]], fill: [0x78c8ff, 2.5], back: [0x4868d8, 2.5], build: buildStation },
+    { name: 'CLUB', bg: 0x070310, fog: [10, 40], amb: [0x382848, 0.4], hemi: [0x582878, 0x080410, 0.35], dir: [0x8858c8, 0.25, [-14, 26, 10]], fill: [0x00e8ff, 6], back: [0xff28c8, 7], build: buildClub },
+  ];
+  state.envNames = ENVS.map(e => e.name);
+  state.setEnvironment = function (i) {
+    const def = ENVS[i];
+    state.envIndex = i;
+    if (!state.envGroups[i] && def.build) {
+      state.envGroups[i] = def.build();
+      scene.add(state.envGroups[i]);
+    }
+    for (let k = 0; k < ENVS.length; k++) {
+      if (state.envGroups[k]) state.envGroups[k].visible = (k === i);
+    }
+    scene.background.setHex(def.bg);
+    scene.fog.color.setHex(def.bg);
+    scene.fog.near = def.fog[0];
+    scene.fog.far = def.fog[1];
+    ambient.color.setHex(def.amb[0]); ambient.intensity = def.amb[1];
+    hemi.color.setHex(def.hemi[0]); hemi.groundColor.setHex(def.hemi[1]); hemi.intensity = def.hemi[2];
+    moon.color.setHex(def.dir[0]); moon.intensity = def.dir[1];
+    moon.position.set(def.dir[2][0], def.dir[2][1], def.dir[2][2]);
+    fill.color.setHex(def.fill[0]); fill.intensity = def.fill[1];
+    backFill.color.setHex(def.back[0]); backFill.intensity = def.back[1];
+  };
 
   // The backdrop doesn't receive shadows (perf), so a shadow catcher under
   // the table keeps the players and chairs grounded on the street.
@@ -1162,10 +1208,220 @@ function updatePot(pot) {
   state.scene.add(state.potChips);
 }
 
+// -------------------------------------------------------- procedural backdrops
+// Five simple low-poly sets built from primitives (nothing loaded, nothing
+// copied) that swap in behind the constant table + lantern pool. Each is
+// only constructed the first time the player cycles to it.
+
+function envMat(color, opts) {
+  return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 1 }, opts));
+}
+
+function envGround(color, r) {
+  const m = new THREE.Mesh(new THREE.CircleGeometry(r || 60, 48), envMat(color));
+  m.rotation.x = -Math.PI / 2;
+  m.position.y = -0.01;
+  m.receiveShadow = true;
+  return m;
+}
+
+// Unlit marker (sun, glow strips): ignores fog so it stays vivid at distance.
+function envGlow(geo, color) {
+  return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, fog: false }));
+}
+
+function buildBeach() {
+  const g = new THREE.Group();
+  g.add(envGround(0xdcc498));
+  // flat sea ring around the sand island
+  const sea = new THREE.Mesh(
+    new THREE.RingGeometry(14, 75, 48),
+    envMat(0x2f7fae, { roughness: 0.35, metalness: 0.15 }));
+  sea.rotation.x = -Math.PI / 2;
+  sea.position.y = -0.06;
+  g.add(sea);
+  // low-poly palms scattered on the sand
+  const trunkMat = envMat(0x7a5a38);
+  const frondMat = envMat(0x3f8f42);
+  for (let p = 0; p < 6; p++) {
+    const a = p * (Math.PI * 2 / 6) + 0.4;
+    const r = 7.5 + (p % 3) * 2.2;
+    const palm = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.13, 3, 6), trunkMat);
+    trunk.position.y = 1.5;
+    trunk.rotation.z = 0.14;
+    palm.add(trunk);
+    for (let f = 0; f < 6; f++) {
+      const frond = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.5, 4), frondMat);
+      const fa = f * (Math.PI * 2 / 6);
+      frond.position.set(0.42 + Math.cos(fa) * 0.55, 2.95, Math.sin(fa) * 0.55);
+      frond.rotation.set(Math.sin(fa) * 1.25, 0, -Math.cos(fa) * 1.25 - 0.25);
+      palm.add(frond);
+    }
+    palm.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+    palm.rotation.y = a;
+    g.add(palm);
+  }
+  g.add((() => { const s = envGlow(new THREE.SphereGeometry(2, 16, 12), 0xfff3c8); s.position.set(30, 34, 18); return s; })());
+  return g;
+}
+
+function buildDesert() {
+  const g = new THREE.Group();
+  g.add(envGround(0xd9a45b));
+  // half-buried dune mounds on the horizon
+  for (let d = 0; d < 7; d++) {
+    const a = d * (Math.PI * 2 / 7) + 1.1;
+    const dune = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), envMat(d % 2 ? 0xd9a45b : 0xcf9950));
+    dune.scale.set(9 + d, 1.4 + (d % 3) * 0.5, 5.5);
+    dune.position.set(Math.cos(a) * (20 + (d % 3) * 6), -0.35, Math.sin(a) * (20 + (d % 3) * 6));
+    dune.rotation.y = a;
+    g.add(dune);
+  }
+  const cactusMat = envMat(0x4a7a3a);
+  for (let c = 0; c < 4; c++) {
+    const a = c * (Math.PI * 2 / 4) + 0.7;
+    const r = 6.5 + (c % 2) * 2.5;
+    const cactus = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 1.7, 8), cactusMat);
+    body.position.y = 0.85;
+    cactus.add(body);
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.7, 8), cactusMat);
+    arm.position.set(0.3, 1.1, 0);
+    arm.rotation.z = -0.5;
+    cactus.add(arm);
+    cactus.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+    g.add(cactus);
+  }
+  for (let k = 0; k < 5; k++) {
+    const a = k * (Math.PI * 2 / 5) + 2.0;
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4 + (k % 3) * 0.3), envMat(0x8a705a, { flatShading: true }));
+    rock.position.set(Math.cos(a) * (9 + k), 0.2, Math.sin(a) * (9 + k));
+    g.add(rock);
+  }
+  // low evening sun sitting on the horizon
+  g.add((() => { const s = envGlow(new THREE.SphereGeometry(2.6, 16, 12), 0xffd890); s.position.set(-42, 10, 14); return s; })());
+  return g;
+}
+
+function buildShed() {
+  const g = new THREE.Group();
+  // one boxy timber room; BackSide so we see it from within
+  const room = new THREE.Mesh(
+    new THREE.BoxGeometry(13, 4.2, 13),
+    envMat(0x54402a, { side: THREE.BackSide }));
+  room.position.y = 2.08;
+  g.add(room);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(9.5, 4), envMat(0x3d2c1a));
+  floor.rotation.x = -Math.PI / 2;
+  floor.rotation.z = Math.PI / 4;
+  floor.position.y = -0.005;
+  floor.receiveShadow = true;
+  g.add(floor);
+  const crateMat = envMat(0x6a4a2a);
+  const crates = [[4.6, 0.45, 3.4, 0.9], [5.0, 0.35, -2.8, 0.7], [-4.4, 0.4, -3.9, 0.8], [-5.1, 0.3, 2.6, 0.6]];
+  for (const [x, y, z, s] of crates) {
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(s, s, s), crateMat);
+    crate.position.set(x, y, z);
+    crate.rotation.y = x + z;
+    g.add(crate);
+  }
+  // bare hanging bulb by the lantern light source
+  const bulb = envGlow(new THREE.SphereGeometry(0.06, 10, 8), 0xffd9a0);
+  bulb.position.set(0, 2.35, 0);
+  g.add(bulb);
+  const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1.8, 4), envMat(0x181008));
+  cord.position.set(0, 3.28, 0);
+  g.add(cord);
+  return g;
+}
+
+function buildStation() {
+  const g = new THREE.Group();
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(8, 32),
+    envMat(0x303844, { metalness: 0.7, roughness: 0.35 }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -0.005;
+  floor.receiveShadow = true;
+  g.add(floor);
+  const wall = new THREE.Mesh(
+    new THREE.CylinderGeometry(8, 8, 4.4, 32, 1, true),
+    envMat(0x4a5666, { metalness: 0.25, roughness: 0.55, side: THREE.BackSide }));
+  wall.position.y = 2.2;
+  g.add(wall);
+  // glowing observation window strip looking out into space, kept low enough
+  // to read behind the far players from the home camera's downward pitch
+  const band = new THREE.Mesh(
+    new THREE.CylinderGeometry(7.92, 7.92, 0.9, 32, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0x9fd8ff, fog: false, side: THREE.BackSide }));
+  band.position.y = 1.5;
+  g.add(band);
+  // open ceiling: a dome of stars overhead
+  const starGeo = new THREE.BufferGeometry();
+  const pts = [];
+  for (let s = 0; s < 700; s++) {
+    const r = 30 + Math.random() * 50;
+    const th = Math.random() * Math.PI * 2;
+    const ph = Math.random() * Math.PI * 0.45; // upper dome only
+    pts.push(r * Math.sin(ph) * Math.cos(th), r * Math.cos(ph) + 3, r * Math.sin(ph) * Math.sin(th));
+  }
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  g.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.3, fog: false })));
+  return g;
+}
+
+function buildClub() {
+  const g = new THREE.Group();
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(7, 32),
+    envMat(0x16121e, { metalness: 0.55, roughness: 0.25 }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -0.005;
+  floor.receiveShadow = true;
+  g.add(floor);
+  const wall = new THREE.Mesh(
+    new THREE.CylinderGeometry(7, 7, 4.4, 24, 1, true),
+    envMat(0x241a30, { side: THREE.BackSide }));
+  wall.position.y = 2.2;
+  g.add(wall);
+  const ceiling = new THREE.Mesh(new THREE.CircleGeometry(7, 32), envMat(0x0e0a14, { side: THREE.DoubleSide }));
+  ceiling.rotation.x = Math.PI / 2;
+  ceiling.position.y = 4.4;
+  g.add(ceiling);
+  // neon glow rings around the walls
+  const rings = [[0xff30c0, 1.1], [0x30e0ff, 2.3], [0x8040ff, 3.3]];
+  for (const [color, y] of rings) {
+    const ring = new THREE.Mesh(
+      new THREE.CylinderGeometry(6.94, 6.94, 0.1, 24, 1, true),
+      new THREE.MeshBasicMaterial({ color, fog: false, side: THREE.BackSide }));
+    ring.position.y = y;
+    g.add(ring);
+  }
+  const ball = new THREE.Mesh(
+    new THREE.SphereGeometry(0.45, 20, 14),
+    envMat(0xc8c8d8, { metalness: 1, roughness: 0.08, flatShading: true }));
+  ball.position.y = 3.5;
+  g.add(ball);
+  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.45, 6), envMat(0x181018));
+  rod.position.y = 4.18;
+  g.add(rod);
+  return g;
+}
+
 // ------------------------------------------------------------------ public API
 
 window.pokerScene = {
   get loaded() { return state.ready; },
+
+  // Cycle to the next backdrop set; returns the new backdrop name for the
+  // topbar button label.
+  cycleBackdrop() {
+    if (!state.ready || !state.setEnvironment) return 'ARCADE';
+    const next = (state.envIndex + 1) % state.envNames.length;
+    state.setEnvironment(next);
+    return state.envNames[next];
+  },
 
   async init(canvasId) {
     if (state.ready) return true;

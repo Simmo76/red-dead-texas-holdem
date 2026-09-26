@@ -378,6 +378,8 @@ html, body {
 
 @media (max-width: 620px) and (orientation: portrait) {
     .topbar { padding-left: calc(10px + env(safe-area-inset-left)); padding-right: calc(10px + env(safe-area-inset-right)); }
+    /* Four buttons don't fit beside the brand on a phone: let them wrap. */
+    .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
     .chip-btn { padding: 5px 10px; font-size: 10px; letter-spacing: 1px; }
     .brand { font-size: 12px; letter-spacing: 2px; }
 
