@@ -1157,17 +1157,46 @@ function launchCelebration() {
   for (let i = 0; i < rockets; i++) {
     setTimeout(() => {
       if (!state.scene) return;
-      // Low over the far side of the table, so the show stays inside the
-      // default camera frame.
+      // Alternate: low over the far side of the table (in frame from the
+      // seat) and above the player (in frame during the win close-up).
+      const overPlayer = i % 2 === 1;
       const pos = new THREE.Vector3(
         (Math.random() - 0.5) * 2.2,
-        1.5 + Math.random() * 0.5,
-        -0.4 - Math.random() * 0.9);
+        overPlayer ? 1.8 + Math.random() * 0.4 : 1.5 + Math.random() * 0.5,
+        overPlayer ? 1.2 + Math.random() * 0.5 : -0.4 - Math.random() * 0.9);
       spawnBurst(pos, FX_COLORS[Math.floor(Math.random() * FX_COLORS.length)]);
     }, i * 380 + Math.random() * 120);
   }
   spawnSparkler(new THREE.Vector3(-0.92, TABLE_TOP + 0.03, 0.92), 0xffe9b0);
   spawnSparkler(new THREE.Vector3(0.92, TABLE_TOP + 0.03, 0.92), 0xffe9b0);
+}
+
+// A few chips arcing from a seat's rail into the pot whenever that player
+// puts chips in the middle.
+const POT_POS = new THREE.Vector3(-0.06, TABLE_TOP, -0.18);
+
+function spawnChipToss(seatIndex, count = 3) {
+  const from = seatPos(seatIndex, TABLE_RADIUS - 0.18);
+  for (let i = 0; i < count; i++) {
+    const chip = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.045, 0.012, 16),
+      new THREE.MeshStandardMaterial({
+        color: CHIP_COLORS[Math.floor(Math.random() * CHIP_COLORS.length)],
+        roughness: 0.55,
+      }));
+    chip.castShadow = true;
+    const start = new THREE.Vector3(from.x, TABLE_TOP + 0.03, from.z);
+    const end = POT_POS.clone().add(new THREE.Vector3(
+      (Math.random() - 0.5) * 0.18, 0.02, (Math.random() - 0.5) * 0.18));
+    chip.position.copy(start);
+    chip.visible = false; // until its stagger delay elapses
+    state.scene.add(chip);
+    state.fx.push({
+      kind: 'chip', mesh: chip, start, end,
+      life: 0.55, age: -(i * 0.1 + Math.random() * 0.05),
+      arc: 0.2 + Math.random() * 0.1, spin: (Math.random() - 0.5) * 12,
+    });
+  }
 }
 
 const FX_GRAVITY = 2.6;
@@ -1189,6 +1218,15 @@ function updateFx(dt) {
       fx.mesh.material.opacity = Math.max(0, 1 - fx.age / fx.life);
       attr.needsUpdate = true;
       if (fx.age < fx.life) continue;
+    } else if (fx.kind === 'chip') {
+      // Parabolic arc from the rail into the pot, spinning end over end,
+      // then a short rest on the felt before despawning.
+      const t = THREE.MathUtils.clamp(fx.age / fx.life, 0, 1);
+      fx.mesh.visible = fx.age >= 0;
+      fx.mesh.position.lerpVectors(fx.start, fx.end, t);
+      fx.mesh.position.y += Math.sin(t * Math.PI) * fx.arc;
+      if (t < 1) fx.mesh.rotation.x += fx.spin * dt;
+      if (fx.age < fx.life + 0.35) continue;
     } else {
       const emitting = fx.age < fx.duration;
       let alive = false;
@@ -1815,8 +1853,10 @@ window.pokerScene = {
     if (kind === 'check') {
       seat.char.playOnce('Check', 1.9);
     } else if (kind === 'bet') {
-      // A quick flick of the wrist, tossing chips toward the pot.
+      // A quick flick of the wrist, tossing chips toward the pot — with
+      // real chips arcing across the felt into the middle.
       seat.char.playOnce('Bet', 1.0, 0.7);
+      spawnChipToss(seatIndex);
     } else if (kind === 'fold') {
       if (seatIndex === 0) {
         seat.char.playOnce('FoldShake', 1.9);
@@ -1830,10 +1870,31 @@ window.pokerScene = {
     }
   },
 
-  // Fireworks and sparklers when the player takes a pot.
+  // Fireworks and sparklers when the player takes a pot, plus a camera
+  // close-up of the player's character throwing a victory strike.
   celebrate() {
     if (!state.ready) return;
     launchCelebration();
+    const char = state.seats[0] && state.seats[0].char;
+    if (char) {
+      // The gesture may be blocked by one still playing (e.g. the chip
+      // toss that won the pot) — retry briefly until it starts.
+      let tries = 0;
+      const strike = () => {
+        if (!char.playOnce('Attack', 2.2) && ++tries < 6) setTimeout(strike, 350);
+      };
+      strike();
+    }
+    state.zoom.active = true;
+    state.zoom.kind = 'celebrate';
+    state.zoom.pos.set(0.42, 1.5, 0.1);
+    state.zoom.look.set(0, 1.18, 1.74);
+    clearTimeout(state.celebrateTimer);
+    state.celebrateTimer = setTimeout(() => {
+      if (state.zoom.active && state.zoom.kind === 'celebrate') {
+        state.zoom.active = false;
+      }
+    }, 3200);
   },
 
   react(seatIndex, positive) {
