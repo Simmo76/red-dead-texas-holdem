@@ -418,7 +418,9 @@ async function buildScene(canvas) {
     homeYaw: 0, homePitch: 0, dist: 2.8,
     offYaw: 0, offPitch: 0,
     targetOffYaw: 0, targetOffPitch: 0,
-    distScale: 1, targetDistScale: 1 // pinch zoom scales the orbit radius
+    distScale: 1, targetDistScale: 1, // pinch zoom scales the orbit radius
+    panRight: 0, panUp: 0,            // two-finger pan shifts camera + target
+    targetPanRight: 0, targetPanUp: 0
   };
   state.view = view;
   state.pivot = new THREE.Vector3(0, TABLE_TOP, 0);
@@ -683,7 +685,7 @@ async function buildScene(canvas) {
     if (chairGltf) {
       const chair = chairGltf.scene.clone(true);
       chair.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
-      chair.scale.setScalar(1.38); // 1.2x bigger, matching the bigger players
+      chair.scale.setScalar(2.76); // 2x the previous size
       chair.position.copy(pos);
       chair.rotation.y = facing;
       scene.add(chair);
@@ -736,6 +738,8 @@ async function buildScene(canvas) {
     view.offYaw += (view.targetOffYaw - view.offYaw) * ease;
     view.offPitch += (view.targetOffPitch - view.offPitch) * ease;
     view.distScale += (view.targetDistScale - view.distScale) * ease;
+    view.panRight += (view.targetPanRight - view.panRight) * ease;
+    view.panUp += (view.targetPanUp - view.panUp) * ease;
     if (state.zoom.active) {
       _desiredPos.copy(state.zoom.pos);
       _lookTarget.copy(state.zoom.look);
@@ -749,6 +753,12 @@ async function buildScene(canvas) {
         state.pivot.y + Math.sin(pitch) * dist,
         state.pivot.z + Math.cos(yaw) * Math.cos(pitch) * dist);
       _lookTarget.copy(state.pivot);
+      // Two-finger pan: slide camera and target together along the view's
+      // right axis and world-vertical, so the whole scene shifts on screen.
+      const prx = Math.cos(yaw) * view.panRight;
+      const prz = -Math.sin(yaw) * view.panRight;
+      _desiredPos.x += prx; _desiredPos.z += prz; _desiredPos.y += view.panUp;
+      _lookTarget.x += prx; _lookTarget.z += prz; _lookTarget.y += view.panUp;
     }
     camera.position.lerp(_desiredPos, Math.min(1, dt * 6));
     _lookMat.lookAt(camera.position, _lookTarget, _upVec);
@@ -786,12 +796,18 @@ const _upVec = new THREE.Vector3(0, 1, 0);
 const PINCH_MIN = 0.5;
 const PINCH_MAX = 1.7;
 
+// Two-finger pan limits (world units) so the table can't be lost off-screen.
+const PAN_MAX_RIGHT = 1.3;
+const PAN_MIN_UP = -0.7;
+const PAN_MAX_UP = 1.1;
+
 function setupLookControls(canvas, view) {
   canvas.style.touchAction = 'none'; // stop iOS Safari from scrolling/zooming the page
   const touches = new Map(); // live touch pointers: pointerId -> {x, y}
   let activePointer = -1;
   let lastX = 0, lastY = 0, moved = 0, lastTapAt = 0;
   let pinchSpan0 = 0, pinchScale0 = 1;
+  let pinchMidX = 0, pinchMidY = 0;
   const TOUCH_SPEED = 0.005;
 
   const clampPitchOff = (v) => THREE.MathUtils.clamp(
@@ -802,13 +818,20 @@ function setupLookControls(canvas, view) {
     return Math.hypot(a.x - b.x, a.y - b.y);
   };
 
+  const pinchMid = () => {
+    const [a, b] = [...touches.values()];
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  };
+
   canvas.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'mouse') {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.size === 2) {
-        // Second finger down: this gesture is a pinch, not a drag or tap.
+        // Second finger down: this gesture is a pinch/pan, not a drag or tap.
         pinchSpan0 = pinchSpan();
         pinchScale0 = view.targetDistScale;
+        const mid = pinchMid();
+        pinchMidX = mid.x; pinchMidY = mid.y;
         moved = 100;
       }
     }
@@ -829,6 +852,16 @@ function setupLookControls(canvas, view) {
         view.targetDistScale = THREE.MathUtils.clamp(
           pinchScale0 * pinchSpan0 / span, PINCH_MIN, PINCH_MAX);
       }
+      // Two-finger pan: the scene follows the fingers' midpoint.
+      const mid = pinchMid();
+      if (!state.zoom.active) {
+        const k = view.dist * view.targetDistScale * 0.002;
+        view.targetPanRight = THREE.MathUtils.clamp(
+          view.targetPanRight - (mid.x - pinchMidX) * k, -PAN_MAX_RIGHT, PAN_MAX_RIGHT);
+        view.targetPanUp = THREE.MathUtils.clamp(
+          view.targetPanUp + (mid.y - pinchMidY) * k, PAN_MIN_UP, PAN_MAX_UP);
+      }
+      pinchMidX = mid.x; pinchMidY = mid.y;
       moved = 100;
       return; // a two-finger gesture never orbits
     }
@@ -895,6 +928,8 @@ function setupLookControls(canvas, view) {
       view.targetOffYaw = 0;
       view.targetOffPitch = 0;
       view.targetDistScale = 1;
+      view.targetPanRight = 0;
+      view.targetPanUp = 0;
       lastTapAt = 0;
     } else {
       lastTapAt = now;
