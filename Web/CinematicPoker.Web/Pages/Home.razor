@@ -30,17 +30,33 @@
         <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b> <span class="hud-stack">· YOU&nbsp;<b>$@(SeatOf(0)?.Stack ?? _game.GetPlayer(0).Stack)</b></span></div>
 
         <div class="hud-board">
-            @for (int i = 0; i < 5; i++)
-            {
-                if (i < Round.Board.Count)
+            <div class="hud-row">
+                @for (int i = 0; i < 5; i++)
                 {
-                    <img class="hud-card" src="@CardImage(Round.Board[i])" alt="" />
+                    if (i < Round.Board.Count)
+                    {
+                        <img class="hud-card" src="@CardImage(Round.Board[i])" alt="" />
+                    }
+                    else
+                    {
+                        <img class="hud-card facedown" src="img/cards/back.png" alt="" />
+                    }
                 }
-                else
+            </div>
+            <div class="hud-row hud-hole">
+                @{ IReadOnlyList<Card> hudHole = SeatOf(0) is { Folded: true } ? Array.Empty<Card>() : HoleCardsOf(0); }
+                @for (int i = 0; i < 2; i++)
                 {
-                    <img class="hud-card facedown" src="img/cards/back.png" alt="" />
+                    if (i < hudHole.Count)
+                    {
+                        <img class="hud-card" src="@CardImage(hudHole[i])" alt="" />
+                    }
+                    else
+                    {
+                        <img class="hud-card facedown" src="img/cards/back.png" alt="" />
+                    }
                 }
-            }
+            </div>
         </div>
     }
 

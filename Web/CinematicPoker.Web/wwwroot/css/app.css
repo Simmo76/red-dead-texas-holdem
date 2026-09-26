@@ -151,13 +151,16 @@ html, body {
 .hud-stack { color: var(--text-dim); }
 .hud-stack b { color: var(--green); }
 
-/* Community cards pinned top-right, so the flop reads without zooming. */
+/* Community cards pinned top-right (player's pair beneath), so the whole
+   hand reads without zooming. */
 .hud-board {
     position: absolute;
     top: calc(56px + env(safe-area-inset-top));
     right: calc(18px + env(safe-area-inset-right));
     display: flex;
-    gap: 4px;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
     padding: 5px 7px;
     background: rgba(8, 5, 3, 0.55);
     border: 1px solid var(--line);
@@ -165,8 +168,10 @@ html, body {
     z-index: 5;
 }
 
+.hud-row { display: flex; gap: 4px; }
+
 .hud-card {
-    width: 51px;
+    width: 61px;
     height: auto;
     border-radius: 3px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
@@ -386,8 +391,9 @@ html, body {
     /* Left-aligned: the wrapped second row of topbar buttons owns the right. */
     .hud-pot { top: calc(48px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); transform: none; font-size: 12px; padding: 4px 12px; }
     /* Below the pot pill so the two never overlap on narrow screens. */
-    .hud-board { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 3px; padding: 4px 5px; }
-    .hud-card { width: 39px; }
+    .hud-board { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 4px; padding: 4px 5px; }
+    .hud-row { gap: 3px; }
+    .hud-card { width: 47px; }
     .banner { font-size: 12px; top: 30%; }
 
     .log {
@@ -411,8 +417,8 @@ html, body {
     .brand { font-size: 12px; letter-spacing: 2px; }
 
     .hud-pot { top: 42px; font-size: 12px; padding: 3px 10px; }
-    .hud-board { top: 42px; gap: 3px; padding: 4px 5px; }
-    .hud-card { width: 42px; }
+    .hud-board { top: 42px; gap: 4px; padding: 4px 5px; }
+    .hud-card { width: 50px; }
     .banner { font-size: 12px; top: 26%; }
 
     .log {
