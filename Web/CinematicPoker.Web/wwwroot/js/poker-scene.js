@@ -165,10 +165,15 @@ function alignChairToCharacter(chair, character, facing, seatIndex) {
   character.root.updateMatrixWorld(true);
   character.root.worldToLocal(_chairAnchor);
 
-  chair.scale.setScalar(CHAIR_SCALE);
+  // The rig root is already scaled (Jimmy's CHAR_SCALE, or a smaller NPC
+  // fit). Chair scale is a world size, so divide it back out — otherwise the
+  // seat inherits the body scale and becomes a slab around the table.
+  const parentScale = character.root.scale.x || 1;
+  const localScale = CHAIR_SCALE / parentScale;
+  chair.scale.setScalar(localScale);
   const relYaw = character.modelYaw || 0;
   chair.rotation.set(0, relYaw, 0);
-  _chairSeatOff.copy(_CHAIR_SEAT_LOCAL).multiplyScalar(CHAIR_SCALE);
+  _chairSeatOff.copy(_CHAIR_SEAT_LOCAL).multiplyScalar(localScale);
   _chairSeatOff.applyAxisAngle(new THREE.Vector3(0, 1, 0), relYaw);
   _chairAnchor.sub(_chairSeatOff);
   chair.position.copy(_chairAnchor);
