@@ -47,8 +47,7 @@ const INTRO_PART = 8;
 const _introLook = new THREE.Vector3(0, 0.95, 0);
 
 function endIntro() {
-  if (!state.intro || !state.intro.active) return;
-  state.intro.active = false;
+  if (state.intro) state.intro.active = false;
   if (state.setEnvironment) state.setEnvironment(0); // settle into ARCADE
 }
 
@@ -1880,15 +1879,11 @@ function buildClub() {
 window.pokerScene = {
   get loaded() { return state.ready; },
 
-  // Opening cinematic: aerial sweep over the desert then the club, ending
-  // on the normal arcade seat view. Returns the total running time (s).
+  // Opening cinematic disabled: stay on the normal seat view. Returns 0 so
+  // callers know not to wait or play intro audio.
   playIntro() {
-    if (!state.ready || !state.setEnvironment) return 0;
-    state.intro.start = performance.now();
-    state.intro.phase = 0;
-    state.intro.active = true;
-    state.setEnvironment(2); // DESERT first
-    return INTRO_PART * 2;
+    endIntro();
+    return 0;
   },
 
   skipIntro() {
