@@ -125,7 +125,8 @@ function seatPos(i, radius, y = 0) {
 
 const CHAIR_SCALE = 2.76;
 // chair.glb origin is not the cushion centre — mesh bounds centre at scale 1.
-const _CHAIR_SEAT_LOCAL = new THREE.Vector3(0.1005, 0, -0.1193);
+// Cushion centroid on the scaled-1 chair mesh (see chair.glb seat verts).
+const _CHAIR_SEAT_LOCAL = new THREE.Vector3(0.1, 0, -0.163);
 const _chairSeatOff = new THREE.Vector3();
 const _chairAnchor = new THREE.Vector3();
 const _toTable = new THREE.Vector3();
@@ -141,7 +142,7 @@ function placeChairAt(chair, facing, anchor) {
     anchor.z - _chairSeatOff.z);
 }
 
-// Match the chair cushion to wherever the seated rig's hips landed.
+// Parent the chair under the seated rig so it tracks the solved pose.
 function alignChairToCharacter(chair, character, facing, seatIndex) {
   let hips = null;
   character.root.traverse((o) => {
@@ -151,14 +152,26 @@ function alignChairToCharacter(chair, character, facing, seatIndex) {
     placeChairAt(chair, facing, seatPos(seatIndex, SEAT_RADIUS - 0.02));
     return;
   }
+
+  if (chair.parent !== character.root) character.root.add(chair);
+
   hips.getWorldPosition(_chairAnchor);
   _toTable.set(-_chairAnchor.x, 0, -_chairAnchor.z);
   if (_toTable.lengthSq() > 1e-6) {
-    _toTable.normalize().multiplyScalar(0.05);
+    _toTable.normalize().multiplyScalar(0.08);
     _chairAnchor.add(_toTable);
   }
-  _chairAnchor.y = 0;
-  placeChairAt(chair, facing, _chairAnchor);
+
+  character.root.updateMatrixWorld(true);
+  character.root.worldToLocal(_chairAnchor);
+
+  chair.scale.setScalar(CHAIR_SCALE);
+  const relYaw = character.modelYaw || 0;
+  chair.rotation.set(0, relYaw, 0);
+  _chairSeatOff.copy(_CHAIR_SEAT_LOCAL).multiplyScalar(CHAIR_SCALE);
+  _chairSeatOff.applyAxisAngle(new THREE.Vector3(0, 1, 0), relYaw);
+  _chairAnchor.sub(_chairSeatOff);
+  chair.position.copy(_chairAnchor);
 }
 
 // ------------------------------------------------------------------ cards
@@ -341,13 +354,23 @@ function loadGlb(loader, url) {
 // - uGrey: a fold grey-out on the final colour — while raised, the fragment
 //   collapses to luminance, and with the material's opacity lowered the
 //   folded player reads as a muted grey until the next hand (slight alpha only).
-function characterMaterial(material, shirt) {
+function characterMaterial(material, shirt, meshName) {
   const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
   const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
   const m = material.clone();
-  // GLB body mats are single-sided in the asset; keep shadow pass consistent.
-  m.side = THREE.FrontSide;
-  m.shadowSide = THREE.FrontSide;
+  const isBody = meshName === 'jimmy_body_top' || meshName === 'jimmy_body_bot';
+  // Jimmy body pieces have a few reversed winding islands; FrontSide shows the
+  // void as black patches. Flat per-face shading matches the stylised look
+  // and avoids bad averaged normals on the open shirt mesh. Other meshes,
+  // including the Meshy NPCs, stay single-sided.
+  if (isBody) {
+    m.side = THREE.DoubleSide;
+    m.shadowSide = THREE.FrontSide;
+    m.flatShading = true;
+  } else {
+    m.side = THREE.FrontSide;
+    m.shadowSide = THREE.FrontSide;
+  }
   // A few Meshy exports set emissiveFactor to white with no emissive map,
   // which blows the whole body out to a featureless white silhouette.
   if (m.emissive) m.emissive.setRGB(0, 0, 0);
@@ -395,16 +418,8 @@ function makeCharacter(gltf, spec) {
     obj.frustumCulled = false; // skinned mesh bounds lag the animated pose
     const shirt = spec.shirt && obj.name === 'jimmy_body_top' ? spec.shirt : null;
     const srcMats = Array.isArray(obj.material) ? obj.material : [obj.material];
-    const made = srcMats.map((mat) => characterMaterial(mat, shirt));
+    const made = srcMats.map((mat) => characterMaterial(mat, shirt, obj.name));
     obj.material = made.length === 1 ? made[0] : made;
-    // Waist overlap between top/bottom in the Jimmy GLB — bias depth slightly.
-    if (obj.name === 'jimmy_body_top') {
-      for (const m of made) {
-        m.polygonOffset = true;
-        m.polygonOffsetFactor = 1;
-        m.polygonOffsetUnits = 1;
-      }
-    }
     bodyMeshes.push(obj);
     bodyMats.push(...made);
   });
@@ -465,27 +480,40 @@ function makeCharacter(gltf, spec) {
   //
   // Plain alpha on a multi-part character shows its own insides (the far
   // side of the head, the eyes from behind). The classic fix: while ghosted,
-  // depth-only copies of every mesh draw first among the transparent objects
-  // (after the opaque scene, so the backdrop keeps its colour) and lay down
-  // the front-surface depth; the body then blends only where it equals that
-  // depth (three's default LessEqual depth test), i.e. its nearest surface.
+  // depth-only copies of every mesh lay down the nearest surface depth first;
+  // the semi-transparent body then depth-tests against that buffer with
+  // depthWrite off so only the outer shell blends.
   //
-  // The prepass must ignore the existing depth buffer (depthTest: false):
-  // otherwise torsos blocked by the table rail or chairs never write depth,
-  // the colour pass fails the depth test there, and only the head (above the
-  // rail) survives as a floating grey ghost.
-  const ghostDepthMat = new THREE.MeshBasicMaterial({
-    colorWrite: false, depthWrite: true, depthTest: false, transparent: true,
-  });
+  // The prepass stays in the *opaque* queue (transparent: false) with skinning
+  // and matching side so animated geometry actually writes depth; otherwise
+  // whole body regions fail the colour pass and vanish.
+  //
+  // depthTest: false on the prepass ignores table/chair depth that already
+  // filled the buffer — otherwise torsos behind the rail never write depth and
+  // only the head survives as a floating grey ghost.
+  function ghostDepthMaterial(srcMat) {
+    const m = new THREE.MeshBasicMaterial({
+      colorWrite: false,
+      transparent: false,
+      depthWrite: true,
+      depthTest: false,
+      side: srcMat.side,
+    });
+    m.skinning = !!srcMat.skinning;
+    return m;
+  }
   const ghostParts = [];
   for (const src of bodyMeshes) {
     const depthMesh = src.clone();
-    depthMesh.material = ghostDepthMat;
+    depthMesh.material = Array.isArray(src.material)
+      ? src.material.map(ghostDepthMaterial)
+      : ghostDepthMaterial(src.material);
     depthMesh.castShadow = false;
     depthMesh.receiveShadow = false;
     depthMesh.frustumCulled = false;
     depthMesh.visible = false;
-    depthMesh.renderOrder = 1; // before the ghosted body (renderOrder 2)
+    // Opaque pass: after table/chair (0), before the transparent ghost body (2).
+    depthMesh.renderOrder = 1;
     src.parent.add(depthMesh);
     ghostParts.push({ src, depthMesh });
   }
@@ -501,6 +529,7 @@ function makeCharacter(gltf, spec) {
     for (const m of bodyMats) {
       if (m.transparent !== ghost) { m.transparent = ghost; m.needsUpdate = true; }
       m.depthWrite = !ghost; // the prepass owns depth while ghosted
+      m.forceSinglePass = ghost;
       m.opacity = 1 - w * 0.22;
       m.userData.foldGrey = w;
       if (m.userData.foldShader) m.userData.foldShader.uniforms.uGrey.value = w;
@@ -839,7 +868,7 @@ async function buildScene(canvas) {
   const loadCharacterModel = (name) => {
     if (!modelCache.has(name)) {
       const path = name === 'Jimmy'
-        ? `models/characters/${name}.glb`
+        ? `models/characters/${name}.glb?v=2`
         : `models/characters/npcs/${name}.glb`;
       modelCache.set(name, loadGlb(loader, path));
     }
@@ -893,6 +922,8 @@ async function buildScene(canvas) {
       if (b) { b.getWorldPosition(v); minFoot = Math.min(minFoot, v.y); }
     }
     if (isFinite(minFoot)) character.root.position.y -= (minFoot - 0.09);
+    character.modelYaw = modelYaw;
+    character.seatFacing = facing;
   };
 
   for (let i = 0; i < SEATS; i++) {
