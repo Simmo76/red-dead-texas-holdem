@@ -298,12 +298,15 @@ html, body {
     right: 0;
     bottom: 0;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    padding: 14px 16px;
-    padding-bottom: calc(14px + env(safe-area-inset-bottom));
-    background: linear-gradient(0deg, rgba(8, 5, 3, 0.88), rgba(8, 5, 3, 0));
+    gap: 10px;
+    padding: 12px 16px;
+    padding-left: calc(16px + env(safe-area-inset-left));
+    padding-right: calc(16px + env(safe-area-inset-right));
+    /* Extra inset on notched phones where safe-area can read as zero in-browser */
+    padding-bottom: calc(12px + max(16px, env(safe-area-inset-bottom, 0px)));
     z-index: 5;
 }
 
@@ -316,7 +319,6 @@ html, body {
     letter-spacing: 2px;
     cursor: pointer;
     color: #fff;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
     transition: transform 0.08s, filter 0.15s;
     font-family: inherit;
 }
@@ -365,6 +367,7 @@ html, body {
 
 .slider-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: 10px;
@@ -436,7 +439,7 @@ html, body {
 @media (max-width: 980px) {
     .log { width: 200px; max-height: 130px; font-size: 11px; }
     .act { padding: 11px 16px; font-size: 13px; }
-    .actionbar { flex-wrap: wrap; gap: 8px; }
+    .actionbar { gap: 8px; }
     .brand { font-size: 14px; letter-spacing: 3px; }
 }
 
@@ -465,12 +468,13 @@ html, body {
         left: 8px;
         right: 8px;
         width: auto;
-        bottom: calc(110px + env(safe-area-inset-bottom));
+        bottom: calc(130px + max(16px, env(safe-area-inset-bottom, 0px)));
         max-height: 84px;
         font-size: 10px;
     }
 
-    .act { padding: 12px 14px; font-size: 13px; letter-spacing: 1px; }
+    .act { padding: 10px 12px; font-size: 12px; letter-spacing: 1px; flex: 0 1 auto; }
+    .actionbar { gap: 8px; }
     .slider-row { flex-wrap: wrap; }
 }
 
@@ -478,6 +482,7 @@ html, body {
 
 @media (max-height: 500px) and (orientation: landscape) {
     .topbar { padding-top: 6px; }
+    .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 5px; max-width: 72%; }
     .chip-btn { padding: 4px 10px; font-size: 10px; }
     .brand { font-size: 12px; letter-spacing: 2px; }
 
@@ -494,7 +499,11 @@ html, body {
         bottom: calc(70px + env(safe-area-inset-bottom));
     }
 
-    .act { padding: 8px 14px; font-size: 12px; }
+    .act { padding: 8px 12px; font-size: 11px; flex: 0 1 auto; }
+    .actionbar {
+        gap: 6px;
+        padding-bottom: calc(8px + max(12px, env(safe-area-inset-bottom, 0px)));
+    }
     .slider-panel { gap: 4px; }
     .overlay-box { padding: 22px 30px; gap: 14px; }
 }
