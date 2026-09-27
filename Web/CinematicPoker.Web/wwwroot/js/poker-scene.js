@@ -388,7 +388,14 @@ function makeCharacter(gltf, spec) {
   // (after the opaque scene, so the backdrop keeps its colour) and lay down
   // the front-surface depth; the body then blends only where it equals that
   // depth (three's default LessEqual depth test), i.e. its nearest surface.
-  const ghostDepthMat = new THREE.MeshBasicMaterial({ colorWrite: false, transparent: true });
+  //
+  // The prepass must ignore the existing depth buffer (depthTest: false):
+  // otherwise torsos blocked by the table rail or chairs never write depth,
+  // the colour pass fails the depth test there, and only the head (above the
+  // rail) survives as a floating grey ghost.
+  const ghostDepthMat = new THREE.MeshBasicMaterial({
+    colorWrite: false, depthWrite: true, depthTest: false, transparent: true,
+  });
   const ghostParts = [];
   for (const src of bodyMeshes) {
     const depthMesh = src.clone();
