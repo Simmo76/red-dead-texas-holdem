@@ -384,20 +384,34 @@ function makeCharacter(gltf, spec) {
   //
   // Plain alpha on a multi-part character shows its own insides (the far
   // side of the head, the eyes from behind). The classic fix: while ghosted,
-  // depth-only copies of every mesh draw first among the transparent objects
-  // (after the opaque scene, so the backdrop keeps its colour) and lay down
-  // the front-surface depth; the body then blends only where it equals that
-  // depth (three's default LessEqual depth test), i.e. its nearest surface.
-  const ghostDepthMat = new THREE.MeshBasicMaterial({ colorWrite: false, transparent: true });
+  // depth-only copies of every mesh lay down the nearest surface depth first;
+  // the semi-transparent body then depth-tests against that buffer with
+  // depthWrite off so only the outer shell blends.
+  //
+  // The prepass must stay in the *opaque* queue (transparent: false) so WebGL
+  // actually writes depth, and must match each skinned, double-sided body mesh
+  // or fragments fail the depth test and whole regions vanish.
+  function ghostDepthMaterial(srcMat) {
+    const m = new THREE.MeshBasicMaterial({
+      colorWrite: false,
+      transparent: false,
+      depthWrite: true,
+      depthTest: true,
+      side: srcMat.side,
+    });
+    m.skinning = !!srcMat.skinning;
+    return m;
+  }
   const ghostParts = [];
   for (const src of bodyMeshes) {
     const depthMesh = src.clone();
-    depthMesh.material = ghostDepthMat;
+    depthMesh.material = ghostDepthMaterial(src.material);
     depthMesh.castShadow = false;
     depthMesh.receiveShadow = false;
     depthMesh.frustumCulled = false;
     depthMesh.visible = false;
-    depthMesh.renderOrder = 1; // before the ghosted body (renderOrder 2)
+    // Opaque pass: after table/chair (0), before the transparent ghost body (2).
+    depthMesh.renderOrder = 1;
     src.parent.add(depthMesh);
     ghostParts.push({ src, depthMesh });
   }
@@ -413,6 +427,11 @@ function makeCharacter(gltf, spec) {
     for (const m of bodyMats) {
       if (m.transparent !== ghost) { m.transparent = ghost; m.needsUpdate = true; }
       m.depthWrite = !ghost; // the prepass owns depth while ghosted
+      // Jimmy's GLB is double-sided; with alpha, two-sided draws fight the depth
+      // prepass and whole regions fail the depth test and vanish.
+      if (m.userData.origSide === undefined) m.userData.origSide = m.side;
+      m.side = ghost ? THREE.FrontSide : m.userData.origSide;
+      m.forceSinglePass = ghost;
       m.opacity = 1 - w * 0.45;
       m.userData.foldGrey = w;
       if (m.userData.foldShader) m.userData.foldShader.uniforms.uGrey.value = w;
