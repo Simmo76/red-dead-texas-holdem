@@ -318,7 +318,7 @@ function loadGlb(loader, url) {
 //   different colours per seat (a plain colour multiply can only darken).
 // - uGrey: a fold grey-out on the final colour — while raised, the fragment
 //   collapses to luminance, and with the material's opacity lowered the
-//   folded player reads as a grey semi-transparent ghost until the next hand.
+//   folded player reads as a muted grey until the next hand (slight alpha only).
 function characterMaterial(material, shirt) {
   const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
   const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
@@ -428,8 +428,8 @@ function makeCharacter(gltf, spec) {
     for (const p of outlineParts) p.hull.visible = on && p.src.visible;
   };
 
-  // Folded players ghost out for the rest of the hand: pale grey (uGrey
-  // collapses the fragment to lifted luminance) and semi-transparent, with
+  // Folded players grey out for the rest of the hand: pale grey (uGrey
+  // collapses the fragment to lifted luminance) with a light alpha fade, with
   // their shadow dropped so the ghost look reads. The flag simply mirrors the
   // engine's per-hand folded state, so everyone returns to full colour when
   // the next hand starts.
@@ -465,7 +465,7 @@ function makeCharacter(gltf, spec) {
     for (const m of bodyMats) {
       if (m.transparent !== ghost) { m.transparent = ghost; m.needsUpdate = true; }
       m.depthWrite = !ghost; // the prepass owns depth while ghosted
-      m.opacity = 1 - w * 0.45;
+      m.opacity = 1 - w * 0.22;
       m.userData.foldGrey = w;
       if (m.userData.foldShader) m.userData.foldShader.uniforms.uGrey.value = w;
     }
