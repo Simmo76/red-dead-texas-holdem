@@ -102,6 +102,44 @@ function seatPos(i, radius, y = 0) {
   return new THREE.Vector3(Math.cos(a) * radius, y, Math.sin(a) * radius);
 }
 
+const CHAIR_SCALE = 2.76;
+// chair.glb origin is not the cushion centre — mesh bounds centre at scale 1.
+const _CHAIR_SEAT_LOCAL = new THREE.Vector3(0.1005, 0, -0.1193);
+const _chairSeatOff = new THREE.Vector3();
+const _chairAnchor = new THREE.Vector3();
+const _toTable = new THREE.Vector3();
+
+function placeChairAt(chair, facing, anchor) {
+  chair.scale.setScalar(CHAIR_SCALE);
+  chair.rotation.y = facing;
+  _chairSeatOff.copy(_CHAIR_SEAT_LOCAL).multiplyScalar(CHAIR_SCALE);
+  _chairSeatOff.applyAxisAngle(new THREE.Vector3(0, 1, 0), facing);
+  chair.position.set(
+    anchor.x - _chairSeatOff.x,
+    anchor.y,
+    anchor.z - _chairSeatOff.z);
+}
+
+// Match the chair cushion to wherever the seated rig's hips landed.
+function alignChairToCharacter(chair, character, facing, seatIndex) {
+  let hips = null;
+  character.root.traverse((o) => {
+    if (!hips && o.isBone && o.name === 'hips') hips = o;
+  });
+  if (!hips) {
+    placeChairAt(chair, facing, seatPos(seatIndex, SEAT_RADIUS - 0.02));
+    return;
+  }
+  hips.getWorldPosition(_chairAnchor);
+  _toTable.set(-_chairAnchor.x, 0, -_chairAnchor.z);
+  if (_toTable.lengthSq() > 1e-6) {
+    _toTable.normalize().multiplyScalar(0.05);
+    _chairAnchor.add(_toTable);
+  }
+  _chairAnchor.y = 0;
+  placeChairAt(chair, facing, _chairAnchor);
+}
+
 // ------------------------------------------------------------------ cards
 
 function makeCard(path, w = 0.18, unlit = false) {
@@ -234,9 +272,12 @@ function outlineMaterial() {
     color: 0xffc14d, side: THREE.BackSide, toneMapped: false,
   });
   _outlineMat.onBeforeCompile = (shader) => {
+    // Inflate after skinning so the hull follows the posed surface normals
+    // (bind-space offset before skinning intersects the body and reads as
+    // dark z-fighting patches on the shirt).
     shader.vertexShader = shader.vertexShader.replace(
-      '#include <begin_vertex>',
-      '#include <begin_vertex>\n\ttransformed += normalize(normal) * 0.0026;');
+      '#include <skinning_vertex>',
+      '#include <skinning_vertex>\n\ttransformed += normalize( normal ) * 0.0026;');
   };
   return _outlineMat;
 }
@@ -283,6 +324,12 @@ function characterMaterial(material, shirt) {
   const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
   const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
   const m = material.clone();
+  // GLB body mats are single-sided in the asset; keep shadow pass consistent.
+  m.side = THREE.FrontSide;
+  m.shadowSide = THREE.FrontSide;
+  // Vertex colours are unity white on Jimmy — drop them so lighting uses
+  // the albedo map only (avoids rare sRGB vertex-tint shading artifacts).
+  m.vertexColors = false;
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uHue = { value: hue };
     shader.uniforms.uSat = { value: sat };
@@ -324,6 +371,12 @@ function makeCharacter(gltf, spec) {
     obj.frustumCulled = false; // skinned mesh bounds lag the animated pose
     const shirt = spec.shirt && obj.name === 'jimmy_body_top' ? spec.shirt : null;
     obj.material = characterMaterial(obj.material, shirt);
+    // Waist overlap between top/bottom in the GLB — bias depth slightly.
+    if (obj.name === 'jimmy_body_top') {
+      obj.material.polygonOffset = true;
+      obj.material.polygonOffsetFactor = 1;
+      obj.material.polygonOffsetUnits = 1;
+    }
     bodyMeshes.push(obj);
     bodyMats.push(obj.material);
   });
@@ -594,6 +647,7 @@ async function buildScene(canvas) {
   keyLight.castShadow = true;
   keyLight.shadow.mapSize.set(1024, 1024);
   keyLight.shadow.bias = -0.0004;
+  keyLight.shadow.normalBias = 0.025;
   keyLight.shadow.camera.near = 0.5;
   keyLight.shadow.camera.far = 11;
   scene.add(keyLight, keyLight.target);
@@ -811,13 +865,8 @@ async function buildScene(canvas) {
     if (chairGltf) {
       const chair = chairGltf.scene.clone(true);
       chair.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
-      chair.scale.setScalar(2.76); // 2x the previous size
-      // Jimmy's hips joint sits further forward in his pelvis than the old
-      // rig's did, so pull the chair toward the table to keep the seat
-      // under him rather than behind him.
-      chair.position.copy(seatPos(i, SEAT_RADIUS - 0.38));
-      chair.rotation.y = facing;
       scene.add(chair);
+      seat.chair = chair;
     }
 
     // Seat 0 is the player's own body, seen from behind by the camera.
@@ -826,6 +875,7 @@ async function buildScene(canvas) {
       const character = makeCharacter(gltf, spec);
       if (!character) return;
       placeSeatedCharacter(character, i, facing);
+      if (seat.chair) alignChairToCharacter(seat.chair, character, facing, i);
       seat.char = character;
     }));
 
