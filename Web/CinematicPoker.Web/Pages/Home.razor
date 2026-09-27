@@ -17,11 +17,6 @@
             <div class="intro-tap">TAP TO PLAY</div>
         </div>
     }
-    else if (_introRunning)
-    {
-        <button class="intro-skip" @onclick="SkipIntro">SKIP &#9656;</button>
-    }
-
     <header class="topbar">
         <div class="brand">CINEMATIC <span>POKER</span></div>
         <div class="topbar-right">
@@ -238,12 +233,10 @@
 
     protected override void OnInitialized() => StartSession();
 
-    // -------------------------------------------------------- intro movie
+    // -------------------------------------------------------- tap to play
 
     private bool _introStarted;
     private bool _introRequested;
-    private bool _introRunning;
-    private int _introToken;
 
     private async Task StartIntro()
     {
@@ -252,35 +245,15 @@
         // If the scene is still loading, keep the title card up until it's in.
         for (int i = 0; i < 24 && !_sceneReady; i++) await Task.Delay(250);
         _introStarted = true;
+        // No opening camera sweep — go straight to the seated arcade view.
         try
         {
-            double seconds = await JS.InvokeAsync<double>("pokerScene.playIntro");
-            if (seconds <= 0) return; // scene not ready yet: straight to the game
-            _introRunning = true;
-            if (!_muted) _ = JS.InvokeVoidAsync("pokerAudio.playIntro");
-            int token = ++_introToken;
-            _ = HideSkipAfter(token, (int)(seconds * 1000) + 500);
+            await JS.InvokeVoidAsync("pokerScene.skipIntro");
         }
         catch (JSException)
         {
-            // Scene module still loading: skip the cinematic, play normally.
+            // Scene module still loading; gameplay HUD is already live.
         }
-    }
-
-    private async Task HideSkipAfter(int token, int ms)
-    {
-        await Task.Delay(ms);
-        if (token != _introToken || !_introRunning) return;
-        _introRunning = false;
-        StateHasChanged();
-    }
-
-    private async Task SkipIntro()
-    {
-        _introToken++;
-        _introRunning = false;
-        await JS.InvokeVoidAsync("pokerScene.skipIntro");
-        await JS.InvokeVoidAsync("pokerAudio.stopIntro");
     }
 
     // ------------------------------------------------------------- 3D scene
