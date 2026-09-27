@@ -103,7 +103,8 @@ function seatPos(i, radius, y = 0) {
 
 const CHAIR_SCALE = 2.76;
 // chair.glb origin is not the cushion centre — mesh bounds centre at scale 1.
-const _CHAIR_SEAT_LOCAL = new THREE.Vector3(0.1005, 0, -0.1193);
+// Cushion centroid on the scaled-1 chair mesh (see chair.glb seat verts).
+const _CHAIR_SEAT_LOCAL = new THREE.Vector3(0.1, 0, -0.163);
 const _chairSeatOff = new THREE.Vector3();
 const _chairAnchor = new THREE.Vector3();
 const _toTable = new THREE.Vector3();
@@ -119,7 +120,7 @@ function placeChairAt(chair, facing, anchor) {
     anchor.z - _chairSeatOff.z);
 }
 
-// Match the chair cushion to wherever the seated rig's hips landed.
+// Parent the chair under the seated rig so it tracks the solved pose.
 function alignChairToCharacter(chair, character, facing, seatIndex) {
   let hips = null;
   character.root.traverse((o) => {
@@ -129,14 +130,26 @@ function alignChairToCharacter(chair, character, facing, seatIndex) {
     placeChairAt(chair, facing, seatPos(seatIndex, SEAT_RADIUS - 0.02));
     return;
   }
+
+  if (chair.parent !== character.root) character.root.add(chair);
+
   hips.getWorldPosition(_chairAnchor);
   _toTable.set(-_chairAnchor.x, 0, -_chairAnchor.z);
   if (_toTable.lengthSq() > 1e-6) {
-    _toTable.normalize().multiplyScalar(0.05);
+    _toTable.normalize().multiplyScalar(0.08);
     _chairAnchor.add(_toTable);
   }
-  _chairAnchor.y = 0;
-  placeChairAt(chair, facing, _chairAnchor);
+
+  character.root.updateMatrixWorld(true);
+  character.root.worldToLocal(_chairAnchor);
+
+  chair.scale.setScalar(CHAIR_SCALE);
+  const relYaw = character.modelYaw || 0;
+  chair.rotation.set(0, relYaw, 0);
+  _chairSeatOff.copy(_CHAIR_SEAT_LOCAL).multiplyScalar(CHAIR_SCALE);
+  _chairSeatOff.applyAxisAngle(new THREE.Vector3(0, 1, 0), relYaw);
+  _chairAnchor.sub(_chairSeatOff);
+  chair.position.copy(_chairAnchor);
 }
 
 // ------------------------------------------------------------------ cards
@@ -319,13 +332,22 @@ function loadGlb(loader, url) {
 // - uGrey: a fold grey-out on the final colour — while raised, the fragment
 //   collapses to luminance, and with the material's opacity lowered the
 //   folded player reads as a muted grey until the next hand (slight alpha only).
-function characterMaterial(material, shirt) {
+function characterMaterial(material, shirt, meshName) {
   const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
   const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
   const m = material.clone();
-  // GLB body mats are single-sided in the asset; keep shadow pass consistent.
-  m.side = THREE.FrontSide;
-  m.shadowSide = THREE.FrontSide;
+  const isBody = meshName === 'jimmy_body_top' || meshName === 'jimmy_body_bot';
+  // Body pieces have a few reversed winding islands; FrontSide shows the
+  // void as black patches. Flat per-face shading matches the stylised look
+  // and avoids bad averaged normals on the open shirt mesh.
+  if (isBody) {
+    m.side = THREE.DoubleSide;
+    m.shadowSide = THREE.FrontSide;
+    m.flatShading = true;
+  } else {
+    m.side = THREE.FrontSide;
+    m.shadowSide = THREE.FrontSide;
+  }
   // Vertex colours are unity white on Jimmy — drop them so lighting uses
   // the albedo map only (avoids rare sRGB vertex-tint shading artifacts).
   m.vertexColors = false;
@@ -369,13 +391,7 @@ function makeCharacter(gltf, spec) {
     obj.receiveShadow = true;
     obj.frustumCulled = false; // skinned mesh bounds lag the animated pose
     const shirt = spec.shirt && obj.name === 'jimmy_body_top' ? spec.shirt : null;
-    obj.material = characterMaterial(obj.material, shirt);
-    // Waist overlap between top/bottom in the GLB — bias depth slightly.
-    if (obj.name === 'jimmy_body_top') {
-      obj.material.polygonOffset = true;
-      obj.material.polygonOffsetFactor = 1;
-      obj.material.polygonOffsetUnits = 1;
-    }
+    obj.material = characterMaterial(obj.material, shirt, obj.name);
     bodyMeshes.push(obj);
     bodyMats.push(obj.material);
   });
@@ -802,7 +818,7 @@ async function buildScene(canvas) {
   const modelCache = new Map();
   const loadCharacterModel = (name) => {
     if (!modelCache.has(name)) {
-      modelCache.set(name, loadGlb(loader, `models/characters/${name}.glb`));
+      modelCache.set(name, loadGlb(loader, `models/characters/${name}.glb?v=2`));
     }
     return modelCache.get(name);
   };
@@ -851,6 +867,8 @@ async function buildScene(canvas) {
       if (b) { b.getWorldPosition(v); minFoot = Math.min(minFoot, v.y); }
     }
     if (isFinite(minFoot)) character.root.position.y -= (minFoot - 0.09);
+    character.modelYaw = modelYaw;
+    character.seatFacing = facing;
   };
 
   for (let i = 0; i < SEATS; i++) {
