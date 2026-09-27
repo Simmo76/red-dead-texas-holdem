@@ -39,7 +39,7 @@
 
     @if (Round != null)
     {
-        <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b> <span class="hud-stack">· YOU&nbsp;<b>$@(SeatOf(0)?.Stack ?? _game.GetPlayer(0).Stack)</b></span></div>
+        <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b> <span class="hud-stack">· YOU&nbsp;<b>$@ShownStack(0)</b></span></div>
 
         <div class="hud-board @(_hudBoardExpanded ? "expanded" : "")"
              @onclick="() => _hudBoardExpanded = !_hudBoardExpanded">
@@ -48,10 +48,10 @@
                    aligned above the player's pair. *@
                 @for (int i = 0; i < 5; i++)
                 {
-                    var dealt = i - (5 - Round.Board.Count);
+                    var dealt = i - (5 - _shownBoard.Count);
                     if (dealt >= 0)
                     {
-                        <img class="hud-card" src="@CardImage(Round.Board[dealt])" alt="" />
+                        <img class="hud-card" src="@CardImage(_shownBoard[dealt])" alt="" />
                     }
                     else
                     {
@@ -209,6 +209,13 @@
     private int _showdownHandCount; // hands compared at the current showdown
     private readonly List<string> _log = new();
 
+    // The engine resolves a hand synchronously (a call on the turn can deal
+    // the river, reveal hands and award the pot in one burst), so its events
+    // are queued here and presented one at a time with dwell pauses. These
+    // hold what the table currently SHOWS, which can lag the engine state.
+    private readonly Queue<PokerEvent> _pending = new();
+    private readonly List<Card> _shownBoard = new();
+
     private LegalActions _legal;
     private bool _awaitingHuman;
     private bool _showSlider;
@@ -320,7 +327,7 @@
             {
                 seat = p.Seat,
                 name = p.Name,
-                stack = s?.Stack ?? p.Stack,
+                stack = ShownStack(p.Seat),
                 bet = s?.CommittedThisStreet ?? 0,
                 folded,
                 @out = eliminated,
@@ -339,7 +346,7 @@
         var snapshot = new
         {
             pot = Round?.PotTotal ?? 0,
-            board = Round?.Board.Select(CardImage).ToArray() ?? Array.Empty<string>(),
+            board = _shownBoard.Select(CardImage).ToArray(),
             // Folding mucks your cards: they leave your hand immediately.
             hole = SeatOf(0) is { Folded: true }
                 ? Array.Empty<string>()
@@ -380,6 +387,8 @@
 
         _log.Clear();
         _revealed.Clear();
+        _pending.Clear();
+        _shownBoard.Clear();
         _banner = null;
         _sessionOver = false;
         _awaitingHuman = false;
@@ -414,7 +423,7 @@
                 await Task.Delay(NextHandDelayMs);
                 if (token != _loopToken) return;
                 _game.StartHand();
-                StateHasChanged();
+                await DrainEvents(token);
                 continue;
             }
 
@@ -438,7 +447,7 @@
             var npc = (AIPlayer)actor;
             DecisionContext context = DecisionContext.ForCurrentActor(_game, EquityIterations);
             _game.SubmitAction(npc.DecideAction(context));
-            StateHasChanged();
+            await DrainEvents(token);
         }
     }
 
@@ -456,6 +465,7 @@
             return; // engine rejected it; keep waiting for a legal choice
         }
         StateHasChanged();
+        await DrainEvents(_loopToken);
         await RunLoop(_loopToken);
     }
 
@@ -480,7 +490,59 @@
 
     // ------------------------------------------------------------- engine events
 
-    private void OnEngineEvent(PokerEvent evt)
+    // Events are only queued here; ApplyEvent presents them via DrainEvents.
+    private void OnEngineEvent(PokerEvent evt) => _pending.Enqueue(evt);
+
+    /// <summary>
+    /// Presents queued engine events in order, pausing before the dramatic
+    /// ones (a dealt street, the showdown reveal, the pot award) — so the
+    /// river card is on the table and readable BEFORE the winner is
+    /// announced, instead of everything landing in one frame.
+    /// </summary>
+    private async Task DrainEvents(int token)
+    {
+        while (_pending.Count > 0)
+        {
+            if (token != _loopToken) return; // session restarted; new loop owns the queue
+            ApplyEvent(_pending.Dequeue());
+            int pause = PauseBefore(_pending.Count > 0 ? _pending.Peek() : null);
+            if (pause > 0)
+            {
+                StateHasChanged();
+                await Task.Delay(pause);
+            }
+        }
+        StateHasChanged();
+    }
+
+    // Dwell time BEFORE presenting the given queued event: let the current
+    // street sink in before hands are revealed, and the reveal sink in
+    // before the pot is pushed.
+    private int PauseBefore(PokerEvent next) => next switch
+    {
+        FlopDealt or TurnDealt or RiverDealt => _quickMode ? 900 : 1400,
+        ShowdownStarted => _quickMode ? 1100 : 1800,
+        PotAwarded => _quickMode ? 900 : 1500,
+        _ => 0
+    };
+
+    // Stack as the table currently shows it: winnings (and returned uncalled
+    // bets) that are still queued behind the reveal pauses are hidden, so
+    // nobody's chip count gives away the result before it is announced.
+    private long ShownStack(int seat)
+    {
+        long stack = SeatOf(seat)?.Stack ?? _game.GetPlayer(seat).Stack;
+        foreach (PokerEvent evt in _pending)
+        {
+            if (evt is PotAwarded award && award.Payouts != null && award.Payouts.TryGetValue(seat, out long paid))
+                stack -= paid;
+            else if (evt is UncalledBetReturned ret && ret.Seat == seat)
+                stack -= ret.Amount;
+        }
+        return stack;
+    }
+
+    private void ApplyEvent(PokerEvent evt)
     {
         PlaySoundFor(evt);
 
@@ -488,9 +550,27 @@
         {
             case HandStarted started:
                 _revealed.Clear();
+                _shownBoard.Clear();
                 _showdownHandCount = 0;
                 _banner = null;
                 AddLog($"— Hand {started.HandNumber} —");
+                break;
+
+            case FlopDealt flop:
+                _shownBoard.Add(flop.Card1);
+                _shownBoard.Add(flop.Card2);
+                _shownBoard.Add(flop.Card3);
+                AddLog(Describe(evt));
+                break;
+
+            case TurnDealt turn:
+                _shownBoard.Add(turn.Card);
+                AddLog(Describe(evt));
+                break;
+
+            case RiverDealt river:
+                _shownBoard.Add(river.Card);
+                AddLog(Describe(evt));
                 break;
 
             case ShowdownStarted showdown:
