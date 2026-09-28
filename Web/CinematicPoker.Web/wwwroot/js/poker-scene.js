@@ -123,62 +123,6 @@ function seatPos(i, radius, y = 0) {
   return new THREE.Vector3(Math.cos(a) * radius, y, Math.sin(a) * radius);
 }
 
-const CHAIR_SCALE = 2.76;
-// chair.glb origin is not the cushion centre — mesh bounds centre at scale 1.
-// Cushion centroid on the scaled-1 chair mesh (see chair.glb seat verts).
-const _CHAIR_SEAT_LOCAL = new THREE.Vector3(0.1, 0, -0.163);
-const _chairSeatOff = new THREE.Vector3();
-const _chairAnchor = new THREE.Vector3();
-const _toTable = new THREE.Vector3();
-
-function placeChairAt(chair, facing, anchor) {
-  chair.scale.setScalar(CHAIR_SCALE);
-  chair.rotation.y = facing;
-  _chairSeatOff.copy(_CHAIR_SEAT_LOCAL).multiplyScalar(CHAIR_SCALE);
-  _chairSeatOff.applyAxisAngle(new THREE.Vector3(0, 1, 0), facing);
-  chair.position.set(
-    anchor.x - _chairSeatOff.x,
-    anchor.y,
-    anchor.z - _chairSeatOff.z);
-}
-
-// Parent the chair under the seated rig so it tracks the solved pose.
-function alignChairToCharacter(chair, character, facing, seatIndex) {
-  let hips = null;
-  character.root.traverse((o) => {
-    if (!hips && o.isBone && o.name === 'hips') hips = o;
-  });
-  if (!hips) {
-    placeChairAt(chair, facing, seatPos(seatIndex, SEAT_RADIUS - 0.02));
-    return;
-  }
-
-  if (chair.parent !== character.root) character.root.add(chair);
-
-  hips.getWorldPosition(_chairAnchor);
-  _toTable.set(-_chairAnchor.x, 0, -_chairAnchor.z);
-  if (_toTable.lengthSq() > 1e-6) {
-    _toTable.normalize().multiplyScalar(0.08);
-    _chairAnchor.add(_toTable);
-  }
-
-  character.root.updateMatrixWorld(true);
-  character.root.worldToLocal(_chairAnchor);
-
-  // The rig root is already scaled (Jimmy's CHAR_SCALE, or a smaller NPC
-  // fit). Chair scale is a world size, so divide it back out — otherwise the
-  // seat inherits the body scale and becomes a slab around the table.
-  const parentScale = character.root.scale.x || 1;
-  const localScale = CHAIR_SCALE / parentScale;
-  chair.scale.setScalar(localScale);
-  const relYaw = character.modelYaw || 0;
-  chair.rotation.set(0, relYaw, 0);
-  _chairSeatOff.copy(_CHAIR_SEAT_LOCAL).multiplyScalar(localScale);
-  _chairSeatOff.applyAxisAngle(new THREE.Vector3(0, 1, 0), relYaw);
-  _chairAnchor.sub(_chairSeatOff);
-  chair.position.copy(_chairAnchor);
-}
-
 // ------------------------------------------------------------------ cards
 
 function makeCard(path, w = 0.18, unlit = false) {
@@ -493,7 +437,7 @@ function makeCharacter(gltf, spec) {
   // and matching side so animated geometry actually writes depth; otherwise
   // whole body regions fail the colour pass and vanish.
   //
-  // depthTest: false on the prepass ignores table/chair depth that already
+  // depthTest: false on the prepass ignores table depth that already
   // filled the buffer — otherwise torsos behind the rail never write depth and
   // only the head survives as a floating grey ghost.
   function ghostDepthMaterial(srcMat) {
@@ -517,7 +461,7 @@ function makeCharacter(gltf, spec) {
     depthMesh.receiveShadow = false;
     depthMesh.frustumCulled = false;
     depthMesh.visible = false;
-    // Opaque pass: after table/chair (0), before the transparent ghost body (2).
+    // Opaque pass: after the table (0), before the transparent ghost body (2).
     depthMesh.renderOrder = 1;
     src.parent.add(depthMesh);
     ghostParts.push({ src, depthMesh });
@@ -818,7 +762,7 @@ async function buildScene(canvas) {
   };
 
   // The backdrop doesn't receive shadows (perf), so a shadow catcher under
-  // the table keeps the players and chairs grounded on the street.
+  // the table keeps the players grounded on the street.
   const catcher = new THREE.Mesh(
     new THREE.CircleGeometry(3.6, 40),
     new THREE.ShadowMaterial({ opacity: 0.45 }));
@@ -861,10 +805,9 @@ async function buildScene(canvas) {
   base.position.y = 0.025;
   scene.add(base);
 
-  // ---- seats (chairs + characters + cards + labels)
+  // ---- seats (characters + cards + labels). Chairs are left out for now.
   // (The street backdrop supplies its own clutter — crates, bottles, arcade
   // cabinets — so the old saloon barrels/boxes are gone.)
-  const chairGltf = await loadGlb(loader, 'models/props/furniture/chair.glb');
   state.seats = [];
   const charPromises = [];
 
@@ -883,8 +826,8 @@ async function buildScene(canvas) {
   // A fresh draw every time the table is built (each game / page load).
   const npcLineup = shuffle(NPC_POOL).slice(0, 5);
 
-  // Position a seated character at seat i: face the table, hips over the
-  // chair, feet on the floor, regardless of the pose's baked root offsets.
+  // Position a seated character at seat i: face the table, hips at the seat,
+  // feet on the floor, regardless of the pose's baked root offsets.
   const placeSeatedCharacter = (character, i, facing) => {
     character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
     scene.add(character.root);
@@ -939,13 +882,6 @@ async function buildScene(canvas) {
     const pos = seatPos(i, SEAT_RADIUS);
     const facing = Math.atan2(-pos.x, -pos.z); // yaw toward table centre
 
-    if (chairGltf) {
-      const chair = chairGltf.scene.clone(true);
-      chair.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
-      scene.add(chair);
-      seat.chair = chair;
-    }
-
     // Seat 0 is the player's own body (always Jimmy). The other five seats
     // are this game's random draw from the Meshy pool.
     const spec = i === 0 ? PLAYER_MODEL : npcLineup[i - 1];
@@ -959,7 +895,6 @@ async function buildScene(canvas) {
       const character = makeCharacter(model, seated);
       if (!character) return;
       placeSeatedCharacter(character, i, facing);
-      if (seat.chair) alignChairToCharacter(seat.chair, character, facing, i);
       seat.char = character;
     }));
 
