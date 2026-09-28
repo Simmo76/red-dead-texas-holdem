@@ -1,11 +1,11 @@
 // Over-the-shoulder poker scene (Three.js) set on a neon arcade street, with
 // five extra switchable backdrops (beach, desert, shed, space station, dance
 // club) built procedurally from primitives, each with its own mood lighting.
-// Props/textures are CC0; the player and the street backdrop are web-optimised
-// conversions of the repo owner's licensed Unity assets (Frederic Lierman
-// "Jimmy Lite", Leartes "Stylized Cyberpunk Arcade"). The NPC seats are a
-// random draw from the owner's Meshy characters, with the table's seated
-// clips retargeted on — see ASSET_LICENSES.md. No third-party game content
+// Props/textures are CC0; the table characters and the street backdrop are
+// web-optimised conversions of the repo owner's licensed Unity assets
+// (CrowArt "Hunter" western character, Leartes "Stylized Cyberpunk Arcade").
+// All six seats are distinct Hunter variants (hats + shirt palettes) matched
+// to the engine roster — see ASSET_LICENSES.md. No third-party game content
 // is copied from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
@@ -18,49 +18,26 @@ const TABLE_RADIUS = 1.12;
 const SEAT_RADIUS = 1.74;
 const EYE_HEIGHT = 1.70;       // camera shoulder height over the bigger build
 
-// Jimmy is exported at the same rig height as the old Hunter GLB (~0.40
-// units); scale to a larger-than-life build so he fills the frame.
+// The Hunter GLB is authored at ~0.40 units tall; scale to a larger-than-life
+// build so the players fill the frame.
 const CHAR_SCALE = 5.16;
 
-// Rigged Meshy characters (the owner's Dropbox set that actually has a
-// skeleton). Each game draws 5 distinct models from this pool for the NPC
-// seats. `scale` matches their hip-to-head span to Jimmy's on-screen size.
-// The texture-only GLBs in that folder have no rig, so they cannot sit or
-// gesture and are not in the pool.
-const NPC_POOL = [
-  { model: 'ACthulhuFuturistic', scale: 1.594 },
-  { model: 'CowboyBot', scale: 1.673 },
-  { model: 'CowboyGrinVillain', scale: 1.473 },
-  { model: 'CowboyLongCoat', scale: 1.587 },
-  { model: 'CowboyOutlaw', scale: 1.711 },
-  { model: 'CowboyStance', scale: 1.427 },
-  { model: 'CyberAutomaton', scale: 1.571 },
-  { model: 'DustyFrontierCowboy', scale: 1.534 },
-  { model: 'EmeraldFury', scale: 1.743 },
-  { model: 'GunslingerAtSunset', scale: 1.415 },
-  { model: 'RedVestCowboy', scale: 1.511 },
-  { model: 'RedemptionWalker', scale: 1.554 },
-  { model: 'RuneboundAutomaton', scale: 1.733 },
-  { model: 'SkullCowboy', scale: 1.731 }
+// All five NPC seats are variations of the owner-licensed CrowArt "Hunter"
+// western character (converted to GLB): different hats plus shirt palette
+// swaps so everyone at the table reads as a distinct person, matched to the
+// engine personalities (Davo … Kev).
+//   hat: 'top' | 'fedora' | null (bare-headed)
+const NPC_MODELS = [
+  { model: 'Hunter', hat: 'fedora', tex: null },                     // Davo — maniac gunslinger
+  { model: 'Hunter', hat: null, tex: 'hunter_shirt_red.jpg' },       // Mick — regular
+  { model: 'Hunter', hat: 'top', tex: null },                        // Shazza — rock
+  { model: 'Hunter', hat: 'fedora', tex: 'hunter_shirt_blue.jpg' },  // Bluey — calling station
+  { model: 'Hunter', hat: null, tex: 'hunter_shirt_green.jpg' }      // Kev — the shark
 ];
 
-function shuffle(list) {
-  const a = list.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = a[i];
-    a[i] = a[j];
-    a[j] = tmp;
-  }
-  return a;
-}
-
-// The player's own body, seen from the over-the-shoulder camera. He stays
-// the Jimmy soldier: still hold pose, both hands resting on the table with
-// his hole cards parked between them.
-// shirt: { hue (degrees), sat } — Jimmy's uniform top is hue-rotated in the
-// shader (a plain colour multiply can only darken the red base texture).
-const PLAYER_MODEL = { model: 'Jimmy', shirt: { hue: 0, sat: 0.15 }, cards: true, scale: CHAR_SCALE };
+// The player's own body, seen from the over-the-shoulder camera. Still hold
+// pose: both hands resting on the table with hole cards parked between them.
+const PLAYER_MODEL = { model: 'Hunter', hat: 'top', tex: 'hunter_shirt_dark.jpg', cards: true };
 
 // Opening cinematic: seconds per backdrop sweep (desert, then club). The
 // matching audio parts are sequenced by pokerAudio.playIntro on the same
@@ -407,23 +384,34 @@ function characterMaterial(material, shirt, meshName) {
 
 function makeCharacter(gltf, spec) {
   if (!gltf) return null;
-  // All seats share one model, so clone the skinned rig per seat.
+  // All seats share one Hunter model, so clone the skinned rig per seat.
   const root = cloneSkinned(gltf.scene);
   root.scale.setScalar(spec.scale || CHAR_SCALE);
 
-  // Every mesh gets a per-seat material clone so this character can grey out
-  // independently when he folds. Jimmy's uniform top additionally gets the
-  // recolour; the Meshy NPCs keep the textures they were painted with.
+  // Shirt palette swap on the shared torso mesh (head, hats, trousers unchanged).
+  let overrideTex = null;
+  if (spec.tex) {
+    overrideTex = new THREE.TextureLoader().load(`models/characters/${spec.tex}`);
+    overrideTex.colorSpace = THREE.SRGBColorSpace;
+    overrideTex.flipY = false; // glTF UV convention
+  }
+
+  // Per-seat material clones so folded players can grey out independently.
   const bodyMeshes = [];
   const bodyMats = [];
   root.traverse((obj) => {
     if (!obj.isMesh) return;
+    if (obj.name === 'top_hat') obj.visible = spec.hat === 'top';
+    if (obj.name === 'fedora_hat') obj.visible = spec.hat === 'fedora';
     obj.castShadow = true;
     obj.receiveShadow = true;
     obj.frustumCulled = false; // skinned mesh bounds lag the animated pose
     const shirt = spec.shirt && obj.name === 'jimmy_body_top' ? spec.shirt : null;
     const srcMats = Array.isArray(obj.material) ? obj.material : [obj.material];
     const made = srcMats.map((mat) => characterMaterial(mat, shirt, obj.name));
+    if (overrideTex && obj.name === 'hunting_mesh') {
+      for (const m of made) m.map = overrideTex;
+    }
     obj.material = made.length === 1 ? made[0] : made;
     bodyMeshes.push(obj);
     bodyMats.push(...made);
@@ -868,20 +856,13 @@ async function buildScene(canvas) {
   state.seats = [];
   const charPromises = [];
 
-  // Jimmy lives next to the old Hunter GLB; the Meshy NPCs are in npcs/.
   const modelCache = new Map();
   const loadCharacterModel = (name) => {
     if (!modelCache.has(name)) {
-      const path = name === 'Jimmy'
-        ? `models/characters/${name}.glb?v=2`
-        : `models/characters/npcs/${name}.glb`;
-      modelCache.set(name, loadGlb(loader, path));
+      modelCache.set(name, loadGlb(loader, `models/characters/${name}.glb?v=2`));
     }
     return modelCache.get(name);
   };
-
-  // A fresh draw every time the table is built (each game / page load).
-  const npcLineup = shuffle(NPC_POOL).slice(0, 5);
 
   // Position a seated character at seat i: face the table, hips over the
   // chair, feet on the floor, regardless of the pose's baked root offsets.
@@ -946,17 +927,11 @@ async function buildScene(canvas) {
       seat.chair = chair;
     }
 
-    // Seat 0 is the player's own body (always Jimmy). The other five seats
-    // are this game's random draw from the Meshy pool.
-    const spec = i === 0 ? PLAYER_MODEL : npcLineup[i - 1];
-    charPromises.push(loadCharacterModel(spec.model).then(async (gltf) => {
-      let model = gltf;
-      let seated = spec;
-      if (!model && spec.model !== 'Jimmy') {
-        model = await loadCharacterModel('Jimmy');
-        seated = { model: 'Jimmy', scale: CHAR_SCALE };
-      }
-      const character = makeCharacter(model, seated);
+    // Seat 0 is the player's own body; seats 1..5 are the roster-matched
+    // Hunter variants (Davo … Kev).
+    const spec = i === 0 ? PLAYER_MODEL : NPC_MODELS[i - 1];
+    charPromises.push(loadCharacterModel(spec.model).then((gltf) => {
+      const character = makeCharacter(gltf, spec);
       if (!character) return;
       placeSeatedCharacter(character, i, facing);
       if (seat.chair) alignChairToCharacter(seat.chair, character, facing, i);

@@ -17,7 +17,7 @@ The player competes exclusively against NPCs — no real-money wagering, no mult
 
 ## Play it in the browser
 
-A playable web version lives in `Web/CinematicPoker.Web` — a Blazor WebAssembly app that compiles **the exact same pure C# engine** the Unity game and the test suite use, so the poker rules and the five NPC personalities are identical. It runs entirely client-side (offline once loaded, nothing to install) and works on desktop and mobile browsers. Each time the table loads, the five NPC seats are a random draw from the owner's Meshy character set; the player character stays the Jimmy soldier.
+A playable web version lives in `Web/CinematicPoker.Web` — a Blazor WebAssembly app that compiles **the exact same pure C# engine** the Unity game and the test suite use, so the poker rules and the five NPC personalities are identical. It runs entirely client-side (offline once loaded, nothing to install) and works on desktop and mobile browsers. All six seats at the table use the owner-licensed CrowArt **Hunter** western character (distinct hats and shirt colours per NPC personality; the player gets the dark-shirt top-hat variant).
 
 - **Live link (once merged to `main` and GitHub Pages is enabled):** `https://simmo76.github.io/red-dead-texas-holdem/`
 - **Link-only sharing**: anyone with the link can load and play immediately — no password, no account, no install. The page carries `noindex, nofollow` so search engines skip it; access control is simply not sharing the link. For real per-person access control later, put the site behind an auth proxy such as Cloudflare Access.
