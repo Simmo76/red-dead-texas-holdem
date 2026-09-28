@@ -24,24 +24,26 @@ const CHAR_SCALE = 5.16;
 
 // Rigged Meshy characters (the owner's Dropbox set that actually has a
 // skeleton). Each game draws 5 distinct models from this pool for the NPC
-// seats. `scale` matches their hip-to-head span to Jimmy's on-screen size.
+// seats. `scale` matches their seated silhouette (feet to the top of the
+// head, hat included) to Jimmy's, so they don't tower over the player.
+// Hip-to-head bone length alone left hats and coats oversized.
 // The texture-only GLBs in that folder have no rig, so they cannot sit or
 // gesture and are not in the pool.
 const NPC_POOL = [
-  { model: 'ACthulhuFuturistic', scale: 1.594 },
-  { model: 'CowboyBot', scale: 1.673 },
-  { model: 'CowboyGrinVillain', scale: 1.473 },
-  { model: 'CowboyLongCoat', scale: 1.587 },
-  { model: 'CowboyOutlaw', scale: 1.711 },
-  { model: 'CowboyStance', scale: 1.427 },
-  { model: 'CyberAutomaton', scale: 1.571 },
-  { model: 'DustyFrontierCowboy', scale: 1.534 },
-  { model: 'EmeraldFury', scale: 1.743 },
-  { model: 'GunslingerAtSunset', scale: 1.415 },
-  { model: 'RedVestCowboy', scale: 1.511 },
-  { model: 'RedemptionWalker', scale: 1.554 },
-  { model: 'RuneboundAutomaton', scale: 1.733 },
-  { model: 'SkullCowboy', scale: 1.731 }
+  { model: 'ACthulhuFuturistic', scale: 1.234 },
+  { model: 'CowboyBot', scale: 1.239 },
+  { model: 'CowboyGrinVillain', scale: 1.172 },
+  { model: 'CowboyLongCoat', scale: 1.233 },
+  { model: 'CowboyOutlaw', scale: 1.260 },
+  { model: 'CowboyStance', scale: 1.243 },
+  { model: 'CyberAutomaton', scale: 1.264 },
+  { model: 'DustyFrontierCowboy', scale: 1.216 },
+  { model: 'EmeraldFury', scale: 1.179 },
+  { model: 'GunslingerAtSunset', scale: 1.246 },
+  { model: 'RedVestCowboy', scale: 1.227 },
+  { model: 'RedemptionWalker', scale: 1.225 },
+  { model: 'RuneboundAutomaton', scale: 1.239 },
+  { model: 'SkullCowboy', scale: 1.221 }
 ];
 
 function shuffle(list) {
