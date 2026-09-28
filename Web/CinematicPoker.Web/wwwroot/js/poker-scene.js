@@ -25,19 +25,20 @@ const CHAR_SCALE = 5.16;
 // Rigged Meshy characters (the owner's Dropbox set that actually has a
 // skeleton), narrowed to the human western gunslingers so the table reads
 // as a saloon crowd. Each game draws 5 distinct models from this pool for
-// the NPC seats. `scale` matches their hip-to-head span to Jimmy's
-// on-screen size. The rest of the set (robots, monsters, the futuristic
-// Cthulhu, the undead SkullCowboy) stays on disk for later theme packs but
-// is never seated; the texture-only GLBs in that folder have no rig, so
-// they cannot sit or gesture and were never in the pool.
+// the NPC seats. `scale` equalises the seated visible height (hips to the
+// top of the hat) across the pool, so nobody towers over — or shrinks
+// beside — his neighbours. The rest of the set (robots, monsters, the
+// futuristic Cthulhu, the undead SkullCowboy) stays on disk for later theme
+// packs but is never seated; the texture-only GLBs in that folder have no
+// rig, so they cannot sit or gesture and were never in the pool.
 const NPC_POOL = [
-  { model: 'CowboyLongCoat', scale: 1.587 },
-  { model: 'CowboyOutlaw', scale: 1.711 },
-  { model: 'CowboyStance', scale: 1.427 },
-  { model: 'DustyFrontierCowboy', scale: 1.534 },
-  { model: 'GunslingerAtSunset', scale: 1.415 },
-  { model: 'RedVestCowboy', scale: 1.511 },
-  { model: 'RedemptionWalker', scale: 1.554 }
+  { model: 'CowboyLongCoat', scale: 1.563 },
+  { model: 'CowboyOutlaw', scale: 1.585 },
+  { model: 'CowboyStance', scale: 1.518 },
+  { model: 'DustyFrontierCowboy', scale: 1.504 },
+  { model: 'GunslingerAtSunset', scale: 1.530 },
+  { model: 'RedVestCowboy', scale: 1.480 },
+  { model: 'RedemptionWalker', scale: 1.555 }
 ];
 
 function shuffle(list) {
