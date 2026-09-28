@@ -1,23 +1,28 @@
-// Sound effects (Kenney CC0 casino pack), per-backdrop background music
-// (owner-supplied saloon loop + OpenGameArt CC0 beach/western/disco beds)
-// and original character voice lines synthesised with Kokoro TTS for this
-// project. Everything is MP3 (iOS Safari cannot decode Ogg Vorbis) and short
-// clips play through WebAudio: once the context is unlocked by the first tap,
-// timer-driven sounds (NPC chatter, opponent actions) keep working on iOS,
-// where HTMLAudio.play() outside a user gesture is rejected. Failures
-// (autoplay policy before first gesture, missing files) are silent by design.
+// Dealer voice audio: every sound in the web game is a spoken line from the
+// owner-supplied POKER DEALER VOICE PACK (see ASSET_LICENSES.md) — hand
+// openers, street and action calls, pot awards and the NPCs' poker-slang
+// chatter. The old casino foley, music beds and TTS character voices were
+// removed with the switch to this pack. Clips are MP3 (iOS Safari cannot
+// decode Ogg Vorbis) and play through WebAudio: once the context is unlocked
+// by the first tap, timer-driven lines keep working on iOS, where
+// HTMLAudio.play() outside a user gesture is rejected. One dealer channel:
+// lines queue (cap 3, extras dropped — a late call is worse than a missed
+// one) and play back to back so the dealer never talks over himself.
+// Failures (autoplay policy before first gesture, missing files) are silent
+// by design.
 window.pokerAudio = (function () {
     let ctx = null;
     const buffers = {};       // url -> Promise<AudioBuffer>
     let muted = false;
-    let music = null;
-    let voiceSrc = null;      // one voice at a time so lines don't overlap
-    let lastVoiceAt = 0;
     let aliveSeats = [];
+    let lastChatterAt = 0;
 
-    // Seat order matches the fixed table roster in Home.razor.
-    const SEAT_NAMES = [null, 'davo', 'mick', 'shazza', 'bluey', 'kev'];
-    const IDLE_VARIANTS = 6;
+    // Reaction and chatter lines, all from the dealer pack. Idle chatter is
+    // poker slang the table might mumble; win/lose lines comment the pot.
+    const WIN_LINES = ['nice-hand', 'monster', 'big-hand'];
+    const LOSE_LINES = ['bad-beat', 'youre-stuck', 'worst-hand'];
+    const IDLE_LINES = ['big-slick', 'cowboys', 'pocket-rockets', 'bullets',
+        'ladies', 'nuts', 'deadmans-hand', 'broadway'];
 
     function ensureCtx() {
         try {
@@ -40,110 +45,73 @@ window.pokerAudio = (function () {
         return buffers[url];
     }
 
-    function playBuffer(url, volume, rate) {
-        if (!ensureCtx() || ctx.state !== 'running') return null;
-        const src = ctx.createBufferSource();
-        loadBuffer(url).then(function (buf) {
-            if (muted) return;
+    // ------------------------------------------------ single dealer channel
+    const queue = [];
+    let current = null;       // { src, stopped } while a line plays or loads
+
+    function finish(entry) {
+        if (current !== entry) return;
+        current = null;
+        setTimeout(pump, 220); // a short breath between lines
+    }
+
+    function pump() {
+        if (current || !queue.length) return;
+        if (!ensureCtx() || ctx.state !== 'running') { queue.length = 0; return; }
+        const name = queue.shift();
+        const entry = { src: null, stopped: false };
+        current = entry;
+        loadBuffer('audio/dealer/' + name + '.mp3').then(function (buf) {
+            if (muted || entry.stopped || current !== entry) { finish(entry); return; }
+            const src = ctx.createBufferSource();
+            entry.src = src;
             src.buffer = buf;
-            if (rate) src.playbackRate.value = rate;
             const gain = ctx.createGain();
-            gain.gain.value = volume;
+            gain.gain.value = 0.85;
             src.connect(gain).connect(ctx.destination);
+            src.onended = function () { finish(entry); };
             src.start();
-        }).catch(function () { });
-        return src;
+        }).catch(function () { finish(entry); });
+    }
+
+    function say(name) {
+        if (muted || queue.length >= 3) return;
+        queue.push(name);
+        pump();
+    }
+
+    function stopSpeech() {
+        queue.length = 0;
+        if (current) {
+            current.stopped = true;
+            try { if (current.src) current.src.stop(); } catch (e) { }
+            current = null;
+        }
     }
 
     function play(name, delayMs) {
         if (muted) return;
         if (delayMs) { setTimeout(function () { play(name, 0); }, delayMs); return; }
-        // Slight pitch variance so repeated chip/card sounds don't feel mechanical.
-        playBuffer('audio/' + name + '.mp3', 0.55, 0.92 + Math.random() * 0.16);
+        say(name);
     }
 
-    // Background music follows the backdrop: tropical on the beach, western
-    // in the desert, disco in the club, the saloon loop everywhere else.
-    const MUSIC_BY_SCENE = {
-        BEACH: 'audio/music-beach.mp3',
-        DESERT: 'audio/music-desert.mp3',
-        CLUB: 'audio/music-club.mp3'
-    };
-    let musicUrl = 'audio/saloon-music.mp3';
-
-    // Intro movie audio: the two owner-supplied parts played back to back
-    // (desert sweep, then club sweep), each faded in and out. Regular music
-    // stays out of the way until the intro finishes or is skipped.
-    const INTRO_PARTS = ['audio/music-desert.mp3', 'audio/music-club.mp3'];
-    const INTRO_PART_SECONDS = 8;
-    let introAudio = null;
-    let introPlaying = false;
-
-    function stopIntroAudio() {
-        if (introAudio) {
-            clearInterval(introAudio._fadeTimer);
-            try { introAudio.pause(); } catch (e) { }
-            introAudio = null;
-        }
-        introPlaying = false;
-    }
-
-    function playIntroPart(index) {
-        if (index >= INTRO_PARTS.length) { stopIntroAudio(); startMusic(); return; }
-        const a = new Audio(INTRO_PARTS[index]);
-        introAudio = a;
-        a.volume = 0;
-        const p = a.play();
-        if (p) p.catch(function () { });
-        const fade = 0.9, t0 = Date.now();
-        a._fadeTimer = setInterval(function () {
-            if (introAudio !== a) { clearInterval(a._fadeTimer); return; }
-            const t = (Date.now() - t0) / 1000;
-            const vIn = Math.min(1, t / fade);
-            const vOut = Math.max(0, Math.min(1, (INTRO_PART_SECONDS - t) / fade));
-            a.volume = (muted ? 0 : 0.4) * Math.min(vIn, vOut);
-            if (t >= INTRO_PART_SECONDS) {
-                clearInterval(a._fadeTimer);
-                try { a.pause(); } catch (e) { }
-                playIntroPart(index + 1);
-            }
-        }, 100);
-    }
-
-    function startMusic() {
-        if (muted || introPlaying) return;
-        try {
-            if (music && music._url !== musicUrl) {
-                music.pause();
-                music = null;
-            }
-            if (!music) {
-                music = new Audio(musicUrl);
-                music._url = musicUrl;
-                music.loop = true;
-                music.volume = 0.12;
-            }
-            const p = music.play();
-            if (p) p.catch(function () { });
-        } catch (e) { }
-    }
-    // Browsers block audio until the first user gesture, so (re)try on taps.
-    // The same tap unlocks the WebAudio context used for SFX and voices.
-    document.addEventListener('pointerdown', function () { ensureCtx(); startMusic(); });
+    // Browsers block audio until the first user gesture, so unlock the
+    // WebAudio context on taps.
+    document.addEventListener('pointerdown', function () { ensureCtx(); });
 
     function voice(seat, kind) {   // kind: 'idle' | 'win' | 'lose'
         if (muted) return;
-        const name = SEAT_NAMES[seat];
-        if (!name) return;
-        const now = Date.now();
-        if (now - lastVoiceAt < 4500) return; // don't talk over each other
-        lastVoiceAt = now;
-        const n = kind === 'idle' ? 1 + Math.floor(Math.random() * IDLE_VARIANTS) : 1;
-        try { if (voiceSrc) voiceSrc.stop(); } catch (e) { }
-        voiceSrc = playBuffer('audio/voices/' + name + '-' + kind + '-' + n + '.mp3', 0.9);
+        const lines = kind === 'win' ? WIN_LINES : kind === 'lose' ? LOSE_LINES : IDLE_LINES;
+        if (kind === 'idle') {
+            // Chatter waits for a quiet dealer and doesn't pile up.
+            const now = Date.now();
+            if (current || queue.length || now - lastChatterAt < 4500) return;
+            lastChatterAt = now;
+        }
+        say(lines[Math.floor(Math.random() * lines.length)]);
         // Idle chatter gets a matching talking gesture in the 3D scene.
         // (Win/lose lines already come with their own victory/slump moves.)
-        if (voiceSrc && kind === 'idle' && window.pokerScene && window.pokerScene.talk) {
+        if (kind === 'idle' && window.pokerScene && window.pokerScene.talk) {
             window.pokerScene.talk(seat);
         }
     }
@@ -161,42 +129,17 @@ window.pokerAudio = (function () {
     return {
         play: play,
         voice: voice,
-        // Start the intro movie audio (called on the same tap that starts
-        // the camera sweep, so autoplay is already unlocked). The tap's own
-        // pointerdown may have started the saloon loop a moment earlier —
-        // silence it for the duration.
-        playIntro: function () {
-            stopIntroAudio();
-            introPlaying = true;
-            if (music) { music.pause(); music = null; }
-            playIntroPart(0);
-        },
-        // Skip (or finish): drop the intro audio and hand over to the
-        // regular backdrop music bed.
-        stopIntro: function () {
-            stopIntroAudio();
-            startMusic();
-        },
-        // Switch the music bed to match the current backdrop. Called from a
-        // click handler, so play() is allowed even before other audio ran.
-        setScene: function (name) {
-            const url = MUSIC_BY_SCENE[name] || 'audio/saloon-music.mp3';
-            if (url === musicUrl) return;
-            musicUrl = url;
-            const wasPlaying = music && !music.paused;
-            if (music) { music.pause(); music = null; }
-            if (wasPlaying) startMusic();
-        },
-        // Short fanfare when a heads-up showdown crowns its winner (steady
-        // pitch: unlike SFX, a detuned jingle is instantly noticeable).
-        victory: function () {
-            if (!muted) playBuffer('audio/victory.mp3', 0.75, 1);
-        },
+        // The intro movie audio and per-backdrop music beds went out with the
+        // old audio set; these stay as no-ops so existing callers keep working.
+        playIntro: function () { },
+        stopIntro: function () { },
+        setScene: function () { },
+        // Heads-up showdown winner gets the dealer's jackpot call.
+        victory: function () { say('jackpot'); },
         setAlive: function (seats) { aliveSeats = seats || []; },
         setMuted: function (m) {
             muted = m;
-            if (music) { if (m) music.pause(); else startMusic(); }
-            if (m && voiceSrc) { try { voiceSrc.stop(); } catch (e) { } voiceSrc = null; }
+            if (m) stopSpeech();
         }
     };
 })();

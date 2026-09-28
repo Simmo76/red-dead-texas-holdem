@@ -683,18 +683,25 @@
         _ = JS.InvokeVoidAsync("pokerAudio.setMuted", _muted);
     }
 
+    // Dealer voice pack lines (audio/dealer/*.mp3): the dealer calls the
+    // hand opening, the streets, each action and the pot award.
     private static readonly Dictionary<string, string[]> SoundGroups = new()
     {
-        ["shuffle"] = new[] { "card-shuffle" },
-        ["deal"] = new[] { "card-slide-1", "card-slide-2", "card-slide-3" },
-        ["place"] = new[] { "card-place-1", "card-place-2" },
-        ["fold"] = new[] { "card-shove-1" },
-        ["chips"] = new[] { "chips-stack-1", "chips-stack-2", "chips-stack-3" },
-        ["raise"] = new[] { "chips-handle-1", "chips-handle-2" },
-        ["allin"] = new[] { "chips-collide-1", "chips-collide-2" }
+        ["hand"] = new[] { "texas-hold-em", "place-your-bets", "ante-up" },
+        ["dealt"] = new[] { "dealt" },
+        ["flop"] = new[] { "flop" },
+        ["turn"] = new[] { "turn" },
+        ["river"] = new[] { "river", "river-card" },
+        ["check"] = new[] { "check", "knock" },
+        ["bet"] = new[] { "bet" },
+        ["call"] = new[] { "call", "see" },
+        ["raise"] = new[] { "raise", "re-raise", "bump" },
+        ["allin"] = new[] { "all-in" },
+        ["fold"] = new[] { "fold", "muck", "pass" },
+        ["pot"] = new[] { "you-win-the-pot", "its-a-scoop", "nice-hand" }
     };
 
-    private int _dealSoundIndex;
+    private bool _holeCardsAnnounced;
 
     private void PlaySound(string group, int delayMs = 0)
     {
@@ -705,26 +712,28 @@
 
     private void PlaySoundFor(PokerEvent evt)
     {
-        // Your two cards land audibly after the shuffle, not on top of it.
-        if (evt is HandStarted) _dealSoundIndex = 0;
+        // One "dealt" call for your hole cards, after the opening line —
+        // the dealer doesn't announce every card separately.
+        if (evt is HandStarted) _holeCardsAnnounced = false;
         if (evt is CardDealt dealtCard && dealtCard.Seat == 0)
         {
-            PlaySound("place", 700 + _dealSoundIndex++ * 280);
+            if (!_holeCardsAnnounced) { _holeCardsAnnounced = true; PlaySound("dealt", 900); }
             return;
         }
 
         string group = evt switch
         {
-            HandStarted _ => "shuffle",
-            FlopDealt _ => "deal",
-            TurnDealt _ => "deal",
-            RiverDealt _ => "deal",
-            BetPlaced _ => "chips",
-            PlayerCalled _ => "chips",
+            HandStarted _ => "hand",
+            FlopDealt _ => "flop",
+            TurnDealt _ => "turn",
+            RiverDealt _ => "river",
+            BetPlaced _ => "bet",
+            PlayerCalled _ => "call",
+            PlayerChecked _ => "check",
             PlayerRaised _ => "raise",
             PlayerAllIn _ => "allin",
             PlayerFolded _ => "fold",
-            PotAwarded _ => "allin", // big pile of chips pushed to the winner
+            PotAwarded _ => "pot",
             _ => null
         };
         if (group != null) PlaySound(group);
