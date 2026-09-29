@@ -92,7 +92,8 @@ const state = {
   envIndex: 0,
   envNames: [],
   setEnvironment: null,
-  lastJson: ''
+  lastJson: '',
+  lastActorSeat: -2
 };
 
 function texture(path) {
@@ -501,6 +502,8 @@ function makeCharacter(gltf, spec, extraClips) {
     action.clampWhenFinished = true; // hold the last pose until we fade back
     sitAction.crossFadeTo(action, 0.25, false);
     action.play();
+    const clipSeconds = clip.duration / Math.max(timeScale, 0.01);
+    const holdMs = Math.min(seconds * 1000, clipSeconds * 1000);
     setTimeout(() => {
       if (character.dead || gen !== gestureGen) return;
       sitAction.reset();
@@ -517,7 +520,7 @@ function makeCharacter(gltf, spec, extraClips) {
         character._queued = null;
         if (next && !character.dead) character.playOnce(next.name, next.seconds, next.timeScale);
       }, 450);
-    }, seconds * 1000);
+    }, holdMs);
     return true;
   };
 
@@ -537,7 +540,7 @@ function makeCharacter(gltf, spec, extraClips) {
   // wait and play once the current one lets go.
   character.variant = 0;
   character.heat = 0.25;
-  character.nextFidget = character.isPlayer ? 6 + Math.random() * 5 : 10 + Math.random() * 8;
+  character.nextFidget = 4 + Math.random() * 5;
   character._queued = null;
   character.playEmotion = (mood, intensity = 0.5) => {
     const hot = intensity >= 0.55;
@@ -567,8 +570,9 @@ function makeCharacter(gltf, spec, extraClips) {
       return;
     }
     if (t < character.nextFidget) return;
-    character.nextFidget = t + 14 + Math.random() * 12;
-    character.playEmotion('neutral', character.heat);
+    character.nextFidget = t + 8 + Math.random() * 10;
+    const mood = Math.random() < 0.45 ? 'wait' : 'neutral';
+    character.playEmotion(mood, character.heat);
   };
 
   return character;
@@ -1868,8 +1872,19 @@ window.pokerScene = {
     const seats = snapshot.seats || [];
     // The arrow tracks whoever currently has to act (including the player).
     const actor = seats.find(s => s.actor);
-    updateDealerArrow(actor ? actor.seat : -1);
-    updateActorOutline(actor ? actor.seat : -1);
+    const actorSeat = actor ? actor.seat : -1;
+    if (actorSeat !== state.lastActorSeat) {
+      state.lastActorSeat = actorSeat;
+      for (const data of seats) {
+        if (data.seat === actorSeat || data.folded || !data.active) continue;
+        const s = state.seats[data.seat];
+        if (s && s.char && !s.char.dead && s.char.playEmotion) {
+          s.char.playEmotion('wait', typeof data.heat === 'number' ? data.heat : 0.35);
+        }
+      }
+    }
+    updateDealerArrow(actorSeat);
+    updateActorOutline(actorSeat);
     for (const data of seats) {
       const seat = state.seats[data.seat];
       if (!seat) continue;
