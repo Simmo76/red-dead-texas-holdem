@@ -87,5 +87,32 @@ namespace CinematicPoker.Engine.Tests
             Assert.That(csv, Does.Contain("Biggest Pot Won,60"));
             Assert.That(csv, Does.Contain("Net Profit,10"));
         }
+
+        [Test]
+        public void BuildPlayerCsv_SkipsIncompleteInProgressHand()
+        {
+            var log = new HandSequenceLog();
+            var players = new List<PokerPlayer>
+            {
+                new HumanPlayer("human", "You", 0, 1000),
+                new TestPlayer(1, 1000)
+            };
+            log.BeginSession(0, TestHelpers.Rules, players);
+            log.OnEvent(new HandStarted
+            {
+                DealerSeat = 0,
+                SmallBlindSeat = 0,
+                BigBlindSeat = 1,
+                SeatsInHand = new List<int> { 0, 1 }
+            });
+            log.OnEvent(new CardDealt { Seat = 0, Card = Card.Parse("Ah") });
+            log.OnEvent(new CardDealt { Seat = 0, Card = Card.Parse("Kd") });
+            // No HandCompleted yet — still in progress.
+
+            Assert.AreEqual(0, log.CompletedHandCount);
+            string csv = log.BuildPlayerCsv(0);
+            Assert.That(csv, Does.Contain("Hands Played,0"));
+            Assert.That(csv, Does.Not.Contain("\n1,"));
+        }
     }
 }

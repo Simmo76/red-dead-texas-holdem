@@ -22,6 +22,21 @@ namespace CinematicPoker.Engine.Simulation
 
         public IReadOnlyList<HandRecord> Hands => _hands;
 
+        /// <summary>Hands that have reached HandCompleted (safe to export).</summary>
+        public int CompletedHandCount
+        {
+            get
+            {
+                int n = 0;
+                foreach (HandRecord hand in _hands)
+                {
+                    if (hand.StackChanges != null && hand.StackChanges.Count > 0)
+                        n++;
+                }
+                return n;
+            }
+        }
+
         public void BeginSession(int sessionIndex, TableRules rules, IReadOnlyList<PokerPlayer> players)
         {
             _currentSession = new SessionHeader
@@ -120,9 +135,14 @@ namespace CinematicPoker.Engine.Simulation
             long showdowns = 0;
             long biggestPotWon = 0;
             long netProfit = 0;
+            var completed = new List<HandRecord>();
             foreach (HandRecord hand in _hands)
             {
-                if (hand.StackChanges != null && hand.StackChanges.TryGetValue(humanSeat, out long delta))
+                // Skip the live hand still in progress — export only settled ones.
+                if (hand.StackChanges == null || hand.StackChanges.Count == 0)
+                    continue;
+                completed.Add(hand);
+                if (hand.StackChanges.TryGetValue(humanSeat, out long delta))
                     netProfit += delta;
                 if (PlayerWonHand(hand, humanSeat))
                 {
@@ -136,7 +156,7 @@ namespace CinematicPoker.Engine.Simulation
 
             writer.WriteLine("Section,Metric,Value");
             writer.WriteLine(CsvRow("Summary", "Exported At (UTC)", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")));
-            writer.WriteLine(CsvRow("Summary", "Hands Played", _hands.Count.ToString()));
+            writer.WriteLine(CsvRow("Summary", "Hands Played", completed.Count.ToString()));
             writer.WriteLine(CsvRow("Summary", "Hands Won", handsWon.ToString()));
             writer.WriteLine(CsvRow("Summary", "Showdowns", showdowns.ToString()));
             writer.WriteLine(CsvRow("Summary", "Biggest Pot Won", biggestPotWon.ToString()));
@@ -157,7 +177,7 @@ namespace CinematicPoker.Engine.Simulation
             writer.WriteLine();
 
             writer.WriteLine("Hand,Result,Your Cards,Board,Won Amount,Stack Change,Winning Hand,Won By Folds,Actions");
-            foreach (HandRecord hand in _hands)
+            foreach (HandRecord hand in completed)
             {
                 Func<int, string> nameOf = PlayerNameFor(hand);
                 string yourCards = hand.HoleCards.TryGetValue(humanSeat, out List<Card> hole)
@@ -167,8 +187,7 @@ namespace CinematicPoker.Engine.Simulation
                 bool won = PlayerWonHand(hand, humanSeat);
                 long wonAmount = PlayerWonAmount(hand, humanSeat);
                 long stackChange = 0;
-                if (hand.StackChanges != null)
-                    hand.StackChanges.TryGetValue(humanSeat, out stackChange);
+                hand.StackChanges.TryGetValue(humanSeat, out stackChange);
                 string result = won ? "Won" : PlayerFoldedHand(hand, humanSeat) ? "Folded" : "Lost";
                 string winningHand = "";
                 foreach (PotAwarded pa in hand.PotAwards)

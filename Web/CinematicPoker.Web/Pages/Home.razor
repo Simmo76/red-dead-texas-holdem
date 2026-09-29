@@ -136,9 +136,9 @@
                 <div class="overlay-title">EXPORT STATS</div>
                 <p class="export-blurb">
                     Send your session history as CSV via email or text
-                    @if (_handLog.Hands.Count > 0)
+                    @if (_handLog.CompletedHandCount > 0)
                     {
-                        <text> · @_handLog.Hands.Count hand@(_handLog.Hands.Count == 1 ? "" : "s")</text>
+                        <text> · @_handLog.CompletedHandCount hand@(_handLog.CompletedHandCount == 1 ? "" : "s")</text>
                     }
                     else
                     {
@@ -150,9 +150,9 @@
                     <p class="export-note">@_exportNote</p>
                 }
                 <div class="export-actions">
-                    <button class="act call" @onclick="ExportViaEmail" disabled="@(!_handLog.Hands.Any())">EMAIL CSV</button>
-                    <button class="act bet" @onclick="ExportViaText" disabled="@(!_handLog.Hands.Any())">TEXT CSV</button>
-                    <button class="act small" @onclick="ExportDownload" disabled="@(!_handLog.Hands.Any())">DOWNLOAD</button>
+                    <button class="act call" @onclick="ExportViaEmail" disabled="@(_handLog.CompletedHandCount == 0)">EMAIL CSV</button>
+                    <button class="act bet" @onclick="ExportViaText" disabled="@(_handLog.CompletedHandCount == 0)">TEXT CSV</button>
+                    <button class="act small" @onclick="ExportDownload" disabled="@(_handLog.CompletedHandCount == 0)">DOWNLOAD</button>
                     <button class="act small" @onclick="CloseExportPanel">CLOSE</button>
                 </div>
             </div>
@@ -540,7 +540,7 @@
 
     private async Task ExportViaEmail()
     {
-        if (!_handLog.Hands.Any()) return;
+        if (_handLog.CompletedHandCount == 0) return;
         try
         {
             var result = await JS.InvokeAsync<ExportShareResult>(
@@ -557,7 +557,7 @@
 
     private async Task ExportViaText()
     {
-        if (!_handLog.Hands.Any()) return;
+        if (_handLog.CompletedHandCount == 0) return;
         try
         {
             var result = await JS.InvokeAsync<ExportShareResult>(
@@ -574,7 +574,7 @@
 
     private async Task ExportDownload()
     {
-        if (!_handLog.Hands.Any()) return;
+        if (_handLog.CompletedHandCount == 0) return;
         try
         {
             await JS.InvokeVoidAsync("pokerExport.downloadCsv", "cinematic-poker-stats.csv", BuildExportCsv());
