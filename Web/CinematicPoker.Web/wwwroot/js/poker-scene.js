@@ -347,7 +347,7 @@ function characterMaterial(material, shirt, meshName) {
   return m;
 }
 
-function makeCharacter(gltf, spec) {
+function makeCharacter(gltf, spec, extraClips) {
   if (!gltf) return null;
   // All seats share one model, so clone the skinned rig per seat.
   const root = cloneSkinned(gltf.scene);
@@ -394,7 +394,7 @@ function makeCharacter(gltf, spec) {
   });
 
   const mixer = new THREE.AnimationMixer(root);
-  const clips = gltf.animations || [];
+  const clips = (gltf.animations || []).concat(extraClips || []);
   const find = (name) => THREE.AnimationClip.findByName(clips, name);
 
   // 'Sit' is a looping seated pose on Jacob's own skeleton. Random start
@@ -457,23 +457,39 @@ function makeCharacter(gltf, spec) {
     for (const mesh of bodyMeshes) mesh.castShadow = w < 0.5;
   };
 
-  // The sit loop already breathes; just layer a slow head drift on top so
-  // players occasionally glance around the table. Applied after the mixer
-  // writes each frame, so offsets never accumulate.
+  // A slow glance layered on the seated pose. The sit clip holds the head
+  // with two stepped keys, and three.js skips rewriting a bone whose clip
+  // value did not change. Multiplying the glance onto the live quaternion
+  // therefore compounds every frame into a full spin. Keep the mixer's
+  // quaternion, put it back before the next update, and apply the glance
+  // once from that base.
   const idlePhase = Math.random() * Math.PI * 2;
   const idleBones = [];
   root.traverse((o) => {
-    if (o.isBone && o.name === 'head') idleBones.push(o);
+    if (o.isBone && o.name === 'head') {
+      o.userData.idleBase = new THREE.Quaternion();
+      idleBones.push(o);
+    }
   });
-  character.idle = (t) => {
-    // Not for the player: his sit pose is paused, so the mixer skips
-    // rewriting bones whose values stopped changing — multiplying a drift
-    // on top every frame would accumulate into an endless head spin.
-    if (character.freezeSit) return;
+  character.restoreIdle = () => {
     for (const b of idleBones) {
-      const drift = Math.sin(t * 0.16 + idlePhase * 2.3) * 0.09;
+      if (b.userData.idleBaseReady) b.quaternion.copy(b.userData.idleBase);
+    }
+  };
+  character.idle = (t) => {
+    // The player's sit clip is paused, which used to skip the glance entirely
+    // and leave his head locked. A gesture still owns the head while one plays.
+    // The glance is one offset from the posed quaternion, so a paused clip
+    // cannot stack it into a spin (that was the NPC heads).
+    const glance = !(character.reacting || character.dead);
+    if (glance) {
+      const drift = Math.sin(t * 0.16 + idlePhase * 2.3) * (character.freezeSit ? 0.05 : 0.09);
       _idleQuat.setFromEuler(_idleEuler.set(0, drift, 0));
-      b.quaternion.multiply(_idleQuat);
+    }
+    for (const b of idleBones) {
+      b.userData.idleBase.copy(b.quaternion);
+      b.userData.idleBaseReady = true;
+      if (glance) b.quaternion.multiply(_idleQuat);
     }
   };
 
@@ -533,6 +549,9 @@ function makeCharacter(gltf, spec) {
         // at weight zero, which drops the rig into its standing rest pose.
         // Snap cleanly back onto the sit loop instead of standing there.
         if (sitAction.getEffectiveWeight() < 0.5) hardSit();
+        const next = character._queued;
+        character._queued = null;
+        if (next && !character.dead) character.playOnce(next.name, next.seconds, next.timeScale);
       }, 450);
     }, seconds * 1000);
     return true;
@@ -543,8 +562,49 @@ function makeCharacter(gltf, spec) {
   character.revive = () => {
     character.dead = false;
     character.reacting = false;
+    character._queued = null;
     gestureGen++; // cancel any pending gesture restores
     hardSit();
+  };
+
+  // Seated emotion takes retargeted from the Mighty Cat card-game pack.
+  // A calm pot and a heated one pick different performances, and neighbours
+  // don't celebrate with the same take. Win/lose that arrive mid-gesture
+  // wait and play once the current one lets go.
+  character.variant = 0;
+  character.heat = 0.25;
+  character.nextFidget = 12 + Math.random() * 10;
+  character._queued = null;
+  character.playEmotion = (mood, intensity = 0.5) => {
+    const hot = intensity >= 0.55;
+    const alt = (character.variant + (intensity >= 0.82 ? 1 : 0)) % 2 === 1;
+    let name = hot ? 'NeutralHot' : 'Neutral';
+    let seconds = 2.4;
+    if (mood === 'win') {
+      name = intensity < 0.42 ? 'WinSmall' : (alt ? 'WinBigAlt' : 'WinBig');
+      seconds = intensity < 0.42 ? 2.1 : 2.6;
+    } else if (mood === 'lose') {
+      name = intensity < 0.42 ? 'LoseSmall' : (alt ? 'LoseBigAlt' : 'LoseBig');
+      seconds = intensity < 0.42 ? 2.1 : 2.6;
+    } else if (mood === 'wait') {
+      name = hot ? 'WaitHot' : 'Wait';
+      seconds = name === 'Wait' ? 1.25 : 2.4;
+    }
+    if (character.dead) return false;
+    if (character.reacting) {
+      if (mood === 'win' || mood === 'lose') character._queued = { name, seconds, timeScale: 1 };
+      return false;
+    }
+    return character.playOnce(name, seconds);
+  };
+  character.tickFidget = (t) => {
+    if (character.freezeSit || character.reacting || character.dead || character.folded) {
+      if (character.nextFidget < t + 6) character.nextFidget = t + 6 + Math.random() * 6;
+      return;
+    }
+    if (t < character.nextFidget) return;
+    character.nextFidget = t + 14 + Math.random() * 12;
+    character.playEmotion('neutral', character.heat);
   };
 
   return character;
@@ -778,6 +838,7 @@ async function buildScene(canvas) {
 
   // One rig, every outfit. A fresh draw every time the table is built.
   const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
+  const reactionModel = loadGlb(loader, 'models/characters/western/reactions.glb?v=1');
   const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
 
   // Position a seated character at seat i: face the table, hips at the seat,
@@ -841,9 +902,10 @@ async function buildScene(canvas) {
 
     // Every seat, including the player, is one of this game's looks.
     const spec = { look: lineup[i], cards: i === 0, scale: WESTERN_SCALE };
-    charPromises.push(westernModel.then((gltf) => {
-      const character = makeCharacter(gltf, spec);
+    charPromises.push(Promise.all([westernModel, reactionModel]).then(([gltf, react]) => {
+      const character = makeCharacter(gltf, spec, react && react.animations);
       if (!character) return;
+      character.variant = i;
       placeSeatedCharacter(character, i, facing);
       seat.char = character;
     }));
@@ -874,8 +936,10 @@ async function buildScene(canvas) {
     const dt = state.clock.getDelta();
     const t = state.clock.elapsedTime;
     for (const seat of state.seats) if (seat.char) {
+      if (seat.char.restoreIdle) seat.char.restoreIdle();
       seat.char.mixer.update(dt);
       seat.char.idle(t);
+      if (seat.char.tickFidget) seat.char.tickFidget(t);
       seat.char.applyArmPose(dt);
       seat.char.updateFold(dt);
     }
@@ -1861,15 +1925,13 @@ window.pokerScene = {
       // grey semi-transparent ghosts; the flag clears when the next hand
       // deals, so the fade back in happens on its own.
       if (seat.char) seat.char.setFolded(!!data.folded && !data.out);
+      if (seat.char && typeof data.heat === 'number') seat.char.heat = data.heat;
       if (seat.char && data.out) {
-        // A bust plays the lose slump once and then settles back to sitting
-        // (player and NPCs alike) instead of holding a permanent slump.
-        // playOnce is skipped while another gesture (e.g. the all-in chip
-        // toss) is mid-flight, so only latch once the slump really started
-        // and retry until then.
-        if (!seat.char.bustReacted && seat.char.playOnce('Crouch', 1.6)) {
-          seat.char.bustReacted = true;
-        }
+        // A bust plays a lose reaction once, then settles back to sitting.
+        // playOnce is skipped while another gesture is mid-flight, so only
+        // latch once the reaction really started and retry until then.
+        const slumped = seat.char.playOnce('LoseBig', 2.4) || seat.char.playOnce('Crouch', 1.6);
+        if (!seat.char.bustReacted && slumped) seat.char.bustReacted = true;
       }
       if (seat.char && !data.out && seat.char.bustReacted) {
         // Fresh session after a bust: make sure they're sitting upright.
@@ -1929,7 +1991,8 @@ window.pokerScene = {
       // toss that won the pot) — retry briefly until it starts.
       let tries = 0;
       const strike = () => {
-        if (!char.playOnce('Attack', 2.2) && ++tries < 6) setTimeout(strike, 350);
+        const started = char.playOnce('WinBig', 2.6) || char.playOnce('Attack', 2.2);
+        if (!started && ++tries < 6) setTimeout(strike, 350);
       };
       strike();
     }
@@ -1945,14 +2008,20 @@ window.pokerScene = {
     }, 3200);
   },
 
-  react(seatIndex, positive) {
+  // mood is win | lose | wait | neutral. intensity 0..1 picks the size of
+  // the take (a small pot shrugs, a stack-changing one throws the arms).
+  emotion(seatIndex, mood, intensity = 0.5) {
     if (!state.ready) return;
     const seat = state.seats[seatIndex];
-    // Winners throw a quick victory strike; losers slump into a crouch.
-    if (seat && seat.char) seat.char.playOnce(positive ? 'Attack' : 'Crouch', positive ? 1.5 : 1.2);
-    // Sometimes they say something about it, too.
-    if (window.pokerAudio && Math.random() < (positive ? 0.8 : 0.35)) {
-      window.pokerAudio.voice(seatIndex, positive ? 'win' : 'lose');
+    if (seat && seat.char && !seat.char.dead && seat.char.playEmotion) {
+      seat.char.playEmotion(mood, intensity);
     }
+    if (window.pokerAudio && (mood === 'win' || mood === 'lose') && Math.random() < (mood === 'win' ? 0.8 : 0.35)) {
+      window.pokerAudio.voice(seatIndex, mood);
+    }
+  },
+
+  react(seatIndex, positive) {
+    window.pokerScene.emotion(seatIndex, positive ? 'win' : 'lose', positive ? 0.7 : 0.6);
   }
 };
