@@ -43,21 +43,33 @@ namespace CinematicPoker.Engine.Simulation
     {
         private const int MaxDecisionsPerHand = 500;
 
-        public static SimulationResult Run(int targetHands, int seed, int equityIterations = 60, Action<string> log = null)
+        public static SimulationResult Run(
+            int targetHands,
+            int seed,
+            int equityIterations = 60,
+            Action<string> log = null,
+            HandSequenceLog handLog = null)
         {
             var result = new SimulationResult();
             var masterRng = new Random(seed);
 
             while (result.HandsPlayed < targetHands)
             {
-                RunSession(targetHands, masterRng, result, equityIterations, log);
+                RunSession(targetHands, masterRng, result, equityIterations, log, handLog, result.SessionsPlayed);
                 result.SessionsPlayed++;
             }
 
             return result;
         }
 
-        private static void RunSession(int targetHands, Random rng, SimulationResult result, int equityIterations, Action<string> log)
+        private static void RunSession(
+            int targetHands,
+            Random rng,
+            SimulationResult result,
+            int equityIterations,
+            Action<string> log,
+            HandSequenceLog handLog,
+            int sessionIndex)
         {
             int playerCount = rng.Next(2, 7); // 2-6
             var rules = new TableRules(smallBlind: 5, bigBlind: 10, startingStack: rng.Next(30, 150) * 10);
@@ -78,6 +90,8 @@ namespace CinematicPoker.Engine.Simulation
 
             var game = new PokerGame(rules, players, seed: rng.Next());
 
+            handLog?.BeginSession(sessionIndex, rules, players);
+
             // Per-hand event tracking for invariant checks.
             var cardsThisHand = new HashSet<int>();
             bool sawSidePot = false;
@@ -85,6 +99,8 @@ namespace CinematicPoker.Engine.Simulation
 
             game.EventEmitted += evt =>
             {
+                handLog?.OnEvent(evt);
+
                 switch (evt)
                 {
                     case CardDealt cd:
@@ -141,6 +157,7 @@ namespace CinematicPoker.Engine.Simulation
                         $"Money leak between hands: expected {sessionChips}, found {before}.");
 
                 game.StartHand();
+                handLog?.SetChipsBeforeHand(before);
 
                 int decisions = 0;
                 while (game.Phase == GamePhase.HandInProgress)
@@ -166,6 +183,7 @@ namespace CinematicPoker.Engine.Simulation
                 }
 
                 long after = game.TotalChipsInPlay;
+                handLog?.SetChipsAfterHand(after);
                 if (after != before)
                     throw new SimulationInvariantException(
                         $"Money not conserved in hand {game.HandNumber}: before {before}, after {after}.");

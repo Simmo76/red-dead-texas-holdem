@@ -94,7 +94,10 @@ The `DotNet/` solution compiles the exact same engine and test sources Unity use
 cd DotNet
 dotnet test                          # full suite incl. the 10,000-hand simulation
 dotnet run --project CinematicPoker.Simulation -- 10000 42 60   # soak runner: hands, seed, equity iters
+dotnet run --project CinematicPoker.Simulation -- 1000 42 60 ../docs/hand-analysis/my-log.md   # ordered hand/win markdown log
 ```
+
+Committed sample logs for spot-checking pot math live in [`docs/hand-analysis/`](docs/hand-analysis/README.md).
 
 In Unity, the same tests appear in **Window → General → Test Runner (EditMode)**.
 
