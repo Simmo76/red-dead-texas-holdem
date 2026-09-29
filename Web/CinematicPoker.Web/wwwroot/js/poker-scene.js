@@ -398,21 +398,20 @@ function makeCharacter(gltf, spec, extraClips) {
   const find = (name) => THREE.AnimationClip.findByName(clips, name);
 
   // 'Sit' is a looping seated pose on Jacob's own skeleton. Random start
-  // offsets keep the NPCs from posing in unison. The player's body is frozen
-  // on the first sit frame so his hands stay on his lap.
+  // offsets keep the NPCs from posing in unison. Hole cards sit on the felt
+  // in front of the player, so his sit loop can run like the NPCs'.
   const sitClip = find('Sit');
-  const freezeSit = !!spec.cards;
+  const isPlayer = !!spec.cards;
   let sitAction = null;
   if (sitClip) {
     sitAction = mixer.clipAction(sitClip);
     sitAction.play();
-    if (freezeSit) sitAction.paused = true;
-    else sitAction.time = Math.random() * sitClip.duration;
+    sitAction.time = isPlayer ? 0 : Math.random() * sitClip.duration;
   }
 
   const character = {
     root, mixer, sitAction, find,
-    dead: false, reacting: false, freezeSit, armPose: null, armW: 1,
+    dead: false, reacting: false, isPlayer, armPose: null, armW: 1,
     outlineOn: false, folded: false, foldW: 0,
   };
 
@@ -476,20 +475,19 @@ function makeCharacter(gltf, spec, extraClips) {
       if (b.userData.idleBaseReady) b.quaternion.copy(b.userData.idleBase);
     }
   };
-  character.idle = (t) => {
-    // The player's sit clip is paused, which used to skip the glance entirely
-    // and leave his head locked. A gesture still owns the head while one plays.
-    // The glance is one offset from the posed quaternion, so a paused clip
-    // cannot stack it into a spin (that was the NPC heads).
-    const glance = !(character.reacting || character.dead);
-    if (glance) {
-      const drift = Math.sin(t * 0.16 + idlePhase * 2.3) * (character.freezeSit ? 0.05 : 0.09);
-      _idleQuat.setFromEuler(_idleEuler.set(0, drift, 0));
-    }
+  character.captureIdleHead = () => {
     for (const b of idleBones) {
       b.userData.idleBase.copy(b.quaternion);
       b.userData.idleBaseReady = true;
-      if (glance) b.quaternion.multiply(_idleQuat);
+    }
+  };
+  character.applyIdleGlance = (t) => {
+    if (character.reacting || character.dead) return;
+    const drift = Math.sin(t * 0.16 + idlePhase * 2.3) * (character.isPlayer ? 0.05 : 0.09);
+    _idleQuat.setFromEuler(_idleEuler.set(0, drift, 0));
+    for (const b of idleBones) {
+      if (!b.userData.idleBaseReady) continue;
+      b.quaternion.copy(b.userData.idleBase).multiply(_idleQuat);
     }
   };
 
@@ -517,7 +515,6 @@ function makeCharacter(gltf, spec, extraClips) {
     if (sitAction) {
       sitAction.reset();
       sitAction.play();
-      if (freezeSit) sitAction.paused = true;
     }
   };
 
@@ -541,7 +538,6 @@ function makeCharacter(gltf, spec, extraClips) {
       sitAction.reset();
       action.crossFadeTo(sitAction, 0.35, false);
       sitAction.play();
-      if (freezeSit) sitAction.paused = true;
       setTimeout(() => {
         if (character.dead || gen !== gestureGen) return;
         character.reacting = false;
@@ -598,7 +594,7 @@ function makeCharacter(gltf, spec, extraClips) {
     return character.playOnce(name, seconds);
   };
   character.tickFidget = (t) => {
-    if (character.freezeSit || character.reacting || character.dead || character.folded) {
+    if (character.reacting || character.dead || character.folded) {
       if (character.nextFidget < t + 6) character.nextFidget = t + 6 + Math.random() * 6;
       return;
     }
@@ -938,7 +934,8 @@ async function buildScene(canvas) {
     for (const seat of state.seats) if (seat.char) {
       if (seat.char.restoreIdle) seat.char.restoreIdle();
       seat.char.mixer.update(dt);
-      seat.char.idle(t);
+      if (seat.char.captureIdleHead) seat.char.captureIdleHead();
+      if (seat.char.applyIdleGlance) seat.char.applyIdleGlance(t);
       if (seat.char.tickFidget) seat.char.tickFidget(t);
       seat.char.applyArmPose(dt);
       seat.char.updateFold(dt);
