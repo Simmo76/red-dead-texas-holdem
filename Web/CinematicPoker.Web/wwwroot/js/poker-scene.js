@@ -3,9 +3,11 @@
 // club) built procedurally from primitives, each with its own mood lighting.
 // Props/textures are CC0; the street backdrop is a web-optimised conversion of
 // the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
-// Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy. The sit is posed on his own skeleton — see ASSET_LICENSES.md.
-// No third-party game content is copied from other titles.
+// Every seat, including the player, is one of David Grette's western
+// characters (Jacob, the two cowgirls and the bandit) in a random outfit. The
+// sit is posed on Jacob's skeleton and retargeted onto the other three rigs at
+// load time — see ASSET_LICENSES.md. No third-party game content is copied
+// from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';
@@ -47,7 +49,61 @@ function westernMeshNames(look) {
   if (look.holster) names.add('Holster');
   if (look.belt) names.add('Pants_belt');
   names.add(`Head__${look.head || 'clean'}`);
-  return names;
+  return { meshes: names, tex: null };
+}
+
+// The other three characters ship one mesh per garment plus loose JPEGs for
+// the pack's alternate cloth sets. A look lists the meshes worn and, per
+// material name, which cloth set (2 or 3) to swap onto it; unlisted materials
+// keep the set-1 albedo baked into the GLB. These are the artist's own skin
+// presets from the packs' Prefabs/Skins folders.
+const L = (meshes, tex) => ({ meshes: new Set(meshes), tex: tex || null });
+
+const GIRL1_LOOKS = [
+  L(['Head', 'Body', 'Hair_cap', 'Hair_1_cut', 'Boots', 'Shirt', 'Skirt', 'Belt', 'AmmoBelt', 'Holster', 'Hat', 'Bandana'], { shirt: 2, skirt: 2, hat: 2, bandana: 2 }),
+  L(['Head', 'Body', 'Hair_cap', 'Hair_2_cut', 'Boots', 'Shirt', 'Skirt', 'Belt', 'AmmoBelt', 'Holster', 'Hat', 'Bandana'], { shirt: 3, skirt: 3, hat: 3 }),
+  L(['Head', 'Body', 'Hair_cap', 'Hair_1', 'Boots', 'Shirt', 'Skirt', 'Belt'], { shirt: 2 }),
+  L(['Head', 'Body', 'Hair_cap', 'Hair_2_cut', 'Boots', 'Shirt', 'Skirt', 'Hat', 'Bandana'], { skirt: 3, hat: 3, bandana: 2 }),
+  L(['Head', 'Body', 'Hair_cap', 'Hair_1', 'Boots', 'Shirt', 'Skirt', 'Belt', 'Bandana'], { skirt: 2 }),
+  L(['Head', 'Body', 'Hair_cap', 'Hair_2_cut', 'Boots', 'Shirt', 'Skirt', 'Belt', 'AmmoBelt', 'Holster', 'Hat', 'Bandana'])
+];
+
+const GIRL2_LOOKS = [
+  L(['Head', 'Body', 'Hair_cap', 'Hair_cut', 'Boots', 'Shirt', 'Pants', 'Suspenders', 'Scarf', 'Barrette', 'Medallion', 'AmmoBelt', 'Holster', 'Hat'], { scarf: 2, boots: 2, holster: 2, ammobelt: 2, shirt: 2, hat: 2, suspenders: 2, pants: 2 }),
+  L(['Head', 'Body', 'Hair_cap', 'Hair_full', 'Boots', 'Shirt', 'Pants', 'Suspenders', 'Scarf', 'Barrette', 'Medallion', 'AmmoBelt', 'Holster'], { scarf: 3, pants: 3, suspenders: 3, shirt: 3 }),
+  L(['Head', 'Body', 'Hair_cap', 'Hair_cut', 'Boots', 'Shirt', 'Pants', 'Suspenders', 'Scarf', 'Barrette', 'Medallion', 'Hat'], { suspenders: 3, pants: 2, shirt: 2 }),
+  L(['Head', 'Body', 'Hair_cap', 'Hair_full', 'Boots', 'Shirt', 'Pants', 'Barrette', 'Medallion', 'AmmoBelt', 'Holster'], { scarf: 2, pants: 2, shirt: 3, ammobelt: 2 }),
+  L(['Head', 'Body', 'Hair_cap', 'Hair_cut', 'Boots', 'Shirt', 'Pants', 'Suspenders', 'Barrette', 'Hat'], { scarf: 2, pants: 3, hat: 2, shirt: 2 }),
+  L(['Head', 'Body', 'Hair_cap', 'Hair_cut', 'Boots', 'Shirt', 'Pants', 'Suspenders', 'Scarf', 'Barrette', 'Medallion', 'AmmoBelt', 'Holster', 'Hat'])
+];
+
+const BANDIT_LOOKS = [
+  L(['Head', 'Hands', 'Hair_cap', 'Hair_cut', 'Boots', 'Jeans', 'Belt', 'Holster', 'Scarf', 'Bandage', 'Shirt_opt2', 'Jacket_opt', 'Raincoat', 'Hat']),
+  L(['Head', 'Hands', 'Hair_cap', 'Hair_cut', 'Boots', 'Jeans', 'Belt', 'Holster', 'Scarf', 'Bandage', 'Shirt_opt2', 'Jacket_opt', 'Raincoat', 'Hat'], { raincoat: 2, shirt: 2, scarf: 2, jeans: 2, jacket: 2, hat: 2 }),
+  L(['Head', 'Hands', 'Hair_cap', 'Hair_full', 'Boots', 'Jeans', 'Belt', 'Holster', 'Scarf', 'Shirt_opt2', 'Jacket_opt', 'Raincoat'], { jeans: 3, scarf: 3, raincoat: 3, shirt: 3, jacket: 3 }),
+  L(['Head', 'Hands', 'Hair_cap', 'Hair_cut', 'Boots', 'Jeans', 'Belt', 'Scarf', 'Bandage', 'Shirt_opt1', 'Jacket', 'Hat'], { scarf: 2 }),
+  L(['Head', 'Hands', 'Hair_cap', 'Hair_full', 'Boots', 'Jeans', 'Belt', 'Holster', 'Scarf', 'Shirt'], { jeans: 2, scarf: 2 }),
+  L(['Head', 'Hands', 'Hair_cap', 'Hair_full', 'Boots', 'Jeans', 'Scarf', 'Shirt_opt1', 'Jacket'], { scarf: 3, jeans: 2, jacket: 3 }),
+  L(['Head', 'Hands', 'Hair_cap', 'Hair_cut', 'Boots', 'Jeans', 'Belt', 'Holster', 'Scarf', 'Bandage', 'Shirt', 'Hat'], { jeans: 3, shirt: 3 })
+];
+
+// The table's cast. Jacob carries the seated clips; the others borrow them.
+// `dir` holds the alternate cloth-set albedos as <material>_<set>.jpg.
+const WESTERN_CAST = [
+  { id: 'jacob', url: 'models/characters/western/Jacob.glb?v=3', looks: WESTERN_LOOKS.map(westernMeshNames) },
+  { id: 'girl1', url: 'models/characters/western/CowboyGirl1.glb?v=1', dir: 'models/characters/western/girl1/', looks: GIRL1_LOOKS },
+  { id: 'girl2', url: 'models/characters/western/CowboyGirl2.glb?v=1', dir: 'models/characters/western/girl2/', looks: GIRL2_LOOKS },
+  { id: 'bandit', url: 'models/characters/western/Bandit.glb?v=1', dir: 'models/characters/western/bandit/', looks: BANDIT_LOOKS }
+];
+
+// Seat everyone: each of the four characters shows up at least once, the
+// remaining seats repeat a random character in a different outfit, and no
+// two seats share a look.
+function dealCast() {
+  const models = shuffle(WESTERN_CAST);
+  while (models.length < SEATS) models.push(WESTERN_CAST[Math.floor(Math.random() * WESTERN_CAST.length)]);
+  const pools = new Map(WESTERN_CAST.map((c) => [c, shuffle(c.looks)]));
+  return shuffle(models).map((model) => ({ model, look: pools.get(model).pop() }));
 }
 
 function shuffle(list) {
@@ -249,23 +305,39 @@ function makeDealerArrow() {
   return group;
 }
 
-// Shared gold hull material for the current actor's outline. The vertex
-// displacement runs before skinning, so the hull inflates in bind space.
-let _outlineMat = null;
-function outlineMaterial() {
-  if (_outlineMat) return _outlineMat;
-  _outlineMat = new THREE.MeshBasicMaterial({
+// Gold hull material for the current actor's outline, shared per cutout map.
+// Alpha-masked pieces (hair cards, lace hems) pass their albedo so the hull
+// only covers the visible strands; a solid hull would shine gold through the
+// gaps and turn dark hair blond.
+const _outlineMats = new Map();
+function outlineMaterial(cutoutMap) {
+  const key = cutoutMap || null;
+  let mat = _outlineMats.get(key);
+  if (mat) return mat;
+  mat = new THREE.MeshBasicMaterial({
     color: 0xffc14d, side: THREE.BackSide, toneMapped: false,
   });
-  _outlineMat.onBeforeCompile = (shader) => {
+  if (cutoutMap) {
+    mat.map = cutoutMap;
+    mat.alphaTest = 0.5;
+  }
+  mat.onBeforeCompile = (shader) => {
     // Inflate after skinning so the hull follows the posed surface normals
     // (bind-space offset before skinning intersects the body and reads as
     // dark z-fighting patches on the shirt).
     shader.vertexShader = shader.vertexShader.replace(
       '#include <skinning_vertex>',
       '#include <skinning_vertex>\n\ttransformed += normalize( normal ) * 0.0026;');
+    if (cutoutMap) {
+      // Only the map's alpha decides coverage; the colour stays flat gold.
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <map_fragment>',
+        '#ifdef USE_MAP\n\tdiffuseColor.a *= texture2D( map, vMapUv ).a;\n#endif');
+    }
   };
-  return _outlineMat;
+  mat.customProgramCacheKey = () => (cutoutMap ? 'outline-cutout' : 'outline');
+  _outlineMats.set(key, mat);
+  return mat;
 }
 
 // Outline whoever currently has to act (same signal as the turn arrow).
@@ -299,6 +371,77 @@ function loadGlb(loader, url) {
   }));
 }
 
+// An alternate cloth-set albedo for a GLB material. glTF UVs are top-down, so
+// the loose JPEG must not be flipped; sampling settings follow the map it
+// replaces. Cached so two seats in the same set share one upload.
+function clothTexture(path, like) {
+  let tex = state.textures.get(path);
+  if (!tex) {
+    tex = new THREE.TextureLoader().load(path);
+    tex.flipY = false;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    if (like) {
+      tex.wrapS = like.wrapS;
+      tex.wrapT = like.wrapT;
+      tex.minFilter = like.minFilter;
+      tex.magFilter = like.magFilter;
+    }
+    state.textures.set(path, tex);
+  }
+  return tex;
+}
+
+// Jacob's seated clips, re-expressed for another rig with the same bone names.
+// Both rigs come off the same mannequin skeleton, but the cowgirls are bound
+// in a slightly different pose, so a straight copy of local rotations would
+// twist their hands and feet. Each key becomes the rotation *away from
+// Jacob's rest* applied on top of the target's rest instead:
+//   q_target = q_jacob * inverse(rest_jacob) * rest_target
+// Only the pelvis keeps a translation track (as an offset from rest, so the
+// seat drop carries over); other bones keep their own lengths. Tracks for
+// bones the target lacks are dropped, and extra bones (skirt, hair, coat)
+// stay at rest.
+function retargetClips(clips, srcRoot, dstRoot) {
+  const restOf = (root) => {
+    const m = new Map();
+    root.traverse((o) => { if (o.isBone) m.set(o.name, { q: o.quaternion.clone(), p: o.position.clone() }); });
+    return m;
+  };
+  const src = restOf(srcRoot);
+  const dst = restOf(dstRoot);
+  const q = new THREE.Quaternion();
+  return clips.map((clip) => {
+    const tracks = [];
+    for (const t of clip.tracks) {
+      const dot = t.name.lastIndexOf('.');
+      const bone = t.name.slice(0, dot);
+      const prop = t.name.slice(dot + 1);
+      const s = src.get(bone);
+      const d = dst.get(bone);
+      if (!s || !d) continue;
+      if (prop === 'quaternion') {
+        const inv = s.q.clone().invert();
+        const vals = new Float32Array(t.values.length);
+        for (let i = 0; i < t.values.length; i += 4) {
+          q.fromArray(t.values, i).multiply(inv).multiply(d.q);
+          q.toArray(vals, i);
+        }
+        tracks.push(new THREE.QuaternionKeyframeTrack(t.name, t.times.slice(), vals, t.getInterpolation()));
+      } else if (prop === 'position' && bone === 'pelvis') {
+        const vals = new Float32Array(t.values.length);
+        for (let i = 0; i < t.values.length; i += 3) {
+          vals[i] = t.values[i] - s.p.x + d.p.x;
+          vals[i + 1] = t.values[i + 1] - s.p.y + d.p.y;
+          vals[i + 2] = t.values[i + 2] - s.p.z + d.p.z;
+        }
+        tracks.push(new THREE.VectorKeyframeTrack(t.name, t.times.slice(), vals, t.getInterpolation()));
+      }
+    }
+    return new THREE.AnimationClip(clip.name, clip.duration, tracks);
+  });
+}
+
 // Per-character clone of a mesh material with two shader hooks:
 // - shirt: a hue-rotate + desaturate pass on the albedo (Rodrigues rotation
 //   about the grey axis), so one shared shirt texture can yield genuinely
@@ -306,16 +449,17 @@ function loadGlb(loader, url) {
 // - uGrey: a fold grey-out on the final colour — while raised, the fragment
 //   collapses to luminance, and with the material's opacity lowered the
 //   folded player reads as a muted grey until the next hand (slight alpha only).
-function characterMaterial(material, shirt, meshName) {
+function characterMaterial(material, shirt, meshName, swapMap) {
   const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
   const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
   const m = material.clone();
+  if (swapMap) m.map = swapMap;
   // Hair cards and lashes are thin shells and need both sides. The head meshes
   // do too: the iris and cornea are separate shells whose normals face inward
   // on this export, and a front-only pass draws the white sclera instead of
   // the eye. Solid cloth stays front-faced.
   const alphaCard = !!(m.transparent || m.alphaTest > 0);
-  const headMesh = /^Head__|^Jacob_head/i.test(meshName || '');
+  const headMesh = /^Head(__|$|_\d)|^Jacob_head/i.test(meshName || '');
   m.side = (alphaCard || headMesh) ? THREE.DoubleSide : THREE.FrontSide;
   m.shadowSide = THREE.FrontSide;
   m.userData.baseOpacity = m.opacity;
@@ -356,7 +500,7 @@ function makeCharacter(gltf, spec, extraClips) {
   // The GLB carries every outfit and head. Keep only this seat's look so the
   // other coats aren't drawn on top of him.
   if (spec.look) {
-    const names = westernMeshNames(spec.look);
+    const names = spec.look.meshes;
     // A multi-material piece (the head) loads as a group named Head__clean
     // with a child mesh per material slot, named after the mesh asset.
     // Those children are part of the look; only drop a mesh when neither it
@@ -377,7 +521,9 @@ function makeCharacter(gltf, spec, extraClips) {
   }
 
   // Every mesh gets a per-seat material clone so this character can grey out
-  // independently when he folds.
+  // independently when he folds. A look can also swap a material's albedo for
+  // one of the pack's other cloth sets.
+  const swaps = spec.look && spec.look.tex && spec.dir ? spec.look.tex : null;
   const bodyMeshes = [];
   const bodyMats = [];
   root.traverse((obj) => {
@@ -387,14 +533,20 @@ function makeCharacter(gltf, spec, extraClips) {
     obj.frustumCulled = false; // skinned mesh bounds lag the animated pose
     const shirt = spec.shirt && obj.name === 'jimmy_body_top' ? spec.shirt : null;
     const srcMats = Array.isArray(obj.material) ? obj.material : [obj.material];
-    const made = srcMats.map((mat) => characterMaterial(mat, shirt, obj.name));
+    const made = srcMats.map((mat) => {
+      const set = swaps && swaps[mat.name];
+      // Cutout cloth (the skirt's lace hem) needs its alpha, so those ship as PNG.
+      const ext = (mat.alphaTest > 0 || mat.transparent) ? 'png' : 'jpg';
+      const map = set ? clothTexture(`${spec.dir}${mat.name}_${set}.${ext}`, mat.map) : null;
+      return characterMaterial(mat, shirt, obj.name, map);
+    });
     obj.material = made.length === 1 ? made[0] : made;
     bodyMeshes.push(obj);
     bodyMats.push(...made);
   });
 
   const mixer = new THREE.AnimationMixer(root);
-  const clips = (gltf.animations || []).concat(extraClips || []);
+  const clips = spec.clips || (gltf.animations || []).concat(extraClips || []);
   const find = (name) => THREE.AnimationClip.findByName(clips, name);
 
   // 'Sit' is a looping seated pose on Jacob's own skeleton. Random start
@@ -425,7 +577,8 @@ function makeCharacter(gltf, spec, extraClips) {
   root.traverse((o) => { if (o.isMesh) outlineSources.push(o); });
   for (const src of outlineSources) {
     const hull = src.clone();
-    hull.material = outlineMaterial();
+    const srcMat = Array.isArray(src.material) ? src.material[0] : src.material;
+    hull.material = outlineMaterial(srcMat && srcMat.alphaTest > 0 ? srcMat.map : null);
     hull.castShadow = false;
     hull.receiveShadow = false;
     hull.frustumCulled = false;
@@ -836,10 +989,27 @@ async function buildScene(canvas) {
   state.seats = [];
   const charPromises = [];
 
-  // One rig, every outfit. A fresh draw every time the table is built.
-  const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
+  // Four rigs, every outfit. A fresh cast every time the table is built.
+  // Jacob's GLB carries the seated pose; the reaction takes sit beside it,
+  // and both get retargeted onto whichever other rigs are at the table.
+  const lineup = dealCast();
+  const jacob = WESTERN_CAST[0];
+  const modelLoads = new Map([[jacob, loadGlb(loader, jacob.url)]]);
+  for (const { model } of lineup) {
+    if (!modelLoads.has(model)) modelLoads.set(model, loadGlb(loader, model.url));
+  }
   const reactionModel = loadGlb(loader, 'models/characters/western/reactions.glb?v=1');
-  const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
+  const clipSets = new Map();
+  const clipsFor = (model) => {
+    if (!clipSets.has(model)) {
+      clipSets.set(model, Promise.all([modelLoads.get(jacob), reactionModel, modelLoads.get(model)]).then(([jg, react, mg]) => {
+        if (!jg || !mg) return null;
+        const clips = (jg.animations || []).concat(react ? react.animations : []);
+        return model === jacob ? clips : retargetClips(clips, jg.scene, mg.scene);
+      }));
+    }
+    return clipSets.get(model);
+  };
 
   // Position a seated character at seat i: face the table, hips at the seat,
   // feet on the floor, regardless of the pose's baked root offsets.
@@ -900,11 +1070,14 @@ async function buildScene(canvas) {
     const pos = seatPos(i, SEAT_RADIUS);
     const facing = Math.atan2(-pos.x, -pos.z); // yaw toward table centre
 
-    // Every seat, including the player, is one of this game's looks.
-    const spec = { look: lineup[i], cards: i === 0, scale: WESTERN_SCALE };
-    charPromises.push(Promise.all([westernModel, reactionModel]).then(([gltf, react]) => {
-      const character = makeCharacter(gltf, spec, react && react.animations);
+    // Every seat, including the player, is one of this game's cast.
+    const { model, look } = lineup[i];
+    const spec = { look, dir: model.dir, cards: i === 0, scale: WESTERN_SCALE };
+    charPromises.push(Promise.all([modelLoads.get(model), clipsFor(model)]).then(([gltf, clips]) => {
+      spec.clips = clips;
+      const character = makeCharacter(gltf, spec);
       if (!character) return;
+      character.castId = model.id;
       character.variant = i;
       placeSeatedCharacter(character, i, facing);
       seat.char = character;
