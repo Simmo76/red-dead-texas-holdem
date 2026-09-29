@@ -76,9 +76,6 @@ function endIntro() {
   if (state.setEnvironment) state.setEnvironment(0); // settle into ARCADE
 }
 
-const _idleQuat = new THREE.Quaternion();
-const _idleEuler = new THREE.Euler();
-
 const state = {
   ready: false,
   renderer: null, scene: null, camera: null, clock: null,
@@ -456,40 +453,10 @@ function makeCharacter(gltf, spec, extraClips) {
     for (const mesh of bodyMeshes) mesh.castShadow = w < 0.5;
   };
 
-  // A slow glance layered on the seated pose. The sit clip holds the head
-  // with two stepped keys, and three.js skips rewriting a bone whose clip
-  // value did not change. Multiplying the glance onto the live quaternion
-  // therefore compounds every frame into a full spin. Keep the mixer's
-  // quaternion, put it back before the next update, and apply the glance
-  // once from that base.
-  const idlePhase = Math.random() * Math.PI * 2;
-  const idleBones = [];
-  root.traverse((o) => {
-    if (o.isBone && o.name === 'head') {
-      o.userData.idleBase = new THREE.Quaternion();
-      idleBones.push(o);
-    }
-  });
-  character.restoreIdle = () => {
-    for (const b of idleBones) {
-      if (b.userData.idleBaseReady) b.quaternion.copy(b.userData.idleBase);
-    }
-  };
-  character.captureIdleHead = () => {
-    for (const b of idleBones) {
-      b.userData.idleBase.copy(b.quaternion);
-      b.userData.idleBaseReady = true;
-    }
-  };
-  character.applyIdleGlance = (t) => {
-    if (character.reacting || character.dead) return;
-    const drift = Math.sin(t * 0.16 + idlePhase * 2.3) * (character.isPlayer ? 0.05 : 0.09);
-    _idleQuat.setFromEuler(_idleEuler.set(0, drift, 0));
-    for (const b of idleBones) {
-      if (!b.userData.idleBaseReady) continue;
-      b.quaternion.copy(b.userData.idleBase).multiply(_idleQuat);
-    }
-  };
+  // Jacob's Sit clip is a single stepped pose (no body motion). Procedural
+  // head drift was removed: three.js skips rewriting unchanged head keys, so
+  // multiplying a glance every frame compounded into 360° spins on NPCs.
+  // Idle life comes from the seated reaction clips (playEmotion / tickFidget).
 
   // Unused for Jacob: the sit pose is the hold. Kept so a gesture can still
   // fade a pinned pose back in if one is ever stored on the character.
@@ -569,7 +536,7 @@ function makeCharacter(gltf, spec, extraClips) {
   // wait and play once the current one lets go.
   character.variant = 0;
   character.heat = 0.25;
-  character.nextFidget = 12 + Math.random() * 10;
+  character.nextFidget = character.isPlayer ? 5 + Math.random() * 4 : 12 + Math.random() * 10;
   character._queued = null;
   character.playEmotion = (mood, intensity = 0.5) => {
     const hot = intensity >= 0.55;
@@ -932,10 +899,7 @@ async function buildScene(canvas) {
     const dt = state.clock.getDelta();
     const t = state.clock.elapsedTime;
     for (const seat of state.seats) if (seat.char) {
-      if (seat.char.restoreIdle) seat.char.restoreIdle();
       seat.char.mixer.update(dt);
-      if (seat.char.captureIdleHead) seat.char.captureIdleHead();
-      if (seat.char.applyIdleGlance) seat.char.applyIdleGlance(t);
       if (seat.char.tickFidget) seat.char.tickFidget(t);
       seat.char.applyArmPose(dt);
       seat.char.updateFold(dt);
