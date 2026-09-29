@@ -4,8 +4,8 @@
 // Props/textures are CC0; the street backdrop is a web-optimised conversion of
 // the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
 // Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy, with the table's seated clips retargeted on — see
-// ASSET_LICENSES.md. No third-party game content is copied from other titles.
+// Jacob cowboy. The sit is posed on his own skeleton — see ASSET_LICENSES.md.
+// No third-party game content is copied from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';
@@ -62,8 +62,8 @@ function shuffle(list) {
 }
 
 // The player's own body, seen from the over-the-shoulder camera. Same cowboy
-// pool as the other seats: still hold pose, both hands resting on the table
-// with his hole cards parked between them.
+// pool as the other seats. His hole cards stay on the felt in front of him;
+// the sit pose already rests his hands on his lap.
 
 // Opening cinematic: seconds per backdrop sweep (desert, then club). The
 // matching audio parts are sequenced by pokerAudio.playIntro on the same
@@ -310,10 +310,13 @@ function characterMaterial(material, shirt, meshName) {
   const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
   const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
   const m = material.clone();
-  // Hair cards and lashes are thin shells and need both sides. Solid skin and
-  // cloth stay front-faced so the inside of the head never draws through the face.
+  // Hair cards and lashes are thin shells and need both sides. The head meshes
+  // do too: the iris and cornea are separate shells whose normals face inward
+  // on this export, and a front-only pass draws the white sclera instead of
+  // the eye. Solid cloth stays front-faced.
   const alphaCard = !!(m.transparent || m.alphaTest > 0);
-  m.side = alphaCard ? THREE.DoubleSide : THREE.FrontSide;
+  const headMesh = /^Head__|^Jacob_head/i.test(meshName || '');
+  m.side = (alphaCard || headMesh) ? THREE.DoubleSide : THREE.FrontSide;
   m.shadowSide = THREE.FrontSide;
   m.userData.baseOpacity = m.opacity;
   m.userData.keepTransparent = !!(m.transparent || m.alphaTest > 0);
@@ -354,11 +357,21 @@ function makeCharacter(gltf, spec) {
   // other coats aren't drawn on top of him.
   if (spec.look) {
     const names = westernMeshNames(spec.look);
+    // A multi-material piece (the head) loads as a group named Head__clean
+    // with a child mesh per material slot, named after the mesh asset.
+    // Those children are part of the look; only drop a mesh when neither it
+    // nor any ancestor is one of this seat's pieces.
+    const inLook = (obj) => {
+      for (let p = obj; p; p = p.parent) {
+        const n = (p.name || '').replace(/\.\d+$/, '');
+        if (names.has(n)) return true;
+      }
+      return false;
+    };
     const drop = [];
     root.traverse((obj) => {
       if (!obj.isMesh) return;
-      const n = obj.name.replace(/\.\d+$/, '');
-      if (!names.has(n)) drop.push(obj);
+      if (!inLook(obj)) drop.push(obj);
     });
     for (const obj of drop) if (obj.parent) obj.parent.remove(obj);
   }
@@ -384,11 +397,9 @@ function makeCharacter(gltf, spec) {
   const clips = gltf.animations || [];
   const find = (name) => THREE.AnimationClip.findByName(clips, name);
 
-  // 'Sit' is a looping seated idle retargeted from the Quaternius UAL (CC0).
-  // Random start offsets keep the NPCs from breathing in unison. The player's
-  // own body is frozen on the first sit frame instead: his hands rest still
-  // on the table holding the cards (see setupPlayerArms), so the idle sway
-  // must not drag them around.
+  // 'Sit' is a looping seated pose on Jacob's own skeleton. Random start
+  // offsets keep the NPCs from posing in unison. The player's body is frozen
+  // on the first sit frame so his hands stay on his lap.
   const sitClip = find('Sit');
   const freezeSit = !!spec.cards;
   let sitAction = null;
@@ -466,10 +477,8 @@ function makeCharacter(gltf, spec) {
     }
   };
 
-  // The player's arms are pinned to a fixed hold-the-cards pose (solved once
-  // in setupPlayerArms), applied after the mixer each frame so the hands stay
-  // perfectly still. The pin fades out while a gesture owns the arms and
-  // fades back in once the character settles down again.
+  // Unused for Jacob: the sit pose is the hold. Kept so a gesture can still
+  // fade a pinned pose back in if one is ever stored on the character.
   character.applyArmPose = (dt) => {
     if (!character.armPose) return;
     const target = (character.dead || character.reacting) ? 0 : 1;
@@ -768,7 +777,7 @@ async function buildScene(canvas) {
   const charPromises = [];
 
   // One rig, every outfit. A fresh draw every time the table is built.
-  const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=2');
+  const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
   const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
 
   // Position a seated character at seat i: face the table, hips at the seat,
@@ -815,7 +824,9 @@ async function buildScene(canvas) {
     for (const b of [lFoot, rFoot]) {
       if (b) { b.getWorldPosition(v); minFoot = Math.min(minFoot, v.y); }
     }
-    if (isFinite(minFoot)) character.root.position.y -= (minFoot - 0.09);
+    // The ankle bone sits well above the boot sole. Planting the bone at 0.09
+    // buried the heels; 0.18 puts the sole on the floor at the current scale.
+    if (isFinite(minFoot)) character.root.position.y -= (minFoot - 0.18);
     character.modelYaw = modelYaw;
     character.seatFacing = facing;
   };
@@ -1466,124 +1477,17 @@ function updateHole(paths) {
   layoutHoleCards();
 }
 
-// ---- the player's hold pose: hands resting on the table, cards between ----
+// ---- the player's cards: a fan on the felt, in front of his seat ----
 
 // Spot on the felt in front of the player where his card fan rests — well
 // inside the rail so the pair reads clearly past his body from the camera.
-// Refined after the arm solve to sit between wherever the hands landed.
 const HOLE_ANCHOR = new THREE.Vector3(0, TABLE_TOP + 0.02, TABLE_RADIUS - 0.24);
 
-// Pose the player's arms reaching forward onto the table edge, genre-typical
-// "cards held low over the felt with both hands" framing. A tiny CCD solve
-// bends elbow + shoulder until each wrist lands on its spot; the resulting
-// rotations are then pinned every frame by applyArmPose so the hands stay
-// perfectly still while the body idles.
+// Leave the seated pose alone. A shoulder/elbow solve written for a different
+// rig shears Jacob's face and sleeves, so the hole cards stay at the anchor
+// on the felt instead of being pinned between the hands.
 function setupPlayerArms() {
   state.holeAnchor = HOLE_ANCHOR.clone();
-  const char = state.seats[0] && state.seats[0].char;
-  if (!char) return;
-  char.mixer.update(0);
-  char.root.updateMatrixWorld(true);
-
-  const bone = (names) => {
-    const want = Array.isArray(names) ? names : [names];
-    let found = null;
-    char.root.traverse((o) => { if (!found && o.isBone && want.includes(o.name)) found = o; });
-    return found;
-  };
-
-  // Lean the torso forward over the rail first, so the hands can reach well
-  // onto the felt (and the hunched-over-the-cards posture reads right from
-  // behind). World-space pitch, since the rig's local axes are arbitrary.
-  const spine = bone(['spine2', 'spine_02', 'spine_03']) || bone(['spine1', 'spine_01']);
-  if (spine && spine.parent) {
-    const parentQuat = spine.parent.getWorldQuaternion(new THREE.Quaternion());
-    const lean = new THREE.Quaternion()
-      .setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.32); // tip toward the table (-Z)
-    spine.quaternion.premultiply(
-      parentQuat.clone().invert().multiply(lean).multiply(parentQuat));
-    char.root.updateMatrixWorld(true);
-  }
-
-  const linkPos = new THREE.Vector3(), linkQuatInv = new THREE.Quaternion();
-  const effDir = new THREE.Vector3(), targetDir = new THREE.Vector3();
-  const p1 = new THREE.Vector3(), p2 = new THREE.Vector3(), cr = new THREE.Vector3();
-  const step = new THREE.Quaternion();
-  const reach = (side, target) => {
-    const shoulder = bone(side === 'L' ? ['L_shoulder', 'upperarm_l'] : ['R_shoulder', 'upperarm_r']);
-    const elbow = bone(side === 'L' ? ['L_elbow', 'lowerarm_l'] : ['R_elbow', 'lowerarm_r']);
-    const wrist = bone(side === 'L' ? ['L_wrist', 'hand_l'] : ['R_wrist', 'hand_r']);
-    if (!shoulder || !elbow || !wrist) return null;
-
-    // The elbow is a hinge: free-axis CCD twists it and candy-wraps the
-    // forearm mesh. Lock its rotation to the bend axis of the rest pose
-    // (perpendicular to the shoulder-elbow-wrist plane, in elbow space).
-    const hinge = wrist.position.clone().normalize()
-      .cross(elbow.worldToLocal(shoulder.getWorldPosition(new THREE.Vector3())).normalize());
-    if (hinge.lengthSq() < 1e-6) return null;
-    hinge.normalize();
-
-    const solve = (iters) => {
-      for (let it = 0; it < iters; it++) {
-        for (const link of [elbow, shoulder]) {
-          link.getWorldPosition(linkPos);
-          link.getWorldQuaternion(linkQuatInv).invert();
-          wrist.getWorldPosition(effDir).sub(linkPos).applyQuaternion(linkQuatInv).normalize();
-          targetDir.copy(target).sub(linkPos).applyQuaternion(linkQuatInv).normalize();
-          let angle;
-          if (link === elbow) {
-            // Signed angle between the two directions projected onto the
-            // hinge plane.
-            p1.copy(effDir).addScaledVector(hinge, -effDir.dot(hinge));
-            p2.copy(targetDir).addScaledVector(hinge, -targetDir.dot(hinge));
-            if (p1.lengthSq() < 1e-8 || p2.lengthSq() < 1e-8) continue;
-            p1.normalize(); p2.normalize();
-            angle = Math.atan2(cr.crossVectors(p1, p2).dot(hinge), p1.dot(p2));
-            angle = THREE.MathUtils.clamp(angle, -0.3, 0.3);
-            if (Math.abs(angle) < 1e-4) continue;
-            step.setFromAxisAngle(hinge, angle);
-          } else {
-            const dot = THREE.MathUtils.clamp(effDir.dot(targetDir), -1, 1);
-            angle = Math.min(Math.acos(dot), 0.25); // small steps keep it stable
-            if (angle < 1e-4) continue;
-            cr.crossVectors(effDir, targetDir);
-            if (cr.lengthSq() < 1e-8) continue;
-            step.setFromAxisAngle(cr.normalize(), angle);
-          }
-          link.quaternion.multiply(step);
-          char.root.updateMatrixWorld(true);
-        }
-      }
-    };
-
-    // If the spot is out of reach, pull the target back toward the shoulder
-    // and settle for a closer grip — the cards re-anchor to the hands anyway.
-    for (let attempt = 0; attempt < 3; attempt++) {
-      solve(16);
-      const err = wrist.getWorldPosition(effDir).distanceTo(target);
-      if (err < 0.05) break;
-      target.lerp(shoulder.getWorldPosition(linkPos), 0.3);
-    }
-    return [shoulder, elbow, wrist];
-  };
-
-  // Hands land just outside the fan's bottom corners, resting on the felt.
-  const lBones = reach('L', new THREE.Vector3(-0.11, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.06));
-  const rBones = reach('R', new THREE.Vector3(0.11, TABLE_TOP + 0.05, HOLE_ANCHOR.z + 0.06));
-  if (!lBones || !rBones) return;
-
-  const pinned = [...lBones, ...rBones];
-  if (spine) pinned.push(spine); // keep the lean when gestures hand back
-  char.armPose = pinned.map((b) => ({ bone: b, quat: b.quaternion.clone() }));
-  char.armW = 1;
-
-  // Park the fan midway between wherever the hands actually landed (the
-  // reach can fall a touch short of the ideal spot).
-  const lw = lBones[2].getWorldPosition(new THREE.Vector3());
-  const rw = rBones[2].getWorldPosition(new THREE.Vector3());
-  state.holeAnchor.copy(lw).add(rw).multiplyScalar(0.5);
-  state.holeAnchor.y = Math.max(state.holeAnchor.y, TABLE_TOP) + 0.015;
-  state.holeAnchor.z -= 0.03; // fan sits just beyond the knuckles
   layoutHoleCards();
 }
 
