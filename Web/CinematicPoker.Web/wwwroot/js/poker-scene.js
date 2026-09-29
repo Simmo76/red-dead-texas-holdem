@@ -477,11 +477,13 @@ function makeCharacter(gltf, spec, extraClips) {
     }
   };
   character.idle = (t) => {
-    // The player's sit pose is paused, and a gesture owns the head while
-    // one is playing. Glance only on the looping seated idle.
-    const glance = !(character.freezeSit || character.reacting || character.dead);
+    // The player's sit clip is paused, which used to skip the glance entirely
+    // and leave his head locked. A gesture still owns the head while one plays.
+    // The glance is one offset from the posed quaternion, so a paused clip
+    // cannot stack it into a spin (that was the NPC heads).
+    const glance = !(character.reacting || character.dead);
     if (glance) {
-      const drift = Math.sin(t * 0.16 + idlePhase * 2.3) * 0.09;
+      const drift = Math.sin(t * 0.16 + idlePhase * 2.3) * (character.freezeSit ? 0.05 : 0.09);
       _idleQuat.setFromEuler(_idleEuler.set(0, drift, 0));
     }
     for (const b of idleBones) {
