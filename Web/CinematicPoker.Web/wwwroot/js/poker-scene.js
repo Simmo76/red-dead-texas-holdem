@@ -310,9 +310,10 @@ function characterMaterial(material, shirt, meshName) {
   const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
   const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
   const m = material.clone();
-  // Hair cards, lashes and open cloth need both sides. The fold shader still
-  // runs on the clone.
-  m.side = THREE.DoubleSide;
+  // Hair cards and lashes are thin shells and need both sides. Solid skin and
+  // cloth stay front-faced so the inside of the head never draws through the face.
+  const alphaCard = !!(m.transparent || m.alphaTest > 0);
+  m.side = alphaCard ? THREE.DoubleSide : THREE.FrontSide;
   m.shadowSide = THREE.FrontSide;
   m.userData.baseOpacity = m.opacity;
   m.userData.keepTransparent = !!(m.transparent || m.alphaTest > 0);
@@ -336,7 +337,7 @@ function characterMaterial(material, shirt, meshName) {
         diffuseColor.rgb = clamp(c, 0.0, 1.0);
       }`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
       gl_FragColor.rgb = mix(gl_FragColor.rgb,
-        vec3(dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114)) * 0.6 + 0.3), uGrey);`);
+        vec3(dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114))) * 0.72, uGrey);`);
     m.userData.foldShader = shader;
   };
   m.customProgramCacheKey = () => `char-${hue.toFixed(3)}-${sat}`;
@@ -427,52 +428,10 @@ function makeCharacter(gltf, spec) {
     for (const p of outlineParts) p.hull.visible = on && p.src.visible;
   };
 
-  // Folded players grey out for the rest of the hand: pale grey (uGrey
-  // collapses the fragment to lifted luminance) with a light alpha fade, with
-  // their shadow dropped so the ghost look reads. The flag simply mirrors the
-  // engine's per-hand folded state, so everyone returns to full colour when
-  // the next hand starts.
-  //
-  // Plain alpha on a multi-part character shows its own insides (the far
-  // side of the head, the eyes from behind). The classic fix: while ghosted,
-  // depth-only copies of every mesh lay down the nearest surface depth first;
-  // the semi-transparent body then depth-tests against that buffer with
-  // depthWrite off so only the outer shell blends.
-  //
-  // The prepass stays in the *opaque* queue (transparent: false) with skinning
-  // and matching side so animated geometry actually writes depth; otherwise
-  // whole body regions fail the colour pass and vanish.
-  //
-  // depthTest: false on the prepass ignores table depth that already
-  // filled the buffer — otherwise torsos behind the rail never write depth and
-  // only the head survives as a floating grey ghost.
-  function ghostDepthMaterial(srcMat) {
-    const m = new THREE.MeshBasicMaterial({
-      colorWrite: false,
-      transparent: false,
-      depthWrite: true,
-      depthTest: false,
-      side: srcMat.side,
-    });
-    m.skinning = !!srcMat.skinning;
-    return m;
-  }
-  const ghostParts = [];
-  for (const src of bodyMeshes) {
-    const depthMesh = src.clone();
-    depthMesh.material = Array.isArray(src.material)
-      ? src.material.map(ghostDepthMaterial)
-      : ghostDepthMaterial(src.material);
-    depthMesh.castShadow = false;
-    depthMesh.receiveShadow = false;
-    depthMesh.frustumCulled = false;
-    depthMesh.visible = false;
-    // Opaque pass: after the table (0), before the transparent ghost body (2).
-    depthMesh.renderOrder = 1;
-    src.parent.add(depthMesh);
-    ghostParts.push({ src, depthMesh });
-  }
-
+  // Folded players desaturate for the rest of the hand. They stay opaque:
+  // a see-through shell on this rig draws the inside of the head and the
+  // eye cards, which reads as a warped grey mannequin. Shadows drop so the
+  // muted colour still separates them from the players still in the hand.
   character.setFolded = (on) => { character.folded = on; };
   character.updateFold = (dt) => {
     const target = character.folded ? 1 : 0;
@@ -480,22 +439,11 @@ function makeCharacter(gltf, spec) {
     character.foldW += (target - character.foldW) * Math.min(1, dt * 3.5);
     if (Math.abs(character.foldW - target) < 0.01) character.foldW = target;
     const w = character.foldW;
-    const ghost = w > 0.001;
     for (const m of bodyMats) {
-      const wantTransparent = ghost || m.userData.keepTransparent;
-      if (m.transparent !== wantTransparent) { m.transparent = wantTransparent; m.needsUpdate = true; }
-      m.depthWrite = !ghost; // the prepass owns depth while ghosted
-      m.forceSinglePass = ghost;
-      const base = m.userData.baseOpacity ?? 1;
-      m.opacity = base * (1 - w * 0.22);
       m.userData.foldGrey = w;
       if (m.userData.foldShader) m.userData.foldShader.uniforms.uGrey.value = w;
     }
-    for (const p of ghostParts) {
-      p.depthMesh.visible = ghost;
-      p.src.renderOrder = ghost ? 2 : 0;
-      p.src.castShadow = w < 0.5;
-    }
+    for (const mesh of bodyMeshes) mesh.castShadow = w < 0.5;
   };
 
   // The sit loop already breathes; just layer a slow head drift on top so
@@ -820,7 +768,7 @@ async function buildScene(canvas) {
   const charPromises = [];
 
   // One rig, every outfit. A fresh draw every time the table is built.
-  const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=1');
+  const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=2');
   const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
 
   // Position a seated character at seat i: face the table, hips at the seat,
