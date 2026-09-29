@@ -3,9 +3,10 @@
 // club) built procedurally from primitives, each with its own mood lighting.
 // Props/textures are CC0; the street backdrop is a web-optimised conversion of
 // the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
-// Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy. Seated idles and table actions use clips retargeted from The
-// Mighty Cat Poker/Blackjack pack (mighty-cat.glb) — see ASSET_LICENSES.md.
+// Every seat is one of the four David Grette western characters supplied for
+// this table (Jacob, Cowgirl 1, the Bandit, Cowgirl 2). Jacob's seat plays
+// the Mighty Cat seated clips (mighty-cat.glb); the other rigs play the
+// seated takes baked on their own skeletons — see ASSET_LICENSES.md.
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
@@ -22,9 +23,9 @@ const EYE_HEIGHT = 1.70;       // camera shoulder height over the bigger build
 // the top of the hat) to the build the table and camera were framed for.
 const WESTERN_SCALE = 1.098;
 
-// Outfit and head presets from the Cowboy 1 pack (SK_Jacob). Each game deals
-// six distinct looks, one per seat, including the player. `shirt` / `shirtOpt`
-// are the two shirt meshes (only one is worn). Zero means that piece is off.
+// Outfit and head presets from the Cowboy 1 pack (SK_Jacob). The player and
+// the extra Jacob seat each wear one of these. `shirt` / `shirtOpt` are the
+// two shirt meshes (only one is worn). Zero means that piece is off.
 const WESTERN_LOOKS = [
   { pants: 1, jacket: 1, shirt: 0, shirtOpt: 1, scarf: 1, hat: 1, hair: 'cut', gun: true, holster: true, belt: true, head: 'clean' },
   { pants: 2, jacket: 2, shirt: 0, shirtOpt: 2, scarf: 2, hat: 2, hair: 'cut', gun: true, holster: true, belt: true, head: 'dirt' },
@@ -62,9 +63,9 @@ function shuffle(list) {
   return a;
 }
 
-// The player's own body, seen from the over-the-shoulder camera. Same cowboy
-// pool as the other seats. His hole cards stay on the felt in front of him;
-// the sit pose already rests his hands on his lap.
+// The player's own body, seen from the over-the-shoulder camera. He is Jacob,
+// the cowboy from the supplied set. His hole cards stay on the felt in front
+// of him; the sit pose already rests his hands on his lap.
 
 // Opening cinematic: seconds per backdrop sweep (desert, then club). The
 // matching audio parts are sequenced by pokerAudio.playIntro on the same
@@ -314,7 +315,7 @@ function characterMaterial(material, shirt, meshName) {
   // on this export, and a front-only pass draws the white sclera instead of
   // the eye. Solid cloth stays front-faced.
   const alphaCard = !!(m.transparent || m.alphaTest > 0);
-  const headMesh = /^Head__|^Jacob_head/i.test(meshName || '');
+  const headMesh = /head/i.test(meshName || '') && !/hair/i.test(meshName || '');
   m.side = (alphaCard || headMesh) ? THREE.DoubleSide : THREE.FrontSide;
   m.shadowSide = THREE.FrontSide;
   m.userData.baseOpacity = m.opacity;
@@ -375,6 +376,25 @@ function makeCharacter(gltf, spec, extraClips) {
     for (const obj of drop) if (obj.parent) obj.parent.remove(obj);
   }
 
+  // Cloth set 2 is a twin mesh named `__b` (hat, coat, shirt, …). The default
+  // set stays on; the twin is the other coat at the extra seat.
+  if (spec.variant) {
+    const showAlt = spec.variant === 'b';
+    const bases = new Set();
+    root.traverse((o) => {
+      const n = o.name || '';
+      if (n.endsWith('__b')) bases.add(n.slice(0, -3));
+    });
+    root.traverse((o) => {
+      if (!o.isMesh) return;
+      const n = o.name || '';
+      const alt = n.endsWith('__b');
+      const base = alt ? n.slice(0, -3) : n;
+      if (!bases.has(base)) return;
+      o.visible = showAlt ? alt : !alt;
+    });
+  }
+
   // Every mesh gets a per-seat material clone so this character can grey out
   // independently when he folds.
   const bodyMeshes = [];
@@ -420,7 +440,7 @@ function makeCharacter(gltf, spec, extraClips) {
   // hull follows the animation for free.
   const outlineParts = [];
   const outlineSources = [];
-  root.traverse((o) => { if (o.isMesh) outlineSources.push(o); });
+  root.traverse((o) => { if (o.isMesh && o.visible) outlineSources.push(o); });
   for (const src of outlineSources) {
     const hull = src.clone();
     hull.material = outlineMaterial();
@@ -804,10 +824,27 @@ async function buildScene(canvas) {
   state.seats = [];
   const charPromises = [];
 
-  // One rig, every outfit. A fresh draw every time the table is built.
-  const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
+  // The four supplied characters. Jacob still carries several outfit meshes in
+  // one file; the others ship one cloth set plus a `__b` twin of the pieces
+  // that have a second colourway.
+  const models = {
+    jacob: loadGlb(loader, 'models/characters/western/Jacob.glb?v=3'),
+    cowgirl1: loadGlb(loader, 'models/characters/western/Cowgirl1.glb?v=1'),
+    bandit: loadGlb(loader, 'models/characters/western/Bandit.glb?v=1'),
+    cowgirl2: loadGlb(loader, 'models/characters/western/Cowgirl2.glb?v=1'),
+  };
   const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=1');
-  const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
+  // Six seats, four models. The player is Jacob. The other three models take
+  // a seat each, and the two chairs left over are a second Jacob outfit and
+  // the bandit's other coat — not a fifth humanoid.
+  const npcCast = shuffle([
+    { model: 'cowgirl1', variant: 'a' },
+    { model: 'bandit', variant: 'a' },
+    { model: 'cowgirl2', variant: 'a' },
+    { model: 'jacob', look: WESTERN_LOOKS[2] },
+    { model: 'bandit', variant: 'b' },
+  ]);
+  const lineup = [{ model: 'jacob', look: WESTERN_LOOKS[0] }, ...npcCast];
 
   // Position a seated character at seat i: face the table, hips at the seat,
   // feet on the floor, regardless of the pose's baked root offsets.
@@ -868,10 +905,19 @@ async function buildScene(canvas) {
     const pos = seatPos(i, SEAT_RADIUS);
     const facing = Math.atan2(-pos.x, -pos.z); // yaw toward table centre
 
-    // Every seat, including the player, is one of this game's looks.
-    const spec = { look: lineup[i], cards: i === 0, scale: WESTERN_SCALE };
-    charPromises.push(Promise.all([westernModel, mightyCatModel]).then(([gltf, mc]) => {
-      const character = makeCharacter(gltf, spec, mc && mc.animations);
+    // Seat 0 is the player. The other seats are the rest of the supplied cast.
+    const cast = lineup[i];
+    const spec = {
+      look: cast.look || null,
+      variant: cast.variant || null,
+      cards: i === 0,
+      scale: WESTERN_SCALE,
+    };
+    charPromises.push(Promise.all([models[cast.model], mightyCatModel]).then(([gltf, mc]) => {
+      // Mighty Cat tracks are authored on Jacob's skeleton. The other rigs
+      // already carry seated takes retargeted onto their own bones.
+      const extras = cast.model === 'jacob' ? (mc && mc.animations) : null;
+      const character = makeCharacter(gltf, spec, extras);
       if (!character) return;
       character.variant = i;
       placeSeatedCharacter(character, i, facing);
@@ -1935,7 +1981,12 @@ window.pokerScene = {
     if (!state.ready) return;
     const seat = state.seats[seatIndex];
     if (!seat || !seat.char || seat.char.dead || seat.char.folded) return;
-    const play = (name, seconds, timeScale = 1) => seat.char.playOnce(name, seconds, timeScale);
+    const play = (name, seconds, timeScale = 1) => {
+      // Cowgirl and Bandit rigs carry Bet, not the later Call/Raise/AllIn names.
+      const resolved = seat.char.find(name) ? name
+        : ((name === 'Call' || name === 'Raise' || name === 'AllIn') && seat.char.find('Bet') ? 'Bet' : name);
+      seat.char.playOnce(resolved, seconds, timeScale);
+    };
     if (kind === 'check') {
       play('Check', 1.7);
     } else if (kind === 'call') {
