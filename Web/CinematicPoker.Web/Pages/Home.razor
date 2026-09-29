@@ -346,6 +346,7 @@
                 @out = eliminated,
                 actor = acting,
                 active = s != null && !folded && !eliminated,
+                heat = SeatHeat(p.Seat),
                 dealer = Round != null && p.Seat == Round.DealerSeat,
                 sb = Round != null && p.Seat == Round.SmallBlindSeat,
                 bb = Round != null && p.Seat == Round.BigBlindSeat,
@@ -371,10 +372,50 @@
         catch (JSException) { /* scene not available; HUD still works */ }
     }
 
-    private void SceneReact(int seat, bool positive)
+    private void SceneEmotion(int seat, string mood, double intensity)
     {
         if (!_sceneReady || seat == 0) return;
-        _ = JS.InvokeVoidAsync("pokerScene.react", seat, positive);
+        _ = JS.InvokeVoidAsync("pokerScene.emotion", seat, mood, intensity);
+    }
+
+    // 0 = settled, 1 = steaming. Read from the NPC's tilt after each hand.
+    private double SeatHeat(int seat)
+    {
+        if (_game?.GetPlayer(seat) is not AIPlayer ai) return 0.2;
+        return Math.Clamp(
+            ai.Tilt.Tilt * 0.55 + ai.Tilt.Frustration * 0.45 + (1 - ai.Tilt.Confidence) * 0.2,
+            0, 1);
+    }
+
+    private double PotHeat(long amount)
+    {
+        long bb = Math.Max(1, _game?.Rules.BigBlind ?? 10);
+        return Math.Clamp(amount / (double)(bb * 28), 0, 1);
+    }
+
+    // Anyone still in the hand, other than the actor, feels the bet.
+    private void NudgeWaiting(int actorSeat, double intensity)
+    {
+        if (_game == null) return;
+        foreach (PokerPlayer p in _game.Players)
+        {
+            if (p.IsHuman || p.Seat == actorSeat) continue;
+            SeatState s = SeatOf(p.Seat);
+            if (s == null || s.Folded || p.Status == PlayerStatus.Eliminated) continue;
+            SceneEmotion(p.Seat, "wait", Math.Clamp(Math.Max(intensity, SeatHeat(p.Seat)), 0, 1));
+        }
+    }
+
+    private void RememberHand(HandCompleted completed)
+    {
+        int biggest = -1;
+        long best = long.MinValue;
+        foreach (var kv in completed.StackChanges)
+            if (kv.Value > best) { best = kv.Value; biggest = kv.Key; }
+        long bb = Math.Max(1, _game.Rules.BigBlind);
+        foreach (var kv in completed.StackChanges)
+            if (_game.GetPlayer(kv.Key) is AIPlayer ai)
+                ai.OnHandCompleted(kv.Value, bb, biggest);
     }
 
     // Unlike reactions, action gestures also play on the player's own body
@@ -702,11 +743,24 @@
 
             case PlayerFolded foldedEvt:
                 SceneAction(foldedEvt.Seat, "fold");
+                // Letting a big pot go stings. The fold plays first; the
+                // disappointment follows when that gesture lets go.
+                if (foldedEvt.Seat != 0 && Round != null && Round.PotTotal > _game.Rules.BigBlind * 16)
+                    SceneEmotion(foldedEvt.Seat, "lose", 0.4);
                 AddLog($"{NameOf(foldedEvt.Seat)} folds");
                 break;
 
             case PotAwarded award:
-                foreach (int seatIdx in award.WinnerSeats) SceneReact(seatIdx, positive: true);
+            {
+                double potHeat = PotHeat(award.Amount);
+                foreach (int seatIdx in award.WinnerSeats)
+                    SceneEmotion(seatIdx, "win", potHeat);
+                if (award.WinningHand.HasValue)
+                {
+                    foreach (int seatIdx in _revealed.Keys)
+                        if (!award.WinnerSeats.Contains(seatIdx))
+                            SceneEmotion(seatIdx, "lose", Math.Max(0.5, potHeat));
+                }
                 // A heads-up showdown (exactly two hands compared) gets a
                 // victory fanfare for whoever comes out on top.
                 if (_showdownHandCount == 2 && !_muted)
@@ -725,6 +779,7 @@
                     : $"{winners} take{(award.WinnerSeats.Count == 1 ? "s" : "")} ${award.Amount}";
                 AddLog(_banner);
                 break;
+            }
 
             default:
                 // Chip-toss gesture whenever someone puts chips in the middle.
@@ -732,8 +787,17 @@
                 {
                     case PlayerCalled pc: SceneAction(pc.Seat, "bet"); break;
                     case BetPlaced bp: SceneAction(bp.Seat, "bet"); break;
-                    case PlayerRaised pr: SceneAction(pr.Seat, "bet"); break;
-                    case PlayerAllIn pa: SceneAction(pa.Seat, "bet"); break;
+                    case PlayerRaised pr:
+                        SceneAction(pr.Seat, "bet");
+                        NudgeWaiting(pr.Seat, 0.5);
+                        break;
+                    case PlayerAllIn pa:
+                        SceneAction(pa.Seat, "bet");
+                        NudgeWaiting(pa.Seat, 0.85);
+                        break;
+                    case HandCompleted completed:
+                        RememberHand(completed);
+                        break;
                 }
                 string line = Describe(evt);
                 if (line != null) AddLog(line);
