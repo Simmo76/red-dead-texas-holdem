@@ -3,8 +3,10 @@
 // club) built procedurally from primitives, each with its own mood lighting.
 // Props/textures are CC0; the street backdrop is a web-optimised conversion of
 // the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
-// Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy. The sit is posed on his own skeleton — see ASSET_LICENSES.md.
+// Every seat, including the player, is one of David Grette's four Wild West
+// characters (Jacob, the Bandit and two Cowboy Girls) in a random outfit, and
+// each table seats at least one of every model. The sit/reaction poses are
+// retargeted onto each rig's own skeleton — see ASSET_LICENSES.md.
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
@@ -17,14 +19,20 @@ const TABLE_RADIUS = 1.12;
 const SEAT_RADIUS = 1.74;
 const EYE_HEIGHT = 1.70;       // camera shoulder height over the bigger build
 
-// Jacob is exported in metres. This scale matches his seated height (boots to
-// the top of the hat) to the build the table and camera were framed for.
+// The characters are exported in metres. This scale matches Jacob's seated
+// height (boots to the top of the hat) to the build the table and camera were
+// framed for; the other three share his skeleton family, so the same scale
+// keeps their natural height differences.
 const WESTERN_SCALE = 1.098;
 
-// Outfit and head presets from the Cowboy 1 pack (SK_Jacob). Each game deals
-// six distinct looks, one per seat, including the player. `shirt` / `shirtOpt`
-// are the two shirt meshes (only one is worn). Zero means that piece is off.
-const WESTERN_LOOKS = [
+// Outfit presets per character. Each GLB carries every clothing variant as a
+// separate mesh (`Piece__N` naming); a look keeps one of each worn piece and
+// zero means that piece is off. `meshNames` maps a look to the set of node
+// names kept for that seat.
+
+// Cowboy 1 pack (SK_Jacob). `shirt` / `shirtOpt` are the two shirt meshes
+// (only one is worn); heads come in clean/dirt/blood variants.
+const JACOB_LOOKS = [
   { pants: 1, jacket: 1, shirt: 0, shirtOpt: 1, scarf: 1, hat: 1, hair: 'cut', gun: true, holster: true, belt: true, head: 'clean' },
   { pants: 2, jacket: 2, shirt: 0, shirtOpt: 2, scarf: 2, hat: 2, hair: 'cut', gun: true, holster: true, belt: true, head: 'dirt' },
   { pants: 3, jacket: 3, shirt: 0, shirtOpt: 3, scarf: 3, hat: 0, hair: 'full', gun: true, holster: true, belt: true, head: 'blood2' },
@@ -34,7 +42,7 @@ const WESTERN_LOOKS = [
   { pants: 3, jacket: 0, shirt: 2, shirtOpt: 0, scarf: 0, hat: 0, hair: 'full', gun: false, holster: false, belt: true, head: 'dirt' }
 ];
 
-function westernMeshNames(look) {
+function jacobMeshNames(look) {
   const names = new Set(['Boots', 'Hands_Optimized', 'Hair_cap']);
   names.add(`Pants__${look.pants}`);
   if (look.jacket) names.add(`Jacket__${look.jacket}`);
@@ -48,6 +56,108 @@ function westernMeshNames(look) {
   if (look.belt) names.add('Pants_belt');
   names.add(`Head__${look.head || 'clean'}`);
   return names;
+}
+
+// Bandit pack (SK_Cowboy_2). Same wardrobe scheme as Jacob plus an optional
+// face bandage; his raincoat is left out of the web export.
+const BANDIT_LOOKS = [
+  { pants: 1, jacket: 1, shirt: 0, shirtOpt: 1, scarf: 1, hat: 1, hair: 'cut', holster: true, belt: true, bandage: false },
+  { pants: 2, jacket: 2, shirt: 0, shirtOpt: 2, scarf: 2, hat: 2, hair: 'cut', holster: true, belt: true, bandage: false },
+  { pants: 3, jacket: 3, shirt: 0, shirtOpt: 3, scarf: 3, hat: 0, hair: 'full', holster: true, belt: true, bandage: true },
+  { pants: 2, jacket: 0, shirt: 1, shirtOpt: 0, scarf: 3, hat: 2, hair: 'cut', holster: false, belt: true, bandage: false },
+  { pants: 1, jacket: 0, shirt: 2, shirtOpt: 0, scarf: 0, hat: 0, hair: 'full', holster: false, belt: true, bandage: true },
+  { pants: 3, jacket: 0, shirt: 3, shirtOpt: 0, scarf: 2, hat: 1, hair: 'cut', holster: true, belt: true, bandage: false }
+];
+
+function banditMeshNames(look) {
+  const names = new Set(['Boots', 'Hands_Optimized', 'Hair_cap', 'Head__clean']);
+  names.add(`Pants__${look.pants}`);
+  if (look.jacket) names.add(`Jacket__${look.jacket}`);
+  if (look.shirt) names.add(`Shirt__${look.shirt}`);
+  if (look.shirtOpt) names.add(`ShirtOpt__${look.shirtOpt}`);
+  if (look.scarf) names.add(`Scarf__${look.scarf}`);
+  if (look.hat) names.add(`Hat__${look.hat}`);
+  names.add(look.hair === 'full' ? 'Hair_full' : 'Hair_cut');
+  if (look.holster) names.add('Holster');
+  if (look.belt) names.add('Pants_belt');
+  if (look.bandage) names.add('Bandage');
+  return names;
+}
+
+// Cowboy Girl 1 pack. Shirt + skirt wardrobe; `hair` picks one of the two
+// hairstyles in either length (full or cut).
+const GIRL1_LOOKS = [
+  { shirt: 1, skirt: 1, bandana: 1, hat: 1, hair: 'Hair1_cut', belt1: true, belt2: false, holster: true },
+  { shirt: 2, skirt: 2, bandana: 2, hat: 2, hair: 'Hair2_full', belt1: false, belt2: true, holster: true },
+  { shirt: 3, skirt: 3, bandana: 3, hat: 0, hair: 'Hair1_full', belt1: true, belt2: false, holster: false },
+  { shirt: 2, skirt: 3, bandana: 0, hat: 3, hair: 'Hair2_cut', belt1: false, belt2: true, holster: true },
+  { shirt: 1, skirt: 2, bandana: 0, hat: 0, hair: 'Hair2_full', belt1: true, belt2: false, holster: false },
+  { shirt: 3, skirt: 1, bandana: 1, hat: 2, hair: 'Hair1_full', belt1: false, belt2: true, holster: true }
+];
+
+function girl1MeshNames(look) {
+  const names = new Set(['Body', 'Head__clean', 'Hair_cap', 'Boots']);
+  names.add(`Shirt__${look.shirt}`);
+  names.add(`Skirt__${look.skirt}`);
+  if (look.bandana) names.add(`Bandana__${look.bandana}`);
+  if (look.hat) names.add(`Hat__${look.hat}`);
+  names.add(look.hair);
+  if (look.belt1) names.add('Belt1');
+  if (look.belt2) names.add('Belt2');
+  if (look.holster) names.add('Holster');
+  return names;
+}
+
+// Cowboy Girl 2 pack. Shirt + pants with optional suspenders, ammo belt and
+// hair trinkets; boots and holster are numbered variants.
+const GIRL2_LOOKS = [
+  { shirt: 1, pants: 1, suspenders: 1, scarf: 1, ammo: 0, boots: 1, hat: 1, holster: 1, hair: 'cut', barrette: false, medallion: false },
+  { shirt: 2, pants: 2, suspenders: 2, scarf: 2, ammo: 1, boots: 2, hat: 0, holster: 2, hair: 'full', barrette: true, medallion: false },
+  { shirt: 3, pants: 3, suspenders: 0, scarf: 3, ammo: 2, boots: 1, hat: 2, holster: 0, hair: 'cut', barrette: false, medallion: true },
+  { shirt: 2, pants: 3, suspenders: 3, scarf: 0, ammo: 0, boots: 2, hat: 0, holster: 1, hair: 'full', barrette: true, medallion: true },
+  { shirt: 1, pants: 2, suspenders: 0, scarf: 2, ammo: 1, boots: 1, hat: 2, holster: 0, hair: 'full', barrette: false, medallion: false },
+  { shirt: 3, pants: 1, suspenders: 1, scarf: 3, ammo: 0, boots: 2, hat: 1, holster: 2, hair: 'cut', barrette: false, medallion: true }
+];
+
+function girl2MeshNames(look) {
+  const names = new Set(['Body', 'Head__clean', 'Hair_cap']);
+  names.add(`Shirt__${look.shirt}`);
+  names.add(`Pants__${look.pants}`);
+  names.add(`Boots__${look.boots}`);
+  if (look.suspenders) names.add(`Suspenders__${look.suspenders}`);
+  if (look.scarf) names.add(`Scarf__${look.scarf}`);
+  if (look.ammo) names.add(`AmmoBelt__${look.ammo}`);
+  if (look.hat) names.add(`Hat__${look.hat}`);
+  if (look.holster) names.add(`Holster__${look.holster}`);
+  names.add(look.hair === 'full' ? 'Hair_full' : 'Hair_cut');
+  if (look.barrette) names.add('Barrette');
+  if (look.medallion) names.add('Medallion');
+  return names;
+}
+
+// The four models in the roster. Jacob's reaction clips live in a separate
+// GLB (reactions.glb, keyed to the shared skeleton by node name); the other
+// three carry their own retargeted copies of every clip.
+const WESTERN_MODELS = [
+  { id: 'jacob', url: 'models/characters/western/Jacob.glb?v=3', reactions: true, looks: JACOB_LOOKS, meshNames: jacobMeshNames },
+  { id: 'bandit', url: 'models/characters/western/Bandit.glb?v=1', looks: BANDIT_LOOKS, meshNames: banditMeshNames },
+  { id: 'cowboygirl1', url: 'models/characters/western/CowboyGirl1.glb?v=1', looks: GIRL1_LOOKS, meshNames: girl1MeshNames },
+  { id: 'cowboygirl2', url: 'models/characters/western/CowboyGirl2.glb?v=1', looks: GIRL2_LOOKS, meshNames: girl2MeshNames }
+];
+
+// Deal the table's characters: one of each model first (a table always seats
+// every model once), the remaining seats repeat models with different looks,
+// then shuffle who sits where.
+function dealLineup(seatCount) {
+  const order = shuffle(WESTERN_MODELS);
+  const looksByModel = new Map(order.map((m) => [m.id, shuffle(m.looks)]));
+  const lineup = [];
+  for (let i = 0; i < seatCount; i++) {
+    const model = order[i % order.length];
+    const looks = looksByModel.get(model.id);
+    lineup.push({ model, look: looks[Math.floor(i / order.length) % looks.length] });
+  }
+  return shuffle(lineup);
 }
 
 function shuffle(list) {
@@ -315,7 +425,7 @@ function characterMaterial(material, shirt, meshName) {
   // on this export, and a front-only pass draws the white sclera instead of
   // the eye. Solid cloth stays front-faced.
   const alphaCard = !!(m.transparent || m.alphaTest > 0);
-  const headMesh = /^Head__|^Jacob_head/i.test(meshName || '');
+  const headMesh = /^Head__|^Body|^Jacob_head/i.test(meshName || '');
   m.side = (alphaCard || headMesh) ? THREE.DoubleSide : THREE.FrontSide;
   m.shadowSide = THREE.FrontSide;
   m.userData.baseOpacity = m.opacity;
@@ -355,8 +465,8 @@ function makeCharacter(gltf, spec, extraClips) {
 
   // The GLB carries every outfit and head. Keep only this seat's look so the
   // other coats aren't drawn on top of him.
-  if (spec.look) {
-    const names = westernMeshNames(spec.look);
+  if (spec.look && spec.model) {
+    const names = spec.model.meshNames(spec.look);
     // A multi-material piece (the head) loads as a group named Head__clean
     // with a child mesh per material slot, named after the mesh asset.
     // Those children are part of the look; only drop a mesh when neither it
@@ -397,7 +507,8 @@ function makeCharacter(gltf, spec, extraClips) {
   const clips = (gltf.animations || []).concat(extraClips || []);
   const find = (name) => THREE.AnimationClip.findByName(clips, name);
 
-  // 'Sit' is a looping seated pose on Jacob's own skeleton. Random start
+  // 'Sit' is a looping seated pose on the character's own skeleton (retargeted
+  // from Jacob's for the other three models). Random start
   // offsets keep the NPCs from posing in unison. The player's body is frozen
   // on the first sit frame so his hands stay on his lap.
   const sitClip = find('Sit');
@@ -836,10 +947,16 @@ async function buildScene(canvas) {
   state.seats = [];
   const charPromises = [];
 
-  // One rig, every outfit. A fresh draw every time the table is built.
-  const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
+  // Four rigs, every outfit. A fresh deal every time the table is built —
+  // every model appears at least once, each in its own random look.
+  const lineup = dealLineup(SEATS);
+  const modelPromises = new Map();
+  const loadModel = (model) => {
+    let p = modelPromises.get(model.id);
+    if (!p) { p = loadGlb(loader, model.url); modelPromises.set(model.id, p); }
+    return p;
+  };
   const reactionModel = loadGlb(loader, 'models/characters/western/reactions.glb?v=1');
-  const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
 
   // Position a seated character at seat i: face the table, hips at the seat,
   // feet on the floor, regardless of the pose's baked root offsets.
@@ -900,10 +1017,11 @@ async function buildScene(canvas) {
     const pos = seatPos(i, SEAT_RADIUS);
     const facing = Math.atan2(-pos.x, -pos.z); // yaw toward table centre
 
-    // Every seat, including the player, is one of this game's looks.
-    const spec = { look: lineup[i], cards: i === 0, scale: WESTERN_SCALE };
-    charPromises.push(Promise.all([westernModel, reactionModel]).then(([gltf, react]) => {
-      const character = makeCharacter(gltf, spec, react && react.animations);
+    // Every seat, including the player, is one of this deal's characters.
+    const pick = lineup[i];
+    const spec = { model: pick.model, look: pick.look, cards: i === 0, scale: WESTERN_SCALE };
+    charPromises.push(Promise.all([loadModel(pick.model), reactionModel]).then(([gltf, react]) => {
+      const character = makeCharacter(gltf, spec, pick.model.reactions && react ? react.animations : null);
       if (!character) return;
       character.variant = i;
       placeSeatedCharacter(character, i, facing);
