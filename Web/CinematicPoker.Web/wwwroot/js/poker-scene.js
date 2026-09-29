@@ -4,7 +4,8 @@
 // Props/textures are CC0; the street backdrop is a web-optimised conversion of
 // the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
 // Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy. The sit is posed on his own skeleton — see ASSET_LICENSES.md.
+// Jacob cowboy. Seated idles and table actions use clips retargeted from The
+// Mighty Cat Poker/Blackjack pack (mighty-cat.glb) — see ASSET_LICENSES.md.
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
@@ -391,19 +392,19 @@ function makeCharacter(gltf, spec, extraClips) {
   });
 
   const mixer = new THREE.AnimationMixer(root);
-  const clips = (gltf.animations || []).concat(extraClips || []);
+  // Mighty Cat seated clips override Jacob's legacy UAL takes when names clash.
+  const clips = (extraClips || []).concat(gltf.animations || []);
   const find = (name) => THREE.AnimationClip.findByName(clips, name);
 
-  // 'Sit' is a looping seated pose on Jacob's own skeleton. Random start
-  // offsets keep the NPCs from posing in unison. Hole cards sit on the felt
-  // in front of the player, so his sit loop can run like the NPCs'.
-  const sitClip = find('Sit');
+  // IdleLoop is a retargeted Mighty Cat neutral idle; Sit is the static fallback.
+  const sitClip = find('IdleLoop') || find('Sit');
   const isPlayer = !!spec.cards;
   let sitAction = null;
   if (sitClip) {
     sitAction = mixer.clipAction(sitClip);
+    sitAction.setLoop(THREE.LoopRepeat, Infinity);
     sitAction.play();
-    sitAction.time = isPlayer ? 0 : Math.random() * sitClip.duration;
+    sitAction.time = Math.random() * sitClip.duration;
   }
 
   const character = {
@@ -536,7 +537,7 @@ function makeCharacter(gltf, spec, extraClips) {
   // wait and play once the current one lets go.
   character.variant = 0;
   character.heat = 0.25;
-  character.nextFidget = character.isPlayer ? 5 + Math.random() * 4 : 12 + Math.random() * 10;
+  character.nextFidget = character.isPlayer ? 6 + Math.random() * 5 : 10 + Math.random() * 8;
   character._queued = null;
   character.playEmotion = (mood, intensity = 0.5) => {
     const hot = intensity >= 0.55;
@@ -801,7 +802,7 @@ async function buildScene(canvas) {
 
   // One rig, every outfit. A fresh draw every time the table is built.
   const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const reactionModel = loadGlb(loader, 'models/characters/western/reactions.glb?v=1');
+  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=1');
   const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
 
   // Position a seated character at seat i: face the table, hips at the seat,
@@ -865,8 +866,8 @@ async function buildScene(canvas) {
 
     // Every seat, including the player, is one of this game's looks.
     const spec = { look: lineup[i], cards: i === 0, scale: WESTERN_SCALE };
-    charPromises.push(Promise.all([westernModel, reactionModel]).then(([gltf, react]) => {
-      const character = makeCharacter(gltf, spec, react && react.animations);
+    charPromises.push(Promise.all([westernModel, mightyCatModel]).then(([gltf, mc]) => {
+      const character = makeCharacter(gltf, spec, mc && mc.animations);
       if (!character) return;
       character.variant = i;
       placeSeatedCharacter(character, i, facing);
@@ -1914,27 +1915,27 @@ window.pokerScene = {
     if (seat && seat.char && !seat.char.dead) seat.char.playOnce('Talk', 2.8);
   },
 
-  // Betting-action gestures: a knuckle tap over the felt for a check, a chip
-  // toss for a call/bet/raise, and a fold — opponents flick their cards away,
-  // while the player's own character shakes his head with crossed arms.
+  // Mighty Cat seated poker takes (Player_01 bet, Player_02 check, Player_03 fold).
   action(seatIndex, kind) {
     if (!state.ready) return;
     const seat = state.seats[seatIndex];
-    if (!seat || !seat.char || seat.char.dead) return;
+    if (!seat || !seat.char || seat.char.dead || seat.char.folded) return;
+    const play = (name, seconds, timeScale = 1) => seat.char.playOnce(name, seconds, timeScale);
     if (kind === 'check') {
-      seat.char.playOnce('Check', 1.9);
+      play('Check', 1.7);
+    } else if (kind === 'call') {
+      play('Call', 1.7);
+    } else if (kind === 'raise') {
+      play('Raise', 2.3);
+      spawnChipToss(seatIndex);
+    } else if (kind === 'allin') {
+      play('AllIn', 2.3, 1.05);
+      spawnChipToss(seatIndex);
     } else if (kind === 'bet') {
-      // A quick flick of the wrist, tossing chips toward the pot — with
-      // real chips arcing across the felt into the middle.
-      seat.char.playOnce('Bet', 1.0, 0.7);
+      play('Bet', 2.3);
       spawnChipToss(seatIndex);
     } else if (kind === 'fold') {
-      if (seatIndex === 0) {
-        seat.char.playOnce('FoldShake', 1.9);
-        return;
-      }
-      seat.char.playOnce('Fold', 1.0, 0.55);
-      // Sometimes they grumble about it, too.
+      play('Fold', 2.0, 0.92);
       if (window.pokerAudio && Math.random() < 0.25) {
         window.pokerAudio.voice(seatIndex, 'lose');
       }

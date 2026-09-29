@@ -374,7 +374,7 @@
 
     private void SceneEmotion(int seat, string mood, double intensity)
     {
-        if (!_sceneReady || seat == 0) return;
+        if (!_sceneReady) return;
         _ = JS.InvokeVoidAsync("pokerScene.emotion", seat, mood, intensity);
     }
 
@@ -785,14 +785,14 @@
                 // Chip-toss gesture whenever someone puts chips in the middle.
                 switch (evt)
                 {
-                    case PlayerCalled pc: SceneAction(pc.Seat, "bet"); break;
+                    case PlayerCalled pc: SceneAction(pc.Seat, "call"); break;
                     case BetPlaced bp: SceneAction(bp.Seat, "bet"); break;
                     case PlayerRaised pr:
-                        SceneAction(pr.Seat, "bet");
+                        SceneAction(pr.Seat, "raise");
                         NudgeWaiting(pr.Seat, 0.5);
                         break;
                     case PlayerAllIn pa:
-                        SceneAction(pa.Seat, "bet");
+                        SceneAction(pa.Seat, "allin");
                         NudgeWaiting(pa.Seat, 0.85);
                         break;
                     case HandCompleted completed:
