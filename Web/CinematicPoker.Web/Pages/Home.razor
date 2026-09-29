@@ -582,56 +582,127 @@
     private async Task ExportViaEmail()
     {
         if (_handLog.CompletedHandCount == 0) return;
+        string csv = BuildExportCsv();
         try
         {
-            var result = await JS.InvokeAsync<ExportShareResult>(
-                "pokerExport.emailCsv", BuildExportCsv(), "Cinematic Poker stats");
-            _exportNote = result?.Downloaded == true
-                ? "CSV was long for email — full file also downloaded."
-                : "Opening your email app…";
+            ExportShareResult result = await JS.InvokeAsync<ExportShareResult>(
+                "pokerExport.emailCsv", csv, "Cinematic Poker stats");
+            _exportNote = DescribeExportResult(result, channel: "email");
         }
-        catch (JSException)
+        catch (Exception ex)
         {
-            _exportNote = "Could not open email. Try Download instead.";
+            try
+            {
+                ExportShareResult result = await JS.InvokeAsync<ExportShareResult>(
+                    "pokerExportEmailCsv", csv, "Cinematic Poker stats");
+                _exportNote = DescribeExportResult(result, channel: "email");
+            }
+            catch
+            {
+                _exportNote = $"Could not open email ({ShortError(ex)}). Try Download.";
+            }
         }
     }
 
     private async Task ExportViaText()
     {
         if (_handLog.CompletedHandCount == 0) return;
+        string csv = BuildExportCsv();
         try
         {
-            var result = await JS.InvokeAsync<ExportShareResult>(
-                "pokerExport.textCsv", BuildExportCsv());
-            _exportNote = result?.Downloaded == true
-                ? "CSV was long for text — full file downloaded to attach."
-                : "Opening your messages app…";
+            ExportShareResult result = await JS.InvokeAsync<ExportShareResult>(
+                "pokerExport.textCsv", csv);
+            _exportNote = DescribeExportResult(result, channel: "text");
         }
-        catch (JSException)
+        catch (Exception ex)
         {
-            _exportNote = "Could not open messages. Try Download instead.";
+            try
+            {
+                ExportShareResult result = await JS.InvokeAsync<ExportShareResult>(
+                    "pokerExportTextCsv", csv);
+                _exportNote = DescribeExportResult(result, channel: "text");
+            }
+            catch
+            {
+                _exportNote = $"Could not open messages ({ShortError(ex)}). Try Download.";
+            }
         }
     }
 
     private async Task ExportDownload()
     {
         if (_handLog.CompletedHandCount == 0) return;
+        string csv = BuildExportCsv();
         try
         {
-            await JS.InvokeVoidAsync("pokerExport.downloadCsv", "cinematic-poker-stats.csv", BuildExportCsv());
-            _exportNote = "CSV downloaded.";
+            ExportShareResult result = await JS.InvokeAsync<ExportShareResult>(
+                "pokerExport.downloadCsv", "cinematic-poker-stats.csv", csv);
+            if (result != null && result.Downloaded)
+            {
+                _exportNote = "CSV downloaded.";
+                return;
+            }
+
+            result = await JS.InvokeAsync<ExportShareResult>(
+                "pokerExportDownloadCsv", "cinematic-poker-stats.csv", csv);
+            _exportNote = result != null && result.Downloaded
+                ? "CSV downloaded."
+                : $"Download failed{(string.IsNullOrEmpty(result?.Error) ? "" : $": {result.Error}")}.";
         }
-        catch (JSException)
+        catch (Exception ex)
         {
-            _exportNote = "Download failed in this browser.";
+            try
+            {
+                ExportShareResult result = await JS.InvokeAsync<ExportShareResult>(
+                    "pokerExportDownloadCsv", "cinematic-poker-stats.csv", csv);
+                _exportNote = result != null && result.Downloaded
+                    ? "CSV downloaded."
+                    : $"Download failed ({ShortError(ex)}).";
+            }
+            catch (Exception ex2)
+            {
+                _exportNote = $"Download failed ({ShortError(ex2)}).";
+            }
         }
+    }
+
+    private static string DescribeExportResult(ExportShareResult result, string channel)
+    {
+        if (result == null)
+            return $"Could not open {channel}. Try Download.";
+        if (result.Shared)
+            return "Shared via your device share sheet.";
+        if (result.Downloaded && result.Copied)
+            return channel == "email"
+                ? "CSV downloaded and copied — email composer opening…"
+                : "CSV downloaded and copied — messages opening…";
+        if (result.Downloaded)
+            return channel == "email"
+                ? "CSV downloaded — opening email with a short summary…"
+                : "CSV downloaded — opening messages with a short summary…";
+        if (result.Copied)
+            return "CSV copied to clipboard. Paste it into email or messages.";
+        if (!string.IsNullOrEmpty(result.Error))
+            return $"{result.Error}. Try Download.";
+        return $"Could not open {channel}. Try Download.";
+    }
+
+    private static string ShortError(Exception ex)
+    {
+        string msg = ex?.Message ?? "error";
+        if (msg.Length > 80) msg = msg.Substring(0, 77) + "…";
+        return msg;
     }
 
     private sealed class ExportShareResult
     {
         public bool Ok { get; set; }
+        public bool Shared { get; set; }
         public bool Truncated { get; set; }
         public bool Downloaded { get; set; }
+        public bool Copied { get; set; }
+        public string Method { get; set; }
+        public string Error { get; set; }
     }
 
     // ------------------------------------------------------------- engine events
