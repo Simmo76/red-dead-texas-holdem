@@ -1,12 +1,11 @@
 // Over-the-shoulder poker scene (Three.js) set on a neon arcade street, with
 // five extra switchable backdrops (beach, desert, shed, space station, dance
 // club) built procedurally from primitives, each with its own mood lighting.
-// Props/textures are CC0; the player and the street backdrop are web-optimised
-// conversions of the repo owner's licensed Unity assets (Frederic Lierman
-// "Jimmy Lite", Leartes "Stylized Cyberpunk Arcade"). The NPC seats are a
-// random draw from the owner's Meshy characters, with the table's seated
-// clips retargeted on — see ASSET_LICENSES.md. No third-party game content
-// is copied from other titles.
+// Props/textures are CC0; the street backdrop is a web-optimised conversion of
+// the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
+// Every seat, including the player, is a random outfit of David Grette's
+// Jacob cowboy, with the table's seated clips retargeted on — see
+// ASSET_LICENSES.md. No third-party game content is copied from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';
@@ -18,33 +17,38 @@ const TABLE_RADIUS = 1.12;
 const SEAT_RADIUS = 1.74;
 const EYE_HEIGHT = 1.70;       // camera shoulder height over the bigger build
 
-// Jimmy is exported at the same rig height as the old Hunter GLB (~0.40
-// units); scale to a larger-than-life build so he fills the frame.
-const CHAR_SCALE = 5.16;
+// Jacob is exported in metres. This scale matches his seated height (boots to
+// the top of the hat) to the build the table and camera were framed for.
+const WESTERN_SCALE = 1.098;
 
-// Rigged Meshy characters (the owner's Dropbox set that actually has a
-// skeleton). Each game draws 5 distinct models from this pool for the NPC
-// seats. `scale` matches their seated silhouette (feet to the top of the
-// head, hat included) to Jimmy's, so they don't tower over the player.
-// Hip-to-head bone length alone left hats and coats oversized.
-// The texture-only GLBs in that folder have no rig, so they cannot sit or
-// gesture and are not in the pool.
-const NPC_POOL = [
-  { model: 'ACthulhuFuturistic', scale: 1.234 },
-  { model: 'CowboyBot', scale: 1.239 },
-  { model: 'CowboyGrinVillain', scale: 1.172 },
-  { model: 'CowboyLongCoat', scale: 1.233 },
-  { model: 'CowboyOutlaw', scale: 1.260 },
-  { model: 'CowboyStance', scale: 1.243 },
-  { model: 'CyberAutomaton', scale: 1.264 },
-  { model: 'DustyFrontierCowboy', scale: 1.216 },
-  { model: 'EmeraldFury', scale: 1.179 },
-  { model: 'GunslingerAtSunset', scale: 1.246 },
-  { model: 'RedVestCowboy', scale: 1.227 },
-  { model: 'RedemptionWalker', scale: 1.225 },
-  { model: 'RuneboundAutomaton', scale: 1.239 },
-  { model: 'SkullCowboy', scale: 1.221 }
+// Outfit and head presets from the Cowboy 1 pack (SK_Jacob). Each game deals
+// six distinct looks, one per seat, including the player. `shirt` / `shirtOpt`
+// are the two shirt meshes (only one is worn). Zero means that piece is off.
+const WESTERN_LOOKS = [
+  { pants: 1, jacket: 1, shirt: 0, shirtOpt: 1, scarf: 1, hat: 1, hair: 'cut', gun: true, holster: true, belt: true, head: 'clean' },
+  { pants: 2, jacket: 2, shirt: 0, shirtOpt: 2, scarf: 2, hat: 2, hair: 'cut', gun: true, holster: true, belt: true, head: 'dirt' },
+  { pants: 3, jacket: 3, shirt: 0, shirtOpt: 3, scarf: 3, hat: 0, hair: 'full', gun: true, holster: true, belt: true, head: 'blood2' },
+  { pants: 2, jacket: 0, shirt: 1, shirtOpt: 0, scarf: 3, hat: 2, hair: 'cut', gun: false, holster: false, belt: true, head: 'dirtblood' },
+  { pants: 1, jacket: 1, shirt: 0, shirtOpt: 2, scarf: 2, hat: 0, hair: 'full', gun: false, holster: false, belt: false, head: 'blood' },
+  { pants: 2, jacket: 0, shirt: 3, shirtOpt: 0, scarf: 3, hat: 2, hair: 'cut', gun: true, holster: true, belt: true, head: 'clean' },
+  { pants: 3, jacket: 0, shirt: 2, shirtOpt: 0, scarf: 0, hat: 0, hair: 'full', gun: false, holster: false, belt: true, head: 'dirt' }
 ];
+
+function westernMeshNames(look) {
+  const names = new Set(['Boots', 'Hands_Optimized', 'Hair_cap']);
+  names.add(`Pants__${look.pants}`);
+  if (look.jacket) names.add(`Jacket__${look.jacket}`);
+  if (look.shirt) names.add(`Shirt__${look.shirt}`);
+  if (look.shirtOpt) names.add(`ShirtOpt__${look.shirtOpt}`);
+  if (look.scarf) names.add(`Scarf__${look.scarf}`);
+  if (look.hat) names.add(`Hat__${look.hat}`);
+  names.add(look.hair === 'full' ? 'Hair_full' : 'Hair_cut');
+  if (look.gun) names.add('Gun_belt');
+  if (look.holster) names.add('Holster');
+  if (look.belt) names.add('Pants_belt');
+  names.add(`Head__${look.head || 'clean'}`);
+  return names;
+}
 
 function shuffle(list) {
   const a = list.slice();
@@ -57,12 +61,9 @@ function shuffle(list) {
   return a;
 }
 
-// The player's own body, seen from the over-the-shoulder camera. He stays
-// the Jimmy soldier: still hold pose, both hands resting on the table with
-// his hole cards parked between them.
-// shirt: { hue (degrees), sat } — Jimmy's uniform top is hue-rotated in the
-// shader (a plain colour multiply can only darken the red base texture).
-const PLAYER_MODEL = { model: 'Jimmy', shirt: { hue: 0, sat: 0.15 }, cards: true, scale: CHAR_SCALE };
+// The player's own body, seen from the over-the-shoulder camera. Same cowboy
+// pool as the other seats: still hold pose, both hands resting on the table
+// with his hole cards parked between them.
 
 // Opening cinematic: seconds per backdrop sweep (desert, then club). The
 // matching audio parts are sequenced by pokerAudio.playIntro on the same
@@ -309,21 +310,12 @@ function characterMaterial(material, shirt, meshName) {
   const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
   const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
   const m = material.clone();
-  const isBody = meshName === 'jimmy_body_top' || meshName === 'jimmy_body_bot';
-  // Jimmy body pieces have a few reversed winding islands; FrontSide shows the
-  // void as black patches. Flat per-face shading matches the stylised look
-  // and avoids bad averaged normals on the open shirt mesh. Other meshes,
-  // including the Meshy NPCs, stay single-sided.
-  if (isBody) {
-    m.side = THREE.DoubleSide;
-    m.shadowSide = THREE.FrontSide;
-    m.flatShading = true;
-  } else {
-    m.side = THREE.FrontSide;
-    m.shadowSide = THREE.FrontSide;
-  }
-  // A few Meshy exports set emissiveFactor to white with no emissive map,
-  // which blows the whole body out to a featureless white silhouette.
+  // Hair cards, lashes and open cloth need both sides. The fold shader still
+  // runs on the clone.
+  m.side = THREE.DoubleSide;
+  m.shadowSide = THREE.FrontSide;
+  m.userData.baseOpacity = m.opacity;
+  m.userData.keepTransparent = !!(m.transparent || m.alphaTest > 0);
   if (m.emissive) m.emissive.setRGB(0, 0, 0);
   if (m.emissiveIntensity !== undefined) m.emissiveIntensity = 0;
   // Vertex colours are unity white on Jimmy — drop them so lighting uses
@@ -355,11 +347,23 @@ function makeCharacter(gltf, spec) {
   if (!gltf) return null;
   // All seats share one model, so clone the skinned rig per seat.
   const root = cloneSkinned(gltf.scene);
-  root.scale.setScalar(spec.scale || CHAR_SCALE);
+  root.scale.setScalar(spec.scale || WESTERN_SCALE);
+
+  // The GLB carries every outfit and head. Keep only this seat's look so the
+  // other coats aren't drawn on top of him.
+  if (spec.look) {
+    const names = westernMeshNames(spec.look);
+    const drop = [];
+    root.traverse((obj) => {
+      if (!obj.isMesh) return;
+      const n = obj.name.replace(/\.\d+$/, '');
+      if (!names.has(n)) drop.push(obj);
+    });
+    for (const obj of drop) if (obj.parent) obj.parent.remove(obj);
+  }
 
   // Every mesh gets a per-seat material clone so this character can grey out
-  // independently when he folds. Jimmy's uniform top additionally gets the
-  // recolour; the Meshy NPCs keep the textures they were painted with.
+  // independently when he folds.
   const bodyMeshes = [];
   const bodyMats = [];
   root.traverse((obj) => {
@@ -478,10 +482,12 @@ function makeCharacter(gltf, spec) {
     const w = character.foldW;
     const ghost = w > 0.001;
     for (const m of bodyMats) {
-      if (m.transparent !== ghost) { m.transparent = ghost; m.needsUpdate = true; }
+      const wantTransparent = ghost || m.userData.keepTransparent;
+      if (m.transparent !== wantTransparent) { m.transparent = wantTransparent; m.needsUpdate = true; }
       m.depthWrite = !ghost; // the prepass owns depth while ghosted
       m.forceSinglePass = ghost;
-      m.opacity = 1 - w * 0.22;
+      const base = m.userData.baseOpacity ?? 1;
+      m.opacity = base * (1 - w * 0.22);
       m.userData.foldGrey = w;
       if (m.userData.foldShader) m.userData.foldShader.uniforms.uGrey.value = w;
     }
@@ -813,20 +819,9 @@ async function buildScene(canvas) {
   state.seats = [];
   const charPromises = [];
 
-  // Jimmy lives next to the old Hunter GLB; the Meshy NPCs are in npcs/.
-  const modelCache = new Map();
-  const loadCharacterModel = (name) => {
-    if (!modelCache.has(name)) {
-      const path = name === 'Jimmy'
-        ? `models/characters/${name}.glb?v=2`
-        : `models/characters/npcs/${name}.glb`;
-      modelCache.set(name, loadGlb(loader, path));
-    }
-    return modelCache.get(name);
-  };
-
-  // A fresh draw every time the table is built (each game / page load).
-  const npcLineup = shuffle(NPC_POOL).slice(0, 5);
+  // One rig, every outfit. A fresh draw every time the table is built.
+  const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=1');
+  const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
 
   // Position a seated character at seat i: face the table, hips at the seat,
   // feet on the floor, regardless of the pose's baked root offsets.
@@ -838,17 +833,18 @@ async function buildScene(canvas) {
     character.mixer.update(0);
     character.root.updateMatrixWorld(true);
 
-    const bone = (name) => {
+    const bone = (names) => {
+      const want = Array.isArray(names) ? names : [names];
       let found = null;
       character.root.traverse((o) => {
-        if (!found && o.isBone && o.name === name) found = o;
+        if (!found && o.isBone && want.includes(o.name)) found = o;
       });
       return found;
     };
 
     // Rigs differ in which axis they face, so measure the model's own
     // forward (up x left-to-right-foot) and correct toward the table.
-    const lFoot = bone('L_ankle'), rFoot = bone('R_ankle');
+    const lFoot = bone(['L_ankle', 'foot_l']), rFoot = bone(['R_ankle', 'foot_r']);
     let modelYaw = 0;
     if (lFoot && rFoot) {
       const l = lFoot.getWorldPosition(new THREE.Vector3());
@@ -860,7 +856,7 @@ async function buildScene(canvas) {
     character.root.updateMatrixWorld(true);
 
     const v = new THREE.Vector3();
-    const hips = bone('hips');
+    const hips = bone(['hips', 'pelvis']);
     if (hips) {
       hips.getWorldPosition(v);
       const target = seatPos(i, SEAT_RADIUS - 0.02);
@@ -884,17 +880,10 @@ async function buildScene(canvas) {
     const pos = seatPos(i, SEAT_RADIUS);
     const facing = Math.atan2(-pos.x, -pos.z); // yaw toward table centre
 
-    // Seat 0 is the player's own body (always Jimmy). The other five seats
-    // are this game's random draw from the Meshy pool.
-    const spec = i === 0 ? PLAYER_MODEL : npcLineup[i - 1];
-    charPromises.push(loadCharacterModel(spec.model).then(async (gltf) => {
-      let model = gltf;
-      let seated = spec;
-      if (!model && spec.model !== 'Jimmy') {
-        model = await loadCharacterModel('Jimmy');
-        seated = { model: 'Jimmy', scale: CHAR_SCALE };
-      }
-      const character = makeCharacter(model, seated);
+    // Every seat, including the player, is one of this game's looks.
+    const spec = { look: lineup[i], cards: i === 0, scale: WESTERN_SCALE };
+    charPromises.push(westernModel.then((gltf) => {
+      const character = makeCharacter(gltf, spec);
       if (!character) return;
       placeSeatedCharacter(character, i, facing);
       seat.char = character;
@@ -1548,16 +1537,17 @@ function setupPlayerArms() {
   char.mixer.update(0);
   char.root.updateMatrixWorld(true);
 
-  const bone = (name) => {
+  const bone = (names) => {
+    const want = Array.isArray(names) ? names : [names];
     let found = null;
-    char.root.traverse((o) => { if (!found && o.isBone && o.name === name) found = o; });
+    char.root.traverse((o) => { if (!found && o.isBone && want.includes(o.name)) found = o; });
     return found;
   };
 
   // Lean the torso forward over the rail first, so the hands can reach well
   // onto the felt (and the hunched-over-the-cards posture reads right from
   // behind). World-space pitch, since the rig's local axes are arbitrary.
-  const spine = bone('spine2') || bone('spine1');
+  const spine = bone(['spine2', 'spine_02', 'spine_03']) || bone(['spine1', 'spine_01']);
   if (spine && spine.parent) {
     const parentQuat = spine.parent.getWorldQuaternion(new THREE.Quaternion());
     const lean = new THREE.Quaternion()
@@ -1572,9 +1562,9 @@ function setupPlayerArms() {
   const p1 = new THREE.Vector3(), p2 = new THREE.Vector3(), cr = new THREE.Vector3();
   const step = new THREE.Quaternion();
   const reach = (side, target) => {
-    const shoulder = bone(side + '_shoulder');
-    const elbow = bone(side + '_elbow');
-    const wrist = bone(side + '_wrist');
+    const shoulder = bone(side === 'L' ? ['L_shoulder', 'upperarm_l'] : ['R_shoulder', 'upperarm_r']);
+    const elbow = bone(side === 'L' ? ['L_elbow', 'lowerarm_l'] : ['R_elbow', 'lowerarm_r']);
+    const wrist = bone(side === 'L' ? ['L_wrist', 'hand_l'] : ['R_wrist', 'hand_r']);
     if (!shoulder || !elbow || !wrist) return null;
 
     // The elbow is a hinge: free-axis CCD twists it and candy-wraps the
