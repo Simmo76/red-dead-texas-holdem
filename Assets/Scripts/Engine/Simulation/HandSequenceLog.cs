@@ -101,6 +101,144 @@ namespace CinematicPoker.Engine.Simulation
                 _hands[_hands.Count - 1].ChipsAfter = chipsAfter;
         }
 
+        /// <summary>
+        /// Player-facing CSV: session summary stats plus one history row per hand
+        /// (your cards, board, result, stack change, and action transcript).
+        /// </summary>
+        public string BuildPlayerCsv(int humanSeat, PlayerExportMeta meta = null)
+        {
+            var sb = new StringBuilder();
+            WritePlayerCsv(new StringWriter(sb), humanSeat, meta);
+            return sb.ToString();
+        }
+
+        public void WritePlayerCsv(TextWriter writer, int humanSeat, PlayerExportMeta meta = null)
+        {
+            if (writer == null) throw new ArgumentNullException(nameof(writer));
+
+            long handsWon = 0;
+            long showdowns = 0;
+            long biggestPotWon = 0;
+            long netProfit = 0;
+            foreach (HandRecord hand in _hands)
+            {
+                if (hand.StackChanges != null && hand.StackChanges.TryGetValue(humanSeat, out long delta))
+                    netProfit += delta;
+                if (PlayerWonHand(hand, humanSeat))
+                {
+                    handsWon++;
+                    long won = PlayerWonAmount(hand, humanSeat);
+                    if (won > biggestPotWon) biggestPotWon = won;
+                }
+                if (!hand.WonByFolds && hand.PotAwards.Count > 0)
+                    showdowns++;
+            }
+
+            writer.WriteLine("Section,Metric,Value");
+            writer.WriteLine(CsvRow("Summary", "Exported At (UTC)", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")));
+            writer.WriteLine(CsvRow("Summary", "Hands Played", _hands.Count.ToString()));
+            writer.WriteLine(CsvRow("Summary", "Hands Won", handsWon.ToString()));
+            writer.WriteLine(CsvRow("Summary", "Showdowns", showdowns.ToString()));
+            writer.WriteLine(CsvRow("Summary", "Biggest Pot Won", biggestPotWon.ToString()));
+            writer.WriteLine(CsvRow("Summary", "Net Profit", netProfit.ToString()));
+            if (meta != null)
+            {
+                if (meta.StartingStack.HasValue)
+                    writer.WriteLine(CsvRow("Summary", "Starting Stack", meta.StartingStack.Value.ToString()));
+                if (meta.CurrentStack.HasValue)
+                    writer.WriteLine(CsvRow("Summary", "Current Stack", meta.CurrentStack.Value.ToString()));
+                if (!string.IsNullOrEmpty(meta.Difficulty))
+                    writer.WriteLine(CsvRow("Summary", "Difficulty", meta.Difficulty));
+                if (!string.IsNullOrEmpty(meta.PlayMode))
+                    writer.WriteLine(CsvRow("Summary", "Play Mode", meta.PlayMode));
+                if (!string.IsNullOrEmpty(meta.Backdrop))
+                    writer.WriteLine(CsvRow("Summary", "Backdrop", meta.Backdrop));
+            }
+            writer.WriteLine();
+
+            writer.WriteLine("Hand,Result,Your Cards,Board,Won Amount,Stack Change,Winning Hand,Won By Folds,Actions");
+            foreach (HandRecord hand in _hands)
+            {
+                Func<int, string> nameOf = PlayerNameFor(hand);
+                string yourCards = hand.HoleCards.TryGetValue(humanSeat, out List<Card> hole)
+                    ? FormatCards(hole)
+                    : "";
+                string board = FormatCards(hand.Board);
+                bool won = PlayerWonHand(hand, humanSeat);
+                long wonAmount = PlayerWonAmount(hand, humanSeat);
+                long stackChange = 0;
+                if (hand.StackChanges != null)
+                    hand.StackChanges.TryGetValue(humanSeat, out stackChange);
+                string result = won ? "Won" : PlayerFoldedHand(hand, humanSeat) ? "Folded" : "Lost";
+                string winningHand = "";
+                foreach (PotAwarded pa in hand.PotAwards)
+                {
+                    if (pa.WinnerSeats != null && pa.WinnerSeats.Contains(humanSeat) && pa.WinningHand.HasValue)
+                    {
+                        winningHand = pa.WinningHand.Value.Category.ToString();
+                        break;
+                    }
+                    if (string.IsNullOrEmpty(winningHand) && pa.WinningHand.HasValue)
+                        winningHand = pa.WinningHand.Value.Category.ToString();
+                }
+                string actions = string.Join("; ", DescribeActions(hand.Events, nameOf));
+                writer.WriteLine(string.Join(",",
+                    hand.SequentialNumber.ToString(),
+                    CsvEscape(result),
+                    CsvEscape(yourCards),
+                    CsvEscape(board),
+                    wonAmount.ToString(),
+                    stackChange.ToString(),
+                    CsvEscape(winningHand),
+                    hand.WonByFolds ? "True" : "False",
+                    CsvEscape(actions)));
+            }
+        }
+
+        private static bool PlayerWonHand(HandRecord hand, int humanSeat)
+        {
+            foreach (PotAwarded pa in hand.PotAwards)
+            {
+                if (pa.WinnerSeats != null && pa.WinnerSeats.Contains(humanSeat))
+                    return true;
+            }
+            return false;
+        }
+
+        private static long PlayerWonAmount(HandRecord hand, int humanSeat)
+        {
+            long total = 0;
+            foreach (PotAwarded pa in hand.PotAwards)
+            {
+                if (pa.Payouts != null && pa.Payouts.TryGetValue(humanSeat, out long paid))
+                    total += paid;
+                else if (pa.WinnerSeats != null && pa.WinnerSeats.Contains(humanSeat) && pa.WinnerSeats.Count > 0)
+                    total += pa.Amount / pa.WinnerSeats.Count;
+            }
+            return total;
+        }
+
+        private static bool PlayerFoldedHand(HandRecord hand, int humanSeat)
+        {
+            foreach (PokerEvent evt in hand.Events)
+            {
+                if (evt is PlayerFolded folded && folded.Seat == humanSeat)
+                    return true;
+            }
+            return false;
+        }
+
+        private static string CsvRow(string section, string metric, string value) =>
+            string.Join(",", CsvEscape(section), CsvEscape(metric), CsvEscape(value));
+
+        private static string CsvEscape(string value)
+        {
+            if (value == null) return "";
+            if (value.IndexOfAny(new[] { ',', '"', '\n', '\r' }) >= 0)
+                return "\"" + value.Replace("\"", "\"\"") + "\"";
+            return value;
+        }
+
         public void WriteMarkdown(TextWriter writer, int seed, int targetHands, SimulationResult summary = null)
         {
             if (writer == null) throw new ArgumentNullException(nameof(writer));
@@ -329,6 +467,16 @@ namespace CinematicPoker.Engine.Simulation
             public readonly List<PotAwarded> PotAwards = new List<PotAwarded>();
             public bool WonByFolds;
             public Dictionary<int, long> StackChanges = new Dictionary<int, long>();
+        }
+
+        /// <summary>Optional session context attached to a player CSV export.</summary>
+        public sealed class PlayerExportMeta
+        {
+            public long? StartingStack;
+            public long? CurrentStack;
+            public string Difficulty;
+            public string PlayMode;
+            public string Backdrop;
         }
     }
 }

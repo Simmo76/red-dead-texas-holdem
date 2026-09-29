@@ -417,6 +417,47 @@ html, body {
     letter-spacing: 2px;
 }
 
+.overlay-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+}
+
+.export-box {
+    max-width: min(440px, calc(100vw - 32px));
+    padding: 28px 32px;
+    gap: 16px;
+}
+
+.export-blurb {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    line-height: 1.45;
+}
+
+.export-note {
+    margin: 0;
+    color: var(--gold);
+    font-size: 13px;
+    letter-spacing: 0.4px;
+}
+
+.export-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+.export-actions .act:disabled,
+.overlay-actions .act:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 /* ------------------------------------------------------------- error ui */
 
 #blazor-error-ui {
