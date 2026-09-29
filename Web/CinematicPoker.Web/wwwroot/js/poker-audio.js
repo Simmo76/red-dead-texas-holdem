@@ -1,19 +1,27 @@
 // Sound effects (Kenney CC0 casino pack), per-backdrop background music
-// (owner-supplied saloon loop + OpenGameArt CC0 beach/western/disco beds)
-// and original character voice lines synthesised with Kokoro TTS for this
-// project. Everything is MP3 (iOS Safari cannot decode Ogg Vorbis) and short
+// (owner-supplied saloon loop + OpenGameArt CC0 beach/western/disco beds),
+// original character voice lines synthesised with Kokoro TTS, and the
+// dealer calls from B. Patrick's Poker Dealer voice pack (dry takes).
+// Everything is MP3 (iOS Safari cannot decode Ogg Vorbis) and short
 // clips play through WebAudio: once the context is unlocked by the first tap,
-// timer-driven sounds (NPC chatter, opponent actions) keep working on iOS,
-// where HTMLAudio.play() outside a user gesture is rejected. Failures
-// (autoplay policy before first gesture, missing files) are silent by design.
+// timer-driven sounds (NPC chatter, opponent actions, dealer calls) keep
+// working on iOS, where HTMLAudio.play() outside a user gesture is rejected.
+// Failures (autoplay policy before first gesture, missing files) are silent
+// by design.
 window.pokerAudio = (function () {
     let ctx = null;
     const buffers = {};       // url -> Promise<AudioBuffer>
     let muted = false;
     let music = null;
-    let voiceSrc = null;      // one voice at a time so lines don't overlap
+    let voiceSrc = null;      // one character voice at a time so lines don't overlap
     let lastVoiceAt = 0;
     let aliveSeats = [];
+    // Dealer calls queue so a burst (blinds, then a hand name) plays in order
+    // instead of stacking. Character chatter waits until the dealer is done.
+    let dealerQueue = [];
+    let dealerSrc = null;
+    let dealerPlaying = false;
+    let dealerToken = 0;
 
     // Seat order matches the fixed table roster in Home.razor.
     const SEAT_NAMES = [null, 'davo', 'mick', 'shazza', 'bluey', 'kev'];
@@ -127,12 +135,81 @@ window.pokerAudio = (function () {
             if (p) p.catch(function () { });
         } catch (e) { }
     }
+    function stopDealer() {
+        dealerToken++;
+        dealerQueue = [];
+        dealerPlaying = false;
+        if (dealerSrc) {
+            try { dealerSrc.onended = null; dealerSrc.stop(); } catch (e) { }
+            dealerSrc = null;
+        }
+    }
+
+    function pumpDealer() {
+        if (dealerPlaying || muted || !dealerQueue.length) return;
+        if (!ensureCtx() || ctx.state !== 'running') return;
+        const name = dealerQueue.shift();
+        const token = dealerToken;
+        dealerPlaying = true;
+        try { if (voiceSrc) voiceSrc.stop(); } catch (e) { }
+        voiceSrc = null;
+        lastVoiceAt = Date.now();
+        const src = ctx.createBufferSource();
+        dealerSrc = src;
+        loadBuffer('audio/dealer/' + name + '.mp3').then(function (buf) {
+            if (token !== dealerToken || muted) {
+                // This call was cleared (restart, mute). Don't leave the queue
+                // stuck if the token is still ours.
+                if (token === dealerToken) {
+                    dealerPlaying = false;
+                    dealerSrc = null;
+                }
+                return;
+            }
+            src.buffer = buf;
+            src.onended = function () {
+                if (token !== dealerToken) return;
+                dealerPlaying = false;
+                dealerSrc = null;
+                lastVoiceAt = Date.now();
+                pumpDealer();
+            };
+            const gain = ctx.createGain();
+            gain.gain.value = 1;
+            src.connect(gain).connect(ctx.destination);
+            src.start();
+        }).catch(function () {
+            if (token !== dealerToken) return;
+            dealerPlaying = false;
+            dealerSrc = null;
+            pumpDealer();
+        });
+    }
+
+    // One dealer call. Ignored until the first tap unlocks audio, same as SFX,
+    // so a hand that started under the title card does not dump a backlog.
+    function dealer(name) {
+        if (muted || !name) return;
+        if (!ensureCtx() || ctx.state !== 'running') return;
+        dealerQueue.push(name);
+        pumpDealer();
+    }
+
     // Browsers block audio until the first user gesture, so (re)try on taps.
     // The same tap unlocks the WebAudio context used for SFX and voices.
-    document.addEventListener('pointerdown', function () { ensureCtx(); startMusic(); });
+    document.addEventListener('pointerdown', function () {
+        const c = ensureCtx();
+        if (c && c.state === 'suspended') {
+            const p = c.resume();
+            if (p) p.then(function () { pumpDealer(); }).catch(function () { });
+        } else {
+            pumpDealer();
+        }
+        startMusic();
+    });
 
     function voice(seat, kind) {   // kind: 'idle' | 'win' | 'lose'
-        if (muted) return;
+        if (muted || dealerPlaying || dealerQueue.length) return;
         const name = SEAT_NAMES[seat];
         if (!name) return;
         const now = Date.now();
@@ -161,6 +238,8 @@ window.pokerAudio = (function () {
     return {
         play: play,
         voice: voice,
+        dealer: dealer,
+        clearDealer: stopDealer,
         // Start the intro movie audio (called on the same tap that starts
         // the camera sweep, so autoplay is already unlocked). The tap's own
         // pointerdown may have started the saloon loop a moment earlier —
@@ -197,6 +276,7 @@ window.pokerAudio = (function () {
             muted = m;
             if (music) { if (m) music.pause(); else startMusic(); }
             if (m && voiceSrc) { try { voiceSrc.stop(); } catch (e) { } voiceSrc = null; }
+            if (m) stopDealer();
         }
     };
 })();
