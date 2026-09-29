@@ -2,6 +2,7 @@
 @using CinematicPoker.Engine.AI
 @using CinematicPoker.Engine.Players
 @using CinematicPoker.Engine.Poker
+@using CinematicPoker.Engine.Simulation
 @inject IJSRuntime JS
 
 <PageTitle>Cinematic Poker</PageTitle>
@@ -28,6 +29,7 @@
                 @(_quickMode ? "QUICK PLAY" : "CINEMATIC")
             </button>
             <button class="chip-btn" @onclick="CycleDifficulty">@DifficultyNames[_difficulty]</button>
+            <button class="chip-btn" @onclick="OpenExportPanel">EXPORT</button>
             <button class="chip-btn" @onclick="StartSession">RESTART</button>
         </div>
     </header>
@@ -119,7 +121,40 @@
         <div class="overlay">
             <div class="overlay-box">
                 <div class="overlay-title">@_sessionOverMessage</div>
-                <button class="act call big" @onclick="StartSession">PLAY AGAIN</button>
+                <div class="overlay-actions">
+                    <button class="act call big" @onclick="OpenExportPanel">EXPORT STATS</button>
+                    <button class="act call big" @onclick="StartSession">PLAY AGAIN</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_exportOpen)
+    {
+        <div class="overlay" @onclick="CloseExportPanel">
+            <div class="overlay-box export-box" @onclick:stopPropagation="true">
+                <div class="overlay-title">EXPORT STATS</div>
+                <p class="export-blurb">
+                    Send your session history as CSV via email or text
+                    @if (_handLog.CompletedHandCount > 0)
+                    {
+                        <text> · @_handLog.CompletedHandCount hand@(_handLog.CompletedHandCount == 1 ? "" : "s")</text>
+                    }
+                    else
+                    {
+                        <text> · no hands yet</text>
+                    }
+                </p>
+                @if (!string.IsNullOrEmpty(_exportNote))
+                {
+                    <p class="export-note">@_exportNote</p>
+                }
+                <div class="export-actions">
+                    <button class="act call" @onclick="ExportViaEmail" disabled="@(_handLog.CompletedHandCount == 0)">EMAIL CSV</button>
+                    <button class="act bet" @onclick="ExportViaText" disabled="@(_handLog.CompletedHandCount == 0)">TEXT CSV</button>
+                    <button class="act small" @onclick="ExportDownload" disabled="@(_handLog.CompletedHandCount == 0)">DOWNLOAD</button>
+                    <button class="act small" @onclick="CloseExportPanel">CLOSE</button>
+                </div>
             </div>
         </div>
     }
@@ -199,6 +234,7 @@
     }
 
     private PokerGame _game;
+    private HandSequenceLog _handLog = new();
     private readonly Random _rng = new();
     private readonly Dictionary<int, IReadOnlyList<Card>> _revealed = new();
     private int _showdownHandCount; // hands compared at the current showdown
@@ -220,6 +256,8 @@
     private bool _quickMode;
     private bool _sessionOver;
     private bool _hudBoardExpanded;
+    private bool _exportOpen;
+    private string _exportNote = "";
     private string _sessionOverMessage = "";
     private string _banner;
     private string _statusLine = "";
@@ -360,6 +398,9 @@
         _game = new PokerGame(rules, players, seed: _rng.Next());
         _game.EventEmitted += OnEngineEvent;
 
+        _handLog = new HandSequenceLog();
+        _handLog.BeginSession(0, rules, players);
+
         _log.Clear();
         _revealed.Clear();
         _pending.Clear();
@@ -370,6 +411,8 @@
         _showSlider = false;
         _streetAggression = 0;
         _dealerOpened = false;
+        _exportOpen = false;
+        _exportNote = "";
         try { _ = JS.InvokeVoidAsync("pokerAudio.clearDealer"); }
         catch (InvalidOperationException) { /* first start, before the page can reach JS */ }
         catch (JSException) { }
@@ -468,10 +511,98 @@
 
     private void ToggleMode() => _quickMode = !_quickMode;
 
+    // ------------------------------------------------------------- export CSV
+
+    private void OpenExportPanel()
+    {
+        _exportNote = "";
+        _exportOpen = true;
+    }
+
+    private void CloseExportPanel()
+    {
+        _exportOpen = false;
+        _exportNote = "";
+    }
+
+    private string BuildExportCsv()
+    {
+        long currentStack = _game?.GetPlayer(0)?.Stack ?? TableRules.Default.StartingStack;
+        return _handLog.BuildPlayerCsv(humanSeat: 0, new HandSequenceLog.PlayerExportMeta
+        {
+            StartingStack = TableRules.Default.StartingStack,
+            CurrentStack = currentStack,
+            Difficulty = DifficultyNames[_difficulty],
+            PlayMode = _quickMode ? "QUICK PLAY" : "CINEMATIC",
+            Backdrop = _backdropName
+        });
+    }
+
+    private async Task ExportViaEmail()
+    {
+        if (_handLog.CompletedHandCount == 0) return;
+        try
+        {
+            var result = await JS.InvokeAsync<ExportShareResult>(
+                "pokerExport.emailCsv", BuildExportCsv(), "Cinematic Poker stats");
+            _exportNote = result?.Downloaded == true
+                ? "CSV was long for email — full file also downloaded."
+                : "Opening your email app…";
+        }
+        catch (JSException)
+        {
+            _exportNote = "Could not open email. Try Download instead.";
+        }
+    }
+
+    private async Task ExportViaText()
+    {
+        if (_handLog.CompletedHandCount == 0) return;
+        try
+        {
+            var result = await JS.InvokeAsync<ExportShareResult>(
+                "pokerExport.textCsv", BuildExportCsv());
+            _exportNote = result?.Downloaded == true
+                ? "CSV was long for text — full file downloaded to attach."
+                : "Opening your messages app…";
+        }
+        catch (JSException)
+        {
+            _exportNote = "Could not open messages. Try Download instead.";
+        }
+    }
+
+    private async Task ExportDownload()
+    {
+        if (_handLog.CompletedHandCount == 0) return;
+        try
+        {
+            await JS.InvokeVoidAsync("pokerExport.downloadCsv", "cinematic-poker-stats.csv", BuildExportCsv());
+            _exportNote = "CSV downloaded.";
+        }
+        catch (JSException)
+        {
+            _exportNote = "Download failed in this browser.";
+        }
+    }
+
+    private sealed class ExportShareResult
+    {
+        public bool Ok { get; set; }
+        public bool Truncated { get; set; }
+        public bool Downloaded { get; set; }
+    }
+
     // ------------------------------------------------------------- engine events
 
     // Events are only queued here; ApplyEvent presents them via DrainEvents.
-    private void OnEngineEvent(PokerEvent evt) => _pending.Enqueue(evt);
+    // The hand log records every event immediately so exports stay complete
+    // even while the table is still animating a prior street.
+    private void OnEngineEvent(PokerEvent evt)
+    {
+        _handLog.OnEvent(evt);
+        _pending.Enqueue(evt);
+    }
 
     /// <summary>
     /// Presents queued engine events in order, pausing before the dramatic
