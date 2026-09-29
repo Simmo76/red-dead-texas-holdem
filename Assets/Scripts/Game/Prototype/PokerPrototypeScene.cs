@@ -51,15 +51,9 @@ namespace CinematicPoker.Game.Prototype
             ("Kev", AIProfile.Professional)
         };
 
-        // Kenney mini-character models (CC0) matched to the roster above.
-        private static readonly string[] CharacterModels =
-        {
-            "character-male-a",   // Davo
-            "character-male-b",   // Mick
-            "character-female-a", // Shazza
-            "character-male-c",   // Bluey
-            "character-male-d"    // Kev
-        };
+        // Western humanoids are seated in the web client (David Grette packs).
+        // Unity prototype keeps capsule placeholders until those FBX are imported.
+        private static readonly string[] CharacterModels = null;
 
         public PokerTableController Controller { get; private set; }
 
@@ -149,9 +143,11 @@ namespace CinematicPoker.Game.Prototype
                     Quaternion faceCentre = Quaternion.LookRotation(new Vector3(-pos.x, 0f, -pos.z).normalized);
                     SpawnModel("Furniture/chairCushion", pos, faceCentre, 1f);
 
-                    // Real 3D character when the CC0 pack is present; capsule fallback otherwise.
-                    _characters[seat] = PrototypeCharacter.Create(
-                        CharacterModels[seat - 1], pos + Vector3.up * 0.22f, faceCentre);
+                    if (CharacterModels != null && seat - 1 < CharacterModels.Length)
+                    {
+                        _characters[seat] = PrototypeCharacter.Create(
+                            CharacterModels[seat - 1], pos + Vector3.up * 0.22f, faceCentre);
+                    }
                     if (_characters[seat] == null)
                     {
                         GameObject body = CreatePrimitive(PrimitiveType.Capsule, $"NPC_{seat}",

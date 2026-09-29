@@ -3,8 +3,9 @@
 // club) built procedurally from primitives, each with its own mood lighting.
 // Props/textures are CC0; the street backdrop is a web-optimised conversion of
 // the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
-// Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy. The sit is posed on his own skeleton — see ASSET_LICENSES.md.
+// Six seats: David Grette's Cowboy (Jacob), Cowboy Girl 1 & 2, and Cowboy 2
+// (bandit). Each supplied model appears at least once; extra seats are extra
+// Jacob outfit draws. Sit poses are retargeted from Jacob — ASSET_LICENSES.md.
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
@@ -24,6 +25,14 @@ const WESTERN_SCALE = 1.098;
 // Outfit and head presets from the Cowboy 1 pack (SK_Jacob). Each game deals
 // six distinct looks, one per seat, including the player. `shirt` / `shirtOpt`
 // are the two shirt meshes (only one is worn). Zero means that piece is off.
+// Owner-supplied western character GLBs (converted from Unity packages).
+const WESTERN_MODELS = {
+  jacob: { url: 'models/characters/western/Jacob.glb?v=4' },
+  girl1: { url: 'models/characters/western/CowboyGirl1.glb?v=1' },
+  girl2: { url: 'models/characters/western/CowboyGirl2.glb?v=1' },
+  cowboy2: { url: 'models/characters/western/Cowboy2.glb?v=1' }
+};
+
 const WESTERN_LOOKS = [
   { pants: 1, jacket: 1, shirt: 0, shirtOpt: 1, scarf: 1, hat: 1, hair: 'cut', gun: true, holster: true, belt: true, head: 'clean' },
   { pants: 2, jacket: 2, shirt: 0, shirtOpt: 2, scarf: 2, hat: 2, hair: 'cut', gun: true, holster: true, belt: true, head: 'dirt' },
@@ -59,6 +68,23 @@ function shuffle(list) {
     a[j] = tmp;
   }
   return a;
+}
+
+/** One of each supplied western model, plus Jacob fills for the sixth seat. */
+function buildWesternSeatSpecs() {
+  const looks = shuffle(WESTERN_LOOKS);
+  let lookIdx = 0;
+  const takeLook = () => looks[lookIdx++ % looks.length];
+  const npcModels = shuffle([
+    { model: 'girl1' },
+    { model: 'girl2' },
+    { model: 'cowboy2' },
+    { model: 'jacob', look: takeLook() },
+    { model: 'jacob', look: takeLook() }
+  ]);
+  const specs = [{ model: 'jacob', look: takeLook(), cards: true }];
+  for (const entry of npcModels) specs.push({ ...entry, cards: false });
+  return specs;
 }
 
 // The player's own body, seen from the over-the-shoulder camera. Same cowboy
@@ -315,7 +341,7 @@ function characterMaterial(material, shirt, meshName) {
   // on this export, and a front-only pass draws the white sclera instead of
   // the eye. Solid cloth stays front-faced.
   const alphaCard = !!(m.transparent || m.alphaTest > 0);
-  const headMesh = /^Head__|^Jacob_head/i.test(meshName || '');
+  const headMesh = /^Head(__|$)|^Jacob_head|^Michael_head/i.test(meshName || '');
   m.side = (alphaCard || headMesh) ? THREE.DoubleSide : THREE.FrontSide;
   m.shadowSide = THREE.FrontSide;
   m.userData.baseOpacity = m.opacity;
@@ -836,10 +862,15 @@ async function buildScene(canvas) {
   state.seats = [];
   const charPromises = [];
 
-  // One rig, every outfit. A fresh draw every time the table is built.
-  const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
   const reactionModel = loadGlb(loader, 'models/characters/western/reactions.glb?v=1');
-  const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
+  const seatSpecs = buildWesternSeatSpecs();
+  const westernModelCache = new Map();
+  const loadWesternModel = (id) => {
+    if (!westernModelCache.has(id)) {
+      westernModelCache.set(id, loadGlb(loader, WESTERN_MODELS[id].url));
+    }
+    return westernModelCache.get(id);
+  };
 
   // Position a seated character at seat i: face the table, hips at the seat,
   // feet on the floor, regardless of the pose's baked root offsets.
@@ -900,9 +931,13 @@ async function buildScene(canvas) {
     const pos = seatPos(i, SEAT_RADIUS);
     const facing = Math.atan2(-pos.x, -pos.z); // yaw toward table centre
 
-    // Every seat, including the player, is one of this game's looks.
-    const spec = { look: lineup[i], cards: i === 0, scale: WESTERN_SCALE };
-    charPromises.push(Promise.all([westernModel, reactionModel]).then(([gltf, react]) => {
+    const seatSpec = seatSpecs[i];
+    const spec = {
+      look: seatSpec.look,
+      cards: seatSpec.cards,
+      scale: WESTERN_SCALE
+    };
+    charPromises.push(Promise.all([loadWesternModel(seatSpec.model), reactionModel]).then(([gltf, react]) => {
       const character = makeCharacter(gltf, spec, react && react.animations);
       if (!character) return;
       character.variant = i;

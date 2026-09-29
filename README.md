@@ -17,7 +17,7 @@ The player competes exclusively against NPCs — no real-money wagering, no mult
 
 ## Play it in the browser
 
-A playable web version lives in `Web/CinematicPoker.Web` — a Blazor WebAssembly app that compiles **the exact same pure C# engine** the Unity game and the test suite use, so the poker rules and the five NPC personalities are identical. It runs entirely client-side (offline once loaded, nothing to install) and works on desktop and mobile browsers. Each time the table loads, the five NPC seats are a random draw from the owner's Meshy character set; the player character stays the Jimmy soldier.
+A playable web version lives in `Web/CinematicPoker.Web` — a Blazor WebAssembly app that compiles **the exact same pure C# engine** the Unity game and the test suite use, so the poker rules and the five NPC personalities are identical. It runs entirely client-side (offline once loaded, nothing to install) and works on desktop and mobile browsers. Each time the table loads, the six seats use David Grette's western characters (Cowboy/Jacob, Cowboy Girl 1 & 2, and Cowboy 2/bandit): every supplied model appears at least once, with extra seats as additional Cowboy outfit draws.
 
 - **Live link (once merged to `main` and GitHub Pages is enabled):** `https://simmo76.github.io/red-dead-texas-holdem/`
 - **Link-only sharing**: anyone with the link can load and play immediately — no password, no account, no install. The page carries `noindex, nofollow` so search engines skip it; access control is simply not sharing the link. For real per-person access control later, put the site behind an auth proxy such as Cloudflare Access.
@@ -142,7 +142,7 @@ The prototype and web version use free CC0 game assets — every file is recorde
 - **Kenney Mini Characters** — five rigged, animated 3D characters (idle/sit/emote-yes/emote-no/die clips embedded in the FBX) used as the NPCs, and **Kenney Furniture Kit** — chairs, ceiling lamp, rug, potted plant, radio for set dressing. CC0.
 - **Poly Haven** fabric and wood textures (table felt and rail) — [polyhaven.com](https://polyhaven.com), CC0.
 
-In Unity they live under `Assets/Resources/Poker/` and are loaded at runtime by `PrototypeAssets` (card quads get real faces, NPCs get face-down cards, the table gets felt/wood, and engine events trigger casino audio). The NPCs are Kenney mini-characters seated on furniture-kit chairs: `PrototypeCharacter` drives them with the Playables API directly (no AnimatorController asset needed) — a held frame of the `sit` clip as the seated pose, `emote-yes` when they win a pot, `emote-no` when they fold, and `die` when they bust out. Everything is null-safe: delete the folder and the prototype falls back to its primitive-and-text look (capsule NPCs included).
+In Unity they live under `Assets/Resources/Poker/` and are loaded at runtime by `PrototypeAssets` (card quads get real faces, NPCs get face-down cards, the table gets felt/wood, and engine events trigger casino audio). Seated western humanoids are wired up in the **web** client (`poker-scene.js` + GLBs under `Web/.../models/characters/western/`); the Unity prototype uses capsule NPC placeholders until the David Grette FBX packs are imported locally. Everything is null-safe: missing art falls back to primitives.
 
 ## Roadmap
 
