@@ -1981,6 +1981,22 @@ window.pokerScene = {
     endIntro();
   },
 
+  // Snap the camera back to the over-the-shoulder home view behind the
+  // player: cancels any card close-up and eases the orbit offsets, pinch
+  // zoom and pan back to their defaults (same reset as a double-tap).
+  resetCamera() {
+    if (!state.ready) return;
+    state.zoom.active = false;
+    const view = state.view;
+    if (view) {
+      view.targetOffYaw = 0;
+      view.targetOffPitch = 0;
+      view.targetDistScale = 1;
+      view.targetPanRight = 0;
+      view.targetPanUp = 0;
+    }
+  },
+
   // Cycle to the next backdrop set; returns the new backdrop name for the
   // topbar button label.
   cycleBackdrop() {
