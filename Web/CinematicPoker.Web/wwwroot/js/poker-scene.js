@@ -600,7 +600,7 @@ async function buildScene(canvas) {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x07070f);
-  scene.fog = new THREE.Fog(0x07070f, 12, 58);
+  scene.fog = new THREE.Fog(0x07070f, 14, 70);
 
   const camera = new THREE.PerspectiveCamera(56, canvas.clientWidth / canvas.clientHeight, 0.05, 140);
 
@@ -646,9 +646,9 @@ async function buildScene(canvas) {
 
   // ---- lighting: cool neon night around the street, with the familiar warm
   // lantern pool kept over the felt so the game still reads like a card den.
-  const ambient = new THREE.AmbientLight(0x4a5578, 0.55);
+  const ambient = new THREE.AmbientLight(0x5a6690, 1.2);
   scene.add(ambient);
-  const hemi = new THREE.HemisphereLight(0x35406b, 0x0c0a14, 0.5);
+  const hemi = new THREE.HemisphereLight(0x46538a, 0x1c1a2e, 0.9);
   scene.add(hemi);
 
   const lantern = new THREE.PointLight(0xffc477, 22, 9, 1.9);
@@ -725,16 +725,31 @@ async function buildScene(canvas) {
         m.receiveShadow = false;
         // Punch up the neon signage so it glows through the night fog.
         if (m.material && m.material.emissiveIntensity) {
-          m.material.emissiveIntensity *= 2.2;
+          m.material.emissiveIntensity *= 3.0;
         }
       }
     });
     env.add(street);
+    // Street lamps: cool pools over the storefront row and the crate cluster
+    // so the backdrop reads instead of dissolving into the night. They live in
+    // the env group, so they switch off with the arcade backdrop.
+    const lampSpecs = [
+      [0x8fb8ff, 50, 24, [4.5, 3.6, -7.5]],   // storefront frontage, north-east
+      [0x9fc4ff, 45, 22, [-6.0, 3.4, -8.0]],  // crate cluster, north-west
+      [0xffb493, 38, 22, [11.0, 3.2, -1.5]],  // warm spill down the east street
+      [0x8fa8e8, 32, 24, [-13.0, 3.8, -12.0]], // west cluster rim light
+      [0x7d8fc8, 70, 36, [0.0, 9.0, -13.0]]    // broad wash: mid-street ground + facades
+    ];
+    for (const [color, intensity, dist, pos] of lampSpecs) {
+      const lamp = new THREE.PointLight(color, intensity, dist, 1.8);
+      lamp.position.set(pos[0], pos[1], pos[2]);
+      env.add(lamp);
+    }
     // The converted set has no ground surface (only thin neon grid lines), so
     // lay a night asphalt slab at street level for the table to stand on.
     const asphalt = new THREE.Mesh(
       new THREE.CircleGeometry(70, 48),
-      new THREE.MeshStandardMaterial({ color: 0x101321, roughness: 0.96, metalness: 0.05 }));
+      new THREE.MeshStandardMaterial({ color: 0x181d30, roughness: 0.96, metalness: 0.05 }));
     asphalt.rotation.x = -Math.PI / 2;
     asphalt.position.y = -0.01; // just below the shadow catcher
     env.add(asphalt);
@@ -745,7 +760,7 @@ async function buildScene(canvas) {
 
   // Faint cool moonlight so the street silhouettes read against the night.
   // (Doubles as the sun/celestial key for the other switchable backdrops.)
-  const moon = new THREE.DirectionalLight(0x7285c8, 0.5);
+  const moon = new THREE.DirectionalLight(0x7285c8, 1.8);
   moon.position.set(-14, 26, 10);
   scene.add(moon);
 
@@ -755,7 +770,7 @@ async function buildScene(canvas) {
   // pool over the felt stays constant so the game always reads the same.
   // bg doubles as the fog colour so distant geometry melts into the sky.
   const ENVS = [
-    { name: 'ARCADE', bg: 0x07070f, fog: [12, 58], amb: [0x4a5578, 0.55], hemi: [0x35406b, 0x0c0a14, 0.5], dir: [0x7285c8, 0.5, [-14, 26, 10]], fill: [0x9adfe8, 3.5], back: [0xe08ad8, 4.5], build: null },
+    { name: 'ARCADE', bg: 0x07070f, fog: [14, 70], amb: [0x5a6690, 1.2], hemi: [0x46538a, 0x1c1a2e, 0.9], dir: [0x7285c8, 1.8, [-14, 26, 10]], fill: [0x9adfe8, 4.5], back: [0xe08ad8, 5.5], build: null },
     { name: 'BEACH', bg: 0x2f9ed3, fog: [30, 130], amb: [0xbfd8e8, 0.65], hemi: [0xcfe8ff, 0x8a7a5a, 0.55], dir: [0xfff2d8, 1.7, [18, 30, 12]], fill: [0xbfe8ff, 1.2], back: [0xffe8c8, 1.2], build: buildBeach },
     { name: 'DESERT', bg: 0xe8b878, fog: [25, 110], amb: [0xd8b890, 0.85], hemi: [0xf0d0a8, 0x9a6a3a, 0.7], dir: [0xffd8a0, 2.4, [-20, 18, 8]], fill: [0xffc890, 1.2], back: [0xff9860, 1.8], build: buildDesert },
     { name: 'SHED', bg: 0x0d0906, fog: [8, 26], amb: [0x584838, 0.35], hemi: [0x4a3828, 0x140c06, 0.35], dir: [0xc8a878, 0.15, [-6, 12, 6]], fill: [0xffb868, 1.2], back: [0x684828, 1.0], build: buildShed },
