@@ -231,6 +231,96 @@ function makeChipStacks(amount, spread = 0.05) {
   return group;
 }
 
+// ------------------------------------------------------------------ button chips
+
+// Physical dealer/blind buttons, the standard casino set: a white DEALER
+// puck, a blue SMALL BLIND and a yellow BIG BLIND. Each sits flat on the
+// felt beside its player's cards, slides across the table when the deal
+// passes on, and the blind pucks leave once the flop is out.
+const BUTTON_RADIUS = 0.08;
+const BUTTON_HEIGHT = 0.02;
+
+function buttonFaceTexture(lines, bg, fg) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = bg;
+  g.fillRect(0, 0, 256, 256); // the circular cap shows only the inscribed disc
+  g.fillStyle = fg;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.font = 'bold 58px Arial, sans-serif';
+  if (lines.length === 1) {
+    g.fillText(lines[0], 128, 132);
+  } else {
+    g.fillText(lines[0], 128, 99);
+    g.fillText(lines[1], 128, 163);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+function makeButtonChip(lines, faceBg, textColor, sideColor) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(BUTTON_RADIUS, BUTTON_RADIUS, BUTTON_HEIGHT, 32),
+    new THREE.MeshStandardMaterial({ color: sideColor, roughness: 0.35 }));
+  body.position.y = BUTTON_HEIGHT / 2;
+  body.castShadow = true;
+  // Unlit face (like the community cards) so the text stays vivid and
+  // readable under every backdrop's mood lighting.
+  const face = new THREE.Mesh(
+    new THREE.CircleGeometry(BUTTON_RADIUS * 0.985, 32),
+    new THREE.MeshBasicMaterial({ map: buttonFaceTexture(lines, faceBg, textColor) }));
+  face.rotation.x = -Math.PI / 2; // lie flat, text upright from the player's seat
+  face.position.y = BUTTON_HEIGHT + 0.0008;
+  group.add(body, face);
+  group.visible = false;
+  return group;
+}
+
+function makeButtonChips() {
+  return {
+    dealer: { mesh: makeButtonChip(['DEALER'], '#f5f2ea', '#17151a', 0xe6e2d8), target: new THREE.Vector3() },
+    sb: { mesh: makeButtonChip(['SMALL', 'BLIND'], '#2e3192', '#f2f0ff', 0x272a7d), target: new THREE.Vector3() },
+    bb: { mesh: makeButtonChip(['BIG', 'BLIND'], '#f3c73f', '#241a05', 0xd8ac2a), target: new THREE.Vector3() },
+  };
+}
+
+// Spot beside a seat's cards: same ring the hole cards sit on, pushed along
+// the table tangent so the puck never covers cards, bets or the stack.
+function buttonChipTarget(seatIndex, tangentOff, out) {
+  const a = seatAngle(seatIndex);
+  const radial = TABLE_RADIUS - 0.34;
+  out.set(
+    Math.cos(a) * radial - Math.sin(a) * tangentOff,
+    TABLE_TOP,
+    Math.sin(a) * radial + Math.cos(a) * tangentOff);
+  return out;
+}
+
+function setButtonChip(btn, seatIndex, tangentOff) {
+  if (seatIndex < 0) { btn.mesh.visible = false; return; }
+  buttonChipTarget(seatIndex, tangentOff, btn.target);
+  if (!btn.mesh.visible) {
+    // (Re)appearing — no cross-table slide, just land at the new seat.
+    btn.mesh.position.copy(btn.target);
+    btn.mesh.visible = true;
+  }
+}
+
+// The dealer puck goes one side of the cards, the blinds the other, so a
+// heads-up seat holding both DEALER and SMALL BLIND shows both cleanly.
+function updateButtonChips(dealerSeat, sbSeat, bbSeat) {
+  const b = state.buttons;
+  if (!b) return;
+  setButtonChip(b.dealer, dealerSeat, 0.24);
+  setButtonChip(b.sb, sbSeat, -0.24);
+  setButtonChip(b.bb, bbSeat, -0.24);
+}
+
 // ------------------------------------------------------------------ dealer arrow
 
 // A golden arrow hanging over the head of whoever must act, pointing down.
@@ -581,7 +671,7 @@ async function buildScene(canvas) {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x07070f);
-  scene.fog = new THREE.Fog(0x07070f, 12, 58);
+  scene.fog = new THREE.Fog(0x07070f, 14, 70);
 
   const camera = new THREE.PerspectiveCamera(56, canvas.clientWidth / canvas.clientHeight, 0.05, 140);
 
@@ -627,9 +717,9 @@ async function buildScene(canvas) {
 
   // ---- lighting: cool neon night around the street, with the familiar warm
   // lantern pool kept over the felt so the game still reads like a card den.
-  const ambient = new THREE.AmbientLight(0x4a5578, 0.55);
+  const ambient = new THREE.AmbientLight(0x5a6690, 1.2);
   scene.add(ambient);
-  const hemi = new THREE.HemisphereLight(0x35406b, 0x0c0a14, 0.5);
+  const hemi = new THREE.HemisphereLight(0x46538a, 0x1c1a2e, 0.9);
   scene.add(hemi);
 
   const lantern = new THREE.PointLight(0xffc477, 22, 9, 1.9);
@@ -678,25 +768,65 @@ async function buildScene(canvas) {
   state.dealerArrow = makeDealerArrow();
   scene.add(state.dealerArrow);
 
+  state.buttons = makeButtonChips();
+  scene.add(state.buttons.dealer.mesh, state.buttons.sb.mesh, state.buttons.bb.mesh);
+
   // ---- street backdrop: the repo owner's licensed Leartes "Stylized
   // Cyberpunk Arcade" environment, converted to one merged meshopt GLB.
-  // The poker table sits in the middle of the arcade street.
+  // The set is a dressed street, not a plaza: its origin sits inside a light
+  // mast and the ground meshes were stripped in the web conversion. So the
+  // whole street is scaled/offset to wrap its clearest pocket (between the
+  // crate cluster and the storefront row) around the table, with the set's
+  // street level (y=-1.85 in the GLB's world frame) raised to y=0 so the
+  // table legs and the players' boots sit on the arcade floor.
+  const ARCADE_SCALE = 1.0;
+  const ARCADE_POCKET = { x: -7.5, y: -1.85, z: -3.0 }; // table spot, GLB world frame
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const backdropPromise = loadGlb(loader, 'models/env/backdrop.glb').then((gltf) => {
     if (!gltf) return;
-    const env = gltf.scene;
-    env.rotation.y = Math.PI; // arcade frontage wraps around the player's view
-    env.traverse((m) => {
+    const env = new THREE.Group();
+    const street = gltf.scene;
+    street.rotation.y = Math.PI; // arcade frontage wraps around the player's view
+    street.scale.setScalar(ARCADE_SCALE);
+    street.position.set(
+      -ARCADE_POCKET.x * ARCADE_SCALE,
+      -ARCADE_POCKET.y * ARCADE_SCALE,
+      -ARCADE_POCKET.z * ARCADE_SCALE);
+    street.traverse((m) => {
       if (m.isMesh) {
         m.castShadow = false;
         m.receiveShadow = false;
         // Punch up the neon signage so it glows through the night fog.
         if (m.material && m.material.emissiveIntensity) {
-          m.material.emissiveIntensity *= 2.2;
+          m.material.emissiveIntensity *= 3.0;
         }
       }
     });
+    env.add(street);
+    // Street lamps: cool pools over the storefront row and the crate cluster
+    // so the backdrop reads instead of dissolving into the night. They live in
+    // the env group, so they switch off with the arcade backdrop.
+    const lampSpecs = [
+      [0x8fb8ff, 50, 24, [4.5, 3.6, -7.5]],   // storefront frontage, north-east
+      [0x9fc4ff, 45, 22, [-6.0, 3.4, -8.0]],  // crate cluster, north-west
+      [0xffb493, 38, 22, [11.0, 3.2, -1.5]],  // warm spill down the east street
+      [0x8fa8e8, 32, 24, [-13.0, 3.8, -12.0]], // west cluster rim light
+      [0x7d8fc8, 70, 36, [0.0, 9.0, -13.0]]    // broad wash: mid-street ground + facades
+    ];
+    for (const [color, intensity, dist, pos] of lampSpecs) {
+      const lamp = new THREE.PointLight(color, intensity, dist, 1.8);
+      lamp.position.set(pos[0], pos[1], pos[2]);
+      env.add(lamp);
+    }
+    // The converted set has no ground surface (only thin neon grid lines), so
+    // lay a night asphalt slab at street level for the table to stand on.
+    const asphalt = new THREE.Mesh(
+      new THREE.CircleGeometry(70, 48),
+      new THREE.MeshStandardMaterial({ color: 0x181d30, roughness: 0.96, metalness: 0.05 }));
+    asphalt.rotation.x = -Math.PI / 2;
+    asphalt.position.y = -0.01; // just below the shadow catcher
+    env.add(asphalt);
     scene.add(env);
     state.envGroups[0] = env;
     env.visible = state.envIndex === 0;
@@ -704,7 +834,7 @@ async function buildScene(canvas) {
 
   // Faint cool moonlight so the street silhouettes read against the night.
   // (Doubles as the sun/celestial key for the other switchable backdrops.)
-  const moon = new THREE.DirectionalLight(0x7285c8, 0.5);
+  const moon = new THREE.DirectionalLight(0x7285c8, 1.8);
   moon.position.set(-14, 26, 10);
   scene.add(moon);
 
@@ -714,7 +844,7 @@ async function buildScene(canvas) {
   // pool over the felt stays constant so the game always reads the same.
   // bg doubles as the fog colour so distant geometry melts into the sky.
   const ENVS = [
-    { name: 'ARCADE', bg: 0x07070f, fog: [12, 58], amb: [0x4a5578, 0.55], hemi: [0x35406b, 0x0c0a14, 0.5], dir: [0x7285c8, 0.5, [-14, 26, 10]], fill: [0x9adfe8, 3.5], back: [0xe08ad8, 4.5], build: null },
+    { name: 'ARCADE', bg: 0x07070f, fog: [14, 70], amb: [0x5a6690, 1.2], hemi: [0x46538a, 0x1c1a2e, 0.9], dir: [0x7285c8, 1.8, [-14, 26, 10]], fill: [0x9adfe8, 4.5], back: [0xe08ad8, 5.5], build: null },
     { name: 'BEACH', bg: 0x2f9ed3, fog: [30, 130], amb: [0xbfd8e8, 0.65], hemi: [0xcfe8ff, 0x8a7a5a, 0.55], dir: [0xfff2d8, 1.7, [18, 30, 12]], fill: [0xbfe8ff, 1.2], back: [0xffe8c8, 1.2], build: buildBeach },
     { name: 'DESERT', bg: 0xe8b878, fog: [25, 110], amb: [0xd8b890, 0.85], hemi: [0xf0d0a8, 0x9a6a3a, 0.7], dir: [0xffd8a0, 2.4, [-20, 18, 8]], fill: [0xffc890, 1.2], back: [0xff9860, 1.8], build: buildDesert },
     { name: 'SHED', bg: 0x0d0906, fog: [8, 26], amb: [0x584838, 0.35], hemi: [0x4a3828, 0x140c06, 0.35], dir: [0xc8a878, 0.15, [-6, 12, 6]], fill: [0xffb868, 1.2], back: [0x684828, 1.0], build: buildShed },
@@ -957,6 +1087,14 @@ async function buildScene(canvas) {
       _lookMat.lookAt(camera.position, _lookTarget, _upVec);
       _desiredQuat.setFromRotationMatrix(_lookMat);
       camera.quaternion.slerp(_desiredQuat, Math.min(1, dt * 8));
+    }
+
+    // The dealer/blind pucks glide across the felt when the deal passes on.
+    if (state.buttons) {
+      for (const key of ['dealer', 'sb', 'bb']) {
+        const btn = state.buttons[key];
+        if (btn.mesh.visible) btn.mesh.position.lerp(btn.target, Math.min(1, dt * 5));
+      }
     }
 
     // The turn arrow bobs and slowly spins over the actor's head.
@@ -1824,6 +1962,22 @@ window.pokerScene = {
     endIntro();
   },
 
+  // Snap the camera back to the over-the-shoulder home view behind the
+  // player: cancels any card close-up and eases the orbit offsets, pinch
+  // zoom and pan back to their defaults (same reset as a double-tap).
+  resetCamera() {
+    if (!state.ready) return;
+    state.zoom.active = false;
+    const view = state.view;
+    if (view) {
+      view.targetOffYaw = 0;
+      view.targetOffPitch = 0;
+      view.targetDistScale = 1;
+      view.targetPanRight = 0;
+      view.targetPanUp = 0;
+    }
+  },
+
   // Cycle to the next backdrop set; returns the new backdrop name for the
   // topbar button label.
   cycleBackdrop() {
@@ -1875,6 +2029,18 @@ window.pokerScene = {
     }
     updateDealerArrow(actorSeat);
     updateActorOutline(actorSeat);
+
+    // Dealer/blind pucks: the DEALER button rides with the deal all hand;
+    // the blind pucks only mark who posted until the flop hits the felt.
+    const preflop = !(snapshot.board && snapshot.board.length);
+    const findSeat = (flag) => {
+      const s = seats.find(d => d[flag] && !d.out);
+      return s ? s.seat : -1;
+    };
+    updateButtonChips(
+      findSeat('dealer'),
+      preflop ? findSeat('sb') : -1,
+      preflop ? findSeat('bb') : -1);
     for (const data of seats) {
       const seat = state.seats[data.seat];
       if (!seat) continue;

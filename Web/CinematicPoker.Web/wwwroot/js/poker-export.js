@@ -1,18 +1,19 @@
 // Share / download helpers for the player's session stats CSV export.
-// Opens the device email or SMS composer with the CSV in the message body,
-// or falls back to a .csv file download when the body would be too long.
+// The CSV is sent as a REAL .csv file: on phones/tablets the Web Share API
+// opens the system share sheet with the file attached (pick Mail, Messages,
+// AirDrop, ...). Where file sharing isn't available (mostly desktop
+// browsers), the file is downloaded and the email/SMS composer opens with a
+// short note asking to attach it — the spreadsheet is never pasted into the
+// message body any more.
 window.pokerExport = (function () {
-  // SMS URI length varies by OS; stay conservative so the message isn't truncated.
-  var SMS_BODY_LIMIT = 1200;
-  // mailto bodies are larger, but some clients still clip around ~2k–8k.
-  var MAIL_BODY_LIMIT = 6000;
+  var FILE_NAME = 'cinematic-poker-stats.csv';
 
   function downloadCsv(filename, csv) {
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = filename || 'cinematic-poker-stats.csv';
+    a.download = filename || FILE_NAME;
     a.rel = 'noopener';
     document.body.appendChild(a);
     a.click();
@@ -30,37 +31,53 @@ window.pokerExport = (function () {
     a.remove();
   }
 
-  function emailCsv(csv, subject) {
-    var sub = subject || 'Cinematic Poker stats';
-    var body = csv;
-    var truncated = false;
-    if (body.length > MAIL_BODY_LIMIT) {
-      body = body.slice(0, MAIL_BODY_LIMIT) +
-        '\n\n…(CSV truncated for email; download the full file from the table.)\n';
-      truncated = true;
-      downloadCsv('cinematic-poker-stats.csv', csv);
+  // Try to hand the CSV to the system share sheet as an actual file.
+  // Returns a result object when the share path was taken (sent or
+  // cancelled), or null when this browser can't share files.
+  async function shareCsvFile(csv, title) {
+    if (typeof File === 'undefined' || !navigator.canShare || !navigator.share) return null;
+    var file;
+    try {
+      file = new File([csv], FILE_NAME, { type: 'text/csv' });
+    } catch (e) {
+      return null;
     }
-    openUri('mailto:?subject=' + encodeURIComponent(sub) +
-      '&body=' + encodeURIComponent(body));
-    return { ok: true, truncated: truncated, downloaded: truncated };
+    if (!navigator.canShare({ files: [file] })) return null;
+    try {
+      await navigator.share({ files: [file], title: title || 'Cinematic Poker stats' });
+      return { ok: true, shared: true, aborted: false, downloaded: false };
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        // The player closed the share sheet — not an error, nothing sent.
+        return { ok: false, shared: false, aborted: true, downloaded: false };
+      }
+      return null; // NotAllowedError etc — fall back to the composer flow
+    }
   }
 
-  function textCsv(csv) {
-    var body = csv;
-    var truncated = false;
-    if (body.length > SMS_BODY_LIMIT) {
-      // Keep a short summary in SMS and download the full CSV for attaching.
-      var lines = csv.split(/\r?\n/).filter(Boolean);
-      var summary = lines.slice(0, 12).join('\n');
-      body = 'Cinematic Poker stats (CSV attached via Downloads):\n\n' +
-        summary +
-        '\n\n…full CSV saved as cinematic-poker-stats.csv';
-      truncated = true;
-      downloadCsv('cinematic-poker-stats.csv', csv);
-    }
+  async function emailCsv(csv, subject) {
+    var sharedResult = await shareCsvFile(csv, subject);
+    if (sharedResult) return sharedResult;
+    // Fallback: download the .csv and open the email composer with a short
+    // note (not the raw CSV) asking to attach the downloaded file.
+    downloadCsv(FILE_NAME, csv);
+    openUri('mailto:?subject=' + encodeURIComponent(subject || 'Cinematic Poker stats') +
+      '&body=' + encodeURIComponent(
+        'My Cinematic Poker session stats and coaching notes are in the attached file.\n\n' +
+        '(' + FILE_NAME + ' was just downloaded - attach it to this email before sending.)'));
+    return { ok: true, shared: false, aborted: false, downloaded: true };
+  }
+
+  async function textCsv(csv) {
+    var sharedResult = await shareCsvFile(csv, 'Cinematic Poker stats');
+    if (sharedResult) return sharedResult;
+    // Fallback: download the .csv and open the SMS composer with a short note.
+    downloadCsv(FILE_NAME, csv);
     // iOS: sms:&body=  Android: sms:?body= — try the ampersand form first.
-    openUri('sms:&body=' + encodeURIComponent(body));
-    return { ok: true, truncated: truncated, downloaded: truncated };
+    openUri('sms:&body=' + encodeURIComponent(
+      'My Cinematic Poker session stats are in ' + FILE_NAME +
+      ' (just downloaded) - attaching it now.'));
+    return { ok: true, shared: false, aborted: false, downloaded: true };
   }
 
   return {

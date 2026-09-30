@@ -39,7 +39,7 @@
         <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b> <span class="hud-stack">· YOU&nbsp;<b>$@ShownStack(0)</b></span></div>
 
         <div class="hud-board @(_hudBoardExpanded ? "expanded" : "")"
-             @onclick="() => _hudBoardExpanded = !_hudBoardExpanded">
+             @onclick="ToggleHudBoard">
             <div class="hud-row">
                 @* Dealt cards fill from the right so they hug the border,
                    aligned above the player's pair. *@
@@ -135,7 +135,7 @@
             <div class="overlay-box export-box" @onclick:stopPropagation="true">
                 <div class="overlay-title">EXPORT STATS</div>
                 <p class="export-blurb">
-                    Send your session history as CSV via email or text
+                    Send your session history and coaching notes as a .csv file via email or text
                     @if (_handLog.CompletedHandCount > 0)
                     {
                         <text> · @_handLog.CompletedHandCount hand@(_handLog.CompletedHandCount == 1 ? "" : "s")</text>
@@ -552,6 +552,16 @@
 
     private void ToggleMode() => _quickMode = !_quickMode;
 
+    // Tapping the community-cards window also brings the camera home to the
+    // over-the-shoulder view, so it doubles as a "back to my seat" button.
+    private async Task ToggleHudBoard()
+    {
+        _hudBoardExpanded = !_hudBoardExpanded;
+        if (!_sceneReady) return;
+        try { await JS.InvokeVoidAsync("pokerScene.resetCamera"); }
+        catch (JSException) { /* scene not available; HUD still works */ }
+    }
+
     // ------------------------------------------------------------- export CSV
 
     private void OpenExportPanel()
@@ -586,9 +596,7 @@
         {
             var result = await JS.InvokeAsync<ExportShareResult>(
                 "pokerExport.emailCsv", BuildExportCsv(), "Cinematic Poker stats");
-            _exportNote = result?.Downloaded == true
-                ? "CSV was long for email — full file also downloaded."
-                : "Opening your email app…";
+            _exportNote = ShareNote(result, "email");
         }
         catch (JSException)
         {
@@ -603,15 +611,19 @@
         {
             var result = await JS.InvokeAsync<ExportShareResult>(
                 "pokerExport.textCsv", BuildExportCsv());
-            _exportNote = result?.Downloaded == true
-                ? "CSV was long for text — full file downloaded to attach."
-                : "Opening your messages app…";
+            _exportNote = ShareNote(result, "message");
         }
         catch (JSException)
         {
             _exportNote = "Could not open messages. Try Download instead.";
         }
     }
+
+    private static string ShareNote(ExportShareResult result, string channel) =>
+        result == null ? "Something went wrong — try Download instead."
+        : result.Aborted ? "Share cancelled — nothing was sent."
+        : result.Shared ? "Share sheet opened — pick an app to send the .csv file."
+        : $"CSV file downloaded — attach it to the {channel} that just opened.";
 
     private async Task ExportDownload()
     {
@@ -630,7 +642,8 @@
     private sealed class ExportShareResult
     {
         public bool Ok { get; set; }
-        public bool Truncated { get; set; }
+        public bool Shared { get; set; }
+        public bool Aborted { get; set; }
         public bool Downloaded { get; set; }
     }
 
