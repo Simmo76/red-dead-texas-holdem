@@ -7,35 +7,17 @@ JACOB = os.path.join(ROOT, "Web/CinematicPoker.Web/wwwroot/models/characters/wes
 SRC = os.environ.get("MIGHTY_CAT_SRC", "/tmp/reactions")
 OUT = os.path.join(ROOT, "Web/CinematicPoker.Web/wwwroot/models/characters/western/mighty-cat.glb")
 
+# Torso-only retarget: Jacob's arms/hands stay on the authored sit pose. The pack's
+# poker-player clips need a full IK retarget (not done here) before they are safe.
 UPPER = {
     "spine_01": "spine_01",
     "spine_02": "spine_02",
-    "spine_03": "spine_05",
+    "spine_03": "spine_03",
     "neck_01": "neck_02",
     "head": "head",
-    "clavicle_l": "clavicle_l",
-    "upperarm_l": "upperarm_l",
-    "lowerarm_l": "lowerarm_l",
-    "hand_l": "hand_l",
-    "clavicle_r": "clavicle_r",
-    "upperarm_r": "upperarm_r",
-    "lowerarm_r": "lowerarm_r",
-    "hand_r": "hand_r",
 }
-for side in ("l", "r"):
-    for finger in ("index", "middle", "ring", "pinky", "thumb"):
-        for i in ("01", "02", "03"):
-            n = f"{finger}_{i}_{side}"
-            UPPER[n] = n
 
-# Viewer / pack mapping: Player_01 bet-chips, Player_02 check-knock, Player_03 fold-muck.
 TAKES = [
-    ("Check", "AS_Poker_Player_02.FBX"),
-    ("Bet", "AS_Poker_Player_01.FBX"),
-    ("Call", "AS_Poker_Player_01.FBX"),
-    ("Raise", "AS_Poker_Player_01.FBX"),
-    ("AllIn", "AS_Poker_Player_01.FBX"),
-    ("Fold", "AS_Poker_Player_03.FBX"),
     ("WinSmall", "AS_Reactions_Player01_Win_03.FBX"),
     ("WinBig", "AS_Reactions_Player01_Win_02.FBX"),
     ("WinBigAlt", "AS_Reactions_Player02_Win_02.FBX"),
@@ -46,7 +28,6 @@ TAKES = [
     ("WaitHot", "AS_Reactions_Player01_WaitingOthers.FBX"),
     ("Neutral", "AS_Reactions_Player02_Neutral_01.FBX"),
     ("NeutralHot", "AS_Reactions_Player03_Neutral_01.FBX"),
-    ("IdleLoop", "AS_Reactions_Player01_Neutral_02.FBX"),
 ]
 
 
@@ -68,6 +49,13 @@ def topo_names(arm):
 
 def world_quat(arm, pb):
     return (arm.matrix_world @ pb.matrix).to_quaternion()
+
+
+def bone_local_quat(arm, pb):
+    if pb.parent:
+        parent = arm.pose.bones[pb.parent.name]
+        return (parent.matrix.inverted() @ pb.matrix).to_quaternion()
+    return pb.matrix.to_quaternion()
 
 
 def ang(a, b):
@@ -133,34 +121,22 @@ def choose_window(src, scene, label):
         if score > best_s:
             best_s, best_f = score, f
     fps = scene.render.fps or 30
-    if label == "IdleLoop":
-        win_s = max(start, best_f - int(round(0.2 * fps)))
-        win_e = min(end, win_s + int(round(2.8 * fps)))
-    elif label in ("Check", "Call"):
-        win_s = max(start, best_f - int(round(0.35 * fps)))
-        win_e = min(end, best_f + int(round(1.35 * fps)))
-    elif label in ("Bet", "Raise", "AllIn"):
-        win_s = max(start, best_f - int(round(0.4 * fps)))
-        win_e = min(end, best_f + int(round(1.85 * fps)))
-    elif label == "Fold":
-        win_s = max(start, best_f - int(round(0.3 * fps)))
-        win_e = min(end, best_f + int(round(1.65 * fps)))
-    else:
-        win_s = max(start, best_f - int(round(0.45 * fps)))
-        win_e = min(end, best_f + int(round(2.35 * fps)))
+    win_s = max(start, best_f - int(round(0.45 * fps)))
+    win_e = min(end, best_f + int(round(2.35 * fps)))
     if win_e <= win_s + 4:
         win_e = min(end, win_s + int(fps * 2))
     return win_s, win_e, best_f, fps
 
 
 def sample_deltas(src, scene, win_s, win_e):
+    """Per-bone rotation delta in parent-local space (avoids left/right world mirror bugs)."""
     scene.frame_set(win_s)
     bpy.context.view_layer.update()
     ref = {}
     for dst, srcn in UPPER.items():
         pb = src.pose.bones.get(srcn)
         if pb:
-            ref[dst] = world_quat(src, pb)
+            ref[dst] = bone_local_quat(src, pb)
     frames = []
     for f in range(win_s, win_e + 1):
         scene.frame_set(f)
@@ -169,30 +145,22 @@ def sample_deltas(src, scene, win_s, win_e):
         for dst, rq in ref.items():
             pb = src.pose.bones.get(UPPER[dst])
             if pb:
-                deltas[dst] = world_quat(src, pb) @ rq.conjugated()
+                q = bone_local_quat(src, pb)
+                deltas[dst] = q @ rq.conjugated()
         frames.append(deltas)
     return frames
 
 
-def locals_for_frame(deltas, ordered, parents, rest_local, local, base_world, arm_inv, base_quat):
-    pose = {}
+def locals_for_frame(deltas, ordered, local):
     rots = {}
     prev = {}
     for name in ordered:
-        parent = parents[name]
         if name in deltas:
-            target_world = (deltas[name] @ base_quat[name]).to_matrix().to_4x4()
-            target_world.translation = base_world[name].to_translation()
-            mat = arm_inv @ target_world
-            if parent:
-                basis = rest_local[name].inverted() @ rest_local[parent] @ pose[parent].inverted() @ mat
-            else:
-                basis = rest_local[name].inverted() @ mat
-            rot = basis.to_quaternion()
+            sit_q = local[name][1]
+            rot = sit_q @ deltas[name]
+            rot.normalize()
         else:
-            mat = arm_inv @ base_world[name]
             rot = local[name][1].copy()
-        pose[name] = mat
         if name in prev:
             rot.make_compatible(prev[name])
         prev[name] = rot.copy()
@@ -234,23 +202,16 @@ def write_action(name, ordered, local, rot_frames, loop=False):
 
 def main():
     jacob, ordered, local, base_world, rest_local, parents = load_scene()
-    arm_inv = jacob.matrix_world.inverted()
-    base_quat = {name: mat.to_quaternion() for name, mat in base_world.items()}
     actions = {}
-    seen_src = {}
     for label, filename in TAKES:
         path = os.path.join(SRC, filename)
         if not os.path.isfile(path):
             print("missing", path, file=sys.stderr)
             continue
-        cache_key = (filename, label)
         src, created = import_source(path)
         win_s, win_e, peak, fps = choose_window(src, bpy.context.scene, label)
         deltas = sample_deltas(src, bpy.context.scene, win_s, win_e)
-        rot_frames = [
-            locals_for_frame(frame, ordered, parents, rest_local, local, base_world, arm_inv, base_quat)
-            for frame in deltas
-        ]
+        rot_frames = [locals_for_frame(frame, ordered, local) for frame in deltas]
         loop = label == "IdleLoop"
         actions[label] = write_action(label, ordered, local, rot_frames, loop=loop)
         print(f"baked {label} from {filename} {len(rot_frames)}f window {win_s}-{win_e}")
