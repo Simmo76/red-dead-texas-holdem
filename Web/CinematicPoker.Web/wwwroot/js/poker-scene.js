@@ -393,12 +393,13 @@ function makeCharacter(gltf, spec, extraClips) {
   });
 
   const mixer = new THREE.AnimationMixer(root);
-  // Mighty Cat seated clips override Jacob's legacy UAL takes when names clash.
-  const clips = (extraClips || []).concat(gltf.animations || []);
-  const find = (name) => THREE.AnimationClip.findByName(clips, name);
+  const jacobClips = gltf.animations || [];
+  const moodClips = extraClips || [];
+  // Table actions use Jacob's UAL retarget on this skeleton; Mighty Cat is torso-only moods.
+  const findBody = (name) => THREE.AnimationClip.findByName(jacobClips, name);
+  const findMood = (name) => THREE.AnimationClip.findByName(moodClips, name);
 
-  // IdleLoop is a retargeted Mighty Cat neutral idle; Sit is the static fallback.
-  const sitClip = find('IdleLoop') || find('Sit');
+  const sitClip = findBody('Sit');
   const isPlayer = !!spec.cards;
   let sitAction = null;
   if (sitClip) {
@@ -409,7 +410,7 @@ function makeCharacter(gltf, spec, extraClips) {
   }
 
   const character = {
-    root, mixer, sitAction, find,
+    root, mixer, sitAction, findBody, findMood,
     dead: false, reacting: false, isPlayer, armPose: null, armW: 1,
     outlineOn: false, folded: false, foldW: 0,
   };
@@ -489,9 +490,9 @@ function makeCharacter(gltf, spec, extraClips) {
 
   // Returns true only when the gesture actually started, so callers that must
   // not miss their reaction (e.g. the player's bust slump) can retry later.
-  character.playOnce = (name, seconds = 1.5, timeScale = 1) => {
+  character.playOnce = (name, seconds = 1.5, timeScale = 1, mood = false) => {
     if (character.dead || character.reacting) return false;
-    const clip = find(name);
+    const clip = mood ? findMood(name) : findBody(name);
     if (!clip || !sitAction) return false;
     const gen = ++gestureGen;
     character.reacting = true;
@@ -518,7 +519,9 @@ function makeCharacter(gltf, spec, extraClips) {
         if (sitAction.getEffectiveWeight() < 0.5) hardSit();
         const next = character._queued;
         character._queued = null;
-        if (next && !character.dead) character.playOnce(next.name, next.seconds, next.timeScale);
+        if (next && !character.dead) {
+          character.playOnce(next.name, next.seconds, next.timeScale, next.mood);
+        }
       }, 450);
     }, holdMs);
     return true;
@@ -559,10 +562,16 @@ function makeCharacter(gltf, spec, extraClips) {
     }
     if (character.dead) return false;
     if (character.reacting) {
-      if (mood === 'win' || mood === 'lose') character._queued = { name, seconds, timeScale: 1 };
+      if (mood === 'win' || mood === 'lose') {
+        character._queued = { name, seconds, timeScale: 1, mood: true };
+      }
       return false;
     }
-    return character.playOnce(name, seconds);
+    if (character.playOnce(name, seconds, 1, true)) return true;
+    if (mood === 'win') return character.playOnce('Attack', 2.2);
+    if (mood === 'lose') return character.playOnce('Fold', 1.0, 0.55);
+    if (mood === 'wait') return character.playOnce('Talk', 1.8);
+    return character.playOnce('Talk', 2.4);
   };
   character.tickFidget = (t) => {
     if (character.reacting || character.dead || character.folded) {
@@ -806,7 +815,7 @@ async function buildScene(canvas) {
 
   // One rig, every outfit. A fresh draw every time the table is built.
   const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=2');
+  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=3');
   const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
 
   // Position a seated character at seat i: face the table, hips at the seat,
@@ -1907,7 +1916,7 @@ window.pokerScene = {
         // A bust plays a lose reaction once, then settles back to sitting.
         // playOnce is skipped while another gesture is mid-flight, so only
         // latch once the reaction really started and retry until then.
-        const slumped = seat.char.playOnce('LoseBig', 2.4) || seat.char.playOnce('Crouch', 1.6);
+        const slumped = seat.char.playOnce('LoseBig', 2.4, 1, true) || seat.char.playOnce('Crouch', 1.6);
         if (!seat.char.bustReacted && slumped) seat.char.bustReacted = true;
       }
       if (seat.char && !data.out && seat.char.bustReacted) {
@@ -1938,19 +1947,23 @@ window.pokerScene = {
     const play = (name, seconds, timeScale = 1) => seat.char.playOnce(name, seconds, timeScale);
     if (kind === 'check') {
       play('Check', 1.7);
-    } else if (kind === 'call') {
-      play('Call', 1.7);
+    } else     if (kind === 'call') {
+      play('Bet', 1.0, 0.75);
     } else if (kind === 'raise') {
-      play('Raise', 2.3);
+      play('Bet', 1.0, 0.85);
       spawnChipToss(seatIndex);
     } else if (kind === 'allin') {
-      play('AllIn', 2.3, 1.05);
+      play('Bet', 1.0, 1.0);
       spawnChipToss(seatIndex);
     } else if (kind === 'bet') {
-      play('Bet', 2.3);
+      play('Bet', 1.0, 0.7);
       spawnChipToss(seatIndex);
     } else if (kind === 'fold') {
-      play('Fold', 2.0, 0.92);
+      if (seatIndex === 0) {
+        play('FoldShake', 1.9);
+        return;
+      }
+      play('Fold', 1.0, 0.55);
       if (window.pokerAudio && Math.random() < 0.25) {
         window.pokerAudio.voice(seatIndex, 'lose');
       }
@@ -1968,7 +1981,7 @@ window.pokerScene = {
       // toss that won the pot) — retry briefly until it starts.
       let tries = 0;
       const strike = () => {
-        const started = char.playOnce('WinBig', 2.6) || char.playOnce('Attack', 2.2);
+        const started = char.playOnce('WinBig', 2.6, 1, true) || char.playOnce('Attack', 2.2);
         if (!started && ++tries < 6) setTimeout(strike, 350);
       };
       strike();

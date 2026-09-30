@@ -7,36 +7,17 @@ JACOB = os.path.join(ROOT, "Web/CinematicPoker.Web/wwwroot/models/characters/wes
 SRC = os.environ.get("MIGHTY_CAT_SRC", "/tmp/reactions")
 OUT = os.path.join(ROOT, "Web/CinematicPoker.Web/wwwroot/models/characters/western/mighty-cat.glb")
 
-# Upper-body bones shared between Jacob and the Mighty Cat Epic skeleton.
-# Fingers stay on Jacob's sit pose — the pack's hand shapes do not match his mesh.
+# Torso-only retarget: Jacob's arms/hands stay on the authored sit pose. The pack's
+# poker-player clips need a full IK retarget (not done here) before they are safe.
 UPPER = {
     "spine_01": "spine_01",
     "spine_02": "spine_02",
     "spine_03": "spine_03",
     "neck_01": "neck_02",
     "head": "head",
-    "clavicle_l": "clavicle_l",
-    "upperarm_l": "upperarm_l",
-    "lowerarm_l": "lowerarm_l",
-    "hand_l": "hand_l",
-    "clavicle_r": "clavicle_r",
-    "upperarm_r": "upperarm_r",
-    "lowerarm_r": "lowerarm_r",
-    "hand_r": "hand_r",
-    "upperarm_twist_01_l": "upperarm_twist_01_l",
-    "upperarm_twist_01_r": "upperarm_twist_01_r",
-    "lowerarm_twist_01_l": "lowerarm_twist_01_l",
-    "lowerarm_twist_01_r": "lowerarm_twist_01_r",
 }
 
-# Viewer / pack mapping: Player_01 bet-chips, Player_02 check-knock, Player_03 fold-muck.
 TAKES = [
-    ("Check", "AS_Poker_Player_02.FBX"),
-    ("Bet", "AS_Poker_Player_01.FBX"),
-    ("Call", "AS_Poker_Player_01.FBX"),
-    ("Raise", "AS_Poker_Player_01.FBX"),
-    ("AllIn", "AS_Poker_Player_01.FBX"),
-    ("Fold", "AS_Poker_Player_03.FBX"),
     ("WinSmall", "AS_Reactions_Player01_Win_03.FBX"),
     ("WinBig", "AS_Reactions_Player01_Win_02.FBX"),
     ("WinBigAlt", "AS_Reactions_Player02_Win_02.FBX"),
@@ -47,7 +28,6 @@ TAKES = [
     ("WaitHot", "AS_Reactions_Player01_WaitingOthers.FBX"),
     ("Neutral", "AS_Reactions_Player02_Neutral_01.FBX"),
     ("NeutralHot", "AS_Reactions_Player03_Neutral_01.FBX"),
-    ("IdleLoop", "AS_Reactions_Player01_Neutral_02.FBX"),
 ]
 
 
@@ -141,21 +121,8 @@ def choose_window(src, scene, label):
         if score > best_s:
             best_s, best_f = score, f
     fps = scene.render.fps or 30
-    if label == "IdleLoop":
-        win_s = max(start, best_f - int(round(0.2 * fps)))
-        win_e = min(end, win_s + int(round(2.8 * fps)))
-    elif label in ("Check", "Call"):
-        win_s = max(start, best_f - int(round(0.35 * fps)))
-        win_e = min(end, best_f + int(round(1.35 * fps)))
-    elif label in ("Bet", "Raise", "AllIn"):
-        win_s = max(start, best_f - int(round(0.4 * fps)))
-        win_e = min(end, best_f + int(round(1.85 * fps)))
-    elif label == "Fold":
-        win_s = max(start, best_f - int(round(0.3 * fps)))
-        win_e = min(end, best_f + int(round(1.65 * fps)))
-    else:
-        win_s = max(start, best_f - int(round(0.45 * fps)))
-        win_e = min(end, best_f + int(round(2.35 * fps)))
+    win_s = max(start, best_f - int(round(0.45 * fps)))
+    win_e = min(end, best_f + int(round(2.35 * fps)))
     if win_e <= win_s + 4:
         win_e = min(end, win_s + int(fps * 2))
     return win_s, win_e, best_f, fps
