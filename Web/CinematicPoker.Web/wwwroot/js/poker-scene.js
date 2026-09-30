@@ -395,11 +395,20 @@ function makeCharacter(gltf, spec, extraClips) {
   const mixer = new THREE.AnimationMixer(root);
   const jacobClips = gltf.animations || [];
   const moodClips = extraClips || [];
-  // Table actions use Jacob's UAL retarget on this skeleton; Mighty Cat is torso-only moods.
   const findBody = (name) => THREE.AnimationClip.findByName(jacobClips, name);
   const findMood = (name) => THREE.AnimationClip.findByName(moodClips, name);
+  const pick = (names) => names[Math.floor(Math.random() * names.length)];
 
-  const sitClip = findBody('Sit');
+  // Mighty Cat seated player loops (viewer: Blackjack/Poker Player 01–03).
+  const IDLE_CLIPS = [
+    'IdleBlackjack01', 'IdleBlackjack02', 'IdleBlackjack03',
+    'IdlePoker01', 'IdlePoker02', 'IdlePoker03'
+  ];
+  const WIN_CLIPS = ['Win01', 'Win02', 'Win03'];
+  const LOSE_CLIPS = ['Lose01', 'Lose02', 'Lose03', 'Lose04'];
+
+  const idleName = pick(IDLE_CLIPS);
+  const sitClip = findMood(idleName) || findBody('Sit');
   const isPlayer = !!spec.cards;
   let sitAction = null;
   if (sitClip) {
@@ -456,10 +465,7 @@ function makeCharacter(gltf, spec, extraClips) {
     for (const mesh of bodyMeshes) mesh.castShadow = w < 0.5;
   };
 
-  // Jacob's Sit clip is a single stepped pose (no body motion). Procedural
-  // head drift was removed: three.js skips rewriting unchanged head keys, so
-  // multiplying a glance every frame compounded into 360° spins on NPCs.
-  // Idle life comes from the seated reaction clips (playEmotion / tickFidget).
+  // Idle is a random Mighty Cat seated player loop (IK-retargeted onto Jacob).
 
   // Unused for Jacob: the sit pose is the hold. Kept so a gesture can still
   // fade a pinned pose back in if one is ever stored on the character.
@@ -543,46 +549,21 @@ function makeCharacter(gltf, spec, extraClips) {
   // wait and play once the current one lets go.
   character.variant = 0;
   character.heat = 0.25;
-  character.nextFidget = 4 + Math.random() * 5;
+  character.idleName = idleName;
   character._queued = null;
   character.playEmotion = (mood, intensity = 0.5) => {
-    const hot = intensity >= 0.55;
-    const alt = (character.variant + (intensity >= 0.82 ? 1 : 0)) % 2 === 1;
-    let name = hot ? 'NeutralHot' : 'Neutral';
-    let seconds = 2.4;
-    if (mood === 'win') {
-      name = intensity < 0.42 ? 'WinSmall' : (alt ? 'WinBigAlt' : 'WinBig');
-      seconds = intensity < 0.42 ? 2.1 : 2.6;
-    } else if (mood === 'lose') {
-      name = intensity < 0.42 ? 'LoseSmall' : (alt ? 'LoseBigAlt' : 'LoseBig');
-      seconds = intensity < 0.42 ? 2.1 : 2.6;
-    } else if (mood === 'wait') {
-      name = hot ? 'WaitHot' : 'Wait';
-      seconds = name === 'Wait' ? 1.25 : 2.4;
-    }
     if (character.dead) return false;
+    if (mood !== 'win' && mood !== 'lose') return false;
+    const name = mood === 'win' ? pick(WIN_CLIPS) : pick(LOSE_CLIPS);
+    const seconds = 2.6;
     if (character.reacting) {
-      if (mood === 'win' || mood === 'lose') {
-        character._queued = { name, seconds, timeScale: 1, mood: true };
-      }
+      character._queued = { name, seconds, timeScale: 1, mood: true };
       return false;
     }
     if (character.playOnce(name, seconds, 1, true)) return true;
-    if (mood === 'win') return character.playOnce('Attack', 2.2);
-    if (mood === 'lose') return character.playOnce('Fold', 1.0, 0.55);
-    if (mood === 'wait') return character.playOnce('Talk', 1.8);
-    return character.playOnce('Talk', 2.4);
+    return character.playOnce(mood === 'win' ? 'Attack' : 'Fold', mood === 'win' ? 2.2 : 1.0);
   };
-  character.tickFidget = (t) => {
-    if (character.reacting || character.dead || character.folded) {
-      if (character.nextFidget < t + 6) character.nextFidget = t + 6 + Math.random() * 6;
-      return;
-    }
-    if (t < character.nextFidget) return;
-    character.nextFidget = t + 8 + Math.random() * 10;
-    const mood = Math.random() < 0.45 ? 'wait' : 'neutral';
-    character.playEmotion(mood, character.heat);
-  };
+  character.tickFidget = () => {};
 
   return character;
 }
@@ -815,7 +796,7 @@ async function buildScene(canvas) {
 
   // One rig, every outfit. A fresh draw every time the table is built.
   const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=3');
+  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=4');
   const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
 
   // Position a seated character at seat i: face the table, hips at the seat,
@@ -1916,7 +1897,7 @@ window.pokerScene = {
         // A bust plays a lose reaction once, then settles back to sitting.
         // playOnce is skipped while another gesture is mid-flight, so only
         // latch once the reaction really started and retry until then.
-        const slumped = seat.char.playOnce('LoseBig', 2.4, 1, true) || seat.char.playOnce('Crouch', 1.6);
+        const slumped = seat.char.playEmotion('lose', 0.7) || seat.char.playOnce('Crouch', 1.6);
         if (!seat.char.bustReacted && slumped) seat.char.bustReacted = true;
       }
       if (seat.char && !data.out && seat.char.bustReacted) {
@@ -1981,7 +1962,7 @@ window.pokerScene = {
       // toss that won the pot) — retry briefly until it starts.
       let tries = 0;
       const strike = () => {
-        const started = char.playOnce('WinBig', 2.6, 1, true) || char.playOnce('Attack', 2.2);
+        const started = char.playEmotion('win', 0.9) || char.playOnce('Attack', 2.2);
         if (!started && ++tries < 6) setTimeout(strike, 350);
       };
       strike();
