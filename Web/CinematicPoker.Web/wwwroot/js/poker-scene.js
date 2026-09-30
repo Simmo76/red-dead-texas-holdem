@@ -237,8 +237,8 @@ function makeChipStacks(amount, spread = 0.05) {
 // puck, a blue SMALL BLIND and a yellow BIG BLIND. Each sits flat on the
 // felt beside its player's cards, slides across the table when the deal
 // passes on, and the blind pucks leave once the flop is out.
-const BUTTON_RADIUS = 0.068;
-const BUTTON_HEIGHT = 0.018;
+const BUTTON_RADIUS = 0.08;
+const BUTTON_HEIGHT = 0.02;
 
 function buttonFaceTexture(lines, bg, fg) {
   const c = document.createElement('canvas');
