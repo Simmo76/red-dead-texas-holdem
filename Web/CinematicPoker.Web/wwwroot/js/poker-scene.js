@@ -231,6 +231,96 @@ function makeChipStacks(amount, spread = 0.05) {
   return group;
 }
 
+// ------------------------------------------------------------------ button chips
+
+// Physical dealer/blind buttons, the standard casino set: a white DEALER
+// puck, a blue SMALL BLIND and a yellow BIG BLIND. Each sits flat on the
+// felt beside its player's cards, slides across the table when the deal
+// passes on, and the blind pucks leave once the flop is out.
+const BUTTON_RADIUS = 0.08;
+const BUTTON_HEIGHT = 0.02;
+
+function buttonFaceTexture(lines, bg, fg) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = bg;
+  g.fillRect(0, 0, 256, 256); // the circular cap shows only the inscribed disc
+  g.fillStyle = fg;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.font = 'bold 58px Arial, sans-serif';
+  if (lines.length === 1) {
+    g.fillText(lines[0], 128, 132);
+  } else {
+    g.fillText(lines[0], 128, 99);
+    g.fillText(lines[1], 128, 163);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+function makeButtonChip(lines, faceBg, textColor, sideColor) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(BUTTON_RADIUS, BUTTON_RADIUS, BUTTON_HEIGHT, 32),
+    new THREE.MeshStandardMaterial({ color: sideColor, roughness: 0.35 }));
+  body.position.y = BUTTON_HEIGHT / 2;
+  body.castShadow = true;
+  // Unlit face (like the community cards) so the text stays vivid and
+  // readable under every backdrop's mood lighting.
+  const face = new THREE.Mesh(
+    new THREE.CircleGeometry(BUTTON_RADIUS * 0.985, 32),
+    new THREE.MeshBasicMaterial({ map: buttonFaceTexture(lines, faceBg, textColor) }));
+  face.rotation.x = -Math.PI / 2; // lie flat, text upright from the player's seat
+  face.position.y = BUTTON_HEIGHT + 0.0008;
+  group.add(body, face);
+  group.visible = false;
+  return group;
+}
+
+function makeButtonChips() {
+  return {
+    dealer: { mesh: makeButtonChip(['DEALER'], '#f5f2ea', '#17151a', 0xe6e2d8), target: new THREE.Vector3() },
+    sb: { mesh: makeButtonChip(['SMALL', 'BLIND'], '#2e3192', '#f2f0ff', 0x272a7d), target: new THREE.Vector3() },
+    bb: { mesh: makeButtonChip(['BIG', 'BLIND'], '#f3c73f', '#241a05', 0xd8ac2a), target: new THREE.Vector3() },
+  };
+}
+
+// Spot beside a seat's cards: same ring the hole cards sit on, pushed along
+// the table tangent so the puck never covers cards, bets or the stack.
+function buttonChipTarget(seatIndex, tangentOff, out) {
+  const a = seatAngle(seatIndex);
+  const radial = TABLE_RADIUS - 0.34;
+  out.set(
+    Math.cos(a) * radial - Math.sin(a) * tangentOff,
+    TABLE_TOP,
+    Math.sin(a) * radial + Math.cos(a) * tangentOff);
+  return out;
+}
+
+function setButtonChip(btn, seatIndex, tangentOff) {
+  if (seatIndex < 0) { btn.mesh.visible = false; return; }
+  buttonChipTarget(seatIndex, tangentOff, btn.target);
+  if (!btn.mesh.visible) {
+    // (Re)appearing — no cross-table slide, just land at the new seat.
+    btn.mesh.position.copy(btn.target);
+    btn.mesh.visible = true;
+  }
+}
+
+// The dealer puck goes one side of the cards, the blinds the other, so a
+// heads-up seat holding both DEALER and SMALL BLIND shows both cleanly.
+function updateButtonChips(dealerSeat, sbSeat, bbSeat) {
+  const b = state.buttons;
+  if (!b) return;
+  setButtonChip(b.dealer, dealerSeat, 0.24);
+  setButtonChip(b.sb, sbSeat, -0.24);
+  setButtonChip(b.bb, bbSeat, -0.24);
+}
+
 // ------------------------------------------------------------------ dealer arrow
 
 // A golden arrow hanging over the head of whoever must act, pointing down.
@@ -697,6 +787,9 @@ async function buildScene(canvas) {
   state.dealerArrow = makeDealerArrow();
   scene.add(state.dealerArrow);
 
+  state.buttons = makeButtonChips();
+  scene.add(state.buttons.dealer.mesh, state.buttons.sb.mesh, state.buttons.bb.mesh);
+
   // ---- street backdrop: the repo owner's licensed Leartes "Stylized
   // Cyberpunk Arcade" environment, converted to one merged meshopt GLB.
   // The set is a dressed street, not a plaza: its origin sits inside a light
@@ -1013,6 +1106,14 @@ async function buildScene(canvas) {
       _lookMat.lookAt(camera.position, _lookTarget, _upVec);
       _desiredQuat.setFromRotationMatrix(_lookMat);
       camera.quaternion.slerp(_desiredQuat, Math.min(1, dt * 8));
+    }
+
+    // The dealer/blind pucks glide across the felt when the deal passes on.
+    if (state.buttons) {
+      for (const key of ['dealer', 'sb', 'bb']) {
+        const btn = state.buttons[key];
+        if (btn.mesh.visible) btn.mesh.position.lerp(btn.target, Math.min(1, dt * 5));
+      }
     }
 
     // The turn arrow bobs and slowly spins over the actor's head.
@@ -1931,6 +2032,18 @@ window.pokerScene = {
     }
     updateDealerArrow(actorSeat);
     updateActorOutline(actorSeat);
+
+    // Dealer/blind pucks: the DEALER button rides with the deal all hand;
+    // the blind pucks only mark who posted until the flop hits the felt.
+    const preflop = !(snapshot.board && snapshot.board.length);
+    const findSeat = (flag) => {
+      const s = seats.find(d => d[flag] && !d.out);
+      return s ? s.seat : -1;
+    };
+    updateButtonChips(
+      findSeat('dealer'),
+      preflop ? findSeat('sb') : -1,
+      preflop ? findSeat('bb') : -1);
     for (const data of seats) {
       const seat = state.seats[data.seat];
       if (!seat) continue;
