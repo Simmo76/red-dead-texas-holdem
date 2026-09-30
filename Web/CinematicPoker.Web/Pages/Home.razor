@@ -135,7 +135,7 @@
             <div class="overlay-box export-box" @onclick:stopPropagation="true">
                 <div class="overlay-title">EXPORT STATS</div>
                 <p class="export-blurb">
-                    Send your session history as CSV via email or text
+                    Send your session history and coaching notes as a .csv file via email or text
                     @if (_handLog.CompletedHandCount > 0)
                     {
                         <text> · @_handLog.CompletedHandCount hand@(_handLog.CompletedHandCount == 1 ? "" : "s")</text>
@@ -586,9 +586,7 @@
         {
             var result = await JS.InvokeAsync<ExportShareResult>(
                 "pokerExport.emailCsv", BuildExportCsv(), "Cinematic Poker stats");
-            _exportNote = result?.Downloaded == true
-                ? "CSV was long for email — full file also downloaded."
-                : "Opening your email app…";
+            _exportNote = ShareNote(result, "email");
         }
         catch (JSException)
         {
@@ -603,15 +601,19 @@
         {
             var result = await JS.InvokeAsync<ExportShareResult>(
                 "pokerExport.textCsv", BuildExportCsv());
-            _exportNote = result?.Downloaded == true
-                ? "CSV was long for text — full file downloaded to attach."
-                : "Opening your messages app…";
+            _exportNote = ShareNote(result, "message");
         }
         catch (JSException)
         {
             _exportNote = "Could not open messages. Try Download instead.";
         }
     }
+
+    private static string ShareNote(ExportShareResult result, string channel) =>
+        result == null ? "Something went wrong — try Download instead."
+        : result.Aborted ? "Share cancelled — nothing was sent."
+        : result.Shared ? "Share sheet opened — pick an app to send the .csv file."
+        : $"CSV file downloaded — attach it to the {channel} that just opened.";
 
     private async Task ExportDownload()
     {
@@ -630,7 +632,8 @@
     private sealed class ExportShareResult
     {
         public bool Ok { get; set; }
-        public bool Truncated { get; set; }
+        public bool Shared { get; set; }
+        public bool Aborted { get; set; }
         public bool Downloaded { get; set; }
     }
 
