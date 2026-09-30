@@ -39,7 +39,7 @@
         <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b> <span class="hud-stack">· YOU&nbsp;<b>$@ShownStack(0)</b></span></div>
 
         <div class="hud-board @(_hudBoardExpanded ? "expanded" : "")"
-             @onclick="() => _hudBoardExpanded = !_hudBoardExpanded">
+             @onclick="ToggleHudBoard">
             <div class="hud-row">
                 @* Dealt cards fill from the right so they hug the border,
                    aligned above the player's pair. *@
@@ -551,6 +551,16 @@
     }
 
     private void ToggleMode() => _quickMode = !_quickMode;
+
+    // Tapping the community-cards window also brings the camera home to the
+    // over-the-shoulder view, so it doubles as a "back to my seat" button.
+    private async Task ToggleHudBoard()
+    {
+        _hudBoardExpanded = !_hudBoardExpanded;
+        if (!_sceneReady) return;
+        try { await JS.InvokeVoidAsync("pokerScene.resetCamera"); }
+        catch (JSException) { /* scene not available; HUD still works */ }
+    }
 
     // ------------------------------------------------------------- export CSV
 
