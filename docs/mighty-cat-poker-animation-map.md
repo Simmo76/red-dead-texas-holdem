@@ -4,30 +4,33 @@ Pack: [Unity Asset Store](https://assetstore.unity.com/packages/3d/animations/po
 
 ## What runs now
 
-Jacob plays **only clips authored on his own skeleton** in `Jacob.glb`:
+Jacob keeps his own `Check` / `Bet` / `Fold` / `FoldShake` clips. Idle, win and lose play Mighty Cat takes that were Humanoid-retargeted onto Jacob's existing seated bind (`tools/bake_mighty_cat_humanoid.py` → `mighty-cat.glb`).
 
 | Event | Clip |
 |---|---|
-| Idle | `Sit` |
-| Check / bet / call / raise / all-in | `Check` / `Bet` |
-| Fold | `Fold` / `FoldShake` (player) |
-| Win / lose fallback | `Attack` / `Fold` |
+| Idle | random `IdleBlackjack01–03` or `IdlePoker01–03` |
+| Check / bet / call / raise / all-in | Jacob `Check` / `Bet` |
+| Fold | Jacob `Fold` / `FoldShake` (player) |
+| Win | random `Win01–03` (Player01 Win 01–03) |
+| Lose | random `Lose01–04` (Player01 Lose 01–02, Player02 Lose 01–02) |
 
-`mighty-cat.glb` is **not loaded**. Driving Jacob with the pack produced wrong poses (arms behind the back, splayed fingers, T-pose-like IK).
+## How the retarget works
 
-## Why the viewer takes do not play on Jacob
+The pack is Epic/MetaHuman (A-pose rest, extra spine bones). Jacob's bind is already a seated cowboy pose with different arm rolls. Local-quaternion copy and world-space rotation deltas both twist the left arm.
 
-The pack is Epic/MetaHuman. Jacob’s bind **is already a seated cowboy pose** with different arm bone axes. There is no shared T-pose.
+The baker does **not** apply a new rest pose (that exploded the mesh). It:
 
-Tried and rejected:
+1. Holds Jacob's authored sit on hips and legs so he stays in the chair.
+2. Swings spine, neck, clavicles, arms, hands and fingers so each bone's child-aim matches the source bone's child-aim in a shared character-facing frame (clavicle-left × world-up).
+3. Maps Jacob `spine_03` → pack `spine_05` and Jacob `neck_01` → pack `neck_02`.
+
+That is Mixamo/Humanoid aim retarget: directions travel, Jacob's bone rolls (and skinning) stay his.
+
+A Unity Editor menu (`Cinematic Poker → Bake Mighty Cat onto Jacob (Humanoid)`) is also in the project for a muscle-space bake when the Editor is available; the shipped web GLB is the Blender aim-copy.
+
+## Tried and rejected
 
 1. World-space rotation deltas — left arm flipped 180°.
 2. Parent-local deltas from sit — same twist, broken fingers.
-3. Sit + hand-offset IK — looked like a frozen lap sit (wrong clip window + clamp).
-4. Absolute character-space IK onto the pack’s table-hand positions — zombie/T-pose arms, not the viewer performances.
-
-Those viewer clips (Blackjack/Poker Player 01–03, Player01 Win 01–03, Player01/02 Lose 01–02) will look like the viewer only if they run on the **pack’s own mannequin** (or after a Humanoid/muscle-space retarget in a DCC). They cannot be quaternion-copied onto Jacob.
-
-## If we play the pack later
-
-Sit the official Mighty Cat preview character at the table (same skeleton as the FBX), or retarget in Unity Humanoid / Mixamo onto a T-pose Jacob, then re-export. Do not bake local rotations from FBX onto `Jacob.glb` again.
+3. Sit + hand-offset IK — frozen lap sit or zombie arms.
+4. Apply A-pose as rest, then copy takes — standing reach or spaghetti mesh.
