@@ -1,6 +1,6 @@
 # Mighty Cat → Red Dead Texas Hold'em (web)
 
-Clips are retargeted from [The Mighty Cat Poker/Blackjack pack](https://anims.themightycat.com/?asset=poker-blackjack) onto Jacob's seated pose. Rebuild: `blender --background --python tools/bake_mighty_cat_seated.py` (set `MIGHTY_CAT_SRC` to extracted pack FBX folder).
+Clips are retargeted from [The Mighty Cat Poker/Blackjack pack](https://anims.themightycat.com/?asset=poker-blackjack) onto Jacob's seated pose using **parent-local rotation deltas** (same Epic bone names as Jacob's upper body). Finger chains stay on Jacob's sit pose so hand meshes do not crumple. Rebuild: `blender --background --python tools/bake_mighty_cat_seated.py` (set `MIGHTY_CAT_SRC` to extracted pack FBX folder).
 
 ## Game events → GLB clip
 
