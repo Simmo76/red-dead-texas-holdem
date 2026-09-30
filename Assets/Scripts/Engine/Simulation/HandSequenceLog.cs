@@ -176,6 +176,24 @@ namespace CinematicPoker.Engine.Simulation
             }
             writer.WriteLine();
 
+            // Coach's corner: leak indicators plus what to work on, so the
+            // export reads like a session review rather than a bare ledger.
+            PlayerCoachReport coach = BuildCoachReport(humanSeat);
+            writer.WriteLine(CsvRow("Coaching", "Preflop Hands Played (VPIP)",
+                $"{(int)Math.Round(coach.VpipPercent)}% ({coach.VoluntaryPreflopHands} of {coach.HandsAnalysed})"));
+            writer.WriteLine(CsvRow("Coaching", "Preflop Raise Rate (PFR)",
+                $"{(int)Math.Round(coach.PfrPercent)}% ({coach.PreflopRaiseHands} of {coach.HandsAnalysed})"));
+            writer.WriteLine(CsvRow("Coaching", "Postflop Bets+Raises vs Calls",
+                $"{coach.PostflopAggressiveActions} vs {coach.PostflopCalls}"));
+            writer.WriteLine(CsvRow("Coaching", "Showdowns Won",
+                $"{coach.ShowdownsWon} of {coach.ShowdownsReached}"));
+            writer.WriteLine(CsvRow("Coaching", "Pots Taken Without Showdown",
+                coach.PotsWonWithoutShowdown.ToString()));
+            int tipNumber = 1;
+            foreach (string tip in coach.Advice)
+                writer.WriteLine(CsvRow("Coach's Advice", (tipNumber++).ToString(), tip));
+            writer.WriteLine();
+
             writer.WriteLine("Hand,Result,Your Cards,Board,Won Amount,Stack Change,Winning Hand,Won By Folds,Actions");
             foreach (HandRecord hand in completed)
             {
@@ -213,6 +231,10 @@ namespace CinematicPoker.Engine.Simulation
                     CsvEscape(actions)));
             }
         }
+
+        /// <summary>Coach-style leak analysis of the recorded hands for one seat.</summary>
+        public PlayerCoachReport BuildCoachReport(int humanSeat) =>
+            PlayerCoachReport.Build(_hands, humanSeat);
 
         private static bool PlayerWonHand(HandRecord hand, int humanSeat)
         {
