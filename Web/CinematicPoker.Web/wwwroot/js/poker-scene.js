@@ -699,14 +699,27 @@ async function buildScene(canvas) {
 
   // ---- street backdrop: the repo owner's licensed Leartes "Stylized
   // Cyberpunk Arcade" environment, converted to one merged meshopt GLB.
-  // The poker table sits in the middle of the arcade street.
+  // The set is a dressed street, not a plaza: its origin sits inside a light
+  // mast and the ground meshes were stripped in the web conversion. So the
+  // whole street is scaled/offset to wrap its clearest pocket (between the
+  // crate cluster and the storefront row) around the table, with the set's
+  // street level (y=-1.85 in the GLB's world frame) raised to y=0 so the
+  // table legs and the players' boots sit on the arcade floor.
+  const ARCADE_SCALE = 1.0;
+  const ARCADE_POCKET = { x: -7.5, y: -1.85, z: -3.0 }; // table spot, GLB world frame
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const backdropPromise = loadGlb(loader, 'models/env/backdrop.glb').then((gltf) => {
     if (!gltf) return;
-    const env = gltf.scene;
-    env.rotation.y = Math.PI; // arcade frontage wraps around the player's view
-    env.traverse((m) => {
+    const env = new THREE.Group();
+    const street = gltf.scene;
+    street.rotation.y = Math.PI; // arcade frontage wraps around the player's view
+    street.scale.setScalar(ARCADE_SCALE);
+    street.position.set(
+      -ARCADE_POCKET.x * ARCADE_SCALE,
+      -ARCADE_POCKET.y * ARCADE_SCALE,
+      -ARCADE_POCKET.z * ARCADE_SCALE);
+    street.traverse((m) => {
       if (m.isMesh) {
         m.castShadow = false;
         m.receiveShadow = false;
@@ -716,6 +729,15 @@ async function buildScene(canvas) {
         }
       }
     });
+    env.add(street);
+    // The converted set has no ground surface (only thin neon grid lines), so
+    // lay a night asphalt slab at street level for the table to stand on.
+    const asphalt = new THREE.Mesh(
+      new THREE.CircleGeometry(70, 48),
+      new THREE.MeshStandardMaterial({ color: 0x101321, roughness: 0.96, metalness: 0.05 }));
+    asphalt.rotation.x = -Math.PI / 2;
+    asphalt.position.y = -0.01; // just below the shadow catcher
+    env.add(asphalt);
     scene.add(env);
     state.envGroups[0] = env;
     env.visible = state.envIndex === 0;
