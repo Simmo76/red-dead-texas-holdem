@@ -4,8 +4,8 @@
 // Props/textures are CC0; the street backdrop is a web-optimised conversion of
 // the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
 // Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy. Seated idles and table actions use clips retargeted from The
-// Mighty Cat Poker/Blackjack pack (mighty-cat.glb) — see ASSET_LICENSES.md.
+// Jacob cowboy. Table clips are Jacob's own Sit/Check/Bet/Fold — the Mighty
+// Cat pack does not share this seated bind (see docs/mighty-cat-poker-animation-map.md).
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
@@ -483,22 +483,12 @@ function makeCharacter(gltf, spec, extraClips) {
   });
 
   const mixer = new THREE.AnimationMixer(root);
-  const jacobClips = gltf.animations || [];
-  const moodClips = extraClips || [];
-  const findBody = (name) => THREE.AnimationClip.findByName(jacobClips, name);
-  const findMood = (name) => THREE.AnimationClip.findByName(moodClips, name);
-  const pick = (names) => names[Math.floor(Math.random() * names.length)];
+  const clips = gltf.animations || [];
+  const find = (name) => THREE.AnimationClip.findByName(clips, name);
 
-  // Mighty Cat seated player loops (viewer: Blackjack/Poker Player 01–03).
-  const IDLE_CLIPS = [
-    'IdleBlackjack01', 'IdleBlackjack02', 'IdleBlackjack03',
-    'IdlePoker01', 'IdlePoker02', 'IdlePoker03'
-  ];
-  const WIN_CLIPS = ['Win01', 'Win02', 'Win03'];
-  const LOSE_CLIPS = ['Lose01', 'Lose02', 'Lose03', 'Lose04'];
-
-  const idleName = pick(IDLE_CLIPS);
-  const sitClip = findMood(idleName) || findBody('Sit');
+  // Jacob's authored sit. Mighty Cat clips are not applied to this rig:
+  // the pack is Epic/MetaHuman and does not share Jacob's seated bind axes.
+  const sitClip = find('Sit');
   const isPlayer = !!spec.cards;
   let sitAction = null;
   if (sitClip) {
@@ -509,7 +499,7 @@ function makeCharacter(gltf, spec, extraClips) {
   }
 
   const character = {
-    root, mixer, sitAction, findBody, findMood,
+    root, mixer, sitAction, find,
     dead: false, reacting: false, isPlayer, armPose: null, armW: 1,
     outlineOn: false, folded: false, foldW: 0,
   };
@@ -555,7 +545,7 @@ function makeCharacter(gltf, spec, extraClips) {
     for (const mesh of bodyMeshes) mesh.castShadow = w < 0.5;
   };
 
-  // Idle is a random Mighty Cat seated player loop (IK-retargeted onto Jacob).
+  // Idle is Jacob's authored sit. Pack retargets twisted this rig.
 
   // Unused for Jacob: the sit pose is the hold. Kept so a gesture can still
   // fade a pinned pose back in if one is ever stored on the character.
@@ -586,9 +576,9 @@ function makeCharacter(gltf, spec, extraClips) {
 
   // Returns true only when the gesture actually started, so callers that must
   // not miss their reaction (e.g. the player's bust slump) can retry later.
-  character.playOnce = (name, seconds = 1.5, timeScale = 1, mood = false) => {
+  character.playOnce = (name, seconds = 1.5, timeScale = 1) => {
     if (character.dead || character.reacting) return false;
-    const clip = mood ? findMood(name) : findBody(name);
+    const clip = find(name);
     if (!clip || !sitAction) return false;
     const gen = ++gestureGen;
     character.reacting = true;
@@ -616,7 +606,7 @@ function makeCharacter(gltf, spec, extraClips) {
         const next = character._queued;
         character._queued = null;
         if (next && !character.dead) {
-          character.playOnce(next.name, next.seconds, next.timeScale, next.mood);
+          character.playOnce(next.name, next.seconds, next.timeScale);
         }
       }, 450);
     }, holdMs);
@@ -633,25 +623,15 @@ function makeCharacter(gltf, spec, extraClips) {
     hardSit();
   };
 
-  // Seated emotion takes retargeted from the Mighty Cat card-game pack.
-  // A calm pot and a heated one pick different performances, and neighbours
-  // don't celebrate with the same take. Win/lose that arrive mid-gesture
-  // wait and play once the current one lets go.
+  // Win/lose use Jacob's own seated takes until a real pack retarget exists.
   character.variant = 0;
   character.heat = 0.25;
-  character.idleName = idleName;
   character._queued = null;
   character.playEmotion = (mood, intensity = 0.5) => {
     if (character.dead) return false;
-    if (mood !== 'win' && mood !== 'lose') return false;
-    const name = mood === 'win' ? pick(WIN_CLIPS) : pick(LOSE_CLIPS);
-    const seconds = 2.6;
-    if (character.reacting) {
-      character._queued = { name, seconds, timeScale: 1, mood: true };
-      return false;
-    }
-    if (character.playOnce(name, seconds, 1, true)) return true;
-    return character.playOnce(mood === 'win' ? 'Attack' : 'Fold', mood === 'win' ? 2.2 : 1.0);
+    if (mood === 'win') return character.playOnce('Attack', 2.2);
+    if (mood === 'lose') return character.playOnce('Fold', 1.0, 0.55);
+    return false;
   };
   character.tickFidget = () => {};
 
@@ -926,7 +906,6 @@ async function buildScene(canvas) {
 
   // One rig, every outfit. A fresh draw every time the table is built.
   const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=4');
   const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
 
   // Position a seated character at seat i: face the table, hips at the seat,
@@ -990,8 +969,8 @@ async function buildScene(canvas) {
 
     // Every seat, including the player, is one of this game's looks.
     const spec = { look: lineup[i], cards: i === 0, scale: WESTERN_SCALE };
-    charPromises.push(Promise.all([westernModel, mightyCatModel]).then(([gltf, mc]) => {
-      const character = makeCharacter(gltf, spec, mc && mc.animations);
+    charPromises.push(westernModel.then((gltf) => {
+      const character = makeCharacter(gltf, spec);
       if (!character) return;
       character.variant = i;
       placeSeatedCharacter(character, i, facing);

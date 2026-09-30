@@ -1,30 +1,33 @@
-# Mighty Cat → Red Dead Texas Hold'em (web)
+# Mighty Cat pack vs Jacob (web)
 
 Pack: [Unity Asset Store](https://assetstore.unity.com/packages/3d/animations/poker-blackjack-and-card-games-animation-pack-311361) · [animation viewer](https://anims.themightycat.com/?asset=poker-blackjack)
 
-Rebuild: `blender --background --python tools/bake_mighty_cat_seated.py` (`MIGHTY_CAT_SRC` = extracted FBX folder).
+## What runs now
 
-Retarget is **character-space IK**, not bone-quaternion copy. Jacob and the pack do not share arm bind axes; copying local rotations twisted the left arm behind the back. Hands move as offsets from Jacob’s sit, in a chest/clavicle facing frame, then two-bone IK aims the arms. Fingers get damped rest-relative curls. Legs stay on Jacob `Sit`.
+Jacob plays **only clips authored on his own skeleton** in `Jacob.glb`:
 
-## Runtime mapping
+| Event | Clip |
+|---|---|
+| Idle | `Sit` |
+| Check / bet / call / raise / all-in | `Check` / `Bet` |
+| Fold | `Fold` / `FoldShake` (player) |
+| Win / lose fallback | `Attack` / `Fold` |
 
-Each seat picks **one idle at random** and loops it. Wins and losses pick **one take at random**.
+`mighty-cat.glb` is **not loaded**. Driving Jacob with the pack produced wrong poses (arms behind the back, splayed fingers, T-pose-like IK).
 
-| Game event | Clip in `mighty-cat.glb` | Viewer / FBX |
-|---|---|---|
-| Idle (random) | `IdleBlackjack01` | Blackjack Player 01 / `AS_Blackjack_Player_01` |
-| Idle (random) | `IdleBlackjack02` | Blackjack Player 02 / `AS_Blackjack_Player_02` |
-| Idle (random) | `IdleBlackjack03` | Blackjack Player 03 / `AS_Blackjack_Player_03` |
-| Idle (random) | `IdlePoker01` | Poker Player 01 / `AS_Poker_Player_01` |
-| Idle (random) | `IdlePoker02` | Poker Player 02 / `AS_Poker_Player_02` |
-| Idle (random) | `IdlePoker03` | Poker Player 03 / `AS_Poker_Player_03` |
-| Winner (random) | `Win01` | Reactions Player01 Win 01 |
-| Winner (random) | `Win02` | Reactions Player01 Win 02 |
-| Winner (random) | `Win03` | Reactions Player01 Win 03 |
-| Loser (random) | `Lose01` | Reactions Player01 Lose 01 |
-| Loser (random) | `Lose02` | Reactions Player01 Lose 02 |
-| Loser (random) | `Lose03` | Reactions Player02 Lose 01 |
-| Loser (random) | `Lose04` | Reactions Player02 Lose 02 |
-| Check / bet / fold | Jacob `Check` / `Bet` / `Fold` | UAL takes already on `Jacob.glb` |
+## Why the viewer takes do not play on Jacob
 
-Check/bet/fold stay on Jacob until a dedicated IK bake of those gestures exists.
+The pack is Epic/MetaHuman. Jacob’s bind **is already a seated cowboy pose** with different arm bone axes. There is no shared T-pose.
+
+Tried and rejected:
+
+1. World-space rotation deltas — left arm flipped 180°.
+2. Parent-local deltas from sit — same twist, broken fingers.
+3. Sit + hand-offset IK — looked like a frozen lap sit (wrong clip window + clamp).
+4. Absolute character-space IK onto the pack’s table-hand positions — zombie/T-pose arms, not the viewer performances.
+
+Those viewer clips (Blackjack/Poker Player 01–03, Player01 Win 01–03, Player01/02 Lose 01–02) will look like the viewer only if they run on the **pack’s own mannequin** (or after a Humanoid/muscle-space retarget in a DCC). They cannot be quaternion-copied onto Jacob.
+
+## If we play the pack later
+
+Sit the official Mighty Cat preview character at the table (same skeleton as the FBX), or retarget in Unity Humanoid / Mixamo onto a T-pose Jacob, then re-export. Do not bake local rotations from FBX onto `Jacob.glb` again.
