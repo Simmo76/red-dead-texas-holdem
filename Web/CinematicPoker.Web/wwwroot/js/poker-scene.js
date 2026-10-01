@@ -4,8 +4,9 @@
 // Props/textures are CC0; the street backdrop is a web-optimised conversion of
 // the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
 // Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy. Check/bet/fold stay on Jacob's own clips. Idle / win / lose
-// are Mighty Cat poker-blackjack takes, Humanoid-retargeted onto Jacob
+// Jacob cowboy. Check/bet/fold stay on Jacob's own clips. Idle is
+// Cocomotion AS_Idle_Sit_Thinking_01 for every seat; win / lose stay
+// Mighty Cat takes. All mood clips are Humanoid-retargeted onto Jacob
 // (see docs/mighty-cat-poker-animation-map.md).
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
@@ -490,15 +491,12 @@ function makeCharacter(gltf, spec, extraClips) {
   const findMood = (name) => THREE.AnimationClip.findByName(moodClips, name);
   const pick = (names) => names[Math.floor(Math.random() * names.length)];
 
-  // Mighty Cat seated player loops (viewer: Blackjack/Poker Player 01–03).
-  const IDLE_CLIPS = [
-    'IdleBlackjack01', 'IdleBlackjack02', 'IdleBlackjack03',
-    'IdlePoker01', 'IdlePoker02', 'IdlePoker03'
-  ];
+  // Every seat loops the same Cocomotion sit-thinking idle.
+  const IDLE_CLIPS = ['IdleSitThinking01'];
   const WIN_CLIPS = ['Win01', 'Win02', 'Win03'];
   const LOSE_CLIPS = ['Lose01', 'Lose02', 'Lose03', 'Lose04'];
 
-  const idleName = pick(IDLE_CLIPS);
+  const idleName = 'IdleSitThinking01';
   const sitClip = findMood(idleName) || findBody('Sit');
   const isPlayer = !!spec.cards;
   let sitAction = null;
@@ -556,7 +554,7 @@ function makeCharacter(gltf, spec, extraClips) {
     for (const mesh of bodyMeshes) mesh.castShadow = w < 0.5;
   };
 
-  // Idle is a random Mighty Cat seated player loop, retargeted onto Jacob.
+  // Idle is AS_Idle_Sit_Thinking_01, retargeted onto Jacob, for every seat.
 
   // Unused for Jacob: the sit pose is the hold. Kept so a gesture can still
   // fade a pinned pose back in if one is ever stored on the character.
@@ -924,7 +922,7 @@ async function buildScene(canvas) {
 
   // One rig, every outfit. A fresh draw every time the table is built.
   const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=5');
+  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=6');
   const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
 
   // Position a seated character at seat i: face the table, hips at the seat,
