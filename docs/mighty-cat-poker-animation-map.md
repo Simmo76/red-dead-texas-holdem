@@ -4,11 +4,11 @@ Pack: [Unity Asset Store](https://assetstore.unity.com/packages/3d/animations/po
 
 ## What runs now
 
-Jacob keeps his own `Check` / `Bet` / `Fold` / `FoldShake` clips. Idle, win and lose play Mighty Cat takes that were Humanoid-retargeted onto Jacob's existing seated bind (`tools/bake_mighty_cat_humanoid.py` → `mighty-cat.glb`).
+Jacob keeps his own `Check` / `Bet` / `Fold` / `FoldShake` clips. Every seat idles on Cocomotion `AS_Idle_Sit_Thinking_01` (`IdleSitThinking01`). Win and lose stay Mighty Cat takes. All mood clips are Humanoid-retargeted onto Jacob (`tools/bake_idle_sit_thinking.py`, `tools/bake_mighty_cat_humanoid.py` → `mighty-cat.glb`).
 
 | Event | Clip |
 |---|---|
-| Idle | random `IdleBlackjack01–03` or `IdlePoker01–03` |
+| Idle | `IdleSitThinking01` (`AS_Idle_Sit_Thinking_01`) for every seat |
 | Check / bet / call / raise / all-in | Jacob `Check` / `Bet` |
 | Fold | Jacob `Fold` / `FoldShake` (player) |
 | Win | random `Win01–03` (Player01 Win 01–03) |
