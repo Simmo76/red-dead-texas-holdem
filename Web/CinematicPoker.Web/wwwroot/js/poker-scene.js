@@ -496,7 +496,7 @@ function makeCharacter(gltf, spec, extraClips) {
   const WIN_CLIPS = ['Win01', 'Win02', 'Win03'];
   const LOSE_CLIPS = ['Lose01', 'Lose02', 'Lose03', 'Lose04'];
 
-  const idleName = 'IdleSitThinking01';
+  const idleName = IDLE_CLIPS[0];
   const sitClip = findMood(idleName) || findBody('Sit');
   const isPlayer = !!spec.cards;
   let sitAction = null;
