@@ -19,6 +19,11 @@ const TABLE_TOP = 0.78;        // table surface height (m)
 const TABLE_RADIUS = 1.12;
 const SEAT_RADIUS = 1.74;
 const EYE_HEIGHT = 1.70;       // camera shoulder height over the bigger build
+// Wrist bone sits a few centimetres above the palm; this keeps the palms
+// on the baize instead of burying the mesh in the felt.
+const HAND_ON_TABLE = 0.04;
+// Plant the hands just inside the rail so they rest on the felt, not in the air.
+const HAND_RADIUS = TABLE_RADIUS - 0.08;
 
 // Jacob is exported in metres. This scale matches his seated height (boots to
 // the top of the hat) to the build the table and camera were framed for.
@@ -92,6 +97,7 @@ const state = {
   fx: [],               // live celebration particle systems
   envGroups: [],        // switchable backdrop groups, index matches ENVS
   envIndex: 0,
+  eyeHeight: EYE_HEIGHT,
   envNames: [],
   setEnvironment: null,
   lastJson: '',
@@ -369,7 +375,7 @@ function updateActorOutline(seatIndex) {
   }
 }
 
-const ARROW_Y = 1.92; // above the bigger characters' heads
+let ARROW_Y = 1.92; // updated after seats plant so it stays above their heads
 
 function updateDealerArrow(dealerSeat) {
   const arrow = state.dealerArrow;
@@ -697,7 +703,7 @@ async function buildScene(canvas) {
     const portrait = camera.aspect < 0.8;
     state.camHome.set(
       portrait ? -0.3 : -0.42,
-      EYE_HEIGHT + (portrait ? 0.5 : 0.38),
+      (state.eyeHeight || EYE_HEIGHT) + (portrait ? 0.5 : 0.38),
       SEAT_RADIUS + (portrait ? 1.0 : 0.82));
     const d = state.camHome.clone().sub(state.pivot);
     view.dist = d.length();
@@ -925,13 +931,14 @@ async function buildScene(canvas) {
   const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=6');
   const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
 
-  // Position a seated character at seat i: face the table, hips at the seat,
-  // feet on the floor, regardless of the pose's baked root offsets.
+  // Position a seated character at seat i: face the table and plant the
+  // idle's hands on the felt. The thinking clip holds the palms at lap
+  // height, so a foot-plant left everyone hovering above the rail.
   const placeSeatedCharacter = (character, i, facing) => {
     character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
     scene.add(character.root);
 
-    // Apply the frozen 'Sit' pose before measuring any bones.
+    // Apply the current idle pose before measuring any bones.
     character.mixer.update(0);
     character.root.updateMatrixWorld(true);
 
@@ -964,14 +971,36 @@ async function buildScene(canvas) {
       const target = seatPos(i, SEAT_RADIUS - 0.02);
       character.root.position.x += target.x - v.x;
       character.root.position.z += target.z - v.z;
+      character.root.updateMatrixWorld(true);
     }
-    let minFoot = Infinity;
-    for (const b of [lFoot, rFoot]) {
-      if (b) { b.getWorldPosition(v); minFoot = Math.min(minFoot, v.y); }
+
+    const handL = bone(['hand_l', 'LeftHand']);
+    const handR = bone(['hand_r', 'RightHand']);
+    const midL = bone(['middle_01_l']);
+    const midR = bone(['middle_01_r']);
+    const hands = [handL, handR].filter(Boolean);
+    const palms = [handL, handR, midL, midR].filter(Boolean);
+    let minPalm = Infinity;
+    const mid = new THREE.Vector3();
+    for (const b of palms) {
+      b.getWorldPosition(v);
+      minPalm = Math.min(minPalm, v.y);
     }
-    // The ankle bone sits well above the boot sole. Planting the bone at 0.09
-    // buried the heels; 0.18 puts the sole on the floor at the current scale.
-    if (isFinite(minFoot)) character.root.position.y -= (minFoot - 0.18);
+    for (const b of hands) {
+      b.getWorldPosition(v);
+      mid.add(v);
+    }
+    if (hands.length) mid.divideScalar(hands.length);
+    if (isFinite(minPalm)) {
+      character.root.position.y -= (minPalm - (TABLE_TOP + HAND_ON_TABLE));
+    }
+    const radial = Math.hypot(mid.x, mid.z);
+    if (hands.length && radial > 1e-4) {
+      const scale = HAND_RADIUS / radial;
+      character.root.position.x += mid.x * (scale - 1);
+      character.root.position.z += mid.z * (scale - 1);
+    }
+    character.root.updateMatrixWorld(true);
     character.modelYaw = modelYaw;
     character.seatFacing = facing;
   };
@@ -1004,6 +1033,33 @@ async function buildScene(canvas) {
   }
 
   await Promise.all([backdropPromise, ...charPromises]);
+
+  // Labels, turn arrow, and the over-the-shoulder camera were framed for the
+  // old foot-plant height. Re-seat them on the planted heads so they don't
+  // float above the now-lower sit.
+  const headY = [];
+  const hv = new THREE.Vector3();
+  for (let i = 0; i < state.seats.length; i++) {
+    const seat = state.seats[i];
+    const ch = seat.char;
+    if (!ch) continue;
+    let head = null;
+    ch.root.traverse((o) => {
+      if (!head && o.isBone && (o.name === 'head' || o.name === 'Head')) head = o;
+    });
+    if (!head) continue;
+    head.getWorldPosition(hv);
+    headY.push(hv.y);
+    if (seat.label) {
+      const labelPos = seatPos(i, SEAT_RADIUS + 0.05, hv.y + 0.28);
+      seat.label.sprite.position.copy(labelPos);
+    }
+    if (i === 0) state.eyeHeight = hv.y;
+  }
+  if (headY.length) {
+    ARROW_Y = Math.max(...headY) + 0.28;
+    applyCameraHome();
+  }
 
   // Pin both of the player's arms in a fixed hold pose — hands resting on
   // the table edge with the hole cards parked between them.
@@ -1652,7 +1708,7 @@ const _eyePoint = new THREE.Vector3();
 function layoutHoleCards() {
   if (!state.holeAnchor) return;
   state.holeFlat = false;
-  _eyePoint.set(0, EYE_HEIGHT + 0.25, SEAT_RADIUS + 0.9);
+  _eyePoint.set(0, (state.eyeHeight || EYE_HEIGHT) + 0.25, SEAT_RADIUS + 0.9);
   for (let i = 0; i < state.holeCards.length; i++) {
     const card = state.holeCards[i];
     const dir = i === 0 ? -1 : 1;
