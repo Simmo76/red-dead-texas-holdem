@@ -4,9 +4,11 @@
 // Props/textures are CC0; the street backdrop is a web-optimised conversion of
 // the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
 // Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy. Check/bet/fold stay on Jacob's own clips. Idle is
-// Cocomotion AS_Idle_Sit_Thinking_01 for every seat; win / lose stay
-// Mighty Cat takes. All mood clips are Humanoid-retargeted onto Jacob
+// Jacob cowboy. Check/bet/fold stay on Jacob's own clips. Idle is a
+// random seated Cocomotion take per seat (sit / hold-cards / chat /
+// bored / observe); they crossfade to another sit idle over the hand
+// so the table does not loop in lockstep. Win / lose stay Mighty Cat
+// takes. All mood clips are Humanoid-retargeted onto Jacob
 // (see docs/mighty-cat-poker-animation-map.md).
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
@@ -28,6 +30,21 @@ const HAND_RADIUS = TABLE_RADIUS - 0.08;
 // Jacob is exported in metres. This scale matches his seated height (boots to
 // the top of the hat) to the build the table and camera were framed for.
 const WESTERN_SCALE = 1.098;
+
+// Seated Cocomotion Idle takes (standing, drink-prop, and card pickup/putdown
+// one-shots are left out). Each seat draws a unique starter from this pool
+// and later crossfades to another sit idle.
+const IDLE_POOL = [
+  'IdleSit01', 'IdleSit02', 'IdleSit03', 'IdleSit04', 'IdleSit05', 'IdleSit06',
+  'IdleSitArmsFolded01',
+  'IdleSitBored01', 'IdleSitBored02', 'IdleSitBored03',
+  'IdleSitChatting01', 'IdleSitChatting02', 'IdleSitChatting03',
+  'IdleSitConfident01', 'IdleSitIntense01', 'IdleSitThinking01',
+  'IdleHoldCards01', 'IdleHoldCards02', 'IdleHoldCards03', 'IdleHoldCards04',
+  'IdleHostSit01',
+  'IdleTableObserveLeft01', 'IdleTableObserveRight01', 'IdleTableObserveLeftRight01',
+  'IdleTableSitProtectCards01',
+];
 
 // Outfit and head presets from the Cowboy 1 pack (SK_Jacob). Each game deals
 // six distinct looks, one per seat, including the player. `shirt` / `shirtOpt`
@@ -497,13 +514,15 @@ function makeCharacter(gltf, spec, extraClips) {
   const findMood = (name) => THREE.AnimationClip.findByName(moodClips, name);
   const pick = (names) => names[Math.floor(Math.random() * names.length)];
 
-  // Every seat loops the same Cocomotion sit-thinking idle.
-  const IDLE_CLIPS = ['IdleSitThinking01'];
+  // Seated Cocomotion idles only. Standing / drink-prop / pickup takes stay out.
+  const IDLE_CLIPS = spec.idlePool && spec.idlePool.length
+    ? spec.idlePool
+    : ['IdleSitThinking01'];
   const WIN_CLIPS = ['Win01', 'Win02', 'Win03'];
   const LOSE_CLIPS = ['Lose01', 'Lose02', 'Lose03', 'Lose04'];
 
-  const idleName = IDLE_CLIPS[0];
-  const sitClip = findMood(idleName) || findBody('Sit');
+  const idleName = spec.idleName || IDLE_CLIPS[0];
+  const sitClip = findMood(idleName) || findMood(IDLE_CLIPS[0]) || findBody('Sit');
   const isPlayer = !!spec.cards;
   let sitAction = null;
   if (sitClip) {
@@ -560,7 +579,8 @@ function makeCharacter(gltf, spec, extraClips) {
     for (const mesh of bodyMeshes) mesh.castShadow = w < 0.5;
   };
 
-  // Idle is AS_Idle_Sit_Thinking_01, retargeted onto Jacob, for every seat.
+  // Idle is a seated Cocomotion take. Seats start on different clips and
+  // ease to another sit idle every so often so the table keeps moving.
 
   // Unused for Jacob: the sit pose is the hold. Kept so a gesture can still
   // fade a pinned pose back in if one is ever stored on the character.
@@ -655,7 +675,35 @@ function makeCharacter(gltf, spec, extraClips) {
     if (character.playOnce(name, seconds, 1, true)) return true;
     return character.playOnce(mood === 'win' ? 'Attack' : 'Fold', mood === 'win' ? 2.2 : 1.0);
   };
-  character.tickFidget = () => {};
+  character.startIdle = (name, fade = 0.55) => {
+    const clip = findMood(name) || findBody('Sit');
+    if (!clip) return false;
+    const next = mixer.clipAction(clip);
+    next.enabled = true;
+    next.setEffectiveWeight(1);
+    next.setLoop(THREE.LoopRepeat, Infinity);
+    next.reset();
+    next.play();
+    next.time = Math.random() * clip.duration * 0.85;
+    if (sitAction && sitAction !== next) {
+      sitAction.crossFadeTo(next, fade, false);
+      const old = sitAction;
+      setTimeout(() => { old.stop(); }, fade * 1000 + 80);
+    }
+    sitAction = next;
+    character.sitAction = next;
+    character.idleName = name;
+    return true;
+  };
+  character.tickFidget = (t) => {
+    if (character.dead || character.reacting) return;
+    if (t < (character._nextIdleAt || 0)) return;
+    character._nextIdleAt = t + 8 + Math.random() * 12;
+    const others = IDLE_CLIPS.filter((n) => n !== character.idleName && findMood(n));
+    if (!others.length) return;
+    character.startIdle(pick(others), 0.7);
+  };
+  character._nextIdleAt = 7 + Math.random() * 12;
 
   return character;
 }
@@ -928,8 +976,13 @@ async function buildScene(canvas) {
 
   // One rig, every outfit. A fresh draw every time the table is built.
   const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=6');
+  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=7');
   const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
+  const moodReady = mightyCatModel.then((mc) => {
+    const available = IDLE_POOL.filter((n) => mc && THREE.AnimationClip.findByName(mc.animations || [], n));
+    const pool = available.length ? available : ['IdleSitThinking01'];
+    return { mc, pool, deal: shuffle(pool) };
+  });
 
   // Position a seated character at seat i: face the table and plant the
   // idle's hands on the felt. The thinking clip holds the palms at lap
@@ -1015,8 +1068,10 @@ async function buildScene(canvas) {
 
     // Every seat, including the player, is one of this game's looks.
     const spec = { look: lineup[i], cards: i === 0, scale: WESTERN_SCALE };
-    charPromises.push(Promise.all([westernModel, mightyCatModel]).then(([gltf, mc]) => {
-      const character = makeCharacter(gltf, spec, mc && mc.animations);
+    charPromises.push(Promise.all([westernModel, moodReady]).then(([gltf, mood]) => {
+      spec.idlePool = mood.pool;
+      spec.idleName = mood.deal[i % mood.deal.length];
+      const character = makeCharacter(gltf, spec, mood.mc && mood.mc.animations);
       if (!character) return;
       character.variant = i;
       placeSeatedCharacter(character, i, facing);

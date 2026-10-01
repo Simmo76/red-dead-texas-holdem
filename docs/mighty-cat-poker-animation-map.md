@@ -4,11 +4,11 @@ Pack: [Unity Asset Store](https://assetstore.unity.com/packages/3d/animations/po
 
 ## What runs now
 
-Jacob keeps his own `Check` / `Bet` / `Fold` / `FoldShake` clips. Every seat idles on Cocomotion `AS_Idle_Sit_Thinking_01` (`IdleSitThinking01`). Win and lose stay Mighty Cat takes. All mood clips are Humanoid-retargeted onto Jacob (`tools/bake_idle_sit_thinking.py`, `tools/bake_mighty_cat_humanoid.py` → `mighty-cat.glb`).
+Jacob keeps his own `Check` / `Bet` / `Fold` / `FoldShake` clips. Idle is a random **seated** Cocomotion take per seat (sit, hold-cards, chat, bored, observe, protect). Seats start on different clips and crossfade to another sit idle during the hand. Standing, drink-prop, and pickup/putdown one-shots stay out. Win and lose stay Mighty Cat takes. All mood clips are Humanoid-retargeted onto Jacob (`tools/bake_cocomotion_sit_idles.py`, `tools/bake_idle_sit_thinking.py`, `tools/bake_mighty_cat_humanoid.py` → `mighty-cat.glb`).
 
 | Event | Clip |
 |---|---|
-| Idle | `IdleSitThinking01` (`AS_Idle_Sit_Thinking_01`) for every seat |
+| Idle | unique seated Cocomotion take per seat, then a slow crossfade to another sit idle |
 | Check / bet / call / raise / all-in | Jacob `Check` / `Bet` |
 | Fold | Jacob `Fold` / `FoldShake` (player) |
 | Win | random `Win01–03` (Player01 Win 01–03) |
