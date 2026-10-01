@@ -38,4 +38,22 @@ The simulation must pass all invariants before writing the file. If a hand fails
 | [hands-seed42-100.md](./hands-seed42-100.md) | 100 | 42 | Quick manual review |
 | [hands-seed42-1000.md](./hands-seed42-1000.md) | 1000 | 42 | Deeper spot checks |
 
+### Download PDF
+
+Direct download (same content as the markdown logs, formatted for printing):
+
+| PDF | Hands | Download |
+| --- | ---: | --- |
+| **100-hand sample** | 100 | [**hands-seed42-100.pdf**](https://github.com/Simmo76/red-dead-texas-holdem/raw/main/docs/hand-analysis/hands-seed42-100.pdf) |
+| **Full 1000-hand log** | 1000 | [**hands-seed42-1000.pdf**](https://github.com/Simmo76/red-dead-texas-holdem/raw/main/docs/hand-analysis/hands-seed42-1000.pdf) |
+
+Until this branch is merged to `main`, use the branch URL instead, e.g.  
+`https://github.com/Simmo76/red-dead-texas-holdem/raw/cursor/hand-analysis-logs-96cd/docs/hand-analysis/hands-seed42-100.pdf`
+
+Regenerate PDFs after updating markdown:
+
+```bash
+./docs/hand-analysis/generate-pdf.sh
+```
+
 Use a different seed or hand count when investigating a specific failure; keep the same seed to diff logs across engine versions.
