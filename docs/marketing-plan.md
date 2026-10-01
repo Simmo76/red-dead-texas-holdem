@@ -1,6 +1,6 @@
 # Cinematic Poker — Go-to-Market, Monetisation & $1,000 Launch Plan (v2)
 
-*Scope: maximise exposure and revenue for the iOS/Android launch with a US$1,000 paid budget. v2 centres the plan on the confirmed target market — **single players who want to play poker against NPCs the way they do in Red Dead Redemption 2** — and the hard constraint that **no real-money wagering and no bank-card handling** is ever involved.*
+*Scope: maximise exposure and revenue for the launch with a US$1,000 paid budget. The plan centres on the confirmed target market — **single players on mobile and tablet who want to play poker against NPCs the way they do in Red Dead Redemption 2** — and the hard constraint that **no real-money wagering and no bank-card handling** is ever involved. Mobile + tablet (iOS, iPadOS, Android) is the core platform; every other platform is an expansion judged by the profit comparison in §2a.*
 
 *A designed PDF edition with funnel, roadmap, budget and 12-month profit-projection charts lives at [`docs/marketing-plan.pdf`](marketing-plan.pdf) — regenerate it with `python3 tools/marketing-plan-pdf/generate_pdf.py` (needs Chrome; model assumptions are in the script).*
 
@@ -52,9 +52,24 @@ RDR2's saloon poker is one of the most beloved *minigames* in modern gaming: pla
 | Environment packs (Kalgoorlie Shed, Chicago 1926, Vegas, Disco 1978, Tokyo, Spaceport, …) — each a new place **and a new NPC cast with new tells/dialogue** | $3.99–4.99 | Packs are visitable (watch a hand, meet the cast) before buying |
 | **"Everything Edition"** — all current *and future* environments | $14.99 launch / $19.99 later | Priced so two packs ≈ bundle: the obvious upgrade |
 | Supporter tip ("buy the dealer a whisky") | $2.99 | Zero cost to add; loyal small audiences use these |
-| **Steam/desktop premium edition** (same pure-C# engine; Unity desktop build is cheap to produce) | $9.99 one price, everything included | Second revenue stream aimed exactly where RDR2 PC players live; Steam wishlists + Next Fest demo are free marketing; the web demo already proves the engine runs everywhere |
+| **Steam/desktop premium edition** — *expansion, not core; ships M4+ only if mobile base case holds* | $9.99 one price, everything included | Same pure-C# engine, cheap Unity desktop build; aimed where RDR2 PC players live; wishlists + Next Fest are free marketing |
 
-**Revenue model sanity check (mobile):** 2–4% of free installs buying ~$8 average (one pack or part-bundle) → 10,000 installs ≈ $1,600–3,200; 100,000 installs ≈ $16K–32K. Steam at $9.99 with even 1,000 lifetime units adds ~$7K gross. The $1,000 budget's job is **not** profit — it is to find one repeatable channel with cost-per-install < $1.50 and D7 retention > 10%, which is the evidence that justifies real spend later.
+**Revenue model sanity check (mobile + tablet):** 2–4% of free installs buying ~$8 average (one pack or part-bundle) → 10,000 installs ≈ $1,600–3,200; 100,000 installs ≈ $16K–32K. The $1,000 budget's job is **not** profit — it is to find one repeatable channel with cost-per-install < $1.50 and D7 retention > 10%, which is the evidence that justifies real spend later.
+
+**Tablet matters inside the core market.** Tablets are a minority of installs (~25–30%) but a premium slice: card/board games over-index on iPad, sessions are longer, the cinematic presentation lands best on big screens, and tablet players convert to premium content at roughly 1.5× phone rate — expect tablets to produce ~35–40% of mobile revenue. Concretely: dedicated iPad screenshots and preview video in the listing (iPad ASO is a separate surface), landscape layout is already native to the game, and tells/table detail should be art-directed to read beautifully at tablet size.
+
+## 2a. Platform profit comparison (base-case, year 1)
+
+Mobile + tablet is the focus; everything else must beat it on incremental profit per unit of focus it consumes.
+
+| Platform | Build cost to reach it | Year-1 net profit (base case) | Verdict |
+|---|---|---|---|
+| **iOS / iPadOS / Android** (free + IAP) | $0 — already the product (store accounts ~$124) | **≈ $5.9k** after all marketing and running costs | **Core focus.** Compounding: every pack beat re-monetises the installed base |
+| **PC / Steam** ($9.99 premium) | Low — same Unity project, desktop target; $100 Steam Direct + QA time | **≈ +$5.5k incremental** (≈800 units × $9.99 × 70%) | **Expand at M4+, gated** on mobile base case holding. Caution: Steam units ride on the audience the mobile launch builds; it is front-loaded where mobile compounds |
+| **Web** (current Blazor demo) | $0 — already built | ≈ +$0.3k (tips at most) | **Keep as funnel, not product.** Its value is acquisition: zero-install trial that converts sceptics to store installs |
+| **Console (Switch-class)** | $3k–8k (porting, devkit process, certification, ratings) | ≈ −$0.5k midpoint (range −$3k…+$2k) | **Defer to year 2.** Revisit only with mobile/Steam sales evidence; couch card-game fit is real but the cert overhead eats year-1 economics |
+
+Reading: Steam is the only expansion that pays for itself in year 1, and only *after* the mobile launch has built the audience its unit estimate depends on. Hence the sequencing — mobile/tablet first, Steam at M4 gated on data, web stays the funnel, console waits.
 
 ---
 
@@ -65,6 +80,7 @@ RDR2's saloon poker is one of the most beloved *minigames* in modern gaming: pla
 3. **Diegetic ambience is the product.** Piano, bottle clinks, muttered table talk, a bar fight that interrupts a hand once an hour. These moments are what make clips shareable.
 4. **Web demo = saloon.** The shareable zero-install demo must show the flagship fantasy, instrumented with session analytics and store-link banners (UTM-tagged).
 5. **Name/metadata hygiene.** No "Red Dead" anywhere public. Store title/subtitle targets: *"Cinematic Poker — Saloon Texas Hold'em"* style, keywords: `offline poker, single player poker, poker vs ai, saloon poker, western poker, texas holdem offline, poker trainer`.
+6. **Tablet-first presentation pass.** Dedicated iPad screenshots/preview video (tablet ASO is its own surface), UI and tell animations art-directed to read at tablet size, and the performance tiers verified on common tablets — the premium-converting slice of the market sees the game at its best.
 
 ---
 
@@ -109,7 +125,7 @@ RDR2's saloon poker is one of the most beloved *minigames* in modern gaming: pla
 ### M4 — Live cadence (post-launch)
 
 - One environment pack every 6–8 weeks; **every pack is a full marketing beat** (its own 30s trailer, creator wave, devlog arc, Reddit post). Packs chosen by audience vote in the community — participation is retention.
-- Ship the **Steam version** 2–3 months post-mobile with the accumulated wishlist; enter the next **Steam Next Fest** with the demo (free, high-visibility, perfectly suited to a game with a browser-provable demo).
+- **Platform expansion gate:** ship the **Steam version** 2–3 months post-mobile *only if the mobile base case is holding* (see §2a), with the accumulated wishlist; enter the next **Steam Next Fest** with the demo (free, high-visibility, perfectly suited to a game with a browser-provable demo). Console stays deferred per §2a.
 - The "Improve My Game" coaching feature gets its own beat aimed at the second audience: *"practise reading tells without risking a cent"* — poker-learning spaces (r/poker, training channels) where game marketing never appears.
 
 ---

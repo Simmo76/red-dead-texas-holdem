@@ -6,9 +6,9 @@ Usage:  python3 tools/marketing-plan-pdf/generate_pdf.py
 Needs:  google-chrome (headless) on PATH. No other dependencies.
 """
 
+import math
 import os
 import subprocess
-import sys
 import tempfile
 
 # ---------------------------------------------------------------- palette ---
@@ -24,51 +24,61 @@ RED = "#b3472f"
 BLUE = "#3d6b8e"
 
 # ------------------------------------------------------- financial model ---
+# Core market: mobile + tablet (iOS / iPadOS / Android), free + one-time IAP.
+# Other platforms are expansions, compared on incremental year-1 net profit.
 MONTHS = 12
 MOBILE_NET = 0.85        # App Store / Play small-business tier (15% cut)
 STEAM_NET = 0.70         # Steam 30% cut
 STEAM_PRICE = 9.99
-UPFRONT_COSTS = 1250.0   # $1,000 ads + dev accounts ($99+$25) + Steam Direct ($100) + misc
+STEAM_FEE = 100.0        # Steam Direct, charged to the Steam expansion only
+UPFRONT_COSTS = 1150.0   # $1,000 ads + mobile dev accounts ($99+$25) + misc
 MONTHLY_COSTS = 50.0     # tools, music licences, odd costs
-# Steam launches month 4; Next Fest bump month 6. Fractions of lifetime units per month.
+TABLET_SHARE = 0.28      # tablets as a share of installs
+TABLET_MULT = 1.5        # tablet payer-conversion premium vs phone
+# Steam expansion ships month 4; Next Fest bump month 6. Fractions of lifetime units.
 STEAM_SPREAD = [0, 0, 0, 0.35, 0.15, 0.20, 0.10, 0.04, 0.04, 0.04, 0.04, 0.04]
 
 SCENARIOS = {
     "Conservative": dict(
         installs=[3000, 1200, 900, 800, 700, 750, 650, 700, 600, 650, 550, 600],
-        conv=0.02, arppu=7.0, steam_units=300, color=GREY,
+        conv=0.02, arppu=7.0, steam_units=250, color=GREY,
         note="Launch lands quietly; no creator video takes off; organic floor only.",
     ),
     "Base": dict(
         installs=[10000, 4000, 3000, 2800, 2500, 2600, 2200, 2300, 2000, 2100, 1900, 2000],
-        conv=0.03, arppu=8.0, steam_units=1000, color=GOLD_DEEP,
+        conv=0.03, arppu=8.0, steam_units=800, color=GOLD_DEEP,
         note="Creator seeding produces a handful of mid-size videos; ASO cluster ranks; pack beats sustain a floor.",
     ),
     "Optimistic": dict(
         installs=[25000, 9000, 7000, 6500, 6000, 6500, 5500, 5500, 5000, 5200, 4800, 5000],
-        conv=0.04, arppu=9.0, steam_units=2500, color=FELT_LIGHT,
+        conv=0.04, arppu=9.0, steam_units=2000, color=FELT_LIGHT,
         note="One creator video breaks out; the RDR2-itch framing spreads; Everything Edition attach rises.",
     ),
 }
+
+# Tablet share of mobile revenue (28% of installs converting at 1.5x phone rate)
+TABLET_REV_FRAC = TABLET_SHARE * TABLET_MULT / ((1 - TABLET_SHARE) + TABLET_SHARE * TABLET_MULT)
 
 
 def run_model():
     out = {}
     for name, s in SCENARIOS.items():
-        mobile_net, steam_net, monthly_net, cum = [], [], [], []
-        total = 0.0
+        mobile_net, steam_net, cum, cum_steam = [], [], [], []
+        total, steam_total = 0.0, 0.0
         for m in range(MONTHS):
             mn = s["installs"][m] * s["conv"] * s["arppu"] * MOBILE_NET
-            sn = s["steam_units"] * STEAM_SPREAD[m] * STEAM_PRICE * STEAM_NET
+            sn = (s["steam_units"] * STEAM_SPREAD[m] * STEAM_PRICE * STEAM_NET
+                  - (STEAM_FEE if m == 3 else 0.0))
             cost = MONTHLY_COSTS + (UPFRONT_COSTS if m == 0 else 0.0)
-            net = mn + sn - cost
-            total += net
+            total += mn - cost
+            steam_total += sn
             mobile_net.append(mn)
             steam_net.append(sn)
-            monthly_net.append(net)
-            cum.append(total)
+            cum.append(total)                    # core: mobile + tablet only
+            cum_steam.append(total + steam_total)  # with Steam expansion overlay
         out[name] = dict(s, mobile_net=mobile_net, steam_net=steam_net,
-                         monthly=monthly_net, cumulative=cum,
+                         cumulative=cum, cumulative_steam=cum_steam,
+                         steam_incremental=steam_total,
                          installs_total=sum(s["installs"]))
     return out
 
@@ -84,16 +94,15 @@ def money(v):
 # ------------------------------------------------------------ svg helpers ---
 
 def svg_line_chart(model, w=1040, h=430):
-    ml, mr, mt, mb = 86, 150, 24, 46
+    ml, mr, mt, mb = 86, 172, 24, 46
     pw, ph = w - ml - mr, h - mt - mb
-    all_vals = [v for s in model.values() for v in s["cumulative"]]
-    lo = min(min(all_vals), 0)
-    hi = max(all_vals)
-    lo = (int(lo // 5000) - 0) * 5000 if lo < 0 else 0
-    lo = min(lo, -2500)
-    hi = (int(hi // 5000) + 1) * 5000
+    all_vals = ([v for s in model.values() for v in s["cumulative"]]
+                + model["Base"]["cumulative_steam"])
+    lo = min(min(all_vals), -2500)
+    lo = math.floor(lo / 2500) * 2500
+    hi = (int(max(all_vals) // 5000) + 1) * 5000
 
-    def x(m):  # m: 0..11
+    def x(m):
         return ml + pw * m / (MONTHS - 1)
 
     def y(v):
@@ -101,7 +110,6 @@ def svg_line_chart(model, w=1040, h=430):
 
     parts = [f'<svg viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg" '
              f'font-family="Helvetica,Arial,sans-serif">']
-    # gridlines
     step = 10000 if hi > 25000 else 5000
     v = lo - (lo % step)
     while v <= hi:
@@ -112,18 +120,24 @@ def svg_line_chart(model, w=1040, h=430):
         parts.append(f'<text x="{ml-10}" y="{yy+4:.1f}" text-anchor="end" font-size="13" '
                      f'fill="{GREY}">{money(v)}</text>')
         v += step
-    # x labels
     for m in range(MONTHS):
         parts.append(f'<text x="{x(m):.1f}" y="{h-18}" text-anchor="middle" font-size="13" '
                      f'fill="{GREY}">M{m+1}</text>')
     parts.append(f'<text x="{ml+pw/2}" y="{h-2}" text-anchor="middle" font-size="12" '
-                 f'fill="{GREY}">Months after global launch (Steam edition ships M4, Next Fest M6)</text>')
-    # steam launch marker
+                 f'fill="{GREY}">Months after global mobile launch · solid lines = mobile + tablet core · '
+                 f'dashed = base case with the M4 Steam expansion</text>')
     sx = x(3)
     parts.append(f'<line x1="{sx:.1f}" y1="{mt}" x2="{sx:.1f}" y2="{mt+ph}" stroke="{BLUE}" '
                  f'stroke-width="1" stroke-dasharray="5 4" opacity="0.6"/>')
-    parts.append(f'<text x="{sx+6:.1f}" y="{mt+14}" font-size="12" fill="{BLUE}">Steam launch</text>')
-    # lines
+    parts.append(f'<text x="{sx+6:.1f}" y="{mt+14}" font-size="12" fill="{BLUE}">Steam expansion (optional)</text>')
+    # dashed base + steam overlay
+    bs = model["Base"]["cumulative_steam"]
+    pts = " ".join(f"{x(m):.1f},{y(bs[m]):.1f}" for m in range(MONTHS))
+    parts.append(f'<polyline points="{pts}" fill="none" stroke="{BLUE}" stroke-width="2.6" '
+                 f'stroke-dasharray="7 5" stroke-linejoin="round"/>')
+    parts.append(f'<text x="{ml+pw+10}" y="{y(bs[-1])+5:.1f}" font-size="13" font-weight="700" '
+                 f'fill="{BLUE}">Base + Steam {money(bs[-1])}</text>')
+    # solid core lines
     for name, s in model.items():
         pts = " ".join(f"{x(m):.1f},{y(s['cumulative'][m]):.1f}" for m in range(MONTHS))
         parts.append(f'<polyline points="{pts}" fill="none" stroke="{s["color"]}" '
@@ -142,38 +156,81 @@ def svg_stacked_bars(model, w=1040, h=330):
     s = model["Base"]
     ml, mr, mt, mb = 86, 30, 20, 46
     pw, ph = w - ml - mr, h - mt - mb
-    hi = max(m + st for m, st in zip(s["mobile_net"], s["steam_net"]))
+    hi = max(s["mobile_net"])
     hi = (int(hi // 500) + 1) * 500
     bw = pw / MONTHS * 0.62
     parts = [f'<svg viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg" '
              f'font-family="Helvetica,Arial,sans-serif">']
-    for gv in range(0, int(hi) + 1, 1000):
+    for gv in range(0, int(hi) + 1, 500):
         yy = mt + ph * (1 - gv / hi)
         parts.append(f'<line x1="{ml}" y1="{yy:.1f}" x2="{ml+pw}" y2="{yy:.1f}" stroke="#e2e0d8"/>')
         parts.append(f'<text x="{ml-10}" y="{yy+4:.1f}" text-anchor="end" font-size="13" '
                      f'fill="{GREY}">{money(gv)}</text>')
     for m in range(MONTHS):
         cx = ml + pw * (m + 0.5) / MONTHS
-        mh = ph * s["mobile_net"][m] / hi
-        sh = ph * s["steam_net"][m] / hi
+        ph_h = ph * s["mobile_net"][m] * (1 - TABLET_REV_FRAC) / hi
+        tb_h = ph * s["mobile_net"][m] * TABLET_REV_FRAC / hi
         base_y = mt + ph
-        parts.append(f'<rect x="{cx-bw/2:.1f}" y="{base_y-mh:.1f}" width="{bw:.1f}" '
-                     f'height="{mh:.1f}" rx="3" fill="{GOLD}"/>')
-        if sh > 0.5:
-            parts.append(f'<rect x="{cx-bw/2:.1f}" y="{base_y-mh-sh:.1f}" width="{bw:.1f}" '
-                         f'height="{sh:.1f}" rx="3" fill="{BLUE}"/>')
+        parts.append(f'<rect x="{cx-bw/2:.1f}" y="{base_y-ph_h:.1f}" width="{bw:.1f}" '
+                     f'height="{ph_h:.1f}" rx="3" fill="{GOLD}"/>')
+        parts.append(f'<rect x="{cx-bw/2:.1f}" y="{base_y-ph_h-tb_h:.1f}" width="{bw:.1f}" '
+                     f'height="{tb_h:.1f}" rx="3" fill="{FELT_LIGHT}"/>')
         parts.append(f'<text x="{cx:.1f}" y="{h-26}" text-anchor="middle" font-size="13" '
                      f'fill="{GREY}">M{m+1}</text>')
     parts.append(f'<rect x="{ml}" y="{h-16}" width="14" height="14" rx="3" fill="{GOLD}"/>')
-    parts.append(f'<text x="{ml+20}" y="{h-4}" font-size="13" fill="{INK}">Mobile IAP net (after 15% store cut)</text>')
-    parts.append(f'<rect x="{ml+300}" y="{h-16}" width="14" height="14" rx="3" fill="{BLUE}"/>')
-    parts.append(f'<text x="{ml+320}" y="{h-4}" font-size="13" fill="{INK}">Steam premium net (after 30% cut)</text>')
+    parts.append(f'<text x="{ml+20}" y="{h-4}" font-size="13" fill="{INK}">Phone IAP net (~{(1-TABLET_REV_FRAC)*100:.0f}% of mobile revenue)</text>')
+    parts.append(f'<rect x="{ml+380}" y="{h-16}" width="14" height="14" rx="3" fill="{FELT_LIGHT}"/>')
+    parts.append(f'<text x="{ml+400}" y="{h-4}" font-size="13" fill="{INK}">Tablet IAP net (~{TABLET_REV_FRAC*100:.0f}% of revenue from ~{TABLET_SHARE*100:.0f}% of installs)</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def svg_platform_bars(model, w=1040, h=360):
+    base = model["Base"]
+    items = [
+        ("Mobile + tablet (core)", base["cumulative"][-1], FELT,
+         "free + IAP · after all marketing & running costs · compounds with every pack beat"),
+        ("+ Steam expansion (M4)", base["steam_incremental"], BLUE,
+         f"$9.99 premium · {base['steam_units']} units × 70% − $100 fee · rides on the audience mobile builds"),
+        ("+ Web (demo tips)", 300, GOLD_DEEP,
+         "already built · value is acquisition, not revenue — the zero-install funnel"),
+        ("+ Console port (Switch-class)", -500, RED,
+         "midpoint of −$3k…+$2k · $3–8k port/cert cost vs uncertain units → defer to year 2"),
+    ]
+    ml, mr, mt, mb = 270, 120, 16, 34
+    pw, ph = w - ml - mr, h - mt - mb
+    lo, hi = -1000.0, max(v for _, v, _, _ in items) * 1.08
+    bh, gap = 56, 20
+
+    def x(v):
+        return ml + pw * (v - lo) / (hi - lo)
+
+    parts = [f'<svg viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg" '
+             f'font-family="Helvetica,Arial,sans-serif">']
+    for gv in range(0, int(hi) + 1, 2000):
+        xx = x(gv)
+        parts.append(f'<line x1="{xx:.1f}" y1="{mt}" x2="{xx:.1f}" y2="{mt+ph}" '
+                     f'stroke="{INK if gv==0 else "#e2e0d8"}" stroke-width="{1.6 if gv==0 else 1}"/>')
+        parts.append(f'<text x="{xx:.1f}" y="{h-14}" text-anchor="middle" font-size="13" '
+                     f'fill="{GREY}">{money(gv)}</text>')
+    for i, (label, v, color, sub) in enumerate(items):
+        y0 = mt + 8 + i * (bh + gap)
+        x0, x1 = (x(min(v, 0)), x(max(v, 0)))
+        parts.append(f'<rect x="{x0:.1f}" y="{y0}" width="{max(x1-x0, 3):.1f}" height="{bh*0.56:.0f}" '
+                     f'rx="5" fill="{color}"/>')
+        parts.append(f'<text x="{ml-12}" y="{y0+15}" text-anchor="end" font-size="15" '
+                     f'font-weight="800" fill="{INK}">{label}</text>')
+        parts.append(f'<text x="{ml-12}" y="{y0+32}" text-anchor="end" font-size="11" '
+                     f'fill="{GREY}">year-1 net</text>')
+        lx = x1 + 10 if v >= 0 else x(0) + 10
+        parts.append(f'<text x="{lx:.1f}" y="{y0+21}" font-size="15" font-weight="800" '
+                     f'fill="{color}">{money(v)}</text>')
+        parts.append(f'<text x="{ml}" y="{y0+bh*0.56+15}" font-size="11.5" fill="{GREY}">{sub}</text>')
     parts.append("</svg>")
     return "".join(parts)
 
 
 def svg_donut(w=400, h=400):
-    import math
     items = [("Creator seeding", 350, GOLD_DEEP), ("Apple Search Ads", 250, FELT_LIGHT),
              ("Reddit ads test", 150, BLUE), ("Reserve (double down)", 150, GREY),
              ("Trailer & assets", 100, RED)]
@@ -217,7 +274,7 @@ def svg_funnel(w=1040, h=460):
     stages = [
         ("Reach", "100,000", "devlogs · creator videos · Reddit · ads", 1.00, FELT),
         ("Web demo sessions", "12,000", "zero-install playable link · 12% of reach", 0.80, FELT_LIGHT),
-        ("Store installs", "10,000", "demo converts + direct ASO/ads installs", 0.62, GOLD_DEEP),
+        ("Store installs (phone + tablet)", "10,000", "demo converts + direct ASO/ads installs", 0.62, GOLD_DEEP),
         ("D7 retained players", "1,200", "12% — the kill-rule threshold is 10%", 0.44, GOLD),
         ("Paying players", "300", "3% of installs · ~$8 avg → $2,040 net", 0.28, RED),
     ]
@@ -328,15 +385,18 @@ for k, v in [("FELT_LIGHT", FELT_LIGHT), ("GOLD_DEEP", GOLD_DEEP), ("FELT", FELT
              ("INK", INK), ("RED", RED), ("BLUE", BLUE)]:
     CSS = CSS.replace(k, v)
 
+TOTAL_PAGES = 9
 
-def foot(n, total=8):
+
+def foot(n):
     return (f'<div class="pagefoot"><span>Cinematic Poker — Go-to-Market &amp; '
-            f'Monetisation Plan</span><span>Confidential draft · page {n} / {total}</span></div>')
+            f'Monetisation Plan</span><span>Confidential draft · page {n} / {TOTAL_PAGES}</span></div>')
 
 
 def build_html(model):
     base = model["Base"]
-    y1_profit = {k: v["cumulative"][-1] for k, v in model.items()}
+    breakeven = {k: next((i + 1 for i, v in enumerate(s["cumulative"]) if v > 0), None)
+                 for k, s in model.items()}
 
     pages = []
 
@@ -349,17 +409,18 @@ def build_html(model):
   tilt, talk and remember how you play. Offline, single-player —
   and we will never sell you chips.</div>
   <div class="rule"></div>
-  <div class="sub" style="font-size:11pt">The plan: own the niche of single players who want
-  RDR2-style NPC poker as its own game, monetise with one-time content unlocks only
-  (no real money, no card details, no ads), and deploy $1,000 as ten measured experiments
-  to find one repeatable acquisition channel.</div>
+  <div class="sub" style="font-size:11pt">The plan: own the niche of single players on
+  <b>mobile and tablet</b> who want RDR2-style NPC poker as its own game, monetise with
+  one-time content unlocks only (no real money, no card details, no ads), deploy $1,000 as
+  ten measured experiments — and expand to other platforms only where the profit
+  comparison says it pays.</div>
   <div class="statgrid">
     <div class="stat"><div class="v">$1,000</div><div class="l">Paid launch budget, deployed as gated experiments</div></div>
-    <div class="stat"><div class="v">{money(y1_profit['Base'])}</div><div class="l">Base-case cumulative profit, 12 months post-launch</div></div>
+    <div class="stat"><div class="v">{money(base['cumulative'][-1])}</div><div class="l">Base-case 12-month profit, mobile + tablet core</div></div>
+    <div class="stat"><div class="v">{money(base['cumulative_steam'][-1])}</div><div class="l">Base case with the optional M4 Steam expansion</div></div>
     <div class="stat"><div class="v">0</div><div class="l">Chips sold · ads shown · card numbers touched</div></div>
-    <div class="stat"><div class="v">65M+</div><div class="l">RDR2 copies sold — the wedge audience's home</div></div>
-    <div class="stat"><div class="v">{base['installs_total']//1000}k</div><div class="l">Base-case year-one installs (mobile)</div></div>
-    <div class="stat"><div class="v">M{next(i+1 for i,v in enumerate(base['cumulative']) if v>0)}</div><div class="l">Base-case breakeven month</div></div>
+    <div class="stat"><div class="v">{base['installs_total']//1000}k</div><div class="l">Base-case year-one installs (~{TABLET_SHARE*100:.0f}% tablets → ~{TABLET_REV_FRAC*100:.0f}% of revenue)</div></div>
+    <div class="stat"><div class="v">M{breakeven['Base']}</div><div class="l">Base-case breakeven month</div></div>
   </div>
   <div class="foot"><span>Prepared October 2026</span><span>docs/marketing-plan.md · v2</span></div>
 </div>""")
@@ -372,7 +433,8 @@ def build_html(model):
   <p class="lead">RDR2's saloon poker is one of gaming's most beloved minigames — not because
   the poker is deep (it isn't), but because of <b>diegetic immersion</b>: a table in a place,
   with characters who talk, react and exist. Players repeatedly ask for this as a standalone
-  product. Nobody has shipped it.</p>
+  product. Nobody has shipped it — and nobody has shipped it <b>where this player actually has
+  time to play: on their phone and tablet</b>.</p>
   <div class="cols2">
     <div>
       <h3>Why the demand is real</h3>
@@ -383,7 +445,7 @@ def build_html(model):
       recurring question in a large community is the cheapest marketing signal that exists.</div>
       <div class="card"><h4>Proven, then abandoned</h4>Poker Night at the Inventory validated
       character-driven single-player poker, earned a sequel, then was delisted. A decade of
-      demand, zero supply — never on mobile.</div>
+      demand, zero supply — never on mobile or tablet.</div>
     </div>
     <div>
       <h3>Risks &amp; mitigations</h3>
@@ -420,7 +482,7 @@ def build_html(model):
     <tr><td><b>Governor of Poker 1–2</b></td><td>Paid single-player</td>
         <td>10+ years old, dated presentation, simplistic AI, no tells or coaching</td></tr>
     <tr><td><b>Poker Night at the Inventory 1–2</b></td><td>Premium character poker (PC)</td>
-        <td><b>Delisted</b> — validated demand, zero supply, never on mobile</td></tr>
+        <td><b>Delisted</b> — validated demand, zero supply, never on mobile or tablet</td></tr>
     <tr><td><b>Prominence Poker</b></td><td>F2P console/PC, online</td>
         <td>Not mobile, not offline, not single-player-first</td></tr>
     <tr><td><b>RDR2 itself</b></td><td>AAA; poker is a minigame</td>
@@ -464,11 +526,11 @@ def build_html(model):
       differentiator in a category famous for data harvesting. Put it in the screenshots.</p>
       <p><b>Never:</b> loot boxes, gacha, randomised monetisation, ads, subscriptions.
       Every purchase is a known thing at a known price.</p>
-      <h3>Why free-to-download</h3>
-      <p class="small">Paid-up-front on a $1,000 budget with no publisher means a few hundred
-      installs and ranking death. Free removes the one friction we can't argue against, maximises
-      the web-demo → store funnel, and "free, and we will never sell you chips" is itself the hook.
-      Steam is the exception: desktop audiences reward premium pricing.</p>
+      <h3>Tablet is the premium slice</h3>
+      <p class="small">Card and board games over-index on iPad; sessions run longer and tablet
+      players convert at ~1.5× the phone rate — ~{TABLET_SHARE*100:.0f}% of installs producing
+      ~{TABLET_REV_FRAC*100:.0f}% of revenue. So: dedicated iPad screenshots and preview video
+      (tablet ASO is its own surface), and tells art-directed to read beautifully at tablet size.</p>
     </div>
     <div>
       <table>
@@ -481,13 +543,13 @@ def build_html(model):
         <tr><td><b>Everything Edition</b> — all current and future environments; priced so two
             packs ≈ bundle</td><td class="r">$14.99 → $19.99</td></tr>
         <tr><td><b>Supporter tip</b> — "buy the dealer a whisky"</td><td class="r">$2.99</td></tr>
-        <tr><td><b>Steam / desktop premium</b> — everything included, ships M4; wishlists and
-            Next Fest are free marketing</td><td class="r">$9.99</td></tr>
+        <tr><td><b>Steam / desktop premium</b> — expansion option, ships M4 only if the mobile
+            base case holds (profit comparison, §07)</td><td class="r">$9.99</td></tr>
       </table>
       <div class="kpis" style="grid-template-columns:1fr 1fr 1fr">
         <div class="kpi"><div class="v">2–4%</div><div class="l">of installs become payers</div></div>
         <div class="kpi"><div class="v">~$8</div><div class="l">avg revenue per payer (mobile)</div></div>
-        <div class="kpi"><div class="v">85% / 70%</div><div class="l">net kept — mobile / Steam</div></div>
+        <div class="kpi"><div class="v">85%</div><div class="l">net kept — store small-business tier</div></div>
       </div>
     </div>
   </div>
@@ -509,7 +571,7 @@ def build_html(model):
             $25–50 paid for the 6–8 best fits; A/B the two framings</td>
             <td class="r">350</td><td>≥4 videos live in launch week; track which framing drives installs</td></tr>
         <tr><td><b>Apple Search Ads</b> — exact match only: offline poker, single player poker,
-            poker vs ai, texas holdem offline, western / saloon poker</td>
+            poker vs ai, texas holdem offline, western / saloon poker; iPad placements included</td>
             <td class="r">250</td><td>CPI &lt; $1.50 <b>and</b> D1 &gt; 35%, else pause keyword</td></tr>
         <tr><td><b>Reddit promoted posts</b> — r/poker + mobile-gaming subs; western-gaming
             interest targeting, trademark never in our copy; destination = web demo</td>
@@ -541,8 +603,8 @@ def build_html(model):
   <div class="flow">
     <div class="fbox"><div class="t">M0 · Product gate</div><ul>
       <li>Western Saloon built as free flagship (5-NPC cast)</li>
-      <li>Web demo = saloon, with analytics + UTM store banners</li>
-      <li>60–90s raw capture per NPC for the content library</li></ul></div>
+      <li>Tablet presentation pass (iPad screenshots are their own ASO surface)</li>
+      <li>Web demo = saloon, with analytics + UTM store banners</li></ul></div>
     <div class="farr">→</div>
     <div class="fbox"><div class="t">M1 · Presence</div><ul>
       <li>Store listings: NPC faces + tell captions, not a table</li>
@@ -561,7 +623,7 @@ def build_html(model):
     <div class="farr">→</div>
     <div class="fbox"><div class="t">M4 · Live cadence</div><ul>
       <li>One pack / 6–8 wks — each a full marketing beat</li>
-      <li>Steam premium M4 + Next Fest M6</li>
+      <li>Platform expansion gate: Steam only if base case holds (§07)</li>
       <li>Coaching beat into poker-learning spaces</li></ul></div>
   </div>
   <div class="cols2">
@@ -593,37 +655,74 @@ def build_html(model):
         f'<tr><td><b>{name}</b><br/><span class="small">{s["note"]}</span></td>'
         f'<td class="r">{s["installs_total"]:,}</td>'
         f'<td class="r">{s["conv"]*100:.0f}% · ${s["arppu"]:.0f}</td>'
-        f'<td class="r">{s["steam_units"]:,}</td>'
         f'<td class="r"><b>{money(s["cumulative"][-1])}</b></td>'
-        f'<td class="r">{"M"+str(next((i+1 for i,v in enumerate(s["cumulative"]) if v>0), "—"))}</td></tr>'
+        f'<td class="r">{"M"+str(breakeven[name]) if breakeven[name] else "—"}</td>'
+        f'<td class="r">{money(s["steam_incremental"])}</td>'
+        f'<td class="r">{money(s["cumulative_steam"][-1])}</td></tr>'
         for name, s in model.items())
     pages.append(f"""
 <div class="page">
   <div class="kicker2">06 · Projections</div>
-  <h2>Projected profit over 12 months</h2>
-  <p class="small">Cumulative profit = mobile IAP net (85% after store small-business cut)
-  + Steam net (70%) − $1,250 upfront (ads, dev accounts, Steam Direct) − $50/month running costs.
-  Scenarios differ on install volume, payer conversion, average revenue per payer and Steam units.</p>
+  <h2>Projected profit over 12 months — mobile + tablet core</h2>
+  <p class="small">Cumulative profit = mobile/tablet IAP net (85% after store small-business cut)
+  − $1,150 upfront (ads, dev accounts) − $50/month running costs. The dashed line overlays the
+  optional M4 Steam expansion on the base case for comparison (70% net, −$100 Steam Direct fee).</p>
   <div class="chartwrap">{svg_line_chart(model)}</div>
   <table>
     <tr><th>Scenario</th><th class="r">Installs (yr 1)</th><th class="r">Payer % · ARPPU</th>
-        <th class="r">Steam units</th><th class="r">Cumulative profit (M12)</th><th class="r">Breakeven</th></tr>
+        <th class="r">Core profit (M12)</th><th class="r">Breakeven</th>
+        <th class="r">+ Steam incr.</th><th class="r">With Steam (M12)</th></tr>
     {rows}
   </table>
-  <div class="quote">Because total cost is tiny, even the conservative case reaches breakeven —
-  the real risk is opportunity cost, not capital. The budget's job is to find <b>one repeatable
-  channel</b> (CPI &lt; $1.50, D7 &gt; 10%); that evidence, not launch revenue, is what justifies
+  <div class="quote">Honest read: the conservative case ends ~$430 under water on mobile alone and
+  only turns positive with the Steam expansion — while the base case breaks even in month one.
+  Total capital at risk is tiny either way; the budget's job is to find <b>one repeatable channel</b>
+  (CPI &lt; $1.50, D7 &gt; 10%), because that evidence — not launch revenue — is what justifies
   real spend afterwards.</div>
   {foot(7)}
 </div>""")
 
-    # ---- 8 · base case detail + risks ----
+    # ---- 8 · platform comparison ----
     pages.append(f"""
 <div class="page">
-  <div class="kicker2">07 · Base case &amp; risks</div>
-  <h2>Base-case monthly net revenue mix</h2>
-  <p class="small">Mobile launch spike decays to an ASO + devlog floor sustained by pack beats
-  every 6–8 weeks; the $9.99 Steam edition lands month 4 with a Next Fest bump in month 6.</p>
+  <div class="kicker2">07 · Platforms</div>
+  <h2>Platform profit comparison — why mobile + tablet is the core</h2>
+  <p class="small">Incremental year-1 net profit by platform, base-case scenario. Each expansion
+  must beat the core on profit per unit of focus it consumes.</p>
+  <div class="chartwrap">{svg_platform_bars(model)}</div>
+  <table>
+    <tr><th>Platform</th><th>Build cost to reach it</th><th>Role</th></tr>
+    <tr><td><b>iOS / iPadOS / Android</b> (free + IAP)</td>
+        <td>$0 — already the product (store accounts ~$124)</td>
+        <td><b>Core focus.</b> Compounding: every pack beat re-monetises the whole installed base;
+        tablets are the premium slice (~{TABLET_REV_FRAC*100:.0f}% of revenue)</td></tr>
+    <tr><td><b>PC / Steam</b> ($9.99 premium)</td>
+        <td>Low — same Unity project, desktop target; $100 Steam Direct + QA time</td>
+        <td><b>Expand at M4, gated</b> on the mobile base case holding. Caution: its unit estimate
+        rides on the audience the mobile launch builds, and it is front-loaded where mobile compounds</td></tr>
+    <tr><td><b>Web</b> (Blazor demo)</td>
+        <td>$0 — already built and auto-deployed</td>
+        <td><b>Funnel, not product.</b> Zero-install trial that converts sceptics into store
+        installs; tips at most as direct revenue</td></tr>
+    <tr><td><b>Console</b> (Switch-class)</td>
+        <td>$3k–8k — porting, devkit process, certification, ratings</td>
+        <td><b>Defer to year 2.</b> Couch card-game fit is real, but certification overhead eats
+        year-1 economics; revisit with mobile/Steam sales evidence</td></tr>
+  </table>
+  <div class="quote">Reading: Steam is the only expansion that pays for itself in year 1 — and only
+  after the mobile launch has built the audience its estimate depends on. Hence the sequencing:
+  mobile/tablet first, Steam at M4 gated on data, web stays the funnel, console waits.</div>
+  {foot(8)}
+</div>""")
+
+    # ---- 9 · base case detail + risks ----
+    pages.append(f"""
+<div class="page">
+  <div class="kicker2">08 · Base case &amp; risks</div>
+  <h2>Base-case monthly net revenue — phone vs tablet</h2>
+  <p class="small">Launch spike decays to an ASO + devlog floor sustained by pack beats every
+  6–8 weeks. Tablets: ~{TABLET_SHARE*100:.0f}% of installs converting at ~1.5× phone rate →
+  ~{TABLET_REV_FRAC*100:.0f}% of revenue — the big-screen presentation pass pays for itself.</p>
   <div class="chartwrap">{svg_stacked_bars(model)}</div>
   <h3>Risk register</h3>
   <table>
@@ -641,10 +740,11 @@ def build_html(model):
   </table>
   <h3>Measurement</h3>
   <p class="small">UTM-tag every link; two funnels (web demo → store, store direct). Weekly
-  dashboard: installs by source, CPI, D1/D7, median session, % reaching hand 10, payer conversion,
-  pack attach rate, Everything-Edition take rate, Steam wishlists. The strategic A/B — saloon
-  fantasy vs anti-chip-casino — is settled with launch-week data and leads all future beats.</p>
-  {foot(8)}
+  dashboard: installs by source and device class (phone/tablet), CPI, D1/D7, median session,
+  % reaching hand 10, payer conversion, pack attach rate, Everything-Edition take rate, Steam
+  wishlists. The strategic A/B — saloon fantasy vs anti-chip-casino — is settled with launch-week
+  data and leads all future beats.</p>
+  {foot(9)}
 </div>""")
 
     return ("<!doctype html><html><head><meta charset='utf-8'>"
@@ -673,8 +773,9 @@ def main():
             os.unlink(html_path)
     for name, s in model.items():
         be = next((i + 1 for i, v in enumerate(s["cumulative"]) if v > 0), None)
-        print(f"{name:>12}: installs {s['installs_total']:>7,} | M12 profit "
-              f"{s['cumulative'][-1]:>10,.0f} | breakeven {'M'+str(be) if be else 'none'}")
+        print(f"{name:>12}: installs {s['installs_total']:>7,} | core M12 "
+              f"{s['cumulative'][-1]:>10,.0f} | +steam {s['steam_incremental']:>8,.0f} | "
+              f"with steam {s['cumulative_steam'][-1]:>10,.0f} | breakeven {'M'+str(be) if be else 'none'}")
     print(f"PDF written: {out_pdf}")
 
 
