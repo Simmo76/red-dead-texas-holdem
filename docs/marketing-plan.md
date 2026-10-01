@@ -2,6 +2,8 @@
 
 *Scope: maximise exposure and revenue for the iOS/Android launch with a US$1,000 paid budget. v2 centres the plan on the confirmed target market — **single players who want to play poker against NPCs the way they do in Red Dead Redemption 2** — and the hard constraint that **no real-money wagering and no bank-card handling** is ever involved.*
 
+*A designed PDF edition with funnel, roadmap, budget and 12-month profit-projection charts lives at [`docs/marketing-plan.pdf`](marketing-plan.pdf) — regenerate it with `python3 tools/marketing-plan-pdf/generate_pdf.py` (needs Chrome; model assumptions are in the script).*
+
 ---
 
 ## 1. The niche: "RDR2 poker, as its own game" — viability assessment
