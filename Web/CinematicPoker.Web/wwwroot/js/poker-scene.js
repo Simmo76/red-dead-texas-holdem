@@ -401,8 +401,8 @@ function loadGlb(loader, url) {
 //   about the grey axis), so one shared shirt texture can yield genuinely
 //   different colours per seat (a plain colour multiply can only darken).
 // - uGrey: a fold grey-out on the final colour — while raised, the fragment
-//   collapses to luminance, and with the material's opacity lowered the
-//   folded player reads as a muted grey until the next hand (slight alpha only).
+//   collapses to a pale luminance, and with the material's opacity lowered the
+//   folded player reads as a muted grey ghost until the next hand.
 function characterMaterial(material, shirt, meshName) {
   const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
   const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
@@ -437,7 +437,7 @@ function characterMaterial(material, shirt, meshName) {
         diffuseColor.rgb = clamp(c, 0.0, 1.0);
       }`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
       gl_FragColor.rgb = mix(gl_FragColor.rgb,
-        vec3(dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114))) * 0.72, uGrey);`);
+        vec3(dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114)) * 0.6 + 0.3), uGrey);`);
     m.userData.foldShader = shader;
   };
   m.customProgramCacheKey = () => `char-${hue.toFixed(3)}-${sat}`;
@@ -542,10 +542,52 @@ function makeCharacter(gltf, spec, extraClips) {
     for (const p of outlineParts) p.hull.visible = on && p.src.visible;
   };
 
-  // Folded players desaturate for the rest of the hand. They stay opaque:
-  // a see-through shell on this rig draws the inside of the head and the
-  // eye cards, which reads as a warped grey mannequin. Shadows drop so the
-  // muted colour still separates them from the players still in the hand.
+  // Folded players grey out for the rest of the hand: pale grey (uGrey
+  // collapses the fragment to lifted luminance) with a clear alpha fade, with
+  // their shadow dropped so the ghost look reads. The flag simply mirrors the
+  // engine's per-hand folded state, so everyone returns to full colour when
+  // the next hand starts.
+  //
+  // Plain alpha on a multi-part character shows its own insides (the far
+  // side of the head, the eyes from behind). The classic fix: while ghosted,
+  // depth-only copies of every mesh lay down the nearest surface depth first;
+  // the semi-transparent body then depth-tests against that buffer with
+  // depthWrite off so only the outer shell blends.
+  //
+  // The prepass stays in the *opaque* queue (transparent: false) with skinning
+  // and matching side so animated geometry actually writes depth; otherwise
+  // whole body regions fail the colour pass and vanish.
+  //
+  // depthTest: false on the prepass ignores table depth that already
+  // filled the buffer — otherwise torsos behind the rail never write depth and
+  // only the head survives as a floating grey ghost.
+  function ghostDepthMaterial(srcMat) {
+    const m = new THREE.MeshBasicMaterial({
+      colorWrite: false,
+      transparent: false,
+      depthWrite: true,
+      depthTest: false,
+      side: srcMat.side,
+    });
+    m.skinning = !!srcMat.skinning;
+    return m;
+  }
+  const ghostParts = [];
+  for (const src of bodyMeshes) {
+    const depthMesh = src.clone();
+    depthMesh.material = Array.isArray(src.material)
+      ? src.material.map(ghostDepthMaterial)
+      : ghostDepthMaterial(src.material);
+    depthMesh.castShadow = false;
+    depthMesh.receiveShadow = false;
+    depthMesh.frustumCulled = false;
+    depthMesh.visible = false;
+    // Opaque pass: after the table (0), before the transparent ghost body (2).
+    depthMesh.renderOrder = 1;
+    src.parent.add(depthMesh);
+    ghostParts.push({ src, depthMesh });
+  }
+
   character.setFolded = (on) => { character.folded = on; };
   character.updateFold = (dt) => {
     const target = character.folded ? 1 : 0;
@@ -553,11 +595,26 @@ function makeCharacter(gltf, spec, extraClips) {
     character.foldW += (target - character.foldW) * Math.min(1, dt * 3.5);
     if (Math.abs(character.foldW - target) < 0.01) character.foldW = target;
     const w = character.foldW;
+    const ghost = w > 0.001;
     for (const m of bodyMats) {
+      const wantTransparent = ghost || m.userData.keepTransparent;
+      if (m.transparent !== wantTransparent) { m.transparent = wantTransparent; m.needsUpdate = true; }
+      m.depthWrite = !ghost; // the prepass owns depth while ghosted
+      // Double-sided shells (head/eyes/hair) fight the depth prepass under alpha
+      // and punch holes through the body; force a single front pass while ghosted.
+      if (m.userData.origSide === undefined) m.userData.origSide = m.side;
+      m.side = ghost ? THREE.FrontSide : m.userData.origSide;
+      m.forceSinglePass = ghost;
+      const base = m.userData.baseOpacity ?? 1;
+      m.opacity = base * (1 - w * 0.45);
       m.userData.foldGrey = w;
       if (m.userData.foldShader) m.userData.foldShader.uniforms.uGrey.value = w;
     }
-    for (const mesh of bodyMeshes) mesh.castShadow = w < 0.5;
+    for (const p of ghostParts) {
+      p.depthMesh.visible = ghost;
+      p.src.renderOrder = ghost ? 2 : 0;
+      p.src.castShadow = w < 0.5;
+    }
   };
 
   // Idle is AS_Idle_Sit_Thinking_01, retargeted onto Jacob, for every seat.
