@@ -485,6 +485,9 @@
         _skipRequested = false;
         _exportOpen = false;
         _exportNote = "";
+        try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
+        catch (InvalidOperationException) { }
+        catch (JSException) { }
 
         _ = RunLoop(++_loopToken);
     }
@@ -527,6 +530,8 @@
                 _legal = _game.GetLegalActions();
                 _sliderValue = _legal.MinBetOrRaiseTo;
                 _awaitingHuman = true;
+                try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", true); }
+                catch (JSException) { }
                 StateHasChanged();
                 return; // resumes via Act()
             }
@@ -551,6 +556,8 @@
             _game.SubmitAction(action);
             _awaitingHuman = false;
             _showSlider = false;
+            try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
+            catch (JSException) { }
         }
         catch (IllegalActionException)
         {

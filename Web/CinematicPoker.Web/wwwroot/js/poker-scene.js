@@ -2303,12 +2303,10 @@ window.pokerScene = {
     } else if (kind === 'fold') {
       if (seatIndex === 0) {
         play('FoldShake', 1.9);
-        return;
+      } else {
+        play('Fold', 1.0, 0.55);
       }
-      play('Fold', 1.0, 0.55);
-      if (window.pokerAudio && Math.random() < 0.25) {
-        window.pokerAudio.voice(seatIndex, 'lose');
-      }
+      if (window.pokerAudio) window.pokerAudio.voice(seatIndex, 'fold');
     }
   },
 
@@ -2348,7 +2346,7 @@ window.pokerScene = {
     if (seat && seat.char && !seat.char.dead && seat.char.playEmotion) {
       seat.char.playEmotion(mood, intensity);
     }
-    if (window.pokerAudio && (mood === 'win' || mood === 'lose') && Math.random() < (mood === 'win' ? 0.8 : 0.35)) {
+    if (window.pokerAudio && (mood === 'win' || mood === 'lose')) {
       window.pokerAudio.voice(seatIndex, mood);
     }
   },
