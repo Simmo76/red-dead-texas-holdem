@@ -75,9 +75,44 @@ jobs:
         with:
           path: site
 
+  # The github-pages environment rejects branches that aren't in its
+  # deployment-branch policy, which fails the whole check. Look the policy up
+  # first so a not-yet-allowed branch SKIPS the deploy instead of going red.
+  gate:
+    name: Check Pages deployment branch policy
+    runs-on: ubuntu-latest
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+    steps:
+      - name: Match branch against github-pages environment policy
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! POLICIES=$(gh api "repos/${GITHUB_REPOSITORY}/environments/github-pages/deployment-branch-policies" --jq '.branch_policies[].name'); then
+            echo "Could not read branch policies; attempting the deploy anyway."
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          ALLOWED=false
+          while IFS= read -r pattern; do
+            [ -z "$pattern" ] && continue
+            # shellcheck disable=SC2254  # unquoted on purpose: glob match
+            case "$GITHUB_REF_NAME" in
+              $pattern) ALLOWED=true ;;
+            esac
+          done <<< "$POLICIES"
+          echo "allowed=$ALLOWED" >> "$GITHUB_OUTPUT"
+          if [ "$ALLOWED" = "false" ]; then
+            MSG="Preview deploy skipped: branch '$GITHUB_REF_NAME' is not allowed by the github-pages environment. Add a 'cursor/*' deployment branch pattern under Settings -> Environments -> github-pages to enable branch previews."
+            echo "::notice::$MSG"
+            echo "$MSG" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   deploy:
     name: Deploy to GitHub Pages
-    needs: build
+    needs: [build, gate]
+    if: needs.gate.outputs.allowed == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
