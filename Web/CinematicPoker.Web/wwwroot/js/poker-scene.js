@@ -533,18 +533,31 @@ function makeCharacter(gltf, spec, extraClips) {
     character.idleName = name;
   };
 
-  const switchHomeIdle = (name, fade = 0.4) => {
+  // Three.js drop to the standing bind if every action is disabled or at
+  // weight 0. Home-idle swaps must land on a playing seated clip at full
+  // weight — never fade the old sit to 0 and hope a scheduled stop is safe.
+  const runSit = (action) => {
+    if (!action) return;
+    action.enabled = true;
+    action.paused = false;
+    action.reset();
+    action.setEffectiveWeight(1);
+    action.setEffectiveTimeScale(1);
+    action.play();
+  };
+
+  const switchHomeIdle = (name) => {
     const clip = findMood(name) || findBody('Sit');
-    if (!clip || !sitAction) return;
-    if (sitAction.getClip() === clip) return;
+    if (!clip) return;
+    if (sitAction && sitAction.getClip() === clip
+        && sitAction.isRunning() && sitAction.getEffectiveWeight() > 0.5) {
+      return;
+    }
     const next = makeSitAction(clip);
-    next.time = Math.random() * clip.duration;
-    next.setEffectiveWeight(0);
-    next.play();
-    const prev = sitAction;
-    sitAction.crossFadeTo(next, fade, false);
+    if (sitAction && sitAction !== next) sitAction.stop();
     adoptSitAction(next, name);
-    setTimeout(() => { if (prev !== sitAction) prev.stop(); }, fade * 1000 + 80);
+    runSit(next);
+    next.time = Math.random() * clip.duration;
   };
 
   // Inverted-hull outline (the classic stencil-outline look): a back-face
@@ -623,11 +636,11 @@ function makeCharacter(gltf, spec, extraClips) {
     const clip = findMood(name) || findBody('Sit');
     if (!clip || !sitAction || sitAction.getClip() === clip) return;
     // A Fold / FoldShake already in flight should land on the new hold, not
-    // fade back to thinking. Swap the restore target without interrupting.
+    // fade back to thinking. Retarget the restore clip but leave the gesture
+    // playing — stopping the current sit here is what left everyone standing.
     if (character.reacting) {
       const next = makeSitAction(clip);
       next.time = Math.random() * clip.duration;
-      sitAction.stop();
       adoptSitAction(next, name);
       return;
     }
@@ -684,10 +697,7 @@ function makeCharacter(gltf, spec, extraClips) {
   // (or the frozen first frame of it, for the player's still body).
   const hardSit = () => {
     mixer.stopAllAction();
-    if (sitAction) {
-      sitAction.reset();
-      sitAction.play();
-    }
+    runSit(sitAction);
   };
 
   // Returns true only when the gesture actually started, so callers that must
@@ -709,26 +719,21 @@ function makeCharacter(gltf, spec, extraClips) {
     const holdMs = Math.min(seconds * 1000, clipSeconds * 1000);
     setTimeout(() => {
       if (character.dead || gen !== gestureGen) return;
-      sitAction.reset();
-      action.crossFadeTo(sitAction, 0.35, false);
-      sitAction.play();
+      action.stop();
+      runSit(sitAction);
       setTimeout(() => {
         if (character.dead || gen !== gestureGen) return;
         character.reacting = false;
-        // Safety net: if the fade back got trampled, every action can end up
-        // at weight zero, which drops the rig into its standing rest pose.
-        // Snap cleanly back onto the sit loop instead of standing there.
-        if (character.folded) {
-          const want = findMood(FOLDED_IDLE);
-          if (want && sitAction.getClip() !== want) {
-            const nextSit = makeSitAction(want);
-            nextSit.time = Math.random() * want.duration;
-            adoptSitAction(nextSit, FOLDED_IDLE);
-          }
-          hardSit();
-        } else if (sitAction.getEffectiveWeight() < 0.5) {
-          hardSit();
+        // Always snap back onto a seated loop. A faded-out sit left at
+        // weight 0 drops Jacob into the standing bind (arms out).
+        const wantName = character.folded ? FOLDED_IDLE : THINKING_IDLE;
+        const want = findMood(wantName) || findBody('Sit');
+        if (want && (!sitAction || sitAction.getClip() !== want)) {
+          const nextSit = makeSitAction(want);
+          nextSit.time = Math.random() * want.duration;
+          adoptSitAction(nextSit, wantName);
         }
+        hardSit();
         const next = character._queued;
         character._queued = null;
         if (next && !character.dead) {
@@ -767,6 +772,10 @@ function makeCharacter(gltf, spec, extraClips) {
     return character.playOnce(mood === 'win' ? 'Attack' : 'Fold', mood === 'win' ? 2.2 : 1.0);
   };
   character.tickFidget = () => {};
+  character.ensureSit = () => {
+    if (character.dead || character.reacting || !sitAction) return;
+    if (!sitAction.isRunning() || sitAction.getEffectiveWeight() < 0.2) hardSit();
+  };
 
   return character;
 }
@@ -1189,6 +1198,7 @@ async function buildScene(canvas) {
     for (const seat of state.seats) if (seat.char) {
       seat.char.mixer.update(dt);
       if (seat.char.tickFidget) seat.char.tickFidget(t);
+      if (seat.char.ensureSit) seat.char.ensureSit();
       seat.char.applyArmPose(dt);
       seat.char.updateFold(dt);
     }
