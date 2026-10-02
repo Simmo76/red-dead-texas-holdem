@@ -273,21 +273,33 @@ html, body {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 12px 16px;
-    padding-left: calc(16px + env(safe-area-inset-left));
-    padding-right: calc(16px + env(safe-area-inset-right));
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    padding-left: calc(18px + env(safe-area-inset-left));
+    padding-right: calc(18px + env(safe-area-inset-right));
     /* Extra inset on notched phones where safe-area can read as zero in-browser */
-    padding-bottom: calc(12px + max(16px, env(safe-area-inset-bottom, 0px)));
+    padding-bottom: calc(14px + max(16px, env(safe-area-inset-bottom, 0px)));
     z-index: 5;
+}
+
+.actionbar-left,
+.actionbar-right {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.actionbar-right {
+    margin-left: auto;
 }
 
 .act {
     border: 1px solid rgba(0, 0, 0, 0.5);
     border-radius: 10px;
-    padding: 14px 26px;
-    font-size: 15px;
+    padding: 17px 30px;
+    font-size: 16px;
     font-weight: bold;
     letter-spacing: 2px;
     cursor: pointer;
@@ -337,6 +349,7 @@ html, body {
     flex-direction: column;
     gap: 8px;
     width: min(640px, 92%);
+    margin: 0 auto;
 }
 
 .slider-panel input[type="range"] {
@@ -458,8 +471,9 @@ html, body {
 /* ------------------------------------------------------------- small screens */
 
 @media (max-width: 980px) {
-    .act { padding: 11px 16px; font-size: 13px; }
-    .actionbar { gap: 8px; }
+    .act { padding: 13px 18px; font-size: 14px; }
+    .actionbar { gap: 10px; }
+    .actionbar-left, .actionbar-right { gap: 10px; }
     .brand { font-size: 14px; letter-spacing: 3px; }
 }
 
@@ -484,8 +498,9 @@ html, body {
     .hud-board.expanded .hud-card { width: 72px; }
     .banner { font-size: 12px; top: 30%; }
 
-    .act { padding: 10px 12px; font-size: 12px; letter-spacing: 1px; flex: 0 1 auto; }
+    .act { padding: 12px 14px; font-size: 13px; letter-spacing: 1px; flex: 0 1 auto; }
     .actionbar { gap: 8px; }
+    .actionbar-left, .actionbar-right { gap: 8px; }
     .slider-row { flex-wrap: wrap; }
 }
 
@@ -503,11 +518,12 @@ html, body {
     .hud-board.expanded .hud-card { width: 90px; }
     .banner { font-size: 12px; top: 26%; }
 
-    .act { padding: 8px 12px; font-size: 11px; flex: 0 1 auto; }
+    .act { padding: 10px 14px; font-size: 12px; flex: 0 1 auto; }
     .actionbar {
-        gap: 6px;
+        gap: 8px;
         padding-bottom: calc(8px + max(12px, env(safe-area-inset-bottom, 0px)));
     }
+    .actionbar-left, .actionbar-right { gap: 8px; }
     .slider-panel { gap: 4px; }
     .overlay-box { padding: 22px 30px; gap: 14px; }
 }
