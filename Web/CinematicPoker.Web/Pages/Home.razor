@@ -238,8 +238,6 @@
     private readonly Random _rng = new();
     private readonly Dictionary<int, IReadOnlyList<Card>> _revealed = new();
     private int _showdownHandCount; // hands compared at the current showdown
-    private int _streetAggression;   // 0 none, 1 a bet, 2 a raise — picks "raise" vs "re-raise"
-    private bool _dealerOpened;      // "texas hold'em" once per session, not every hand
     private readonly List<string> _log = new();
 
     // The engine resolves a hand synchronously (a call on the turn can deal
@@ -450,13 +448,8 @@
         _sessionOver = false;
         _awaitingHuman = false;
         _showSlider = false;
-        _streetAggression = 0;
-        _dealerOpened = false;
         _exportOpen = false;
         _exportNote = "";
-        try { _ = JS.InvokeVoidAsync("pokerAudio.clearDealer"); }
-        catch (InvalidOperationException) { /* first start, before the page can reach JS */ }
-        catch (JSException) { }
 
         _ = RunLoop(++_loopToken);
     }
@@ -710,7 +703,6 @@
     private void ApplyEvent(PokerEvent evt)
     {
         PlaySoundFor(evt);
-        Announce(evt);
 
         switch (evt)
         {
@@ -816,94 +808,6 @@
                 if (line != null) AddLog(line);
                 break;
         }
-    }
-
-    // Dealer calls from the owner-supplied voice pack. Dry takes, one clip
-    // per thing a hold'em dealer would actually say at this table.
-    private void Announce(PokerEvent evt)
-    {
-        switch (evt)
-        {
-            case HandStarted:
-                _streetAggression = 0;
-                if (!_dealerOpened)
-                {
-                    _dealerOpened = true;
-                    PlayDealer("texas-hold-em");
-                }
-                break;
-            case BlindPosted blind:
-                PlayDealer(blind.IsAllIn ? "all-in" : blind.IsBigBlind ? "big-blind" : "small-blind");
-                break;
-            case PlayerChecked:
-                PlayDealer("check");
-                break;
-            case PlayerCalled:
-                PlayDealer("call");
-                break;
-            case BetPlaced:
-                PlayDealer("bet");
-                _streetAggression = 1;
-                break;
-            case PlayerRaised:
-                // A raise of a raise is a re-raise. A raise after an opening
-                // bet is still just a raise.
-                PlayDealer(_streetAggression >= 2 ? "re-raise" : "raise");
-                _streetAggression = 2;
-                break;
-            case PlayerFolded:
-                PlayDealer("fold");
-                break;
-            case PlayerAllIn:
-                PlayDealer("all-in");
-                break;
-            case FlopDealt:
-                _streetAggression = 0;
-                PlayDealer("flop");
-                break;
-            case TurnDealt:
-                _streetAggression = 0;
-                PlayDealer("turn");
-                break;
-            case RiverDealt:
-                _streetAggression = 0;
-                PlayDealer("river");
-                break;
-            case ShowdownStarted:
-                PlayDealer("showdown");
-                break;
-            case PotAwarded award:
-                if (award.PotIndex > 0) PlayDealer("side-pot");
-                if (award.WinningHand.HasValue)
-                    PlayDealer(HandClip(award.WinningHand.Value.Category));
-                if (award.WinnerSeats.Count > 1)
-                    PlayDealer("split");
-                else if (award.WinnerSeats.Contains(0))
-                    PlayDealer("you-win-the-pot");
-                break;
-        }
-    }
-
-    private static string HandClip(HandCategory category) => category switch
-    {
-        HandCategory.HighCard => "high-card",
-        HandCategory.Pair => "pair",
-        HandCategory.TwoPair => "two-pair",
-        HandCategory.ThreeOfAKind => "three-of-a-kind",
-        HandCategory.Straight => "straight",
-        HandCategory.Flush => "flush",
-        HandCategory.FullHouse => "full-house",
-        HandCategory.FourOfAKind => "four-of-a-kind",
-        HandCategory.StraightFlush => "straight-flush",
-        HandCategory.RoyalFlush => "royal-flush",
-        _ => null
-    };
-
-    private void PlayDealer(string clip)
-    {
-        if (_muted || string.IsNullOrEmpty(clip)) return;
-        try { _ = JS.InvokeVoidAsync("pokerAudio.dealer", clip); }
-        catch (JSException) { }
     }
 
     private string Describe(PokerEvent evt) => evt switch
