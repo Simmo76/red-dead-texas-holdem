@@ -416,6 +416,14 @@ namespace CinematicPoker.Game.Prototype
 
         private void OnSessionFinished()
         {
+            foreach (var p in Controller.Game.Players)
+            {
+                if (p.IsHuman && p.Status == PlayerStatus.Eliminated)
+                {
+                    _hud.ShowSessionOver("You're out. Rough night.");
+                    return;
+                }
+            }
             string winner = "Nobody";
             foreach (var p in Controller.Game.Players)
                 if (p.Stack > 0) winner = p.Name;

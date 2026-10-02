@@ -1,3 +1,4 @@
+using System.Linq;
 using CinematicPoker.Engine.AI;
 using CinematicPoker.Engine.Players;
 using CinematicPoker.Engine.Poker;
@@ -8,8 +9,9 @@ namespace CinematicPoker.Engine.Tests
     /// <summary>
     /// End-to-end session flow exactly as the Unity prototype drives it:
     /// one human (scripted check/call here) + five NPCs with real decision
-    /// engines, playing from buy-in until the human or all NPC opponents
-    /// are eliminated.
+    /// engines, playing from buy-in until the human busts or the human
+    /// eliminates every opponent. NPCs do not keep playing after the
+    /// player is out.
     /// </summary>
     [TestFixture]
     public class GameFlowTests
@@ -66,8 +68,50 @@ namespace CinematicPoker.Engine.Tests
             }
 
             Assert.IsTrue(game.IsSessionOver, $"Session should finish within 2000 hands (played {hands}).");
-            Assert.AreEqual(1, game.AlivePlayers.Count, "Exactly one player holds all the chips at the end.");
-            Assert.AreEqual(totalChips, game.AlivePlayers[0].Stack, "Winner holds every chip in play.");
+            if (human.Status == PlayerStatus.Eliminated)
+            {
+                Assert.That(game.AlivePlayers.All(p => !p.IsHuman), "Session ends when the human busts; NPCs may still have chips.");
+            }
+            else
+            {
+                Assert.AreEqual(1, game.AlivePlayers.Count, "Exactly one player holds all the chips at the end.");
+                Assert.AreEqual(totalChips, game.AlivePlayers[0].Stack, "Winner holds every chip in play.");
+            }
+        }
+
+        [Test]
+        public void SessionEndsWhenHumanBustsWhileNpcsRemain()
+        {
+            // Three-handed: dealer/UTG is the human (seat 0). Deal order is
+            // left of dealer, two passes: seats 1, 2, 0. Seat 1 wins with
+            // kings; the short human busts; seat 2 still has chips.
+            var deck = StackedDeck.Parse(
+                "Kh", "Qh", "7c",
+                "Kd", "Qd", "2d",
+                "Ah", "5d", "9c",
+                "Jh",
+                "3s");
+            var human = new HumanPlayer("human", "You", seat: 0, stack: 100);
+            var players = new System.Collections.Generic.List<PokerPlayer>
+            {
+                human,
+                new TestPlayer(1, 300),
+                new TestPlayer(2, 300)
+            };
+            var game = new PokerGame(TestHelpers.Rules, players, seed: 1, deckFactory: () => deck);
+            game.StartHand();
+
+            Assert.AreEqual(0, game.CurrentSeat);
+            game.SubmitAction(PlayerAction.AllIn());
+            game.SubmitAction(PlayerAction.Call());
+            game.SubmitAction(PlayerAction.Call());
+            TestHelpers.CheckCallDown(game);
+
+            Assert.AreEqual(GamePhase.SessionOver, game.Phase);
+            Assert.IsTrue(game.IsSessionOver);
+            Assert.AreEqual(PlayerStatus.Eliminated, human.Status);
+            Assert.AreEqual(2, game.AlivePlayers.Count, "NPCs still have chips; the session still ends.");
+            Assert.Throws<System.InvalidOperationException>(() => game.StartHand());
         }
     }
 }
