@@ -1,6 +1,7 @@
 // Sound effects (Kenney CC0 casino pack), per-backdrop background music
 // (owner-supplied saloon loop + OpenGameArt CC0 beach/western/disco beds),
-// and original character voice lines synthesised with Kokoro TTS.
+// original character voice lines synthesised with Kokoro TTS, and a short
+// dealer call for the player's winning hand (B. Patrick pack, dry takes).
 // Everything is MP3 (iOS Safari cannot decode Ogg Vorbis) and short
 // clips play through WebAudio: once the context is unlocked by the first tap,
 // timer-driven sounds (NPC chatter, opponent actions) keep
@@ -15,6 +16,8 @@ window.pokerAudio = (function () {
     let voiceSrc = null;      // one character voice at a time so lines don't overlap
     let lastVoiceAt = 0;
     let aliveSeats = [];
+    let dealerSrc = null;
+    let dealerPlaying = false;
 
     // Seat order matches the fixed table roster in Home.razor.
     const SEAT_NAMES = [null, 'davo', 'mick', 'shazza', 'bluey', 'kev'];
@@ -140,8 +143,49 @@ window.pokerAudio = (function () {
         startMusic();
     });
 
+    // One dealer call — used for the player's winning-hand category at pot award.
+    // Ignored until the first tap unlocks audio, same as SFX.
+    function dealer(name) {
+        if (muted || !name) return;
+        if (!ensureCtx() || ctx.state !== 'running') return;
+        try { if (voiceSrc) voiceSrc.stop(); } catch (e) { }
+        voiceSrc = null;
+        if (dealerSrc) {
+            try { dealerSrc.onended = null; dealerSrc.stop(); } catch (e) { }
+            dealerSrc = null;
+        }
+        dealerPlaying = true;
+        lastVoiceAt = Date.now();
+        const src = ctx.createBufferSource();
+        dealerSrc = src;
+        loadBuffer('audio/dealer/' + name + '.mp3').then(function (buf) {
+            if (muted || dealerSrc !== src) {
+                if (dealerSrc === src) {
+                    dealerPlaying = false;
+                    dealerSrc = null;
+                }
+                return;
+            }
+            src.buffer = buf;
+            src.onended = function () {
+                if (dealerSrc !== src) return;
+                dealerPlaying = false;
+                dealerSrc = null;
+                lastVoiceAt = Date.now();
+            };
+            const gain = ctx.createGain();
+            gain.gain.value = 1;
+            src.connect(gain).connect(ctx.destination);
+            src.start();
+        }).catch(function () {
+            if (dealerSrc !== src) return;
+            dealerPlaying = false;
+            dealerSrc = null;
+        });
+    }
+
     function voice(seat, kind) {   // kind: 'idle' | 'win' | 'lose'
-        if (muted) return;
+        if (muted || dealerPlaying) return;
         const name = SEAT_NAMES[seat];
         if (!name) return;
         const now = Date.now();
@@ -170,6 +214,7 @@ window.pokerAudio = (function () {
     return {
         play: play,
         voice: voice,
+        dealer: dealer,
         // Start the intro movie audio (called on the same tap that starts
         // the camera sweep, so autoplay is already unlocked). The tap's own
         // pointerdown may have started the saloon loop a moment earlier —
@@ -206,6 +251,11 @@ window.pokerAudio = (function () {
             muted = m;
             if (music) { if (m) music.pause(); else startMusic(); }
             if (m && voiceSrc) { try { voiceSrc.stop(); } catch (e) { } voiceSrc = null; }
+            if (m && dealerSrc) {
+                try { dealerSrc.onended = null; dealerSrc.stop(); } catch (e) { }
+                dealerSrc = null;
+                dealerPlaying = false;
+            }
         }
     };
 })();
