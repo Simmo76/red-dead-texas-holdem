@@ -1,0 +1,128 @@
+name: Deploy Branch Preview to GitHub Pages
+
+# Publishes a testable preview of a work-in-progress branch WITHOUT touching
+# the live game: the site root is rebuilt from main exactly as deploy-web.yml
+# would, and the branch build is added under /preview/<branch-slug>/.
+# The preview disappears automatically the next time main deploys.
+#
+# NOTE: the github-pages environment must allow deployments from these
+# branches (Settings -> Environments -> github-pages -> deployment branches).
+
+on:
+  push:
+    branches: ['cursor/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Shares the group with deploy-web.yml: one Pages deployment at a time.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Test engine and build preview + production site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out preview branch
+        uses: actions/checkout@v4
+        with:
+          path: preview-src
+
+      - name: Check out main (live site)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-src
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run engine tests on preview branch
+        run: dotnet test preview-src/DotNet/CinematicPoker.Engine.Tests/CinematicPoker.Engine.Tests.csproj --nologo
+
+      - name: Publish live site from main
+        run: dotnet publish main-src/Web/CinematicPoker.Web/CinematicPoker.Web.csproj -c Release -o publish-main
+
+      - name: Publish preview from branch
+        run: dotnet publish preview-src/Web/CinematicPoker.Web/CinematicPoker.Web.csproj -c Release -o publish-preview
+
+      - name: Assemble combined site
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          BRANCH_SLUG="$(echo "${GITHUB_REF_NAME}" | tr '/' '-')"
+
+          mkdir -p site
+          cp -r publish-main/wwwroot/. site/
+          sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/\" />|" site/index.html
+          cp site/index.html site/404.html
+
+          mkdir -p "site/preview/${BRANCH_SLUG}"
+          cp -r publish-preview/wwwroot/. "site/preview/${BRANCH_SLUG}/"
+          sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/preview/${BRANCH_SLUG}/\" />|" "site/preview/${BRANCH_SLUG}/index.html"
+
+          touch site/.nojekyll
+          echo "Preview will be served at: https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${REPO_NAME}/preview/${BRANCH_SLUG}/" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  # The github-pages environment rejects branches that aren't in its
+  # deployment-branch policy, which fails the whole check. Look the policy up
+  # first so a not-yet-allowed branch SKIPS the deploy instead of going red.
+  gate:
+    name: Check Pages deployment branch policy
+    runs-on: ubuntu-latest
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+    steps:
+      - name: Match branch against github-pages environment policy
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! POLICIES=$(gh api "repos/${GITHUB_REPOSITORY}/environments/github-pages/deployment-branch-policies" --jq '.branch_policies[].name'); then
+            echo "Could not read branch policies; attempting the deploy anyway."
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          ALLOWED=false
+          while IFS= read -r pattern; do
+            [ -z "$pattern" ] && continue
+            # shellcheck disable=SC2254  # unquoted on purpose: glob match
+            case "$GITHUB_REF_NAME" in
+              $pattern) ALLOWED=true ;;
+            esac
+          done <<< "$POLICIES"
+          echo "allowed=$ALLOWED" >> "$GITHUB_OUTPUT"
+          if [ "$ALLOWED" = "false" ]; then
+            MSG="Preview deploy skipped: branch '$GITHUB_REF_NAME' is not allowed by the github-pages environment. Add a 'cursor/*' deployment branch pattern under Settings -> Environments -> github-pages to enable branch previews."
+            echo "::notice::$MSG"
+            echo "$MSG" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: [build, gate]
+    if: needs.gate.outputs.allowed == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

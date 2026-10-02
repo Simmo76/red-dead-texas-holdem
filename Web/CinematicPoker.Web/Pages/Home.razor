@@ -113,6 +113,10 @@
         else if (_game != null && !_sessionOver)
         {
             <div class="waiting">@_statusLine</div>
+            @if (CanFastForward)
+            {
+                <button class="act ff" @onclick="FastForward" title="Skip to the next action">SKIP &#187;</button>
+            }
         }
     </div>
 
@@ -263,6 +267,41 @@
 
     private PokerRound Round => _game?.CurrentRound;
     private long PotNow => Round?.PotTotal ?? 0;
+
+    // ------------------------------------------------------- fast forward
+
+    // Once the player has folded they're only spectating, so a SKIP button
+    // appears: each tap cuts short one pacing wait (an NPC's think time, or
+    // a dwell pause before a street / showdown / pot award), stepping through
+    // the rest of the hand action by action as fast as the player taps.
+    private bool _skipRequested;
+
+    private bool CanFastForward =>
+        _game != null && !_sessionOver && !_awaitingHuman
+        && SeatOf(0) is { Folded: true }
+        && (_game.Phase == GamePhase.HandInProgress || _pending.Count > 0);
+
+    private void FastForward() => _skipRequested = true;
+
+    // A pacing wait the fast-forward button can cut short. Each tap skips at
+    // most one wait, so skipped actions still land on the table one by one.
+    private async Task PacedDelay(int ms, int token)
+    {
+        const int sliceMs = 50;
+        for (int elapsed = 0; elapsed < ms; elapsed += sliceMs)
+        {
+            if (token != _loopToken) return;
+            if (_skipRequested && CanFastForward)
+            {
+                _skipRequested = false;
+                return;
+            }
+            await Task.Delay(sliceMs);
+        }
+        // The wait ran its course: drop any tap that was aimed at it so it
+        // can't accidentally swallow the NEXT wait as well.
+        _skipRequested = false;
+    }
 
     // NPC turns are always at least 1 second apart so the table stays readable.
     private int ThinkTimeMs => _quickMode ? 1000 : _rng.Next(1000, 2200);
@@ -448,6 +487,7 @@
         _sessionOver = false;
         _awaitingHuman = false;
         _showSlider = false;
+        _skipRequested = false;
         _exportOpen = false;
         _exportNote = "";
 
@@ -498,7 +538,7 @@
 
             _statusLine = $"{actor.Name} is thinking…";
             StateHasChanged();
-            await Task.Delay(ThinkTimeMs);
+            await PacedDelay(ThinkTimeMs, token);
             if (token != _loopToken) return;
 
             var npc = (AIPlayer)actor;
@@ -667,7 +707,7 @@
             if (pause > 0)
             {
                 StateHasChanged();
-                await Task.Delay(pause);
+                await PacedDelay(pause, token);
             }
         }
         StateHasChanged();
