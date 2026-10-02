@@ -1,7 +1,7 @@
 // Sound effects (Kenney CC0 casino pack), per-backdrop background music
 // (owner-supplied saloon loop + OpenGameArt CC0 beach/western/disco beds),
-// original character voice lines synthesised with Kokoro TTS, and a short
-// dealer call for the player's winning hand (B. Patrick pack, dry takes).
+// owner-supplied outlaw table voice packs (win / fold-or-lose / random banter),
+// and a short dealer call for the player's winning hand (B. Patrick pack).
 // Everything is MP3 (iOS Safari cannot decode Ogg Vorbis) and short
 // clips play through WebAudio: once the context is unlocked by the first tap,
 // timer-driven sounds (NPC chatter, opponent actions) keep
@@ -13,15 +13,18 @@ window.pokerAudio = (function () {
     const buffers = {};       // url -> Promise<AudioBuffer>
     let muted = false;
     let music = null;
-    let voiceSrc = null;      // one character voice at a time so lines don't overlap
+    let voiceSrc = null;      // one table voice at a time so lines don't overlap
+    let voicePlaying = false;
     let lastVoiceAt = 0;
     let aliveSeats = [];
+    let awaitingHuman = false;
     let dealerSrc = null;
     let dealerPlaying = false;
 
-    // Seat order matches the fixed table roster in Home.razor.
-    const SEAT_NAMES = [null, 'davo', 'mick', 'shazza', 'bluey', 'kev'];
-    const IDLE_VARIANTS = 6;
+    // Owner-supplied outlaw VO pools (renamed from the Dropbox zip).
+    const WIN_CLIPS = 15;
+    const LOSE_CLIPS = 14;
+    const RANDOM_CLIPS = 22;
 
     function ensureCtx() {
         try {
@@ -44,18 +47,21 @@ window.pokerAudio = (function () {
         return buffers[url];
     }
 
-    function playBuffer(url, volume, rate) {
+    function playBuffer(url, volume, rate, onEnded) {
         if (!ensureCtx() || ctx.state !== 'running') return null;
         const src = ctx.createBufferSource();
         loadBuffer(url).then(function (buf) {
-            if (muted) return;
+            if (muted) { if (onEnded) onEnded(); return; }
             src.buffer = buf;
             if (rate) src.playbackRate.value = rate;
+            if (onEnded) {
+                src.onended = function () { onEnded(); };
+            }
             const gain = ctx.createGain();
             gain.gain.value = volume;
             src.connect(gain).connect(ctx.destination);
             src.start();
-        }).catch(function () { });
+        }).catch(function () { if (onEnded) onEnded(); });
         return src;
     }
 
@@ -150,6 +156,7 @@ window.pokerAudio = (function () {
         if (!ensureCtx() || ctx.state !== 'running') return;
         try { if (voiceSrc) voiceSrc.stop(); } catch (e) { }
         voiceSrc = null;
+        voicePlaying = false;
         if (dealerSrc) {
             try { dealerSrc.onended = null; dealerSrc.stop(); } catch (e) { }
             dealerSrc = null;
@@ -184,31 +191,58 @@ window.pokerAudio = (function () {
         });
     }
 
-    function voice(seat, kind) {   // kind: 'idle' | 'win' | 'lose'
+    function poolUrl(kind, index) {
+        const n = index < 10 ? '0' + index : String(index);
+        if (kind === 'win') return 'audio/voices/win/win-' + n + '.mp3';
+        if (kind === 'lose' || kind === 'fold') return 'audio/voices/lose/lose-' + n + '.mp3';
+        return 'audio/voices/random/random-' + n + '.mp3';
+    }
+
+    function poolSize(kind) {
+        if (kind === 'win') return WIN_CLIPS;
+        if (kind === 'lose' || kind === 'fold') return LOSE_CLIPS;
+        return RANDOM_CLIPS;
+    }
+
+    // kind: 'idle' | 'win' | 'lose' | 'fold'
+    // Seat is only used so idle banter can trigger a matching talk gesture.
+    function voice(seat, kind) {
         if (muted || dealerPlaying) return;
-        const name = SEAT_NAMES[seat];
-        if (!name) return;
+        if (!ensureCtx() || ctx.state !== 'running') return;
+        const eventKind = (kind === 'win' || kind === 'lose' || kind === 'fold') ? kind : 'idle';
+        // Don't stack banter over an event line still playing.
+        if (voicePlaying && eventKind === 'idle') return;
         const now = Date.now();
-        if (now - lastVoiceAt < 4500) return; // don't talk over each other
+        // Event lines can cut in sooner; banter waits for a clear table.
+        const gap = eventKind === 'idle' ? 5500 : 1200;
+        if (now - lastVoiceAt < gap && eventKind === 'idle') return;
         lastVoiceAt = now;
-        const n = kind === 'idle' ? 1 + Math.floor(Math.random() * IDLE_VARIANTS) : 1;
+        const n = 1 + Math.floor(Math.random() * poolSize(eventKind));
         try { if (voiceSrc) voiceSrc.stop(); } catch (e) { }
-        voiceSrc = playBuffer('audio/voices/' + name + '-' + kind + '-' + n + '.mp3', 0.9);
+        voicePlaying = true;
+        voiceSrc = playBuffer(poolUrl(eventKind, n), 0.95, 1, function () {
+            voicePlaying = false;
+            voiceSrc = null;
+            lastVoiceAt = Date.now();
+        });
         // Idle chatter gets a matching talking gesture in the 3D scene.
-        // (Win/lose lines already come with their own victory/slump moves.)
-        if (voiceSrc && kind === 'idle' && window.pokerScene && window.pokerScene.talk) {
+        if (eventKind === 'idle' && seat > 0 && window.pokerScene && window.pokerScene.talk) {
             window.pokerScene.talk(seat);
         }
     }
 
-    // Random table chatter from a random surviving opponent.
+    // Random table banter while waiting on the player's turn (and never over
+    // an active win / fold / lose line).
     (function scheduleChatter() {
         setTimeout(function () {
-            if (!muted && !document.hidden && aliveSeats.length) {
-                voice(aliveSeats[Math.floor(Math.random() * aliveSeats.length)], 'idle');
+            if (!muted && !document.hidden && awaitingHuman && !voicePlaying && !dealerPlaying) {
+                const seat = aliveSeats.length
+                    ? aliveSeats[Math.floor(Math.random() * aliveSeats.length)]
+                    : 0;
+                voice(seat, 'idle');
             }
             scheduleChatter();
-        }, 14000 + Math.random() * 16000);
+        }, 9000 + Math.random() * 12000);
     })();
 
     return {
@@ -247,10 +281,11 @@ window.pokerAudio = (function () {
             if (!muted) playBuffer('audio/victory.mp3', 0.75, 1);
         },
         setAlive: function (seats) { aliveSeats = seats || []; },
+        setAwaitingHuman: function (on) { awaitingHuman = !!on; },
         setMuted: function (m) {
             muted = m;
             if (music) { if (m) music.pause(); else startMusic(); }
-            if (m && voiceSrc) { try { voiceSrc.stop(); } catch (e) { } voiceSrc = null; }
+            if (m && voiceSrc) { try { voiceSrc.stop(); } catch (e) { } voiceSrc = null; voicePlaying = false; }
             if (m && dealerSrc) {
                 try { dealerSrc.onended = null; dealerSrc.stop(); } catch (e) { }
                 dealerSrc = null;
