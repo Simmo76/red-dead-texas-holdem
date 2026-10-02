@@ -81,12 +81,16 @@
     <div class="actionbar">
         @if (_awaitingHuman && _legal != null && !_showSlider)
         {
-            @if (_legal.CanFold)  { <button class="act fold" @onclick="() => Act(PlayerAction.Fold())">FOLD</button> }
-            @if (_legal.CanCheck) { <button class="act check" @onclick="() => Act(PlayerAction.Check())">CHECK</button> }
-            @if (_legal.CanCall)  { <button class="act call" @onclick="() => Act(PlayerAction.Call())">CALL $@_legal.CallAmount</button> }
-            @if (_legal.CanBet)   { <button class="act bet" @onclick="OpenSlider">BET</button> }
-            @if (_legal.CanRaise) { <button class="act bet" @onclick="OpenSlider">RAISE</button> }
-            @if (_legal.CanAllIn) { <button class="act allin" @onclick="() => Act(PlayerAction.AllIn())">ALL-IN</button> }
+            <div class="actionbar-left">
+                @if (_legal.CanFold) { <button class="act fold" @onclick="() => Act(PlayerAction.Fold())">FOLD</button> }
+            </div>
+            <div class="actionbar-right">
+                @if (_legal.CanCheck) { <button class="act check" @onclick="() => Act(PlayerAction.Check())">CHECK</button> }
+                @if (_legal.CanCall)  { <button class="act call" @onclick="() => Act(PlayerAction.Call())">CALL $@_legal.CallAmount</button> }
+                @if (_legal.CanBet)   { <button class="act bet" @onclick="OpenSlider">BET</button> }
+                @if (_legal.CanRaise) { <button class="act bet" @onclick="OpenSlider">RAISE</button> }
+                @if (_legal.CanAllIn) { <button class="act allin" @onclick="() => Act(PlayerAction.AllIn())">ALL-IN</button> }
+            </div>
         }
         else if (_awaitingHuman && _legal != null && _showSlider)
         {
