@@ -588,7 +588,14 @@ function makeCharacter(gltf, spec, extraClips) {
     ghostParts.push({ src, depthMesh });
   }
 
-  character.setFolded = (on) => { character.folded = on; };
+  character.setFolded = (on) => {
+    const was = character.folded;
+    character.folded = on;
+    // Hands-on-head hold for the rest of the hand (Lose03 peaks with both
+    // palms up by the temples). Grey/ghost fade is driven separately.
+    if (on && !was) character.beginFoldHold();
+    else if (!on && was) character.endFoldHold();
+  };
   character.updateFold = (dt) => {
     const target = character.folded ? 1 : 0;
     if (character.foldW === target) return;
@@ -649,7 +656,7 @@ function makeCharacter(gltf, spec, extraClips) {
   // Returns true only when the gesture actually started, so callers that must
   // not miss their reaction (e.g. the player's bust slump) can retry later.
   character.playOnce = (name, seconds = 1.5, timeScale = 1, mood = false) => {
-    if (character.dead || character.reacting) return false;
+    if (character.dead || character.reacting || character.folded) return false;
     const clip = mood ? findMood(name) : findBody(name);
     if (!clip || !sitAction) return false;
     const gen = ++gestureGen;
@@ -664,12 +671,12 @@ function makeCharacter(gltf, spec, extraClips) {
     const clipSeconds = clip.duration / Math.max(timeScale, 0.01);
     const holdMs = Math.min(seconds * 1000, clipSeconds * 1000);
     setTimeout(() => {
-      if (character.dead || gen !== gestureGen) return;
+      if (character.dead || character.folded || gen !== gestureGen) return;
       sitAction.reset();
       action.crossFadeTo(sitAction, 0.35, false);
       sitAction.play();
       setTimeout(() => {
-        if (character.dead || gen !== gestureGen) return;
+        if (character.dead || character.folded || gen !== gestureGen) return;
         character.reacting = false;
         // Safety net: if the fade back got trampled, every action can end up
         // at weight zero, which drops the rig into its standing rest pose.
@@ -677,7 +684,7 @@ function makeCharacter(gltf, spec, extraClips) {
         if (sitAction.getEffectiveWeight() < 0.5) hardSit();
         const next = character._queued;
         character._queued = null;
-        if (next && !character.dead) {
+        if (next && !character.dead && !character.folded) {
           character.playOnce(next.name, next.seconds, next.timeScale, next.mood);
         }
       }, 450);
@@ -685,12 +692,61 @@ function makeCharacter(gltf, spec, extraClips) {
     return true;
   };
 
+  // Hold a seated "hands on head" pose after folding. Lose03 is the Mighty Cat
+  // take whose mid-beat puts both palms by the head; we play into that frame
+  // and pause until the next hand clears the folded flag.
+  const FOLD_HOLD_CLIP = 'Lose03';
+  const FOLD_HOLD_AT = 5.15;
+  character.beginFoldHold = () => {
+    if (!sitAction) return;
+    const clip = findMood(FOLD_HOLD_CLIP) || findMood('Lose01') || findBody('Fold');
+    if (!clip) return;
+    const gen = ++gestureGen;
+    character.reacting = true;
+    character._queued = null;
+    character._foldHoldGen = gen;
+    const action = mixer.clipAction(clip);
+    action.reset();
+    action.paused = false;
+    action.enabled = true;
+    action.setEffectiveWeight(1);
+    action.timeScale = 1;
+    action.setLoop(THREE.LoopOnce, 1);
+    action.clampWhenFinished = true;
+    sitAction.crossFadeTo(action, 0.3, false);
+    action.play();
+    character._foldHoldAction = action;
+    const holdAt = Math.min(FOLD_HOLD_AT, Math.max(0.4, clip.duration * 0.5));
+    setTimeout(() => {
+      if (gen !== character._foldHoldGen || !character.folded) return;
+      action.time = holdAt;
+      action.paused = true;
+      action.enabled = true;
+      action.setEffectiveWeight(1);
+    }, holdAt * 1000);
+  };
+  character.endFoldHold = () => {
+    character._foldHoldGen = -1;
+    const held = character._foldHoldAction;
+    character._foldHoldAction = null;
+    if (held) {
+      try { held.paused = false; } catch (e) { /* ignore */ }
+    }
+    gestureGen++;
+    character.reacting = false;
+    character._queued = null;
+    hardSit();
+  };
+
   // Safety net after a bust: if the slump got stuck (e.g. a restart landed
   // mid-gesture), cancel it and snap cleanly back onto the sit loop.
   character.revive = () => {
     character.dead = false;
     character.reacting = false;
+    character.folded = false;
     character._queued = null;
+    character._foldHoldGen = -1;
+    character._foldHoldAction = null;
     gestureGen++; // cancel any pending gesture restores
     hardSit();
   };
@@ -701,7 +757,7 @@ function makeCharacter(gltf, spec, extraClips) {
   character.idleName = idleName;
   character._queued = null;
   character.playEmotion = (mood, intensity = 0.5) => {
-    if (character.dead) return false;
+    if (character.dead || character.folded) return false;
     if (mood !== 'win' && mood !== 'lose') return false;
     const name = mood === 'win' ? pick(WIN_CLIPS) : pick(LOSE_CLIPS);
     const seconds = 2.6;
@@ -2215,12 +2271,12 @@ window.pokerScene = {
       play('Bet', 1.0, 0.7);
       spawnChipToss(seatIndex);
     } else if (kind === 'fold') {
-      if (seatIndex === 0) {
-        play('FoldShake', 1.9);
-        return;
-      }
-      play('Fold', 1.0, 0.55);
-      if (window.pokerAudio && Math.random() < 0.25) {
+      // Grey/ghost + hands-on-head for the rest of the hand. Mark folded
+      // before the hold so a late sync can't cancel it back to the sit idle.
+      seat.char.folded = true;
+      if (seat.char.beginFoldHold) seat.char.beginFoldHold();
+      else play(seatIndex === 0 ? 'FoldShake' : 'Fold', seatIndex === 0 ? 1.9 : 1.0, 0.55);
+      if (seatIndex !== 0 && window.pokerAudio && Math.random() < 0.25) {
         window.pokerAudio.voice(seatIndex, 'lose');
       }
     }
