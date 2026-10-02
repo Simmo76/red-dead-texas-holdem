@@ -718,7 +718,17 @@ function makeCharacter(gltf, spec, extraClips) {
         // Safety net: if the fade back got trampled, every action can end up
         // at weight zero, which drops the rig into its standing rest pose.
         // Snap cleanly back onto the sit loop instead of standing there.
-        if (sitAction.getEffectiveWeight() < 0.5) hardSit();
+        if (character.folded) {
+          const want = findMood(FOLDED_IDLE);
+          if (want && sitAction.getClip() !== want) {
+            const nextSit = makeSitAction(want);
+            nextSit.time = Math.random() * want.duration;
+            adoptSitAction(nextSit, FOLDED_IDLE);
+          }
+          hardSit();
+        } else if (sitAction.getEffectiveWeight() < 0.5) {
+          hardSit();
+        }
         const next = character._queued;
         character._queued = null;
         if (next && !character.dead) {
@@ -2103,6 +2113,25 @@ function buildClub() {
 
 window.pokerScene = {
   get loaded() { return state.ready; },
+
+  idleDebug() {
+    return (state.seats || []).map((seat, i) => {
+      const c = seat && seat.char;
+      if (!c) return { i };
+      const sit = c.sitAction;
+      const foldedClip = c.findMood && c.findMood('IdleSitArmsFolded01');
+      return {
+        i,
+        folded: !!c.folded,
+        idleName: c.idleName,
+        sitClip: sit && sit.getClip() && sit.getClip().name,
+        sitW: sit ? Number(sit.getEffectiveWeight().toFixed(2)) : 0,
+        hasFoldedClip: !!foldedClip,
+        foldedDur: foldedClip ? Number(foldedClip.duration.toFixed(2)) : 0,
+        reacting: !!c.reacting,
+      };
+    });
+  },
 
   // Opening cinematic disabled: stay on the normal seat view. Returns 0 so
   // callers know not to wait or play intro audio.
