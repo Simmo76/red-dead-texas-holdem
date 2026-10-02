@@ -360,7 +360,7 @@ function outlineMaterial() {
     // dark z-fighting patches on the shirt).
     shader.vertexShader = shader.vertexShader.replace(
       '#include <skinning_vertex>',
-      '#include <skinning_vertex>\n\ttransformed += normalize( normal ) * 0.0026;');
+      '#include <skinning_vertex>\n\ttransformed += normalize( normal ) * 0.0052;');
   };
   return _outlineMat;
 }
