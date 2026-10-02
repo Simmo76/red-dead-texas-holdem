@@ -794,10 +794,14 @@
                     _ = JS.InvokeVoidAsync("pokerAudio.victory");
                     _showdownHandCount = 0; // once per showdown (side pots re-award)
                 }
-                // The player's own win gets the full show: fireworks + sparklers.
-                if (award.WinnerSeats.Contains(0) && _sceneReady)
+                // The player's own win gets the full show: fireworks + sparklers,
+                // and the dealer names the winning hand (full house, straight, …).
+                if (award.WinnerSeats.Contains(0))
                 {
-                    _ = JS.InvokeVoidAsync("pokerScene.celebrate");
+                    if (_sceneReady)
+                        _ = JS.InvokeVoidAsync("pokerScene.celebrate");
+                    if (award.WinningHand.HasValue)
+                        PlayDealer(HandClip(award.WinningHand.Value.Category));
                 }
                 string winners = string.Join(" & ", award.WinnerSeats.Select(NameOf));
                 _banner = award.WinningHand.HasValue
@@ -831,6 +835,28 @@
     // ------------------------------------------------------------------ helpers
 
     private string NameOf(int seat) => _game.GetPlayer(seat).Name;
+
+    private static string HandClip(HandCategory category) => category switch
+    {
+        HandCategory.HighCard => "high-card",
+        HandCategory.Pair => "pair",
+        HandCategory.TwoPair => "two-pair",
+        HandCategory.ThreeOfAKind => "three-of-a-kind",
+        HandCategory.Straight => "straight",
+        HandCategory.Flush => "flush",
+        HandCategory.FullHouse => "full-house",
+        HandCategory.FourOfAKind => "four-of-a-kind",
+        HandCategory.StraightFlush => "straight-flush",
+        HandCategory.RoyalFlush => "royal-flush",
+        _ => null
+    };
+
+    private void PlayDealer(string clip)
+    {
+        if (_muted || string.IsNullOrEmpty(clip)) return;
+        try { _ = JS.InvokeVoidAsync("pokerAudio.dealer", clip); }
+        catch (JSException) { }
+    }
 
     private static string Pretty(HandCategory category) => category switch
     {
