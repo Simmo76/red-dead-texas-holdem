@@ -79,7 +79,7 @@ window.pokerAudio = (function () {
         DESERT: 'audio/music-desert.mp3',
         CLUB: 'audio/music-club.mp3'
     };
-    let musicUrl = 'audio/saloon-music.mp3';
+    let musicUrl = 'audio/saloon-music.mp3?v=2';
 
     // Intro movie audio: the two owner-supplied parts played back to back
     // (desert sweep, then club sweep), each faded in and out. Regular music
@@ -268,7 +268,7 @@ window.pokerAudio = (function () {
         // Switch the music bed to match the current backdrop. Called from a
         // click handler, so play() is allowed even before other audio ran.
         setScene: function (name) {
-            const url = MUSIC_BY_SCENE[name] || 'audio/saloon-music.mp3';
+            const url = MUSIC_BY_SCENE[name] || 'audio/saloon-music.mp3?v=2';
             if (url === musicUrl) return;
             musicUrl = url;
             const wasPlaying = music && !music.paused;
