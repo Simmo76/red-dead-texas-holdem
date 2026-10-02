@@ -65,7 +65,14 @@ namespace CinematicPoker.Engine.Poker
         public IReadOnlyList<PokerPlayer> AlivePlayers =>
             _players.Where(p => p.Status != PlayerStatus.Eliminated).ToList();
 
-        public bool IsSessionOver => AlivePlayers.Count <= 1;
+        /// <summary>
+        /// The human's session is over when they bust, or when only one
+        /// player still has chips. NPCs do not keep playing after the
+        /// player is eliminated.
+        /// </summary>
+        public bool IsSessionOver =>
+            AlivePlayers.Count <= 1
+            || _players.Any(p => p.IsHuman && p.Status == PlayerStatus.Eliminated);
 
         /// <summary>Seat currently facing a decision, or -1.</summary>
         public int CurrentSeat => _round != null && Phase == GamePhase.HandInProgress ? _round.CurrentSeat : -1;

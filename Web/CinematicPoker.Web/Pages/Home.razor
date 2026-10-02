@@ -499,10 +499,18 @@
         {
             if (_game.IsSessionOver)
             {
-                var winner = _game.AlivePlayers.Count > 0 ? _game.AlivePlayers[0].Name : "Nobody";
-                _sessionOverMessage = winner == "You"
-                    ? "You cleaned out the whole table!"
-                    : $"{winner} takes the table. Rough night.";
+                var human = _game.Players.FirstOrDefault(p => p.IsHuman);
+                if (human != null && human.Status == PlayerStatus.Eliminated)
+                {
+                    _sessionOverMessage = "You're out. Rough night.";
+                }
+                else
+                {
+                    var winner = _game.AlivePlayers.Count > 0 ? _game.AlivePlayers[0].Name : "Nobody";
+                    _sessionOverMessage = winner == "You"
+                        ? "You cleaned out the whole table!"
+                        : $"{winner} takes the table. Rough night.";
+                }
                 _sessionOver = true;
                 StateHasChanged();
                 return;
