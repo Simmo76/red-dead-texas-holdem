@@ -4,9 +4,10 @@
 // Props/textures are CC0; the street backdrop is a web-optimised conversion of
 // the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
 // Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy. Check/bet/fold stay on Jacob's own clips. Idle is
-// Cocomotion AS_Idle_Sit_Thinking_01 for every seat; win / lose stay
-// Mighty Cat takes. All mood clips are Humanoid-retargeted onto Jacob
+// Jacob cowboy. Check/bet/fold stay on Jacob's own clips. Active seats idle
+// on Cocomotion AS_Idle_Sit_Thinking_01; folded seats hold
+// AS_Idle_Sit_ArmsFolded_01. Win / lose stay Mighty Cat takes. All mood
+// clips are Humanoid-retargeted onto Jacob
 // (see docs/mighty-cat-poker-animation-map.md).
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
@@ -497,18 +498,25 @@ function makeCharacter(gltf, spec, extraClips) {
   const findMood = (name) => THREE.AnimationClip.findByName(moodClips, name);
   const pick = (names) => names[Math.floor(Math.random() * names.length)];
 
-  // Every seat loops the same Cocomotion sit-thinking idle.
-  const IDLE_CLIPS = ['IdleSitThinking01'];
+  // Active seats loop sit-thinking; a fold swaps the home idle to arms-folded
+  // for the rest of the hand, then thinking returns on the next deal.
+  const THINKING_IDLE = 'IdleSitThinking01';
+  const FOLDED_IDLE = 'IdleSitArmsFolded01';
   const WIN_CLIPS = ['Win01', 'Win02', 'Win03'];
   const LOSE_CLIPS = ['Lose01', 'Lose02', 'Lose03', 'Lose04'];
 
-  const idleName = IDLE_CLIPS[0];
+  const idleName = THINKING_IDLE;
   const sitClip = findMood(idleName) || findBody('Sit');
   const isPlayer = !!spec.cards;
   let sitAction = null;
+  const makeSitAction = (clip) => {
+    const action = mixer.clipAction(clip);
+    action.setLoop(THREE.LoopRepeat, Infinity);
+    action.enabled = true;
+    return action;
+  };
   if (sitClip) {
-    sitAction = mixer.clipAction(sitClip);
-    sitAction.setLoop(THREE.LoopRepeat, Infinity);
+    sitAction = makeSitAction(sitClip);
     sitAction.play();
     sitAction.time = Math.random() * sitClip.duration;
   }
@@ -516,7 +524,40 @@ function makeCharacter(gltf, spec, extraClips) {
   const character = {
     root, mixer, sitAction, findBody, findMood,
     dead: false, reacting: false, isPlayer, armPose: null, armW: 1,
-    outlineOn: false, folded: false, foldW: 0,
+    outlineOn: false, folded: false, foldW: 0, idleName,
+  };
+
+  const adoptSitAction = (next, name) => {
+    sitAction = next;
+    character.sitAction = next;
+    character.idleName = name;
+  };
+
+  // Three.js drop to the standing bind if every action is disabled or at
+  // weight 0. Home-idle swaps must land on a playing seated clip at full
+  // weight — never fade the old sit to 0 and hope a scheduled stop is safe.
+  const runSit = (action) => {
+    if (!action) return;
+    action.enabled = true;
+    action.paused = false;
+    action.reset();
+    action.setEffectiveWeight(1);
+    action.setEffectiveTimeScale(1);
+    action.play();
+  };
+
+  const switchHomeIdle = (name) => {
+    const clip = findMood(name) || findBody('Sit');
+    if (!clip) return;
+    if (sitAction && sitAction.getClip() === clip
+        && sitAction.isRunning() && sitAction.getEffectiveWeight() > 0.5) {
+      return;
+    }
+    const next = makeSitAction(clip);
+    if (sitAction && sitAction !== next) sitAction.stop();
+    adoptSitAction(next, name);
+    runSit(next);
+    next.time = Math.random() * clip.duration;
   };
 
   // Inverted-hull outline (the classic stencil-outline look): a back-face
@@ -588,7 +629,23 @@ function makeCharacter(gltf, spec, extraClips) {
     ghostParts.push({ src, depthMesh });
   }
 
-  character.setFolded = (on) => { character.folded = on; };
+  character.setFolded = (on) => {
+    if (character.folded === on) return;
+    character.folded = on;
+    const name = on ? FOLDED_IDLE : THINKING_IDLE;
+    const clip = findMood(name) || findBody('Sit');
+    if (!clip || !sitAction || sitAction.getClip() === clip) return;
+    // A Fold / FoldShake already in flight should land on the new hold, not
+    // fade back to thinking. Retarget the restore clip but leave the gesture
+    // playing — stopping the current sit here is what left everyone standing.
+    if (character.reacting) {
+      const next = makeSitAction(clip);
+      next.time = Math.random() * clip.duration;
+      adoptSitAction(next, name);
+      return;
+    }
+    switchHomeIdle(name);
+  };
   character.updateFold = (dt) => {
     const target = character.folded ? 1 : 0;
     if (character.foldW === target) return;
@@ -617,7 +674,7 @@ function makeCharacter(gltf, spec, extraClips) {
     }
   };
 
-  // Idle is AS_Idle_Sit_Thinking_01, retargeted onto Jacob, for every seat.
+  // Idle is AS_Idle_Sit_Thinking_01 until a fold; then AS_Idle_Sit_ArmsFolded_01.
 
   // Unused for Jacob: the sit pose is the hold. Kept so a gesture can still
   // fade a pinned pose back in if one is ever stored on the character.
@@ -640,10 +697,7 @@ function makeCharacter(gltf, spec, extraClips) {
   // (or the frozen first frame of it, for the player's still body).
   const hardSit = () => {
     mixer.stopAllAction();
-    if (sitAction) {
-      sitAction.reset();
-      sitAction.play();
-    }
+    runSit(sitAction);
   };
 
   // Returns true only when the gesture actually started, so callers that must
@@ -665,16 +719,21 @@ function makeCharacter(gltf, spec, extraClips) {
     const holdMs = Math.min(seconds * 1000, clipSeconds * 1000);
     setTimeout(() => {
       if (character.dead || gen !== gestureGen) return;
-      sitAction.reset();
-      action.crossFadeTo(sitAction, 0.35, false);
-      sitAction.play();
+      action.stop();
+      runSit(sitAction);
       setTimeout(() => {
         if (character.dead || gen !== gestureGen) return;
         character.reacting = false;
-        // Safety net: if the fade back got trampled, every action can end up
-        // at weight zero, which drops the rig into its standing rest pose.
-        // Snap cleanly back onto the sit loop instead of standing there.
-        if (sitAction.getEffectiveWeight() < 0.5) hardSit();
+        // Always snap back onto a seated loop. A faded-out sit left at
+        // weight 0 drops Jacob into the standing bind (arms out).
+        const wantName = character.folded ? FOLDED_IDLE : THINKING_IDLE;
+        const want = findMood(wantName) || findBody('Sit');
+        if (want && (!sitAction || sitAction.getClip() !== want)) {
+          const nextSit = makeSitAction(want);
+          nextSit.time = Math.random() * want.duration;
+          adoptSitAction(nextSit, wantName);
+        }
+        hardSit();
         const next = character._queued;
         character._queued = null;
         if (next && !character.dead) {
@@ -713,6 +772,10 @@ function makeCharacter(gltf, spec, extraClips) {
     return character.playOnce(mood === 'win' ? 'Attack' : 'Fold', mood === 'win' ? 2.2 : 1.0);
   };
   character.tickFidget = () => {};
+  character.ensureSit = () => {
+    if (character.dead || character.reacting || !sitAction) return;
+    if (!sitAction.isRunning() || sitAction.getEffectiveWeight() < 0.2) hardSit();
+  };
 
   return character;
 }
@@ -985,7 +1048,7 @@ async function buildScene(canvas) {
 
   // One rig, every outfit. A fresh draw every time the table is built.
   const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=6');
+  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=7');
   const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
 
   // Position a seated character at seat i: face the table and plant the
@@ -1135,6 +1198,7 @@ async function buildScene(canvas) {
     for (const seat of state.seats) if (seat.char) {
       seat.char.mixer.update(dt);
       if (seat.char.tickFidget) seat.char.tickFidget(t);
+      if (seat.char.ensureSit) seat.char.ensureSit();
       seat.char.applyArmPose(dt);
       seat.char.updateFold(dt);
     }
@@ -2060,6 +2124,25 @@ function buildClub() {
 window.pokerScene = {
   get loaded() { return state.ready; },
 
+  idleDebug() {
+    return (state.seats || []).map((seat, i) => {
+      const c = seat && seat.char;
+      if (!c) return { i };
+      const sit = c.sitAction;
+      const foldedClip = c.findMood && c.findMood('IdleSitArmsFolded01');
+      return {
+        i,
+        folded: !!c.folded,
+        idleName: c.idleName,
+        sitClip: sit && sit.getClip() && sit.getClip().name,
+        sitW: sit ? Number(sit.getEffectiveWeight().toFixed(2)) : 0,
+        hasFoldedClip: !!foldedClip,
+        foldedDur: foldedClip ? Number(foldedClip.duration.toFixed(2)) : 0,
+        reacting: !!c.reacting,
+      };
+    });
+  },
+
   // Opening cinematic disabled: stay on the normal seat view. Returns 0 so
   // callers know not to wait or play intro audio.
   playIntro() {
@@ -2164,8 +2247,8 @@ window.pokerScene = {
       }
       if (seat.label) drawLabel(seat.label, data);
       // Folded players (the human included) sit out the rest of the hand as
-      // grey semi-transparent ghosts; the flag clears when the next hand
-      // deals, so the fade back in happens on its own.
+      // grey ghosts with arms folded; the flag clears when the next hand
+      // deals, so colour and the thinking idle come back on their own.
       if (seat.char) seat.char.setFolded(!!data.folded && !data.out);
       if (seat.char && typeof data.heat === 'number') seat.char.heat = data.heat;
       if (seat.char && data.out) {
@@ -2199,7 +2282,10 @@ window.pokerScene = {
   action(seatIndex, kind) {
     if (!state.ready) return;
     const seat = state.seats[seatIndex];
-    if (!seat || !seat.char || seat.char.dead || seat.char.folded) return;
+    if (!seat || !seat.char || seat.char.dead) return;
+    // Snapshot can mark folded before this gesture fires; still play Fold /
+    // FoldShake so the arms-folded hold is the settle, not the only beat.
+    if (seat.char.folded && kind !== 'fold') return;
     const play = (name, seconds, timeScale = 1) => seat.char.playOnce(name, seconds, timeScale);
     if (kind === 'check') {
       play('Check', 1.7);
