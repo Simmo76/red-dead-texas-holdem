@@ -4,9 +4,10 @@
 // Props/textures are CC0; the street backdrop is a web-optimised conversion of
 // the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
 // Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy. Check/bet/fold stay on Jacob's own clips. Idle is
-// Cocomotion AS_Idle_Sit_Thinking_01 for every seat; win / lose stay
-// Mighty Cat takes. All mood clips are Humanoid-retargeted onto Jacob
+// Jacob cowboy. Check/bet/fold stay on Jacob's own clips. Active seats idle
+// on Cocomotion AS_Idle_Sit_Thinking_01; folded seats hold
+// AS_Idle_Sit_ArmsFolded_01. Win / lose stay Mighty Cat takes. All mood
+// clips are Humanoid-retargeted onto Jacob
 // (see docs/mighty-cat-poker-animation-map.md).
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
@@ -497,18 +498,25 @@ function makeCharacter(gltf, spec, extraClips) {
   const findMood = (name) => THREE.AnimationClip.findByName(moodClips, name);
   const pick = (names) => names[Math.floor(Math.random() * names.length)];
 
-  // Every seat loops the same Cocomotion sit-thinking idle.
-  const IDLE_CLIPS = ['IdleSitThinking01'];
+  // Active seats loop sit-thinking; a fold swaps the home idle to arms-folded
+  // for the rest of the hand, then thinking returns on the next deal.
+  const THINKING_IDLE = 'IdleSitThinking01';
+  const FOLDED_IDLE = 'IdleSitArmsFolded01';
   const WIN_CLIPS = ['Win01', 'Win02', 'Win03'];
   const LOSE_CLIPS = ['Lose01', 'Lose02', 'Lose03', 'Lose04'];
 
-  const idleName = IDLE_CLIPS[0];
+  const idleName = THINKING_IDLE;
   const sitClip = findMood(idleName) || findBody('Sit');
   const isPlayer = !!spec.cards;
   let sitAction = null;
+  const makeSitAction = (clip) => {
+    const action = mixer.clipAction(clip);
+    action.setLoop(THREE.LoopRepeat, Infinity);
+    action.enabled = true;
+    return action;
+  };
   if (sitClip) {
-    sitAction = mixer.clipAction(sitClip);
-    sitAction.setLoop(THREE.LoopRepeat, Infinity);
+    sitAction = makeSitAction(sitClip);
     sitAction.play();
     sitAction.time = Math.random() * sitClip.duration;
   }
@@ -516,7 +524,27 @@ function makeCharacter(gltf, spec, extraClips) {
   const character = {
     root, mixer, sitAction, findBody, findMood,
     dead: false, reacting: false, isPlayer, armPose: null, armW: 1,
-    outlineOn: false, folded: false, foldW: 0,
+    outlineOn: false, folded: false, foldW: 0, idleName,
+  };
+
+  const adoptSitAction = (next, name) => {
+    sitAction = next;
+    character.sitAction = next;
+    character.idleName = name;
+  };
+
+  const switchHomeIdle = (name, fade = 0.4) => {
+    const clip = findMood(name) || findBody('Sit');
+    if (!clip || !sitAction) return;
+    if (sitAction.getClip() === clip) return;
+    const next = makeSitAction(clip);
+    next.time = Math.random() * clip.duration;
+    next.setEffectiveWeight(0);
+    next.play();
+    const prev = sitAction;
+    sitAction.crossFadeTo(next, fade, false);
+    adoptSitAction(next, name);
+    setTimeout(() => { if (prev !== sitAction) prev.stop(); }, fade * 1000 + 80);
   };
 
   // Inverted-hull outline (the classic stencil-outline look): a back-face
@@ -588,7 +616,23 @@ function makeCharacter(gltf, spec, extraClips) {
     ghostParts.push({ src, depthMesh });
   }
 
-  character.setFolded = (on) => { character.folded = on; };
+  character.setFolded = (on) => {
+    if (character.folded === on) return;
+    character.folded = on;
+    const name = on ? FOLDED_IDLE : THINKING_IDLE;
+    const clip = findMood(name) || findBody('Sit');
+    if (!clip || !sitAction || sitAction.getClip() === clip) return;
+    // A Fold / FoldShake already in flight should land on the new hold, not
+    // fade back to thinking. Swap the restore target without interrupting.
+    if (character.reacting) {
+      const next = makeSitAction(clip);
+      next.time = Math.random() * clip.duration;
+      sitAction.stop();
+      adoptSitAction(next, name);
+      return;
+    }
+    switchHomeIdle(name);
+  };
   character.updateFold = (dt) => {
     const target = character.folded ? 1 : 0;
     if (character.foldW === target) return;
@@ -617,7 +661,7 @@ function makeCharacter(gltf, spec, extraClips) {
     }
   };
 
-  // Idle is AS_Idle_Sit_Thinking_01, retargeted onto Jacob, for every seat.
+  // Idle is AS_Idle_Sit_Thinking_01 until a fold; then AS_Idle_Sit_ArmsFolded_01.
 
   // Unused for Jacob: the sit pose is the hold. Kept so a gesture can still
   // fade a pinned pose back in if one is ever stored on the character.
@@ -985,7 +1029,7 @@ async function buildScene(canvas) {
 
   // One rig, every outfit. A fresh draw every time the table is built.
   const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=6');
+  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=7');
   const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
 
   // Position a seated character at seat i: face the table and plant the
@@ -2164,8 +2208,8 @@ window.pokerScene = {
       }
       if (seat.label) drawLabel(seat.label, data);
       // Folded players (the human included) sit out the rest of the hand as
-      // grey semi-transparent ghosts; the flag clears when the next hand
-      // deals, so the fade back in happens on its own.
+      // grey ghosts with arms folded; the flag clears when the next hand
+      // deals, so colour and the thinking idle come back on their own.
       if (seat.char) seat.char.setFolded(!!data.folded && !data.out);
       if (seat.char && typeof data.heat === 'number') seat.char.heat = data.heat;
       if (seat.char && data.out) {
@@ -2199,7 +2243,10 @@ window.pokerScene = {
   action(seatIndex, kind) {
     if (!state.ready) return;
     const seat = state.seats[seatIndex];
-    if (!seat || !seat.char || seat.char.dead || seat.char.folded) return;
+    if (!seat || !seat.char || seat.char.dead) return;
+    // Snapshot can mark folded before this gesture fires; still play Fold /
+    // FoldShake so the arms-folded hold is the settle, not the only beat.
+    if (seat.char.folded && kind !== 'fold') return;
     const play = (name, seconds, timeScale = 1) => seat.char.playOnce(name, seconds, timeScale);
     if (kind === 'check') {
       play('Check', 1.7);

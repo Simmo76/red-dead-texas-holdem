@@ -1,4 +1,7 @@
-"""Bake Cocomotion AS_Idle_Sit_Thinking_01 onto Jacob and add it to mighty-cat.glb.
+"""Bake a Cocomotion seated idle onto Jacob and add it to mighty-cat.glb.
+
+Defaults to AS_Idle_Sit_Thinking_01 / IdleSitThinking01. Override with
+THINKING_FBX and CLIP (e.g. AS_Idle_Sit_ArmsFolded_01 / IdleSitArmsFolded01).
 
 The Playing Board Games and Cards pack uses the Koray sit rig (Hips / Spine /
 LeftArm). Same facing-space aim-copy as the Mighty Cat baker: Jacob's sit
@@ -15,7 +18,7 @@ SRC_FBX = os.environ.get(
 )
 OUT = os.path.join(ROOT, "Web/CinematicPoker.Web/wwwroot/models/characters/western/mighty-cat.glb")
 PREVIEW = os.environ.get("THINKING_PREVIEW", "/tmp/thinking-preview")
-CLIP = "IdleSitThinking01"
+CLIP = os.environ.get("CLIP", "IdleSitThinking01")
 
 FINGER = {"thumb": "1", "index": "2", "middle": "3", "ring": "4", "pinky": "5"}
 MAP = {
@@ -378,7 +381,7 @@ def bake_thinking():
     bpy.ops.object.select_all(action="DESELECT")
     jacob.select_set(True)
     bpy.context.view_layer.objects.active = jacob
-    tmp = "/tmp/IdleSitThinking01.glb"
+    tmp = f"/tmp/{CLIP}.glb"
     bpy.ops.export_scene.gltf(
         filepath=tmp,
         export_format="GLB",
