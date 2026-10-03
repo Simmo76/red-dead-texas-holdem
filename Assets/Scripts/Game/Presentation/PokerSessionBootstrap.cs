@@ -37,17 +37,18 @@ namespace CinematicPoker.Game.Presentation
                 ? new TableRules(env.pokerDifficulty.smallBlind, env.pokerDifficulty.bigBlind, env.pokerDifficulty.startingStack)
                 : TableRules.Default;
 
-            var human = new HumanPlayer("human", "You", seat: 0, stack: rules.StartingStack);
+            var human = new HumanPlayer("human", "James", seat: 0, stack: rules.StartingStack);
 
             var npcs = new List<AIPlayer>();
             int count = Mathf.Clamp(npcCount, 1, 5);
+            string[] fallbackNames = { "Simon", "Steve", "Tom", "Nick", "Pete" };
             for (int i = 0; i < count; i++)
             {
                 var profileAsset = env != null && env.npcPool != null && i < env.npcPool.Length ? env.npcPool[i] : null;
                 AIProfile profile = profileAsset != null && profileAsset.aiProfile != null
                     ? profileAsset.aiProfile.ToProfile()
                     : DefaultProfile(i);
-                string npcName = profileAsset != null ? profileAsset.displayName : $"NPC {i + 1}";
+                string npcName = profileAsset != null ? profileAsset.displayName : fallbackNames[i];
 
                 npcs.Add(new AIPlayer($"npc{i}", npcName, seat: i + 1, stack: rules.StartingStack,
                     profile: profile, seed: Random.Range(int.MinValue, int.MaxValue)));

@@ -109,7 +109,7 @@ TOTAL MONEY BEFORE HAND == TOTAL MONEY AFTER HAND
 
 ## Playing the Phase 2 prototype
 
-The prototype scene is **generated entirely at runtime** (`Assets/Scripts/Game/Prototype/`): a green table, five colour-coded capsule NPCs (Davo, Mick, Shazza, Bluey, Kev — maniac, regular, rock, calling station and pro), 3D community/hole cards, dealer button, turn indicator, an action log, and a touch HUD with Fold/Check/Call/Bet/Raise/All-In, a raise slider (½ Pot / Pot / Max / Confirm) and a Quick/Cinematic mode toggle. The .unity file on disk is deliberately empty, so nothing can break through serialized references.
+The prototype scene is **generated entirely at runtime** (`Assets/Scripts/Game/Prototype/`): a green table, five colour-coded capsule NPCs (Simon, Steve, Tom, Nick, Pete — maniac, regular, rock, calling station and pro) plus the human seat (James), 3D community/hole cards, dealer button, turn indicator, an action log, and a touch HUD with Fold/Check/Call/Bet/Raise/All-In, a raise slider (½ Pot / Pot / Max / Confirm) and a Quick/Cinematic mode toggle. The .unity file on disk is deliberately empty, so nothing can break through serialized references.
 
 1. Open the project with **Unity 6000.0.32f1** (or newer 6000.x). Packages restore from `Packages/manifest.json` on first open.
 2. Press **Play in any empty scene** (e.g. File → New Scene → Empty) — the prototype bootstraps automatically. Or run **Cinematic Poker → Create Prototype Scene** once to create `Assets/Scenes/PokerPrototype.unity` and play that.

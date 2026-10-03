@@ -34,7 +34,7 @@ namespace CinematicPoker.Game.Profiles
     {
         public DialogueTrigger trigger;
         [TextArea] public string text;
-        [Tooltip("Optional: only fires when directed at this NPC id (e.g. 'Shut up, Davo').")]
+        [Tooltip("Optional: only fires when directed at this NPC id (e.g. 'Shut up, Simon').")]
         public string targetNpcId;
         [Tooltip("Minimum tilt for this line (0 = always available).")]
         [Range(0f, 1f)] public float minTilt;

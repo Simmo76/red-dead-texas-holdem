@@ -15,7 +15,7 @@ namespace CinematicPoker.Game.Save
 
         // Player
         public long bankroll = 5000;
-        public string playerName = "Player";
+        public string playerName = "James";
 
         // Progression
         public List<string> unlockedEnvironmentIds = new List<string>();
