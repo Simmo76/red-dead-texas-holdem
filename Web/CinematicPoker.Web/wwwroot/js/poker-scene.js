@@ -797,15 +797,14 @@ async function buildScene(canvas) {
 
   const camera = new THREE.PerspectiveCamera(52, canvas.clientWidth / canvas.clientHeight, 0.05, 140);
 
-  // Orbit rig kept only so the locked seat view can snap home. Offsets are
-  // never steered — free look, rotate, pan and pinch are disabled.
+  // Orbit around the table-top centre. Home is the over-the-shoulder seat
+  // plus a 10° clockwise yaw (peek at James's hole cards) and 10° more
+  // pitch (looking down at the felt). Drag/pinch may only wander ±10°.
   const view = {
     homeYaw: 0, homePitch: 0, dist: 2.8,
     offYaw: 0, offPitch: 0,
     targetOffYaw: 0, targetOffPitch: 0,
-    distScale: 1, targetDistScale: 1,
-    panRight: 0, panUp: 0,
-    targetPanRight: 0, targetPanUp: 0
+    distScale: 1, targetDistScale: 1
   };
   state.view = view;
   state.pivot = new THREE.Vector3(0, TABLE_TOP, 0);
@@ -816,30 +815,34 @@ async function buildScene(canvas) {
   state.baseFov = camera.fov;
   state.camera = camera;
 
-  // Tight over-the-shoulder landscape shot: just behind and to the player's
-  // right, looking past his hat at the full table (the attached phone still).
-  const applyCameraHome = () => {
-    state.camHome.set(
+  const applyCameraHome = (resetLook = false) => {
+    const look = state.pivot;
+    state.camLook.copy(look);
+    // Seat-side starting point (behind the player, slightly to his right).
+    const base = new THREE.Vector3(
       -0.62,
       (state.eyeHeight || EYE_HEIGHT) + 0.08,
       SEAT_RADIUS + 0.50);
-    state.camLook.set(0, TABLE_TOP, 0);
-    const d = state.camHome.clone().sub(state.camLook);
+    const d = base.sub(look);
     view.dist = d.length();
-    view.homeYaw = Math.atan2(d.x, d.z);
-    view.homePitch = Math.asin(d.y / view.dist);
-    view.offYaw = view.targetOffYaw = 0;
-    view.offPitch = view.targetOffPitch = 0;
-    view.distScale = view.targetDistScale = 1;
-    view.panRight = view.targetPanRight = 0;
-    view.panUp = view.targetPanUp = 0;
-    if (state.zoom.active) return; // don't yank a zoomed-in view around
+    const baseYaw = Math.atan2(d.x, d.z);
+    const basePitch = Math.asin(THREE.MathUtils.clamp(d.y / view.dist, -1, 1));
+    // Clockwise from above is negative yaw in this rig (yaw 0 = +Z / player).
+    view.homeYaw = baseYaw + HOME_YAW_OFFSET;
+    view.homePitch = basePitch + HOME_PITCH_OFFSET;
+    if (resetLook) {
+      view.offYaw = view.targetOffYaw = 0;
+      view.offPitch = view.targetOffPitch = 0;
+      view.distScale = view.targetDistScale = 1;
+    }
+    orbitFromView(view, state.camHome);
+    if (state.zoom.active) return;
     camera.position.copy(state.camHome);
-    camera.lookAt(state.camLook);
+    camera.lookAt(look);
   };
   state.applyCameraHome = applyCameraHome;
-  applyCameraHome();
-  setupCardPointerControls(canvas);
+  applyCameraHome(true);
+  setupLookControls(canvas, view);
   requestLandscapeLock();
 
   // ---- lighting: cool neon night around the street, with the familiar warm
@@ -1208,8 +1211,12 @@ async function buildScene(canvas) {
       seat.char.updateFold(dt);
     }
 
-    // Seat view is locked. Offsets stay at home; only a card close-up
-    // (or the intro, if re-enabled) may move the camera.
+    // Ease drag/pinch offsets toward their targets, then orbit the table
+    // centre (or fly to a tapped card group while zoomed).
+    const ease = Math.min(1, dt * 8);
+    view.offYaw += (view.targetOffYaw - view.offYaw) * ease;
+    view.offPitch += (view.targetOffPitch - view.offPitch) * ease;
+    view.distScale += (view.targetDistScale - view.distScale) * ease;
     if (state.intro.active) {
       // Opening cinematic: two slow aerial sweeps (desert, then a hard cut
       // to the club) before the camera settles into the normal seat view.
@@ -1237,8 +1244,14 @@ async function buildScene(canvas) {
       _desiredPos.copy(state.zoom.pos);
       _lookTarget.copy(state.zoom.look);
     } else {
-      _desiredPos.copy(state.camHome);
-      _lookTarget.copy(state.camLook || state.pivot);
+      const yaw = view.homeYaw + view.offYaw;
+      const pitch = view.homePitch + view.offPitch;
+      const dist = view.dist * view.distScale;
+      _desiredPos.set(
+        state.pivot.x + Math.sin(yaw) * Math.cos(pitch) * dist,
+        state.pivot.y + Math.sin(pitch) * dist,
+        state.pivot.z + Math.cos(yaw) * Math.cos(pitch) * dist);
+      _lookTarget.copy(state.pivot);
     }
     if (!state.intro.active) {
       camera.position.lerp(_desiredPos, Math.min(1, dt * 6));
@@ -1279,13 +1292,41 @@ async function buildScene(canvas) {
   });
 }
 
-// ------------------------------------------------------------------ pointer (cards only — camera is locked)
+// ------------------------------------------------------------------ look controls (clamped orbit around the table)
 
 const _desiredPos = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
 const _lookMat = new THREE.Matrix4();
 const _desiredQuat = new THREE.Quaternion();
 const _upVec = new THREE.Vector3(0, 1, 0);
+
+const DEG = Math.PI / 180;
+// Home is 10° clockwise (negative yaw: toward the player's right, so his
+// hole cards read on the left of his body) and 10° more overhead.
+const HOME_YAW_OFFSET = -10 * DEG;
+const HOME_PITCH_OFFSET = 10 * DEG;
+const LOOK_RANGE = 10 * DEG;
+const PINCH_MIN = 0.88;
+const PINCH_MAX = 1.12;
+const DRAG_SPEED = 0.003;
+
+function orbitFromView(view, out) {
+  const yaw = view.homeYaw + (view.offYaw || 0);
+  const pitch = view.homePitch + (view.offPitch || 0);
+  const dist = view.dist * (view.distScale || 1);
+  const pivot = state.pivot;
+  out.set(
+    pivot.x + Math.sin(yaw) * Math.cos(pitch) * dist,
+    pivot.y + Math.sin(pitch) * dist,
+    pivot.z + Math.cos(yaw) * Math.cos(pitch) * dist);
+  return out;
+}
+
+function clampLook(view) {
+  view.targetOffYaw = THREE.MathUtils.clamp(view.targetOffYaw, -LOOK_RANGE, LOOK_RANGE);
+  view.targetOffPitch = THREE.MathUtils.clamp(view.targetOffPitch, -LOOK_RANGE, LOOK_RANGE);
+  view.targetDistScale = THREE.MathUtils.clamp(view.targetDistScale, PINCH_MIN, PINCH_MAX);
+}
 
 function requestLandscapeLock() {
   const orient = screen.orientation;
@@ -1300,13 +1341,14 @@ document.addEventListener('touchmove', (e) => {
   if (e.touches.length > 1) e.preventDefault();
 }, { passive: false });
 
-// Card taps / press-and-hold magnify still work. Drag, pinch, pan and
-// mouse-look no longer move the camera.
-function setupCardPointerControls(canvas) {
+// Drag orbits ±10° from home; pinch/wheel dollies a little. Card tap zoom
+// and press-and-hold magnify still work. No free mouse-look, no pan.
+function setupLookControls(canvas, view) {
   canvas.style.touchAction = 'none';
   const touches = new Map();
   let activePointer = -1;
-  let lastX = 0, lastY = 0, moved = 0;
+  let lastX = 0, lastY = 0, moved = 0, lastTapAt = 0;
+  let pinchSpan0 = 0, pinchScale0 = 1;
   let holdTimer = 0, holdWasActive = false, downAt = 0;
 
   const cancelHold = () => {
@@ -1314,16 +1356,27 @@ function setupCardPointerControls(canvas) {
     state.cardHold = null;
   };
 
-  const blockGesture = (e) => e.preventDefault();
-  canvas.addEventListener('wheel', blockGesture, { passive: false });
-  canvas.addEventListener('gesturestart', blockGesture);
-  canvas.addEventListener('gesturechange', blockGesture);
-  canvas.addEventListener('gestureend', blockGesture);
+  const pinchSpan = () => {
+    const [a, b] = [...touches.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (!state.view || state.zoom.active) return;
+    view.targetDistScale *= (1 + Math.sign(e.deltaY) * 0.04);
+    clampLook(view);
+  }, { passive: false });
+  canvas.addEventListener('gesturestart', (e) => e.preventDefault());
+  canvas.addEventListener('gesturechange', (e) => e.preventDefault());
+  canvas.addEventListener('gestureend', (e) => e.preventDefault());
 
   canvas.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'mouse') {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.size === 2) {
+        pinchSpan0 = pinchSpan();
+        pinchScale0 = view.targetDistScale;
         moved = 100;
         cancelHold();
       }
@@ -1336,8 +1389,6 @@ function setupCardPointerControls(canvas) {
     canvas.setPointerCapture(e.pointerId);
     requestLandscapeLock();
 
-    // Press-and-hold on a community card magnifies it 2x until the pointer
-    // lifts or drags off the card. Short delay so quick taps still zoom.
     const held = pickBoardCard(canvas, e);
     if (held) {
       const id = e.pointerId;
@@ -1354,6 +1405,11 @@ function setupCardPointerControls(canvas) {
     const touch = touches.get(e.pointerId);
     if (touch) { touch.x = e.clientX; touch.y = e.clientY; }
     if (touch && touches.size >= 2) {
+      const span = pinchSpan();
+      if (span > 24 && pinchSpan0 > 24 && !state.zoom.active) {
+        view.targetDistScale = pinchScale0 * pinchSpan0 / span;
+        clampLook(view);
+      }
       moved = 100;
       return;
     }
@@ -1375,6 +1431,16 @@ function setupCardPointerControls(canvas) {
       return;
     }
     if (isDrag && holdTimer && moved >= 10) cancelHold();
+    if (state.zoom && state.zoom.active) {
+      if (isDrag) { lastX = e.clientX; lastY = e.clientY; }
+      return;
+    }
+    if (isDrag && !state.zoom.active) {
+      const dx = e.clientX - lastX, dy = e.clientY - lastY;
+      view.targetOffYaw -= dx * DRAG_SPEED;
+      view.targetOffPitch += dy * DRAG_SPEED;
+      clampLook(view);
+    }
     if (isDrag) { lastX = e.clientX; lastY = e.clientY; }
   });
 
@@ -1408,6 +1474,17 @@ function setupCardPointerControls(canvas) {
       state.zoom.kind = target.kind;
       state.zoom.pos.copy(target.pos);
       state.zoom.look.copy(target.look);
+      return;
+    }
+
+    const now = performance.now();
+    if (now - lastTapAt < 350) {
+      view.targetOffYaw = 0;
+      view.targetOffPitch = 0;
+      view.targetDistScale = 1;
+      lastTapAt = 0;
+    } else {
+      lastTapAt = now;
     }
   };
   canvas.addEventListener('pointerup', release);
@@ -2061,11 +2138,11 @@ window.pokerScene = {
     endIntro();
   },
 
-  // Snap the camera back to the locked over-the-shoulder seat view.
+  // Snap back to the 10°/10° table-centre home (cancels card close-up too).
   resetCamera() {
     if (!state.ready) return;
     state.zoom.active = false;
-    if (state.applyCameraHome) state.applyCameraHome();
+    if (state.applyCameraHome) state.applyCameraHome(true);
   },
 
   lockLandscape() {
