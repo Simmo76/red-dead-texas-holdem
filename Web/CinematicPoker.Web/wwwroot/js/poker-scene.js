@@ -965,7 +965,7 @@ async function buildScene(canvas) {
 
   // Hand-Painted Forest Lite demo scene, rebuilt around the table as the
   // BEACH backdrop (the original .unitypackage is not in the repo).
-  const forestPromise = loadGlb(loader, 'models/env/forest.glb?v=1').then((gltf) => {
+  const forestPromise = loadGlb(loader, 'models/env/forest.glb?v=2').then((gltf) => {
     if (!gltf) return;
     gltf.scene.traverse((m) => {
       if (!m.isMesh) return;

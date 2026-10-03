@@ -138,11 +138,19 @@ def unity_instances():
 
 
 def instance_matrix(inst):
-    """Unity TRS, with the FBX importer's ‑90° X removed when it is already
-    baked into the glTF via Assimp's PreRotation node."""
-    q = inst["rot"]
-    if qdot(q, IMPORT_Q) > 0.9:
-        q = qmul(q, qconj(IMPORT_Q))
+    """Unity TRS on Assimp's already Y-up meshes.
+
+    When the Unity quaternion still carries the FBX importer's ‑90° X, strip
+    it so we keep only the artist's yaw. If stripping would introduce pitch
+    (the instance never had that importer rotation), keep yaw from the
+    original quaternion instead so statues and rocks stay upright.
+    """
+    q_unity = inst["rot"]
+    remaining = qmul(q_unity, qconj(IMPORT_Q))
+    if abs(remaining[0]) < 0.3 and abs(remaining[2]) < 0.3:
+        q = remaining
+    else:
+        q = qnormalize(np.array([0.0, q_unity[1], 0.0, q_unity[3]]))
     return trs_matrix(inst["pos"], q, inst["scale"])
 
 
