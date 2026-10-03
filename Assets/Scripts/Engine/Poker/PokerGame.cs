@@ -67,6 +67,15 @@ namespace CinematicPoker.Engine.Poker
 
         public bool IsSessionOver => AlivePlayers.Count <= 1;
 
+        /// <summary>The seated human, or null in NPC-only simulations.</summary>
+        public PokerPlayer Human => _players.FirstOrDefault(p => p.IsHuman);
+
+        /// <summary>
+        /// True once the human is out of chips. Presentation treats this as
+        /// game over even if remaining NPCs still have chips among themselves.
+        /// </summary>
+        public bool HasHumanLost => Human != null && Human.Status == PlayerStatus.Eliminated;
+
         /// <summary>Seat currently facing a decision, or -1.</summary>
         public int CurrentSeat => _round != null && Phase == GamePhase.HandInProgress ? _round.CurrentSeat : -1;
 

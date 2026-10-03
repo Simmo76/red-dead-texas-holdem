@@ -117,7 +117,7 @@ namespace CinematicPoker.Game.Presentation
         {
             while (true)
             {
-                if (Game.IsSessionOver)
+                if (Game.IsSessionOver || Game.HasHumanLost)
                 {
                     FlushEvents();
                     SessionFinished?.Invoke();
