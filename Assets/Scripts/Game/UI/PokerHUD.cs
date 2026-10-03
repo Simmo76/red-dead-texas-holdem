@@ -70,7 +70,7 @@ namespace CinematicPoker.Game.UI
 
         private void OnEngineEvent(PokerEvent evt)
         {
-            // Hook for toasts ("Mick raises to 50"), pot animations, etc.
+            // Hook for toasts ("Steve raises to 50"), pot animations, etc.
         }
     }
 }

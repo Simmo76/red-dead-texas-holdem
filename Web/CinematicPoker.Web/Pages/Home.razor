@@ -36,7 +36,7 @@
 
     @if (Round != null)
     {
-        <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b> <span class="hud-stack">· YOU&nbsp;<b>$@ShownStack(0)</b></span></div>
+        <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b> <span class="hud-stack">· JAMES&nbsp;<b>$@ShownStack(0)</b></span></div>
 
         <div class="hud-board @(_hudBoardExpanded ? "expanded" : "")"
              @onclick="ToggleHudBoard">
@@ -164,11 +164,11 @@
 @code {
     private static readonly (string Name, Func<AIProfile> Profile)[] Roster =
     {
-        ("Davo", AIProfile.Maniac),
-        ("Mick", AIProfile.Regular),
-        ("Shazza", AIProfile.Rock),
-        ("Bluey", AIProfile.CallingStation),
-        ("Kev", AIProfile.Professional)
+        ("Simon", AIProfile.Maniac),
+        ("Steve", AIProfile.Regular),
+        ("Tom", AIProfile.Rock),
+        ("Nick", AIProfile.CallingStation),
+        ("Pete", AIProfile.Professional)
     };
 
     // ---------------------------------------------------------- difficulty
@@ -462,7 +462,7 @@
     private void StartSession()
     {
         var rules = TableRules.Default;
-        var players = new List<PokerPlayer> { new HumanPlayer("human", "You", seat: 0, stack: rules.StartingStack) };
+        var players = new List<PokerPlayer> { new HumanPlayer("human", "James", seat: 0, stack: rules.StartingStack) };
         for (int i = 0; i < Roster.Length; i++)
         {
             players.Add(new AIPlayer($"npc{i}", Roster[i].Name, seat: i + 1, stack: rules.StartingStack,
@@ -502,10 +502,12 @@
         {
             if (_game.IsSessionOver)
             {
-                var winner = _game.AlivePlayers.Count > 0 ? _game.AlivePlayers[0].Name : "Nobody";
-                _sessionOverMessage = winner == "You"
-                    ? "You cleaned out the whole table!"
-                    : $"{winner} takes the table. Rough night.";
+                var winner = _game.AlivePlayers.Count > 0 ? _game.AlivePlayers[0] : null;
+                _sessionOverMessage = winner == null
+                    ? "Nobody takes the table."
+                    : winner.IsHuman
+                    ? "James cleaned out the whole table!"
+                    : $"{winner.Name} takes the table. Rough night.";
                 _sessionOver = true;
                 StateHasChanged();
                 return;

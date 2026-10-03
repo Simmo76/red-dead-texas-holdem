@@ -44,21 +44,22 @@ namespace CinematicPoker.Game.Prototype
 
         private static readonly (string name, System.Func<AIProfile> profile)[] Roster =
         {
-            ("Davo", AIProfile.Maniac),
-            ("Mick", AIProfile.Regular),
-            ("Shazza", AIProfile.Rock),
-            ("Bluey", AIProfile.CallingStation),
-            ("Kev", AIProfile.Professional)
+            ("Simon", AIProfile.Maniac),
+            ("Steve", AIProfile.Regular),
+            ("Tom", AIProfile.Rock),
+            ("Nick", AIProfile.CallingStation),
+            ("Pete", AIProfile.Professional)
         };
 
         // Kenney mini-character models (CC0) matched to the roster above.
         private static readonly string[] CharacterModels =
         {
-            "character-male-a",   // Davo
-            "character-male-b",   // Mick
-            "character-female-a", // Shazza
-            "character-male-c",   // Bluey
-            "character-male-d"    // Kev
+            "character-male-a",   // Simon
+            "character-male-b",   // Steve
+            "character-male-c",   // Tom
+            "character-male-d",   // Nick
+            "character-male-c"    // Pete
+
         };
 
         public PokerTableController Controller { get; private set; }
@@ -133,11 +134,11 @@ namespace CinematicPoker.Game.Prototype
 
             Color[] npcColors =
             {
-                new Color(0.85f, 0.3f, 0.25f),  // Davo
-                new Color(0.25f, 0.5f, 0.85f),  // Mick
-                new Color(0.8f, 0.65f, 0.2f),   // Shazza
-                new Color(0.35f, 0.7f, 0.4f),   // Bluey
-                new Color(0.6f, 0.4f, 0.75f)    // Kev
+                new Color(0.85f, 0.3f, 0.25f),  // Simon
+                new Color(0.25f, 0.5f, 0.85f),  // Steve
+                new Color(0.8f, 0.65f, 0.2f),   // Tom
+                new Color(0.35f, 0.7f, 0.4f),   // Nick
+                new Color(0.6f, 0.4f, 0.75f)    // Pete
             };
 
             // Seat 0 is the human (camera side); seats 1..5 are capsule NPCs.
@@ -300,7 +301,7 @@ namespace CinematicPoker.Game.Prototype
             Controller.StopSession();
 
             var rules = TableRules.Default;
-            var human = new HumanPlayer("human", "You", seat: 0, stack: rules.StartingStack);
+            var human = new HumanPlayer("human", "James", seat: 0, stack: rules.StartingStack);
             var npcs = new List<AIPlayer>();
             for (int i = 0; i < NpcCount; i++)
             {
