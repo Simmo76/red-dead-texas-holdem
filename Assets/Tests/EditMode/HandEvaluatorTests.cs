@@ -116,6 +116,27 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void DescribeNamesPairAndKicker()
+        {
+            var board = new[] { "Ah", "7d", "5c", "9s", "2h" };
+            var kingKicker = HandEvaluator.Evaluate(Cards("Ac", "Kd"), Cards(board));
+            Assert.AreEqual("a pair of Aces, King kicker", kingKicker.Describe());
+            Assert.AreEqual("a pair of Aces, KING kicker", kingKicker.Describe(emphasizeIndex: 1));
+            Assert.AreEqual(1, kingKicker.DecidingIndex(
+                HandEvaluator.Evaluate(Cards("As", "Qd"), Cards(board))));
+        }
+
+        [Test]
+        public void DescribeNamesHigherPair()
+        {
+            var aces = HandEvaluator.Evaluate(Cards("As", "Ad", "Kh", "9c", "2s"));
+            var kings = HandEvaluator.Evaluate(Cards("Ks", "Kd", "Ah", "9c", "2s"));
+            Assert.AreEqual("a pair of Aces, King kicker", aces.Describe());
+            Assert.AreEqual(0, aces.DecidingIndex(kings));
+            Assert.AreEqual("a pair of ACES, King kicker", aces.Describe(emphasizeIndex: 0));
+        }
+
+        [Test]
         public void CategoriesRankInCorrectOrder()
         {
             var ordered = new[]
