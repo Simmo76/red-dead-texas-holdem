@@ -795,7 +795,7 @@ async function buildScene(canvas) {
   scene.background = new THREE.Color(0x07070f);
   scene.fog = new THREE.Fog(0x07070f, 14, 70);
 
-  const camera = new THREE.PerspectiveCamera(56, canvas.clientWidth / canvas.clientHeight, 0.05, 140);
+  const camera = new THREE.PerspectiveCamera(52, canvas.clientWidth / canvas.clientHeight, 0.05, 140);
 
   // Orbit rig kept only so the locked seat view can snap home. Offsets are
   // never steered — free look, rotate, pan and pinch are disabled.
@@ -812,18 +812,19 @@ async function buildScene(canvas) {
   state.zoom = { active: false, kind: 'board', pos: new THREE.Vector3(), look: new THREE.Vector3() };
   state.intro = { active: false, start: 0, phase: 0 };
   state.camHome = new THREE.Vector3();
+  state.camLook = new THREE.Vector3(0, TABLE_TOP, 0);
   state.baseFov = camera.fov;
   state.camera = camera;
 
-  // Fixed over-the-shoulder landscape framing: camera hangs behind and
-  // slightly to the player's right, looking past his hat at the table.
-  // Free look / orbit / pan / pinch are disabled — this is the only seat view.
+  // Tight over-the-shoulder landscape shot: just behind and to the player's
+  // right, looking past his hat at the full table (the attached phone still).
   const applyCameraHome = () => {
     state.camHome.set(
-      -0.42,
-      (state.eyeHeight || EYE_HEIGHT) + 0.38,
-      SEAT_RADIUS + 0.82);
-    const d = state.camHome.clone().sub(state.pivot);
+      -0.62,
+      (state.eyeHeight || EYE_HEIGHT) + 0.08,
+      SEAT_RADIUS + 0.50);
+    state.camLook.set(0, TABLE_TOP, 0);
+    const d = state.camHome.clone().sub(state.camLook);
     view.dist = d.length();
     view.homeYaw = Math.atan2(d.x, d.z);
     view.homePitch = Math.asin(d.y / view.dist);
@@ -834,7 +835,7 @@ async function buildScene(canvas) {
     view.panUp = view.targetPanUp = 0;
     if (state.zoom.active) return; // don't yank a zoomed-in view around
     camera.position.copy(state.camHome);
-    camera.lookAt(state.pivot);
+    camera.lookAt(state.camLook);
   };
   state.applyCameraHome = applyCameraHome;
   applyCameraHome();
@@ -1237,7 +1238,7 @@ async function buildScene(canvas) {
       _lookTarget.copy(state.zoom.look);
     } else {
       _desiredPos.copy(state.camHome);
-      _lookTarget.copy(state.pivot);
+      _lookTarget.copy(state.camLook || state.pivot);
     }
     if (!state.intro.active) {
       camera.position.lerp(_desiredPos, Math.min(1, dt * 6));
@@ -1676,7 +1677,7 @@ function resizeIfNeeded(canvas, renderer, camera) {
   if (w === 0 || h === 0) return;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
-  state.baseFov = 56;
+  state.baseFov = 52;
   camera.fov = state.baseFov;
   camera.updateProjectionMatrix();
   if (state.applyCameraHome) state.applyCameraHome();
