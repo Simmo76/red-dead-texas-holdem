@@ -16,7 +16,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&%23127137;</text></svg>" />
-    <link rel="stylesheet" href="css/app.css?v=5" />
+    <link rel="stylesheet" href="css/app.css?v=6" />
 </head>
 
 <body>
@@ -25,6 +25,12 @@
             <div class="boot-title">CINEMATIC POKER</div>
             <div class="boot-sub">Shuffling up and dealing…</div>
         </div>
+    </div>
+
+    <div class="rotate-lock" role="dialog" aria-label="Rotate your device">
+        <div class="rotate-lock-glyph" aria-hidden="true"></div>
+        <div class="rotate-lock-title">TURN YOUR PHONE</div>
+        <div class="rotate-lock-sub">Landscape only</div>
     </div>
 
     <div id="blazor-error-ui">
@@ -42,7 +48,7 @@
     <!-- Bump ?v= on scene/audio changes so phones don't serve a stale cache. -->
     <script src="js/poker-audio.js?v=9"></script>
     <script src="js/poker-export.js?v=1"></script>
-    <script type="module" src="js/poker-scene.js?v=50"></script>
+    <script type="module" src="js/poker-scene.js?v=55"></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 

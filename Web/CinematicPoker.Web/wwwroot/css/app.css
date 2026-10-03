@@ -23,6 +23,7 @@ html, body {
     color: var(--text);
     font-family: Georgia, "Times New Roman", serif;
     overflow: hidden;
+    touch-action: none;
 }
 
 #app { height: 100%; }
@@ -75,7 +76,7 @@ html, body {
     width: 100%;
     height: 100%;
     display: block;
-    touch-action: none; /* one-finger pan looks around instead of scrolling */
+    touch-action: none;
 }
 
 /* ------------------------------------------------------------- topbar */
@@ -475,6 +476,56 @@ html, body {
     .actionbar { gap: 10px; }
     .actionbar-left, .actionbar-right { gap: 10px; }
     .brand { font-size: 14px; letter-spacing: 3px; }
+}
+
+/* ------------------------------------------------------------- landscape only */
+
+.rotate-lock {
+    display: none;
+}
+
+@media (orientation: portrait) {
+    .rotate-lock {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        padding: 32px;
+        background: radial-gradient(ellipse at center, #241608 0%, var(--bg) 70%);
+        color: var(--text);
+        text-align: center;
+    }
+
+    .rotate-lock-glyph {
+        width: 72px;
+        height: 44px;
+        border: 3px solid var(--gold);
+        border-radius: 8px;
+        animation: rotate-hint 1.6s ease-in-out infinite;
+    }
+
+    .rotate-lock-title {
+        font-size: 22px;
+        letter-spacing: 4px;
+        color: var(--gold);
+        font-weight: bold;
+    }
+
+    .rotate-lock-sub {
+        color: var(--text-dim);
+        letter-spacing: 1px;
+        font-size: 14px;
+    }
+}
+
+@keyframes rotate-hint {
+    0%, 20% { transform: rotate(0deg); }
+    50%, 70% { transform: rotate(90deg); }
+    100% { transform: rotate(90deg); }
 }
 
 /* ------------------------------------------- phones held upright (iPhone) */

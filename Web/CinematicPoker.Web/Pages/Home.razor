@@ -321,6 +321,7 @@
         // No opening camera sweep — go straight to the seated arcade view.
         try
         {
+            await JS.InvokeVoidAsync("pokerScene.lockLandscape");
             await JS.InvokeVoidAsync("pokerScene.skipIntro");
         }
         catch (JSException)

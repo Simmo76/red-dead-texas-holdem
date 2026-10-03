@@ -795,47 +795,55 @@ async function buildScene(canvas) {
   scene.background = new THREE.Color(0x07070f);
   scene.fog = new THREE.Fog(0x07070f, 14, 70);
 
-  const camera = new THREE.PerspectiveCamera(56, canvas.clientWidth / canvas.clientHeight, 0.05, 140);
+  const camera = new THREE.PerspectiveCamera(52, canvas.clientWidth / canvas.clientHeight, 0.05, 140);
 
-  // Orbit rig: the camera circles the point at the centre of the table where
-  // the community cards land. Moving the mouse (no buttons) or dragging a
-  // finger steers yaw/pitch offsets from the over-the-shoulder home framing.
+  // Orbit around the table-top centre. Home is the over-the-shoulder seat
+  // plus a 10° clockwise yaw (peek at James's hole cards) and 10° more
+  // pitch (looking down at the felt). Drag/pinch may only wander ±10°.
   const view = {
     homeYaw: 0, homePitch: 0, dist: 2.8,
     offYaw: 0, offPitch: 0,
     targetOffYaw: 0, targetOffPitch: 0,
-    distScale: 1, targetDistScale: 1, // pinch zoom scales the orbit radius
-    panRight: 0, panUp: 0,            // two-finger pan shifts camera + target
-    targetPanRight: 0, targetPanUp: 0
+    distScale: 1, targetDistScale: 1
   };
   state.view = view;
   state.pivot = new THREE.Vector3(0, TABLE_TOP, 0);
   state.zoom = { active: false, kind: 'board', pos: new THREE.Vector3(), look: new THREE.Vector3() };
   state.intro = { active: false, start: 0, phase: 0 };
   state.camHome = new THREE.Vector3();
+  state.camLook = new THREE.Vector3(0, TABLE_TOP, 0);
   state.baseFov = camera.fov;
   state.camera = camera;
 
-  // Cinematic over-the-shoulder framing: the camera hangs behind and beside
-  // the player's own seated character, looking past him at the table. Narrow
-  // portrait screens pull the camera up and back so the table still fits.
-  const applyCameraHome = () => {
-    const portrait = camera.aspect < 0.8;
-    state.camHome.set(
-      portrait ? -0.3 : -0.42,
-      (state.eyeHeight || EYE_HEIGHT) + (portrait ? 0.5 : 0.38),
-      SEAT_RADIUS + (portrait ? 1.0 : 0.82));
-    const d = state.camHome.clone().sub(state.pivot);
+  const applyCameraHome = (resetLook = false) => {
+    const look = state.pivot;
+    state.camLook.copy(look);
+    // Seat-side starting point (behind the player, slightly to his right).
+    const base = new THREE.Vector3(
+      -0.62,
+      (state.eyeHeight || EYE_HEIGHT) + 0.08,
+      SEAT_RADIUS + 0.50);
+    const d = base.sub(look);
     view.dist = d.length();
-    view.homeYaw = Math.atan2(d.x, d.z);
-    view.homePitch = Math.asin(d.y / view.dist);
-    if (state.zoom.active) return; // don't yank a zoomed-in view around
+    const baseYaw = Math.atan2(d.x, d.z);
+    const basePitch = Math.asin(THREE.MathUtils.clamp(d.y / view.dist, -1, 1));
+    // Clockwise from above is negative yaw in this rig (yaw 0 = +Z / player).
+    view.homeYaw = baseYaw + HOME_YAW_OFFSET;
+    view.homePitch = basePitch + HOME_PITCH_OFFSET;
+    if (resetLook) {
+      view.offYaw = view.targetOffYaw = 0;
+      view.offPitch = view.targetOffPitch = 0;
+      view.distScale = view.targetDistScale = 1;
+    }
+    orbitFromView(view, state.camHome);
+    if (state.zoom.active) return;
     camera.position.copy(state.camHome);
-    camera.lookAt(state.pivot);
+    camera.lookAt(look);
   };
   state.applyCameraHome = applyCameraHome;
-  applyCameraHome();
+  applyCameraHome(true);
   setupLookControls(canvas, view);
+  requestLandscapeLock();
 
   // ---- lighting: cool neon night around the street, with the familiar warm
   // lantern pool kept over the felt so the game still reads like a card den.
@@ -1203,15 +1211,12 @@ async function buildScene(canvas) {
       seat.char.updateFold(dt);
     }
 
-    // Ease the orbit offsets toward where the mouse/finger steered them,
-    // then swing the camera around the table-centre pivot (or fly to a
-    // tapped card group while zoomed).
+    // Ease drag/pinch offsets toward their targets, then orbit the table
+    // centre (or fly to a tapped card group while zoomed).
     const ease = Math.min(1, dt * 8);
     view.offYaw += (view.targetOffYaw - view.offYaw) * ease;
     view.offPitch += (view.targetOffPitch - view.offPitch) * ease;
     view.distScale += (view.targetDistScale - view.distScale) * ease;
-    view.panRight += (view.targetPanRight - view.panRight) * ease;
-    view.panUp += (view.targetPanUp - view.panUp) * ease;
     if (state.intro.active) {
       // Opening cinematic: two slow aerial sweeps (desert, then a hard cut
       // to the club) before the camera settles into the normal seat view.
@@ -1240,20 +1245,13 @@ async function buildScene(canvas) {
       _lookTarget.copy(state.zoom.look);
     } else {
       const yaw = view.homeYaw + view.offYaw;
-      const pitch = THREE.MathUtils.clamp(
-        view.homePitch + view.offPitch, ORBIT_PITCH_MIN, ORBIT_PITCH_MAX);
+      const pitch = view.homePitch + view.offPitch;
       const dist = view.dist * view.distScale;
       _desiredPos.set(
         state.pivot.x + Math.sin(yaw) * Math.cos(pitch) * dist,
         state.pivot.y + Math.sin(pitch) * dist,
         state.pivot.z + Math.cos(yaw) * Math.cos(pitch) * dist);
       _lookTarget.copy(state.pivot);
-      // Two-finger pan: slide camera and target together along the view's
-      // right axis and world-vertical, so the whole scene shifts on screen.
-      const prx = Math.cos(yaw) * view.panRight;
-      const prz = -Math.sin(yaw) * view.panRight;
-      _desiredPos.x += prx; _desiredPos.z += prz; _desiredPos.y += view.panUp;
-      _lookTarget.x += prx; _lookTarget.z += prz; _lookTarget.y += view.panUp;
     }
     if (!state.intro.active) {
       camera.position.lerp(_desiredPos, Math.min(1, dt * 6));
@@ -1294,14 +1292,7 @@ async function buildScene(canvas) {
   });
 }
 
-// ------------------------------------------------------------------ look controls
-
-// Orbit pitch limits: from just above the felt to nearly overhead.
-const ORBIT_PITCH_MIN = 0.06;
-const ORBIT_PITCH_MAX = 1.25;
-// How far mouse position (canvas edges) swings the orbit from home.
-const MOUSE_YAW_RANGE = 0.85;
-const MOUSE_PITCH_RANGE = 0.42;
+// ------------------------------------------------------------------ look controls (clamped orbit around the table)
 
 const _desiredPos = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
@@ -1309,52 +1300,83 @@ const _lookMat = new THREE.Matrix4();
 const _desiredQuat = new THREE.Quaternion();
 const _upVec = new THREE.Vector3(0, 1, 0);
 
-// Pinch-zoom limits on the orbit radius (fraction of the home distance).
-const PINCH_MIN = 0.5;
-const PINCH_MAX = 1.7;
+const DEG = Math.PI / 180;
+// Home is 10° clockwise (negative yaw: toward the player's right, so his
+// hole cards read on the left of his body) and 10° more overhead.
+const HOME_YAW_OFFSET = -10 * DEG;
+const HOME_PITCH_OFFSET = 10 * DEG;
+const LOOK_RANGE = 10 * DEG;
+const PINCH_MIN = 0.88;
+const PINCH_MAX = 1.12;
+const DRAG_SPEED = 0.003;
 
-// Two-finger pan limits (world units) so the table can't be lost off-screen.
-const PAN_MAX_RIGHT = 1.3;
-const PAN_MIN_UP = -0.7;
-const PAN_MAX_UP = 1.1;
+function orbitFromView(view, out) {
+  const yaw = view.homeYaw + (view.offYaw || 0);
+  const pitch = view.homePitch + (view.offPitch || 0);
+  const dist = view.dist * (view.distScale || 1);
+  const pivot = state.pivot;
+  out.set(
+    pivot.x + Math.sin(yaw) * Math.cos(pitch) * dist,
+    pivot.y + Math.sin(pitch) * dist,
+    pivot.z + Math.cos(yaw) * Math.cos(pitch) * dist);
+  return out;
+}
 
+function clampLook(view) {
+  view.targetOffYaw = THREE.MathUtils.clamp(view.targetOffYaw, -LOOK_RANGE, LOOK_RANGE);
+  view.targetOffPitch = THREE.MathUtils.clamp(view.targetOffPitch, -LOOK_RANGE, LOOK_RANGE);
+  view.targetDistScale = THREE.MathUtils.clamp(view.targetDistScale, PINCH_MIN, PINCH_MAX);
+}
+
+function requestLandscapeLock() {
+  const orient = screen.orientation;
+  if (orient && typeof orient.lock === 'function') {
+    orient.lock('landscape').catch(() => { /* browsers may require a user gesture */ });
+  }
+}
+
+window.addEventListener('orientationchange', requestLandscapeLock);
+window.addEventListener('click', requestLandscapeLock);
+document.addEventListener('touchmove', (e) => {
+  if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+
+// Drag orbits ±10° from home; pinch/wheel dollies a little. Card tap zoom
+// and press-and-hold magnify still work. No free mouse-look, no pan.
 function setupLookControls(canvas, view) {
-  canvas.style.touchAction = 'none'; // stop iOS Safari from scrolling/zooming the page
-  const touches = new Map(); // live touch pointers: pointerId -> {x, y}
+  canvas.style.touchAction = 'none';
+  const touches = new Map();
   let activePointer = -1;
   let lastX = 0, lastY = 0, moved = 0, lastTapAt = 0;
   let pinchSpan0 = 0, pinchScale0 = 1;
-  let pinchMidX = 0, pinchMidY = 0;
   let holdTimer = 0, holdWasActive = false, downAt = 0;
-  const TOUCH_SPEED = 0.005;
 
   const cancelHold = () => {
     if (holdTimer) { clearTimeout(holdTimer); holdTimer = 0; }
     state.cardHold = null;
   };
 
-  const clampPitchOff = (v) => THREE.MathUtils.clamp(
-    v, ORBIT_PITCH_MIN - view.homePitch, ORBIT_PITCH_MAX - view.homePitch);
-
   const pinchSpan = () => {
     const [a, b] = [...touches.values()];
     return Math.hypot(a.x - b.x, a.y - b.y);
   };
 
-  const pinchMid = () => {
-    const [a, b] = [...touches.values()];
-    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-  };
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (!state.view || state.zoom.active) return;
+    view.targetDistScale *= (1 + Math.sign(e.deltaY) * 0.04);
+    clampLook(view);
+  }, { passive: false });
+  canvas.addEventListener('gesturestart', (e) => e.preventDefault());
+  canvas.addEventListener('gesturechange', (e) => e.preventDefault());
+  canvas.addEventListener('gestureend', (e) => e.preventDefault());
 
   canvas.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'mouse') {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.size === 2) {
-        // Second finger down: this gesture is a pinch/pan, not a drag or tap.
         pinchSpan0 = pinchSpan();
         pinchScale0 = view.targetDistScale;
-        const mid = pinchMid();
-        pinchMidX = mid.x; pinchMidY = mid.y;
         moved = 100;
         cancelHold();
       }
@@ -1365,9 +1387,8 @@ function setupLookControls(canvas, view) {
     holdWasActive = false;
     downAt = e.timeStamp;
     canvas.setPointerCapture(e.pointerId);
+    requestLandscapeLock();
 
-    // Press-and-hold on a community card magnifies it 2x until the pointer
-    // lifts or drags off the card. Short delay so quick taps still zoom.
     const held = pickBoardCard(canvas, e);
     if (held) {
       const id = e.pointerId;
@@ -1384,34 +1405,19 @@ function setupLookControls(canvas, view) {
     const touch = touches.get(e.pointerId);
     if (touch) { touch.x = e.clientX; touch.y = e.clientY; }
     if (touch && touches.size >= 2) {
-      // Pinch: spreading the fingers pulls the camera in, pinching pushes
-      // it back out (scales the orbit radius around the table centre).
       const span = pinchSpan();
       if (span > 24 && pinchSpan0 > 24 && !state.zoom.active) {
-        view.targetDistScale = THREE.MathUtils.clamp(
-          pinchScale0 * pinchSpan0 / span, PINCH_MIN, PINCH_MAX);
+        view.targetDistScale = pinchScale0 * pinchSpan0 / span;
+        clampLook(view);
       }
-      // Two-finger pan: the scene follows the fingers' midpoint.
-      const mid = pinchMid();
-      if (!state.zoom.active) {
-        const k = view.dist * view.targetDistScale * 0.002;
-        view.targetPanRight = THREE.MathUtils.clamp(
-          view.targetPanRight - (mid.x - pinchMidX) * k, -PAN_MAX_RIGHT, PAN_MAX_RIGHT);
-        view.targetPanUp = THREE.MathUtils.clamp(
-          view.targetPanUp + (mid.y - pinchMidY) * k, PAN_MIN_UP, PAN_MAX_UP);
-      }
-      pinchMidX = mid.x; pinchMidY = mid.y;
       moved = 100;
-      return; // a two-finger gesture never orbits
+      return;
     }
     const isDrag = e.pointerId === activePointer;
     if (isDrag) {
       moved += Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY);
     }
     if (isDrag && state.cardHold) {
-      // Holding a magnified card: end the hold once the pointer leaves the
-      // card's (expanded) screen rectangle. The drag stays inert either way
-      // so the view doesn't lurch mid-hold.
       const r = cardScreenRect(state.cardHold, canvas);
       if (e.clientX < r.minX - 8 || e.clientX > r.maxX + 8
           || e.clientY < r.minY - 8 || e.clientY > r.maxY + 8) {
@@ -1421,29 +1427,19 @@ function setupLookControls(canvas, view) {
       return;
     }
     if (isDrag && holdWasActive) {
-      // The hold already ended (dragged off the card): keep this pointer
-      // inert until it lifts.
       lastX = e.clientX; lastY = e.clientY;
       return;
     }
-    if (isDrag && holdTimer && moved >= 10) cancelHold(); // a drag, not a hold
+    if (isDrag && holdTimer && moved >= 10) cancelHold();
     if (state.zoom && state.zoom.active) {
       if (isDrag) { lastX = e.clientX; lastY = e.clientY; }
-      return; // no orbiting while zoomed on cards
+      return;
     }
-    if (e.pointerType === 'mouse') {
-      // Just moving the mouse rotates the camera around the table centre:
-      // the cursor's position on the canvas maps directly to the orbit.
-      const rect = canvas.getBoundingClientRect();
-      const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      const ny = ((e.clientY - rect.top) / rect.height) * 2 - 1;
-      view.targetOffYaw = -nx * MOUSE_YAW_RANGE;
-      view.targetOffPitch = clampPitchOff(ny * MOUSE_PITCH_RANGE);
-    } else if (isDrag) {
-      // Touch: one-finger drag swings the same orbit.
+    if (isDrag && !state.zoom.active) {
       const dx = e.clientX - lastX, dy = e.clientY - lastY;
-      view.targetOffYaw -= dx * TOUCH_SPEED;
-      view.targetOffPitch = clampPitchOff(view.targetOffPitch + dy * TOUCH_SPEED);
+      view.targetOffYaw -= dx * DRAG_SPEED;
+      view.targetOffPitch += dy * DRAG_SPEED;
+      clampLook(view);
     }
     if (isDrag) { lastX = e.clientX; lastY = e.clientY; }
   });
@@ -1453,8 +1449,6 @@ function setupLookControls(canvas, view) {
     if (e.pointerId !== activePointer) return;
     activePointer = -1;
     cancelHold();
-    // If another finger is still down (pinch ending), let it take over the
-    // drag baseline so the view doesn't jump.
     if (touches.size) {
       const [id] = touches.keys();
       const p = touches.get(id);
@@ -1465,21 +1459,15 @@ function setupLookControls(canvas, view) {
     }
     if (holdWasActive) {
       holdWasActive = false;
-      // Judge by real press duration (event timestamps): if a slow frame let
-      // the hold timer fire during a genuinely quick tap, still treat it as
-      // a tap rather than swallowing it.
-      if (e.timeStamp - downAt >= 220) return; // hold, not a tap
+      if (e.timeStamp - downAt >= 220) return;
     }
-    if (moved >= 8) return; // it was a drag, not a tap
+    if (moved >= 8) return;
 
-    // While zoomed on cards, any tap returns the camera to the seat.
     if (state.zoom.active) {
       state.zoom.active = false;
       return;
     }
 
-    // Tap on a card: fly in for a close-up (top-down for table cards, up
-    // close for the pair held in the player's hand).
     const target = pickCardZoomTarget(canvas, e);
     if (target) {
       state.zoom.active = true;
@@ -1489,14 +1477,11 @@ function setupLookControls(canvas, view) {
       return;
     }
 
-    // Double-tap (without dragging) snaps the orbit and zoom back to home.
     const now = performance.now();
     if (now - lastTapAt < 350) {
       view.targetOffYaw = 0;
       view.targetOffPitch = 0;
       view.targetDistScale = 1;
-      view.targetPanRight = 0;
-      view.targetPanUp = 0;
       lastTapAt = 0;
     } else {
       lastTapAt = now;
@@ -1769,8 +1754,7 @@ function resizeIfNeeded(canvas, renderer, camera) {
   if (w === 0 || h === 0) return;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
-  // Tall portrait phones need a wider view to keep the table in frame.
-  state.baseFov = camera.aspect < 0.8 ? 70 : 56;
+  state.baseFov = 52;
   camera.fov = state.baseFov;
   camera.updateProjectionMatrix();
   if (state.applyCameraHome) state.applyCameraHome();
@@ -2154,20 +2138,15 @@ window.pokerScene = {
     endIntro();
   },
 
-  // Snap the camera back to the over-the-shoulder home view behind the
-  // player: cancels any card close-up and eases the orbit offsets, pinch
-  // zoom and pan back to their defaults (same reset as a double-tap).
+  // Snap back to the 10°/10° table-centre home (cancels card close-up too).
   resetCamera() {
     if (!state.ready) return;
     state.zoom.active = false;
-    const view = state.view;
-    if (view) {
-      view.targetOffYaw = 0;
-      view.targetOffPitch = 0;
-      view.targetDistScale = 1;
-      view.targetPanRight = 0;
-      view.targetPanUp = 0;
-    }
+    if (state.applyCameraHome) state.applyCameraHome(true);
+  },
+
+  lockLandscape() {
+    requestLandscapeLock();
   },
 
   // Cycle to the next backdrop set; returns the new backdrop name for the
