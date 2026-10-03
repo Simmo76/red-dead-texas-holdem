@@ -96,14 +96,14 @@
         {
             <div class="slider-panel">
                 <input type="range" min="@_legal.MinBetOrRaiseTo" max="@_legal.MaxBetOrRaiseTo" step="5"
-                       @bind="_sliderValue" @bind:event="oninput" />
+                       value="@_sliderValue" @oninput="OnSliderInput" />
                 <div class="slider-row">
                     <span class="slider-amount">$@_sliderValue</span>
                     <button class="act small" @onclick="() => SetSlider(PotNow / 2)">½ POT</button>
                     <button class="act small" @onclick="() => SetSlider(PotNow)">POT</button>
                     <button class="act small" @onclick="() => SetSlider(_legal.MaxBetOrRaiseTo)">MAX</button>
                     <button class="act call" @onclick="ConfirmSlider">CONFIRM</button>
-                    <button class="act small" @onclick="() => _showSlider = false">BACK</button>
+                    <button class="act small" @onclick="CloseSlider">BACK</button>
                 </div>
             </div>
         }
@@ -484,6 +484,7 @@
         _awaitingHuman = false;
         _showSlider = false;
         _skipRequested = false;
+        _ = EndBetPreview(); // RESTART mid-sizing: drop the preview close-up
         _exportOpen = false;
         _exportNote = "";
         try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
@@ -571,18 +572,53 @@
         await RunLoop(_loopToken);
     }
 
-    private void OpenSlider()
+    // Opening the slider zooms the 3D camera in over the player's cards and
+    // grows a preview chip stack at his bet spot; every slider change resizes
+    // the stack, and CONFIRM/BACK release the close-up again.
+    private async Task OpenSlider()
     {
         _showSlider = true;
         _sliderValue = _legal.MinBetOrRaiseTo;
+        await PushBetPreview();
     }
 
-    private void SetSlider(long amount) =>
+    private async Task OnSliderInput(ChangeEventArgs e)
+    {
+        if (long.TryParse(e.Value?.ToString(), out long v))
+            _sliderValue = Math.Clamp(v, _legal.MinBetOrRaiseTo, _legal.MaxBetOrRaiseTo);
+        await PushBetPreview();
+    }
+
+    private async Task SetSlider(long amount)
+    {
         _sliderValue = Math.Clamp(amount, _legal.MinBetOrRaiseTo, _legal.MaxBetOrRaiseTo);
+        await PushBetPreview();
+    }
+
+    private async Task CloseSlider()
+    {
+        _showSlider = false;
+        await EndBetPreview();
+    }
+
+    private async Task PushBetPreview()
+    {
+        if (!_sceneReady) return;
+        try { await JS.InvokeVoidAsync("pokerScene.betPreview", _sliderValue); }
+        catch (JSException) { /* scene not available; HUD still works */ }
+    }
+
+    private async Task EndBetPreview()
+    {
+        if (!_sceneReady) return;
+        try { await JS.InvokeVoidAsync("pokerScene.endBetPreview"); }
+        catch (JSException) { /* scene not available; HUD still works */ }
+    }
 
     private async Task ConfirmSlider()
     {
         long amount = _sliderValue;
+        await EndBetPreview();
         if (amount >= _legal.MaxBetOrRaiseTo) await Act(PlayerAction.AllIn());
         else if (_legal.CanBet) await Act(PlayerAction.Bet(amount));
         else await Act(PlayerAction.Raise(amount));

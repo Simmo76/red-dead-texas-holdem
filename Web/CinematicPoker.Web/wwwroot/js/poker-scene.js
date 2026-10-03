@@ -1464,7 +1464,9 @@ function setupLookControls(canvas, view) {
     if (moved >= 8) return;
 
     if (state.zoom.active) {
-      state.zoom.active = false;
+      // The bet-sizing close-up is owned by the slider panel (CONFIRM/BACK),
+      // so stray taps on the felt don't knock the camera out of it.
+      if (state.zoom.kind !== 'bet') state.zoom.active = false;
       return;
     }
 
@@ -1798,6 +1800,10 @@ function updateHole(paths) {
 // inside the rail so the pair reads clearly past his body from the camera.
 const HOLE_ANCHOR = new THREE.Vector3(0, TABLE_TOP + 0.02, TABLE_RADIUS - 0.24);
 
+// Where the player's committed chips land (same ring updateSeatChips uses for
+// seat 0), so the sizing preview grows exactly where the real bet will sit.
+const BET_SPOT = new THREE.Vector3(0, TABLE_TOP, TABLE_RADIUS - 0.62);
+
 // Leave the seated pose alone. A shoulder/elbow solve written for a different
 // rig shears Jacob's face and sleeves, so the hole cards stay at the anchor
 // on the felt instead of being pinned between the hands.
@@ -1832,10 +1838,12 @@ function layoutHoleCards() {
 // active (so you can read your hand against the board), hidden during an
 // opponent-pair close-up.
 const _handZoomDir = new THREE.Vector3();
+const _betFocus = new THREE.Vector3();
 function positionHandCards() {
   if (!state.holeCards.length || !state.holeAnchor) return;
   const handZoom = state.zoom.active && state.zoom.kind === 'hand';
   const boardZoom = state.zoom.active && state.zoom.kind === 'board';
+  const betZoom = state.zoom.active && state.zoom.kind === 'bet';
   if (handZoom) {
     // Hover above and just in front of the pair (backing straight toward the
     // seat would put the camera inside the player's leaned-forward head).
@@ -1843,6 +1851,16 @@ function positionHandCards() {
     state.zoom.pos.copy(state.holeAnchor).addScaledVector(_handZoomDir, 0.4)
       .setY(state.holeAnchor.y + 0.18);
     state.zoom.look.copy(state.holeAnchor).setY(state.holeAnchor.y + 0.07);
+  }
+  if (betZoom) {
+    // Sizing a bet: frame the player's pair AND the spot where the preview
+    // stack grows, hovering a little higher than the hand close-up so both
+    // stay in shot while the slider moves.
+    _betFocus.copy(state.holeAnchor).lerp(BET_SPOT, 0.6);
+    _handZoomDir.copy(state.camHome).sub(state.holeAnchor).normalize();
+    state.zoom.pos.copy(_betFocus).addScaledVector(_handZoomDir, 0.52)
+      .setY(state.holeAnchor.y + 0.34);
+    state.zoom.look.copy(_betFocus).setY(TABLE_TOP + 0.03);
   }
   if (boardZoom && !state.holeFlat) {
     state.holeFlat = true;
@@ -1856,7 +1874,7 @@ function positionHandCards() {
     layoutHoleCards(); // back into the character's hands (also resets scale)
   }
   for (const card of state.holeCards) {
-    card.visible = handZoom || boardZoom || !state.zoom.active;
+    card.visible = handZoom || boardZoom || betZoom || !state.zoom.active;
   }
 }
 
@@ -2141,12 +2159,49 @@ window.pokerScene = {
   // Snap back to the 10°/10° table-centre home (cancels card close-up too).
   resetCamera() {
     if (!state.ready) return;
+    this.endBetPreview();
     state.zoom.active = false;
     if (state.applyCameraHome) state.applyCameraHome(true);
   },
 
   lockLandscape() {
     requestLandscapeLock();
+  },
+
+  // Live bet/raise sizing: zoom in over the player's cards and keep a chip
+  // stack at his bet spot in sync with the slider. Called once when the
+  // slider opens and again on every slider change; the stack uses the same
+  // chip scale as real committed bets, so what you see is what lands.
+  betPreview(amount) {
+    if (!state.ready) return;
+    const amt = Math.max(0, Math.floor(amount || 0));
+    state.zoom.active = true;
+    state.zoom.kind = 'bet';
+    // Hide the already-committed chips while sizing: the preview stack shows
+    // the full "raise to" total, so keeping both would double-count.
+    const seat0 = state.seats && state.seats[0];
+    if (seat0 && seat0.chips) seat0.chips.visible = false;
+    if (!state.betPreview) state.betPreview = { group: null, amount: -1 };
+    if (state.betPreview.amount === amt) return;
+    state.betPreview.amount = amt;
+    if (state.betPreview.group) state.scene.remove(state.betPreview.group);
+    const stack = makeChipStacks(amt);
+    stack.position.copy(BET_SPOT);
+    state.betPreview.group = stack;
+    state.scene.add(stack);
+  },
+
+  // Dismiss the sizing preview: remove the stack, restore any committed
+  // chips, and let the camera ease back to the seat view.
+  endBetPreview() {
+    if (!state.ready) return;
+    if (state.betPreview && state.betPreview.group) {
+      state.scene.remove(state.betPreview.group);
+    }
+    state.betPreview = null;
+    const seat0 = state.seats && state.seats[0];
+    if (seat0 && seat0.chips) seat0.chips.visible = true;
+    if (state.zoom.kind === 'bet') state.zoom.active = false;
   },
 
   // Cycle to the next backdrop set; returns the new backdrop name for the
