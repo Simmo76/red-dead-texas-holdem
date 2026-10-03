@@ -119,12 +119,20 @@
 
     @if (_sessionOver)
     {
-        <div class="overlay">
-            <div class="overlay-box">
+        <div class="overlay" role="dialog" aria-label="@_sessionOverMessage">
+            <div class="overlay-box @(_humanLost ? "game-over" : "")">
                 <div class="overlay-title">@_sessionOverMessage</div>
                 <div class="overlay-actions">
-                    <button class="act call big" @onclick="OpenExportPanel">EXPORT STATS</button>
-                    <button class="act call big" @onclick="StartSession">PLAY AGAIN</button>
+                    @if (_humanLost)
+                    {
+                        <button class="act allin big restart-btn" @onclick="StartSession">RESTART</button>
+                        <button class="act small" @onclick="OpenExportPanel">EXPORT STATS</button>
+                    }
+                    else
+                    {
+                        <button class="act call big" @onclick="OpenExportPanel">EXPORT STATS</button>
+                        <button class="act call big" @onclick="StartSession">PLAY AGAIN</button>
+                    }
                 </div>
             </div>
         </div>
@@ -253,6 +261,7 @@
     private long _sliderValue;
     private bool _quickMode;
     private bool _sessionOver;
+    private bool _humanLost;
     private bool _hudBoardExpanded;
     private bool _exportOpen;
     private string _exportNote = "";
@@ -481,6 +490,7 @@
         _shownBoard.Clear();
         _banner = null;
         _sessionOver = false;
+        _humanLost = false;
         _awaitingHuman = false;
         _showSlider = false;
         _skipRequested = false;
@@ -494,6 +504,33 @@
     }
 
     /// <summary>
+    /// James is busted, or only one player still has chips. Losing shows
+    /// GAME OVER + Restart; winning keeps the table-sweep copy.
+    /// </summary>
+    private void FinishSession()
+    {
+        _humanLost = _game.HasHumanLost;
+        if (_humanLost)
+        {
+            _sessionOverMessage = "GAME OVER";
+        }
+        else
+        {
+            var winner = _game.AlivePlayers.Count > 0 ? _game.AlivePlayers[0] : null;
+            _sessionOverMessage = winner == null
+                ? "Nobody takes the table."
+                : "James cleaned out the whole table!";
+        }
+        _sessionOver = true;
+        _awaitingHuman = false;
+        _showSlider = false;
+        try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
+        catch (InvalidOperationException) { }
+        catch (JSException) { }
+        StateHasChanged();
+    }
+
+    /// <summary>
     /// Drives the session: NPC turns with think-time pacing, pauses for human
     /// input, auto-deals the next hand. Cancelled by token when restarting.
     /// </summary>
@@ -501,16 +538,9 @@
     {
         while (token == _loopToken)
         {
-            if (_game.IsSessionOver)
+            if (_game.IsSessionOver || _game.HasHumanLost)
             {
-                var winner = _game.AlivePlayers.Count > 0 ? _game.AlivePlayers[0] : null;
-                _sessionOverMessage = winner == null
-                    ? "Nobody takes the table."
-                    : winner.IsHuman
-                    ? "James cleaned out the whole table!"
-                    : $"{winner.Name} takes the table. Rough night.";
-                _sessionOver = true;
-                StateHasChanged();
+                FinishSession();
                 return;
             }
 
