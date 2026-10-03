@@ -75,7 +75,13 @@
 
     @if (_banner != null)
     {
-        <div class="banner">@_banner</div>
+        <div class="banner">
+            <div>@_banner</div>
+            @if (_bannerWhy != null)
+            {
+                <div class="banner-why">@_bannerWhy</div>
+            }
+        </div>
     }
 
     <div class="actionbar">
@@ -258,6 +264,7 @@
     private string _exportNote = "";
     private string _sessionOverMessage = "";
     private string _banner;
+    private string _bannerWhy;
     private string _statusLine = "";
     private int _loopToken;
 
@@ -480,6 +487,7 @@
         _pending.Clear();
         _shownBoard.Clear();
         _banner = null;
+        _bannerWhy = null;
         _sessionOver = false;
         _awaitingHuman = false;
         _showSlider = false;
@@ -756,6 +764,7 @@
                 _shownBoard.Clear();
                 _showdownHandCount = 0;
                 _banner = null;
+                _bannerWhy = null;
                 break;
 
             case FlopDealt flop:
@@ -818,9 +827,18 @@
                         PlayDealer(HandClip(award.WinningHand.Value.Category));
                 }
                 string winners = string.Join(" & ", award.WinnerSeats.Select(NameOf));
-                _banner = award.WinningHand.HasValue
-                    ? $"{winners} win{(award.WinnerSeats.Count == 1 ? "s" : "")} ${award.Amount} — {Pretty(award.WinningHand.Value.Category)}"
-                    : $"{winners} take{(award.WinnerSeats.Count == 1 ? "s" : "")} ${award.Amount}";
+                string verb = award.WinnerSeats.Count == 1 ? "wins" : "win";
+                string take = award.WinnerSeats.Count == 1 ? "takes" : "take";
+                if (award.WinningHand.HasValue)
+                {
+                    _banner = $"{winners} {verb} ${award.Amount}";
+                    _bannerWhy = ExplainWinningHand(award);
+                }
+                else
+                {
+                    _banner = $"{winners} {take} ${award.Amount}";
+                    _bannerWhy = null;
+                }
                 break;
             }
 
@@ -872,20 +890,38 @@
         catch (JSException) { }
     }
 
-    private static string Pretty(HandCategory category) => category switch
+    /// <summary>
+    /// Winning-hand line for the pot banner. Always names the ranks
+    /// (pair of Aces, King kicker). When another showdown hand shared the
+    /// same category, the deciding high/kicker is shouted and the beaten
+    /// hand is listed so the table can see why it went that way.
+    /// </summary>
+    private string ExplainWinningHand(PotAwarded award)
     {
-        HandCategory.HighCard => "high card",
-        HandCategory.Pair => "a pair",
-        HandCategory.TwoPair => "two pair",
-        HandCategory.ThreeOfAKind => "three of a kind",
-        HandCategory.Straight => "a straight",
-        HandCategory.Flush => "a flush",
-        HandCategory.FullHouse => "a full house",
-        HandCategory.FourOfAKind => "four of a kind",
-        HandCategory.StraightFlush => "a straight flush",
-        HandCategory.RoyalFlush => "a ROYAL FLUSH",
-        _ => category.ToString()
-    };
+        HandValue win = award.WinningHand.Value;
+        int emphasize = -1;
+        var beaten = new List<string>();
+        if (_shownBoard.Count >= 3)
+        {
+            foreach (var kv in _revealed)
+            {
+                if (award.WinnerSeats.Contains(kv.Key)) continue;
+                if (kv.Value == null || kv.Value.Count + _shownBoard.Count < 5) continue;
+                HandValue theirs = HandEvaluator.Evaluate(kv.Value, _shownBoard);
+                if (theirs.Category != win.Category) continue;
+                int idx = win.DecidingIndex(theirs);
+                if (idx >= 0 && (emphasize < 0 || idx < emphasize))
+                    emphasize = idx;
+                beaten.Add($"{NameOf(kv.Key)} had {theirs.Describe()}");
+            }
+        }
+
+        string desc = win.Describe(emphasize);
+        if (award.WinnerSeats.Count > 1)
+            return beaten.Count == 0 ? $"{desc} — split pot" : $"{desc} — split pot  ·  {string.Join("  ·  ", beaten)}";
+        if (beaten.Count == 0) return desc;
+        return $"{desc}  ·  {string.Join("  ·  ", beaten)}";
+    }
 
     private SeatState SeatOf(int seat)
     {
