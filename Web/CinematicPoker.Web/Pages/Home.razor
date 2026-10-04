@@ -171,8 +171,8 @@
             @if (CanFastForward)
             {
                 <button class="act ff" @onclick="FastForward"
-                        title="@(_awaitingNextHand ? "Go to the next hand" : "Skip to the next action")">
-                    @(_awaitingNextHand ? "NEXT HAND" : "SKIP »")
+                        title="@NextHandButtonTitle">
+                    @NextHandButtonLabel
                 </button>
             }
         }
@@ -180,12 +180,22 @@
 
     @if (_sessionOver)
     {
-        <div class="overlay">
-            <div class="overlay-box">
+        <div class="overlay" role="dialog" aria-label="@_sessionOverMessage">
+            <div class="overlay-box @(_humanLost ? "game-over" : _humanWon ? "table-win" : "")">
                 <div class="overlay-title">@_sessionOverMessage</div>
                 <div class="overlay-actions">
-                    <button class="act call big" @onclick="OpenExportPanel">EXPORT STATS</button>
-                    <button class="act call big" @onclick="StartSession">PLAY AGAIN</button>
+                    @if (_humanLost || _humanWon)
+                    {
+                        <button class="act call big restart-btn" @onclick="ContinueGame">CONTINUE GAME</button>
+                        <div class="overlay-blurb">@ContinueGameBlurb</div>
+                        <button class="act allin big restart-btn" @onclick="StartSession">RESTART</button>
+                        <button class="act small" @onclick="OpenExportPanel">EXPORT STATS</button>
+                    }
+                    else
+                    {
+                        <button class="act call big" @onclick="OpenExportPanel">EXPORT STATS</button>
+                        <button class="act call big" @onclick="StartSession">PLAY AGAIN</button>
+                    }
                 </div>
             </div>
         </div>
@@ -314,6 +324,8 @@
     private long _sliderValue;
     private bool _quickMode;
     private bool _sessionOver;
+    private bool _humanLost;
+    private bool _humanWon;
     private bool _hudBoardExpanded;
     private bool _exportOpen;
     private string _exportNote = "";
@@ -349,11 +361,29 @@
     private bool _awaitingNextHand;
     private bool _handHasCompleted;
 
+    private bool HumanIsBusted => _game != null && _game.HasHumanLost;
+
     private bool CanFastForward =>
         _game != null && !_sessionOver && !_awaitingHuman
         && (_awaitingNextHand
             || (SeatOf(0) is { Folded: true }
                 && (_game.Phase == GamePhase.HandInProgress || _pending.Count > 0)));
+
+    private string NextHandButtonLabel =>
+        !_awaitingNextHand ? "SKIP »"
+        : HumanIsBusted ? "CONTINUE" : "NEXT HAND";
+
+    private string NextHandButtonTitle =>
+        !_awaitingNextHand ? "Skip to the next action"
+        : HumanIsBusted ? "See game over"
+        : _game is { HasHumanWon: true } ? "Continue with your stack"
+        : "Go to the next hand";
+
+    private string ContinueGameBlurb =>
+        _game == null ? ""
+        : _humanLost
+            ? $"Buy back in for ${_game.Rules.StartingStack}. Opponents keep their stacks."
+            : $"Keep ${(_game.Human?.Stack ?? 0)} and sit a new table.";
 
     private void FastForward() => _skipRequested = true;
 
@@ -562,6 +592,8 @@
         _bannerAmount = null;
         _playerWonPot = false;
         _sessionOver = false;
+        _humanLost = false;
+        _humanWon = false;
         _awaitingHuman = false;
         _showSlider = false;
         _skipRequested = false;
@@ -578,6 +610,109 @@
     }
 
     /// <summary>
+    /// Keep James in the game when he still has chips or can buy back in.
+    /// A bust rebies against the same opponents; a table win seats a new
+    /// table and he keeps his stack.
+    /// </summary>
+    private void ContinueGame()
+    {
+        if (_game == null) return;
+        try
+        {
+            if (_game.HasHumanLost)
+            {
+                _game.RebuyHuman();
+            }
+            else if (_game.HasHumanWon
+                     || (_game.Human != null
+                         && _game.Human.Status != PlayerStatus.Eliminated
+                         && _game.Human.Stack >= _game.Rules.BigBlind))
+            {
+                _game.ContinueWithNewOpponents(CreateNpcRoster());
+            }
+            else
+            {
+                return;
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+        catch (ArgumentException)
+        {
+            return;
+        }
+
+        _sessionOver = false;
+        _humanLost = false;
+        _humanWon = false;
+        _awaitingHuman = false;
+        _showSlider = false;
+        _skipRequested = false;
+        _awaitingNextHand = false;
+        _handHasCompleted = false;
+        _exportOpen = false;
+        _banner = null;
+        _bannerAmount = null;
+        _playerWonPot = false;
+        _showdownView.Clear();
+        _statusLine = "Dealing…";
+        try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
+        catch (InvalidOperationException) { }
+        catch (JSException) { }
+        _ = EndBetPreview();
+        _ = RunLoop(++_loopToken);
+    }
+
+    private List<PokerPlayer> CreateNpcRoster()
+    {
+        var npcs = new List<PokerPlayer>();
+        for (int i = 0; i < Roster.Length; i++)
+        {
+            npcs.Add(new AIPlayer($"npc{i}", Roster[i].Name, seat: i + 1, stack: TableRules.Default.StartingStack,
+                profile: WithDifficulty(Roster[i].Profile()), seed: _rng.Next()));
+        }
+        return npcs;
+    }
+
+    /// <summary>
+    /// Table is down to one player, or James is busted. Losing shows GAME
+    /// OVER; winning offers Continue Game so he can sit a new table with
+    /// the chips he still has.
+    /// </summary>
+    private void FinishSession()
+    {
+        _humanLost = _game.HasHumanLost;
+        _humanWon = _game.HasHumanWon;
+        if (_humanLost)
+        {
+            _sessionOverMessage = "GAME OVER";
+        }
+        else if (_humanWon)
+        {
+            _sessionOverMessage = "James takes the table!";
+        }
+        else
+        {
+            var winner = _game.AlivePlayers.Count > 0 ? _game.AlivePlayers[0] : null;
+            _sessionOverMessage = winner == null
+                ? "Nobody takes the table."
+                : winner.IsHuman
+                ? "James cleaned out the whole table!"
+                : $"{winner.Name} takes the table. Rough night.";
+        }
+        _sessionOver = true;
+        _awaitingHuman = false;
+        _awaitingNextHand = false;
+        _showSlider = false;
+        try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
+        catch (InvalidOperationException) { }
+        catch (JSException) { }
+        StateHasChanged();
+    }
+
+    /// <summary>
     /// Drives the session: NPC turns with think-time pacing, pauses for human
     /// input, and waits for NEXT HAND after a result is shown. Cancelled by
     /// token when restarting.
@@ -586,20 +721,17 @@
     {
         while (token == _loopToken)
         {
-            if (_game.IsSessionOver)
+            // A finished table (James won, or only NPCs remain) still holds
+            // on the result until NEXT HAND. Do not overlay immediately —
+            // that skipped the banner and hid the action bar.
+            bool tableSettled = _game.IsSessionOver || _game.HasHumanLost;
+            if (tableSettled && !_handHasCompleted)
             {
-                var winner = _game.AlivePlayers.Count > 0 ? _game.AlivePlayers[0] : null;
-                _sessionOverMessage = winner == null
-                    ? "Nobody takes the table."
-                    : winner.IsHuman
-                    ? "James cleaned out the whole table!"
-                    : $"{winner.Name} takes the table. Rough night.";
-                _sessionOver = true;
-                StateHasChanged();
+                FinishSession();
                 return;
             }
 
-            if (_game.Phase == GamePhase.WaitingForHand)
+            if (_game.Phase == GamePhase.WaitingForHand || tableSettled)
             {
                 if (_handHasCompleted)
                 {
@@ -609,20 +741,35 @@
                     // accident.
                     _skipRequested = false;
                     _awaitingNextHand = true;
-                    _statusLine = "Tap NEXT HAND when you've seen the result";
+                    _statusLine = HumanIsBusted
+                        ? "Tap CONTINUE when you've seen the result"
+                        : _game.HasHumanWon
+                        ? "Tap NEXT HAND to keep your stack"
+                        : "Tap NEXT HAND when you've seen the result";
                     StateHasChanged();
                     while (token == _loopToken && !_skipRequested)
                         await Task.Delay(50);
                     _skipRequested = false;
                     _awaitingNextHand = false;
                 }
-                else
+                else if (_game.Phase == GamePhase.WaitingForHand)
                 {
                     _statusLine = "Dealing…";
                     StateHasChanged();
                     await Task.Delay(NextHandDelayMs);
                 }
                 if (token != _loopToken) return;
+
+                // James still has chips and opponents remain: deal. Bust or
+                // a table sweep goes to the overlay, where Continue Game
+                // rebies or seats a new table with his stack.
+                if (_game.HasHumanLost || _game.IsSessionOver)
+                {
+                    FinishSession();
+                    return;
+                }
+
+                _handHasCompleted = false;
                 _game.StartHand();
                 await DrainEvents(token);
                 continue;
@@ -635,6 +782,7 @@
             {
                 _legal = _game.GetLegalActions();
                 _sliderValue = _legal.MinBetOrRaiseTo;
+                _showSlider = false;
                 _awaitingHuman = true;
                 try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", true); }
                 catch (JSException) { }
@@ -926,6 +1074,7 @@
                 _banner = null;
                 _bannerAmount = null;
                 _playerWonPot = false;
+                _handHasCompleted = false;
                 break;
 
             case FlopDealt flop:

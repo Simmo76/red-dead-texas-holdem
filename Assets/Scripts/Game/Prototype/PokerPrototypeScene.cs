@@ -315,6 +315,32 @@ namespace CinematicPoker.Game.Prototype
             Controller.StartSession(rules, human, npcs);
         }
 
+        public void ContinueSession()
+        {
+            if (Controller?.Game == null) return;
+            if (Controller.Game.HasHumanLost)
+            {
+                Controller.ContinueAfterHumanBust();
+            }
+            else if (Controller.Game.HasHumanWon)
+            {
+                var npcs = new List<AIPlayer>();
+                for (int i = 0; i < NpcCount; i++)
+                {
+                    npcs.Add(new AIPlayer($"npc{i}", Roster[i].name, seat: i + 1, stack: TableRules.Default.StartingStack,
+                        profile: Roster[i].profile(), seed: Random.Range(int.MinValue, int.MaxValue)));
+                }
+                Controller.ContinueAfterTableWin(npcs);
+            }
+            else
+            {
+                return;
+            }
+
+            foreach (PrototypeCharacter character in _characters) character?.PoseSit();
+            _hud.HideSessionOver();
+        }
+
         // ------------------------------------------------------------ events
 
         private void OnEngineEvent(PokerEvent evt)
@@ -417,10 +443,22 @@ namespace CinematicPoker.Game.Prototype
 
         private void OnSessionFinished()
         {
+            if (Controller.Game.HasHumanLost)
+            {
+                _hud.ShowSessionOver("GAME OVER");
+                return;
+            }
+
+            if (Controller.Game.HasHumanWon)
+            {
+                _hud.ShowSessionOver("James takes the table!");
+                return;
+            }
+
             string winner = "Nobody";
             foreach (var p in Controller.Game.Players)
                 if (p.Stack > 0) winner = p.Name;
-            _hud.ShowSessionOver($"Session over — {winner} wins the table!");
+            _hud.ShowSessionOver($"{winner} wins the table!");
         }
 
         // ----------------------------------------------------------- visuals
