@@ -398,7 +398,7 @@ html, body {
     padding-right: calc(18px + env(safe-area-inset-right));
     /* Extra inset on notched phones where safe-area can read as zero in-browser */
     padding-bottom: calc(14px + max(16px, env(safe-area-inset-bottom, 0px)));
-    z-index: 5;
+    z-index: 8;
 }
 
 .actionbar-left,
@@ -576,6 +576,27 @@ html, body {
     color: var(--gold);
     letter-spacing: 2px;
 }
+
+.overlay-box.game-over {
+    padding: 44px 56px;
+    gap: 28px;
+    border-color: #8a3030;
+}
+
+.overlay-box.game-over .overlay-title {
+    font-size: clamp(36px, 7vw, 56px);
+    font-weight: 800;
+    letter-spacing: 10px;
+    color: var(--gold);
+    text-shadow: 0 3px 18px rgba(0, 0, 0, 0.9), 0 0 28px rgba(192, 57, 43, 0.4);
+}
+
+.overlay-box.game-over .overlay-actions {
+    flex-direction: column;
+    align-items: center;
+}
+
+.restart-btn { min-width: 220px; }
 
 .overlay-actions {
     display: flex;
@@ -764,4 +785,6 @@ html, body {
     .actionbar-left, .actionbar-right { gap: 8px; }
     .slider-panel { gap: 4px; }
     .overlay-box { padding: 22px 30px; gap: 14px; }
+    .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
+    .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
 }

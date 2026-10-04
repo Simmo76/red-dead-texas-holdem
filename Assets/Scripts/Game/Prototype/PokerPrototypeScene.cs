@@ -417,10 +417,16 @@ namespace CinematicPoker.Game.Prototype
 
         private void OnSessionFinished()
         {
+            if (Controller.Game.HasHumanLost)
+            {
+                _hud.ShowSessionOver("GAME OVER");
+                return;
+            }
+
             string winner = "Nobody";
             foreach (var p in Controller.Game.Players)
                 if (p.Stack > 0) winner = p.Name;
-            _hud.ShowSessionOver($"Session over — {winner} wins the table!");
+            _hud.ShowSessionOver($"{winner} wins the table!");
         }
 
         // ----------------------------------------------------------- visuals
