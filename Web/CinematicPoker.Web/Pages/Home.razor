@@ -36,7 +36,14 @@
 
     @if (Round != null)
     {
-        <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b> <span class="hud-stack">· JAMES&nbsp;<b>$@ShownStack(0)</b></span></div>
+        <div class="hud-meters">
+            <div class="hud-stack" title="Chips you have left">
+                <span class="hud-stack-icon" aria-hidden="true"></span>
+                <span class="hud-stack-name">JAMES</span>
+                <b>$@ShownStack(0)</b>
+            </div>
+            <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b></div>
+        </div>
 
         <div class="hud-board @(_hudBoardExpanded ? "expanded" : "")"
              @onclick="ToggleHudBoard">

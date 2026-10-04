@@ -164,7 +164,7 @@ namespace CinematicPoker.Game.Prototype
                 }
 
                 float labelHeight = seat == 0 ? 0.35f : (_characters[seat] != null ? 1.28f : 1.5f);
-                _seatLabels[seat] = CreateLabel($"SeatLabel_{seat}", pos + Vector3.up * labelHeight, 0.055f);
+                _seatLabels[seat] = CreateLabel($"SeatLabel_{seat}", pos + Vector3.up * labelHeight, 0.085f);
             }
 
             // Community cards: five flat quads at the table centre.

@@ -173,7 +173,8 @@ function makeLabel() {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: tex, transparent: true, depthTest: false
   }));
-  sprite.scale.set(0.46, 0.1725, 1);
+  // Large enough that remaining stacks stay readable from the seat camera.
+  sprite.scale.set(0.76, 0.285, 1);
   sprite.renderOrder = 10;
   return { sprite, canvas, tex, text: '' };
 }
