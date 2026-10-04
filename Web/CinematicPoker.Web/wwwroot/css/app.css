@@ -162,6 +162,42 @@ html, body {
     animation: intro-pulse 1.7s ease-in-out infinite;
 }
 
+.name-prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    cursor: default;
+    padding: 8px 18px;
+    max-width: min(420px, 92vw);
+}
+
+.name-blurb {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 14px;
+    letter-spacing: 0.6px;
+    text-align: center;
+}
+
+.name-input {
+    width: min(320px, 80vw);
+    padding: 12px 16px;
+    font-size: 16px;
+    letter-spacing: 1px;
+    text-align: center;
+    color: var(--text);
+    background: rgba(12, 10, 8, 0.9);
+    border: 1px solid var(--gold-dim);
+    border-radius: 10px;
+    font-family: inherit;
+    outline: none;
+}
+
+.name-input:focus { border-color: var(--gold); }
+
+.name-input::placeholder { color: var(--text-dim); opacity: 0.7; }
+
 @keyframes intro-pulse {
     0%, 100% { opacity: 0.4; }
     50% { opacity: 1; }
@@ -230,6 +266,10 @@ html, body {
     color: var(--text-dim);
     font-size: 0.72em;
     letter-spacing: 2px;
+    max-width: 9em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .hud-stack b {
