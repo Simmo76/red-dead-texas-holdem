@@ -14,8 +14,23 @@
     @if (!_introStarted)
     {
         <div class="intro-overlay" @onclick="StartIntro">
-            <div class="intro-title">CINEMATIC <span>POKER</span></div>
-            <div class="intro-tap">TAP TO PLAY</div>
+            @if (_namePromptOpen)
+            {
+                <div class="name-prompt" @onclick:stopPropagation="true">
+                    <div class="intro-title">WHAT DO THEY <span>CALL YOU</span></div>
+                    <p class="name-blurb">First time at the table. This sticks on this device.</p>
+                    <input class="name-input" type="text" maxlength="16"
+                           autocapitalize="words" autocomplete="nickname" autocorrect="off" spellcheck="false"
+                           placeholder="Your name" @bind="_nameDraft" @bind:event="oninput"
+                           @onkeydown="OnNameKeyDown" />
+                    <button class="act call big" disabled="@(!CanConfirmName)" @onclick="ConfirmName">SIT DOWN</button>
+                </div>
+            }
+            else
+            {
+                <div class="intro-title">CINEMATIC <span>POKER</span></div>
+                <div class="intro-tap">TAP TO PLAY</div>
+            }
         </div>
     }
     <header class="topbar">
@@ -39,7 +54,7 @@
         <div class="hud-meters">
             <div class="hud-stack" title="Chips you have left">
                 <span class="hud-stack-icon" aria-hidden="true"></span>
-                <span class="hud-stack-name">JAMES</span>
+                <span class="hud-stack-name">@PlayerName.ToUpperInvariant()</span>
                 <b>$@ShownStack(0)</b>
             </div>
             <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b></div>
@@ -411,8 +426,16 @@
     private int ThinkTimeMs => _quickMode ? 1000 : _rng.Next(1000, 2200);
     private int NextHandDelayMs => _quickMode ? 700 : 2600;
     private const int EquityIterations = 200;
+    private const string PlayerNameKey = "cinematic-poker-player-name";
+    private const int PlayerNameMaxLength = 16;
 
-    protected override void OnInitialized() => StartSession();
+    private string _playerName = "";
+    private string _nameDraft = "";
+    private bool _namePromptOpen;
+    private bool _settingsLoaded;
+
+    private string PlayerName => string.IsNullOrEmpty(_playerName) ? "Player" : _playerName;
+    private bool CanConfirmName => SanitizeName(_nameDraft, allowEmpty: true).Length > 0;
 
     // -------------------------------------------------------- tap to play
 
@@ -420,6 +443,48 @@
     private bool _introRequested;
 
     private async Task StartIntro()
+    {
+        if (!_settingsLoaded || _namePromptOpen) return;
+        if (string.IsNullOrEmpty(_playerName))
+        {
+            _namePromptOpen = true;
+            _nameDraft = "";
+            return;
+        }
+        await BeginPlay();
+    }
+
+    private async Task OnNameKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await ConfirmName();
+    }
+
+    private async Task ConfirmName()
+    {
+        if (!CanConfirmName) return;
+        _playerName = SanitizeName(_nameDraft);
+        try { await JS.InvokeVoidAsync("localStorage.setItem", PlayerNameKey, _playerName); }
+        catch (JSException) { }
+        _namePromptOpen = false;
+        if (_game == null) StartSession();
+        await BeginPlay();
+    }
+
+    private static string SanitizeName(string raw, bool allowEmpty = false)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return allowEmpty ? "" : "Player";
+        var cleaned = new System.Text.StringBuilder();
+        foreach (char c in raw.Trim())
+        {
+            if (char.IsLetterOrDigit(c) || c is ' ' or '-' or '\'' or '.')
+                cleaned.Append(c);
+            if (cleaned.Length >= PlayerNameMaxLength) break;
+        }
+        string name = string.Join(" ", cleaned.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        return name.Length > 0 ? name : allowEmpty ? "" : "Player";
+    }
+
+    private async Task BeginPlay()
     {
         if (_introRequested) return;
         _introRequested = true; // the tap doubles as the audio-unlock gesture
@@ -446,6 +511,20 @@
     {
         if (firstRender)
         {
+            try
+            {
+                string saved = await JS.InvokeAsync<string>("localStorage.getItem", PlayerNameKey);
+                _playerName = SanitizeName(saved, allowEmpty: true);
+            }
+            catch (JSException)
+            {
+                _playerName = "";
+            }
+            _settingsLoaded = true;
+            if (!string.IsNullOrEmpty(_playerName) && _game == null)
+                StartSession();
+            StateHasChanged();
+
             // The scene module loads asynchronously; retry until it's there.
             for (int i = 0; i < 60 && !_sceneReady; i++)
             {
@@ -571,7 +650,7 @@
     private void StartSession()
     {
         var rules = TableRules.Default;
-        var players = new List<PokerPlayer> { new HumanPlayer("human", "James", seat: 0, stack: rules.StartingStack) };
+        var players = new List<PokerPlayer> { new HumanPlayer("human", PlayerName, seat: 0, stack: rules.StartingStack) };
         for (int i = 0; i < Roster.Length; i++)
         {
             players.Add(new AIPlayer($"npc{i}", Roster[i].Name, seat: i + 1, stack: rules.StartingStack,
@@ -691,7 +770,7 @@
         }
         else if (_humanWon)
         {
-            _sessionOverMessage = "James takes the table!";
+            _sessionOverMessage = $"{PlayerName} takes the table!";
         }
         else
         {
@@ -699,7 +778,7 @@
             _sessionOverMessage = winner == null
                 ? "Nobody takes the table."
                 : winner.IsHuman
-                ? "James cleaned out the whole table!"
+                ? $"{PlayerName} cleaned out the whole table!"
                 : $"{winner.Name} takes the table. Rough night.";
         }
         _sessionOver = true;
