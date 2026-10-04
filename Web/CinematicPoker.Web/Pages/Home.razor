@@ -18,7 +18,7 @@
             {
                 <div class="name-prompt" @onclick:stopPropagation="true">
                     <div class="intro-title">WHAT DO THEY <span>CALL YOU</span></div>
-                    <p class="name-blurb">First time at the table. This sticks on this device.</p>
+                    <p class="name-blurb">We’ll remember it on this device so you only enter it once.</p>
                     <input class="name-input" type="text" maxlength="16"
                            autocapitalize="words" autocomplete="nickname" autocorrect="off" spellcheck="false"
                            placeholder="Your name" @bind="_nameDraft" @bind:event="oninput"
@@ -426,7 +426,6 @@
     private int ThinkTimeMs => _quickMode ? 1000 : _rng.Next(1000, 2200);
     private int NextHandDelayMs => _quickMode ? 700 : 2600;
     private const int EquityIterations = 200;
-    private const string PlayerNameKey = "cinematic-poker-player-name";
     private const int PlayerNameMaxLength = 16;
 
     private string _playerName = "";
@@ -463,11 +462,53 @@
     {
         if (!CanConfirmName) return;
         _playerName = SanitizeName(_nameDraft);
-        try { await JS.InvokeVoidAsync("localStorage.setItem", PlayerNameKey, _playerName); }
-        catch (JSException) { }
+        await PersistPlayerName(_playerName);
         _namePromptOpen = false;
         if (_game == null) StartSession();
         await BeginPlay();
+    }
+
+    private async Task PersistPlayerName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return;
+        try
+        {
+            if (JS is IJSInProcessRuntime sync)
+                sync.InvokeVoid("pokerProfile.saveName", name);
+            else
+                await JS.InvokeVoidAsync("pokerProfile.saveName", name);
+        }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+    }
+
+    private string ReadCachedPlayerName()
+    {
+        try
+        {
+            if (JS is IJSInProcessRuntime sync)
+            {
+                string saved = sync.Invoke<string>("pokerProfile.loadName");
+                return SanitizeName(saved, allowEmpty: true);
+            }
+        }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+        return "";
+    }
+
+    private async Task<string> ReadCachedPlayerNameAsync()
+    {
+        string sync = ReadCachedPlayerName();
+        if (!string.IsNullOrEmpty(sync)) return sync;
+        try
+        {
+            string saved = await JS.InvokeAsync<string>("pokerProfile.loadName");
+            return SanitizeName(saved, allowEmpty: true);
+        }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+        return "";
     }
 
     private static string SanitizeName(string raw, bool allowEmpty = false)
@@ -507,19 +548,22 @@
 
     private bool _sceneReady;
 
+    protected override void OnInitialized()
+    {
+        // WASM can read localStorage synchronously here so TAP TO PLAY already
+        // knows whether this device has a saved name.
+        _playerName = ReadCachedPlayerName();
+        _settingsLoaded = !string.IsNullOrEmpty(_playerName) || JS is IJSInProcessRuntime;
+        if (!string.IsNullOrEmpty(_playerName) && _game == null)
+            StartSession();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            try
-            {
-                string saved = await JS.InvokeAsync<string>("localStorage.getItem", PlayerNameKey);
-                _playerName = SanitizeName(saved, allowEmpty: true);
-            }
-            catch (JSException)
-            {
-                _playerName = "";
-            }
+            if (string.IsNullOrEmpty(_playerName))
+                _playerName = await ReadCachedPlayerNameAsync();
             _settingsLoaded = true;
             if (!string.IsNullOrEmpty(_playerName) && _game == null)
                 StartSession();
