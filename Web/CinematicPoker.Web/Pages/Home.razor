@@ -112,7 +112,10 @@
             <div class="waiting">@_statusLine</div>
             @if (CanFastForward)
             {
-                <button class="act ff" @onclick="FastForward" title="Skip to the next action">SKIP &#187;</button>
+                <button class="act ff" @onclick="FastForward"
+                        title="@(_awaitingNextHand ? "Go to the next hand" : "Skip to the next action")">
+                    @(_awaitingNextHand ? "NEXT HAND" : "SKIP »")
+                </button>
             }
         }
     </div>
@@ -270,12 +273,17 @@
     // appears: each tap cuts short one pacing wait (an NPC's think time, or
     // a dwell pause before a street / showdown / pot award), stepping through
     // the rest of the hand action by action as fast as the player taps.
+    // After the pot is awarded the same control becomes NEXT HAND so the
+    // result stays on screen until the player chooses to continue.
     private bool _skipRequested;
+    private bool _awaitingNextHand;
+    private bool _handHasCompleted;
 
     private bool CanFastForward =>
         _game != null && !_sessionOver && !_awaitingHuman
-        && SeatOf(0) is { Folded: true }
-        && (_game.Phase == GamePhase.HandInProgress || _pending.Count > 0);
+        && (_awaitingNextHand
+            || (SeatOf(0) is { Folded: true }
+                && (_game.Phase == GamePhase.HandInProgress || _pending.Count > 0)));
 
     private void FastForward() => _skipRequested = true;
 
@@ -484,6 +492,8 @@
         _awaitingHuman = false;
         _showSlider = false;
         _skipRequested = false;
+        _awaitingNextHand = false;
+        _handHasCompleted = false;
         _ = EndBetPreview(); // RESTART mid-sizing: drop the preview close-up
         _exportOpen = false;
         _exportNote = "";
@@ -496,7 +506,8 @@
 
     /// <summary>
     /// Drives the session: NPC turns with think-time pacing, pauses for human
-    /// input, auto-deals the next hand. Cancelled by token when restarting.
+    /// input, and waits for NEXT HAND after a result is shown. Cancelled by
+    /// token when restarting.
     /// </summary>
     private async Task RunLoop(int token)
     {
@@ -517,9 +528,27 @@
 
             if (_game.Phase == GamePhase.WaitingForHand)
             {
-                _statusLine = "Next hand…";
-                StateHasChanged();
-                await Task.Delay(NextHandDelayMs);
+                if (_handHasCompleted)
+                {
+                    // Hold on the win/lose banner until the player taps
+                    // NEXT HAND. Ignore leftover SKIP taps from the just-
+                    // finished hand so the result cannot be skipped by
+                    // accident.
+                    _skipRequested = false;
+                    _awaitingNextHand = true;
+                    _statusLine = "Tap NEXT HAND when you've seen the result";
+                    StateHasChanged();
+                    while (token == _loopToken && !_skipRequested)
+                        await Task.Delay(50);
+                    _skipRequested = false;
+                    _awaitingNextHand = false;
+                }
+                else
+                {
+                    _statusLine = "Dealing…";
+                    StateHasChanged();
+                    await Task.Delay(NextHandDelayMs);
+                }
                 if (token != _loopToken) return;
                 _game.StartHand();
                 await DrainEvents(token);
@@ -876,6 +905,7 @@
                         break;
                     case HandCompleted completed:
                         RememberHand(completed);
+                        _handHasCompleted = true;
                         break;
                 }
                 break;
