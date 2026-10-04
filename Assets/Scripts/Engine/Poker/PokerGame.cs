@@ -76,6 +76,29 @@ namespace CinematicPoker.Engine.Poker
         /// </summary>
         public bool HasHumanLost => Human != null && Human.Status == PlayerStatus.Eliminated;
 
+        /// <summary>
+        /// Buy the human back in after a bust. Adds a fresh starting stack so
+        /// they can sit the next hand against whoever is still at the table.
+        /// Does not reset NPC stacks, the dealer, or the hand counter.
+        /// </summary>
+        public void RebuyHuman(long? stack = null)
+        {
+            PokerPlayer human = Human
+                ?? throw new InvalidOperationException("No human player to rebuy.");
+            if (Phase == GamePhase.HandInProgress)
+                throw new InvalidOperationException("Cannot rebuy during a hand.");
+            if (human.Status != PlayerStatus.Eliminated)
+                throw new InvalidOperationException("Human is still in the session.");
+
+            long buyIn = stack ?? Rules.StartingStack;
+            if (buyIn < Rules.BigBlind)
+                throw new ArgumentException("Rebuy must cover the big blind.");
+
+            human.Stack = buyIn;
+            human.Status = PlayerStatus.Active;
+            Phase = GamePhase.WaitingForHand;
+        }
+
         /// <summary>Seat currently facing a decision, or -1.</summary>
         public int CurrentSeat => _round != null && Phase == GamePhase.HandInProgress ? _round.CurrentSeat : -1;
 

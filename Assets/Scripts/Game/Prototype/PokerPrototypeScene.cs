@@ -315,6 +315,13 @@ namespace CinematicPoker.Game.Prototype
             Controller.StartSession(rules, human, npcs);
         }
 
+        public void ContinueSession()
+        {
+            if (Controller?.Game == null || !Controller.Game.HasHumanLost) return;
+            Controller.ContinueAfterHumanBust();
+            _hud.HideSessionOver();
+        }
+
         // ------------------------------------------------------------ events
 
         private void OnEngineEvent(PokerEvent evt)

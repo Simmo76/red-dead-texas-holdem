@@ -109,5 +109,48 @@ namespace CinematicPoker.Engine.Tests
             Assert.AreEqual(GamePhase.WaitingForHand, game.Phase,
                 "Bust waits for presentation to end the session, not an NPC-only next hand.");
         }
+
+        [Test]
+        public void RebuyHumanSitsTheNextHandWithoutResettingOpponents()
+        {
+            var rules = new TableRules(smallBlind: 5, bigBlind: 10, startingStack: 1000);
+            var deck = StackedDeck.Parse(
+                "As", "4c", "2c",
+                "Ah", "5d", "7h",
+                "Kd", "Qs", "Jd", "9c", "8d");
+            var human = new HumanPlayer("human", "James", seat: 0, stack: 50);
+            var villain = new TestPlayer(1, 1000);
+            var other = new TestPlayer(2, 1000);
+            var game = new PokerGame(rules, new System.Collections.Generic.List<PokerPlayer>
+            {
+                human, villain, other
+            }, seed: 1, deckFactory: () => deck);
+
+            game.StartHand();
+            game.SubmitAction(PlayerAction.AllIn());
+            game.SubmitAction(PlayerAction.Call());
+            game.SubmitAction(PlayerAction.Call());
+            CheckCallDown(game);
+
+            Assert.IsTrue(game.HasHumanLost);
+            long villainStack = villain.Stack;
+            long otherStack = other.Stack;
+            int hands = game.HandNumber;
+
+            game.RebuyHuman();
+
+            Assert.IsFalse(game.HasHumanLost);
+            Assert.AreEqual(PlayerStatus.Active, human.Status);
+            Assert.AreEqual(rules.StartingStack, human.Stack);
+            Assert.AreEqual(villainStack, villain.Stack, "Rebuy must not reset opponents.");
+            Assert.AreEqual(otherStack, other.Stack, "Rebuy must not reset opponents.");
+            Assert.AreEqual(GamePhase.WaitingForHand, game.Phase);
+            Assert.AreEqual(hands, game.HandNumber);
+
+            game.StartHand();
+            Assert.AreEqual(GamePhase.HandInProgress, game.Phase);
+            Assert.AreEqual(hands + 1, game.HandNumber);
+            Assert.IsNotNull(game.CurrentRound.GetSeat(0), "James is dealt into the next hand.");
+        }
     }
 }

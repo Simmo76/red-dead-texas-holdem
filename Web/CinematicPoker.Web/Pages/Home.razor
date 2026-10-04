@@ -186,6 +186,8 @@
                 <div class="overlay-actions">
                     @if (_humanLost)
                     {
+                        <button class="act call big restart-btn" @onclick="ContinueGame">CONTINUE GAME</button>
+                        <div class="overlay-blurb">Buy back in for $@(_game?.Rules.StartingStack ?? 1000). Opponents keep their stacks.</div>
                         <button class="act allin big restart-btn" @onclick="StartSession">RESTART</button>
                         <button class="act small" @onclick="OpenExportPanel">EXPORT STATS</button>
                     }
@@ -594,6 +596,42 @@
         catch (InvalidOperationException) { }
         catch (JSException) { }
 
+        _ = RunLoop(++_loopToken);
+    }
+
+    /// <summary>
+    /// James buys back in for a fresh starting stack and sits the next hand
+    /// against whoever is still at the table. Opponent stacks stay as they are.
+    /// </summary>
+    private void ContinueGame()
+    {
+        if (_game == null || !_game.HasHumanLost) return;
+        try
+        {
+            _game.RebuyHuman();
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+
+        _sessionOver = false;
+        _humanLost = false;
+        _awaitingHuman = false;
+        _showSlider = false;
+        _skipRequested = false;
+        _awaitingNextHand = false;
+        _handHasCompleted = false;
+        _exportOpen = false;
+        _banner = null;
+        _bannerAmount = null;
+        _playerWonPot = false;
+        _showdownView.Clear();
+        _statusLine = "Dealing…";
+        try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
+        catch (InvalidOperationException) { }
+        catch (JSException) { }
+        _ = EndBetPreview();
         _ = RunLoop(++_loopToken);
     }
 
