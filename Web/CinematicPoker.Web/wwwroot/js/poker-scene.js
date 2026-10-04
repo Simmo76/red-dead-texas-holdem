@@ -173,8 +173,9 @@ function makeLabel() {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: tex, transparent: true, depthTest: false
   }));
-  // Large enough that remaining stacks stay readable from the seat camera.
-  sprite.scale.set(0.76, 0.285, 1);
+  // Modest bump over the old 0.46×0.1725 so stacks stay readable without
+  // exploding on seats closest to the camera.
+  sprite.scale.set(0.58, 0.2175, 1);
   sprite.renderOrder = 10;
   return { sprite, canvas, tex, text: '' };
 }
@@ -1155,7 +1156,7 @@ async function buildScene(canvas) {
     if (i === 0) continue; // no floating name label over the player himself
 
     const label = makeLabel();
-    const labelPos = seatPos(i, SEAT_RADIUS - 0.18, 1.84);
+    const labelPos = seatPos(i, SEAT_RADIUS + 0.05, 1.84);
     label.sprite.position.copy(labelPos);
     scene.add(label.sprite);
     seat.label = label;
@@ -1180,7 +1181,7 @@ async function buildScene(canvas) {
     head.getWorldPosition(hv);
     headY.push(hv.y);
     if (seat.label) {
-      const labelPos = seatPos(i, SEAT_RADIUS - 0.18, hv.y + 0.28);
+      const labelPos = seatPos(i, SEAT_RADIUS + 0.05, hv.y + 0.28);
       seat.label.sprite.position.copy(labelPos);
     }
     if (i === 0) state.eyeHeight = hv.y;
