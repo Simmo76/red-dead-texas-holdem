@@ -173,7 +173,9 @@ function makeLabel() {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: tex, transparent: true, depthTest: false
   }));
-  sprite.scale.set(0.46, 0.1725, 1);
+  // Modest bump over the old 0.46×0.1725 so stacks stay readable without
+  // exploding on seats closest to the camera.
+  sprite.scale.set(0.58, 0.2175, 1);
   sprite.renderOrder = 10;
   return { sprite, canvas, tex, text: '' };
 }

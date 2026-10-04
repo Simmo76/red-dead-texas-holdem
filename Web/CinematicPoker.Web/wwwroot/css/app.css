@@ -187,25 +187,67 @@ html, body {
 
 /* ------------------------------------------------------------- HUD */
 
-.hud-pot {
+.hud-meters {
     position: absolute;
     top: calc(56px + env(safe-area-inset-top));
     left: 50%;
     transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 5;
+}
+
+.hud-pot,
+.hud-stack {
     color: var(--text);
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 5px 18px;
-    font-size: 14px;
+    border-radius: 18px;
+    padding: 6px 16px;
     letter-spacing: 1px;
-    z-index: 5;
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hud-pot {
+    font-size: 16px;
 }
 
 .hud-pot b { color: var(--gold); }
-.hud-stack { color: var(--text-dim); }
-.hud-stack b { color: var(--green); }
+
+/* Remaining stack is the progress meter players actually watch. */
+.hud-stack {
+    font-size: 22px;
+    padding: 8px 18px;
+    border-color: rgba(87, 199, 133, 0.45);
+    background: rgba(16, 28, 18, 0.88);
+}
+
+.hud-stack-name {
+    color: var(--text-dim);
+    font-size: 0.72em;
+    letter-spacing: 2px;
+}
+
+.hud-stack b {
+    color: var(--green);
+    font-size: 1.05em;
+}
+
+.hud-stack-icon {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 50% 50%, #7dcf8f 0 28%, transparent 30%),
+        repeating-conic-gradient(#2e6b40 0 18deg, #57c785 0 36deg);
+    border: 2px solid #d8b25c;
+    box-shadow: inset 0 0 0 3px #1a3d24;
+}
 
 /* Community cards pinned top-right (player's pair beneath), so the whole
    hand reads without zooming. */
@@ -662,7 +704,10 @@ html, body {
     .brand { font-size: 12px; letter-spacing: 2px; }
 
     /* Left-aligned: the wrapped second row of topbar buttons owns the right. */
-    .hud-pot { top: calc(48px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); transform: none; font-size: 12px; padding: 4px 12px; }
+    .hud-meters { top: calc(48px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); transform: none; flex-direction: column; align-items: flex-start; gap: 6px; }
+    .hud-pot { font-size: 15px; padding: 6px 14px; }
+    .hud-stack { font-size: 20px; padding: 7px 14px; }
+    .hud-stack-icon { width: 20px; height: 20px; flex-basis: 20px; }
     /* Below the pot pill so the two never overlap on narrow screens. */
     .hud-board { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 4px; padding: 4px 5px; }
     .hud-row { gap: 3px; }
@@ -694,7 +739,10 @@ html, body {
     .chip-btn { padding: 4px 10px; font-size: 10px; }
     .brand { font-size: 12px; letter-spacing: 2px; }
 
-    .hud-pot { top: 42px; font-size: 12px; padding: 3px 10px; }
+    .hud-meters { top: 42px; gap: 8px; }
+    .hud-pot { font-size: 16px; padding: 6px 14px; }
+    .hud-stack { font-size: 22px; padding: 7px 16px; }
+    .hud-stack-icon { width: 22px; height: 22px; flex-basis: 22px; }
     .hud-board { top: 42px; gap: 4px; padding: 4px 5px; }
     .hud-card { width: 40px; }
     .hud-board.expanded .hud-card { width: 90px; }
