@@ -1155,7 +1155,7 @@ async function buildScene(canvas) {
     if (i === 0) continue; // no floating name label over the player himself
 
     const label = makeLabel();
-    const labelPos = seatPos(i, SEAT_RADIUS + 0.05, 1.84);
+    const labelPos = seatPos(i, SEAT_RADIUS - 0.18, 1.84);
     label.sprite.position.copy(labelPos);
     scene.add(label.sprite);
     seat.label = label;
@@ -1180,7 +1180,7 @@ async function buildScene(canvas) {
     head.getWorldPosition(hv);
     headY.push(hv.y);
     if (seat.label) {
-      const labelPos = seatPos(i, SEAT_RADIUS + 0.05, hv.y + 0.28);
+      const labelPos = seatPos(i, SEAT_RADIUS - 0.18, hv.y + 0.28);
       seat.label.sprite.position.copy(labelPos);
     }
     if (i === 0) state.eyeHeight = hv.y;
