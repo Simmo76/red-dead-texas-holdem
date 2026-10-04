@@ -549,6 +549,83 @@ html, body {
     color: var(--text-dim);
 }
 
+/* "What would AI do?" — Maximilian's small advisor window, pinned above the
+   FOLD button whenever it's the player's turn. Tap to collapse to the title. */
+.ai-advice {
+    position: absolute;
+    left: calc(18px + env(safe-area-inset-left));
+    bottom: calc(82px + max(16px, env(safe-area-inset-bottom, 0px)));
+    width: 252px;
+    padding: 10px 14px 9px;
+    background: rgba(12, 10, 8, 0.9);
+    border: 1px solid var(--gold-dim);
+    border-radius: 12px;
+    color: var(--text);
+    z-index: 7;
+    cursor: pointer;
+    animation: fadein-plain 0.3s ease-out;
+}
+
+.ai-advice.collapsed {
+    width: auto;
+    padding: 8px 14px;
+    opacity: 0.8;
+}
+
+.ai-advice-title {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.ai-advice-title span { color: var(--gold); }
+
+.ai-advice-action {
+    margin-top: 4px;
+    font-size: 20px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    color: var(--gold);
+}
+
+.ai-advice-stats {
+    margin-top: 5px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+}
+
+.ai-stat {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.ai-stat b { color: var(--text); }
+
+.ai-advice-why {
+    margin-top: 6px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--text);
+}
+
+.ai-advice-sig {
+    margin-top: 5px;
+    font-size: 10px;
+    font-style: italic;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    text-align: right;
+}
+
+@keyframes fadein-plain {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 /* ------------------------------------------------------------- slider */
 
 .slider-panel {
@@ -813,6 +890,9 @@ html, body {
     .actor-card { right: calc(10px + env(safe-area-inset-right)); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); min-width: 120px; padding: 8px 12px; }
     .actor-name { font-size: 15px; }
     .actor-stack { font-size: 16px; }
+    .ai-advice { left: calc(10px + env(safe-area-inset-left)); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); width: 196px; padding: 8px 10px 7px; }
+    .ai-advice-action { font-size: 16px; }
+    .ai-advice-why { font-size: 10.5px; }
 
     .act { padding: 12px 14px; font-size: 13px; letter-spacing: 1px; flex: 0 1 auto; }
     .actionbar { gap: 8px; }
@@ -844,6 +924,10 @@ html, body {
     .actor-card { right: calc(14px + env(safe-area-inset-right)); bottom: calc(64px + max(12px, env(safe-area-inset-bottom, 0px))); min-width: 120px; padding: 6px 12px; }
     .actor-name { font-size: 14px; }
     .actor-stack { font-size: 16px; }
+    .ai-advice { left: calc(14px + env(safe-area-inset-left)); bottom: calc(64px + max(12px, env(safe-area-inset-bottom, 0px))); width: 212px; padding: 8px 10px 7px; }
+    .ai-advice-action { font-size: 16px; }
+    .ai-advice-why { font-size: 10.5px; }
+    .ai-advice-sig { display: none; }
 
     .act { padding: 10px 14px; font-size: 12px; flex: 0 1 auto; }
     .actionbar {

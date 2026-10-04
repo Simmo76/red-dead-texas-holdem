@@ -151,6 +151,31 @@
         </div>
     }
 
+    @* "What would AI do?" — Maximilian, the card-counting pro, reads the
+       numbers out loud whenever it's your turn. A small always-there window
+       (tap it to collapse to just the title bar), never a button. *@
+    @if (_awaitingHuman && _advice != null)
+    {
+        <div class="ai-advice @(_adviceCollapsed ? "collapsed" : "")" @onclick="ToggleAdvice"
+             title="Maximilian counts the cards and tells you what he'd do">
+            <div class="ai-advice-title">WHAT WOULD <span>AI</span> DO?</div>
+            @if (!_adviceCollapsed)
+            {
+                <div class="ai-advice-action">@_advice.ActionLabel</div>
+                <div class="ai-advice-stats">
+                    <span class="ai-stat">WIN <b>@_advice.WinPercent%</b></span>
+                    @if (_advice.PotOddsPercent.HasValue)
+                    {
+                        <span class="ai-stat">POT ODDS <b>@_advice.PotOddsPercent%</b></span>
+                    }
+                    <span class="ai-stat">VS <b>@_advice.Opponents</b></span>
+                </div>
+                <div class="ai-advice-why">@_advice.Rationale</div>
+                <div class="ai-advice-sig">— Maximilian, card counter</div>
+            }
+        </div>
+    }
+
     <div class="actionbar">
         @if (_awaitingHuman && _legal != null && !_showSlider)
         {
@@ -719,6 +744,7 @@
         _humanWon = false;
         _awaitingHuman = false;
         _showSlider = false;
+        _advice = null;
         _skipRequested = false;
         _awaitingNextHand = false;
         _handHasCompleted = false;
@@ -772,6 +798,7 @@
         _humanWon = false;
         _awaitingHuman = false;
         _showSlider = false;
+        _advice = null;
         _skipRequested = false;
         _awaitingNextHand = false;
         _handHasCompleted = false;
@@ -906,6 +933,7 @@
                 _legal = _game.GetLegalActions();
                 _sliderValue = _legal.MinBetOrRaiseTo;
                 _showSlider = false;
+                _advice = ComputeAdvice();
                 _awaitingHuman = true;
                 try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", true); }
                 catch (JSException) { }
@@ -933,6 +961,7 @@
             _game.SubmitAction(action);
             _awaitingHuman = false;
             _showSlider = false;
+            _advice = null;
             try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
             catch (JSException) { }
         }
@@ -1007,6 +1036,139 @@
         if (!_sceneReady) return;
         try { await JS.InvokeVoidAsync("pokerScene.resetCamera"); }
         catch (JSException) { /* scene not available; HUD still works */ }
+    }
+
+    // ------------------------------------------- "What would AI do?" advisor
+
+    // Maximilian is a card-counting pro who shares the Professional NPC's
+    // playbook, but with the humanising flaws stripped out: no decision
+    // noise, no tilt, no random bluffs — just Monte Carlo equity (counting
+    // the unseen cards) measured against pot odds. His advice appears in a
+    // small window whenever it's the player's turn; tapping the window
+    // collapses it to its title bar for players who want to go it alone.
+    private const int AdviceEquityIterations = 400;
+    private const double MaxAggression = 0.65; // mirrors AIProfile.Professional
+    private const double MaxTightness = 0.6;
+    private const double MaxRiskTolerance = 0.5;
+
+    private MaxAdvice _advice;
+    private bool _adviceCollapsed;
+
+    private void ToggleAdvice() => _adviceCollapsed = !_adviceCollapsed;
+
+    private sealed class MaxAdvice
+    {
+        public string ActionLabel;
+        public int WinPercent;
+        public int? PotOddsPercent;
+        public string Opponents;
+        public string Rationale;
+    }
+
+    private MaxAdvice ComputeAdvice()
+    {
+        if (_game?.CurrentRound == null) return null;
+        try
+        {
+            DecisionContext ctx = DecisionContext.ForCurrentActor(_game, AdviceEquityIterations);
+            if (ctx.HoleCards == null || ctx.HoleCards.Count != 2) return null;
+
+            int opponents = Math.Max(1, ctx.OpponentsInHand);
+            double equity = EquityCalculator.Estimate(
+                ctx.HoleCards, ctx.Board, opponents, AdviceEquityIterations, _rng);
+
+            var advice = new MaxAdvice
+            {
+                WinPercent = (int)Math.Round(equity * 100),
+                Opponents = opponents == 1 ? "1 PLAYER" : $"{opponents} PLAYERS"
+            };
+
+            if (ctx.ToCall <= 0)
+                AdviseUnopened(ctx, advice, equity);
+            else
+                AdviseFacingBet(ctx, advice, equity);
+            return advice;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    // Nothing to call: bet for value past the Professional's threshold,
+    // otherwise take the free card.
+    private void AdviseUnopened(DecisionContext ctx, MaxAdvice advice, double equity)
+    {
+        LegalActions legal = ctx.Legal;
+        bool canOpen = legal.CanBet || legal.CanRaise;
+        double betThreshold = 0.5 + MaxTightness * 0.15 - MaxAggression * 0.12;
+
+        if (canOpen && equity > betThreshold)
+        {
+            double fraction = Math.Max(0.3, Math.Min(1.2,
+                0.4 + MaxAggression * 0.5 + (equity - 0.5) * 0.5));
+            long desired = Math.Max(ctx.BigBlind, (long)(ctx.Pot * fraction));
+            SetAggressiveLabel(ctx, advice, desired);
+            advice.Rationale =
+                $"The count says {advice.WinPercent} wins in 100 deals here — strong enough to bet for value.";
+            return;
+        }
+
+        advice.ActionLabel = "CHECK";
+        advice.Rationale = equity > 0.40
+            ? $"{advice.WinPercent}% to win is decent but not enough to build a pot — see a free card."
+            : $"Only {advice.WinPercent}% to win — check and pay nothing to improve.";
+    }
+
+    // Facing a bet: compare counted equity against the pot odds plus the
+    // Professional's required edge. Clearly ahead raises, ahead calls,
+    // behind folds.
+    private void AdviseFacingBet(DecisionContext ctx, MaxAdvice advice, double equity)
+    {
+        LegalActions legal = ctx.Legal;
+        double potOdds = ctx.PotOdds;
+        double requiredEdge = MaxTightness * 0.08 - MaxRiskTolerance * 0.04;
+        double margin = equity - (potOdds + requiredEdge);
+        advice.PotOddsPercent = (int)Math.Round(potOdds * 100);
+
+        if (margin < 0)
+        {
+            advice.ActionLabel = legal.CanCheck ? "CHECK" : "FOLD";
+            advice.Rationale =
+                $"The call needs better than {advice.PotOddsPercent}% but the cards only win {advice.WinPercent}% — bad price, let it go.";
+            return;
+        }
+
+        if (margin > 0.12 && legal.CanRaise)
+        {
+            long desired = (long)(ctx.CurrentBet * (2.2 + MaxAggression * 1.3));
+            SetAggressiveLabel(ctx, advice, desired);
+            advice.Rationale =
+                $"{advice.WinPercent}% to win dwarfs the {advice.PotOddsPercent}% pot odds — raise for value.";
+            return;
+        }
+
+        advice.ActionLabel = legal.CanCall ? $"CALL ${legal.CallAmount}" : "CHECK";
+        advice.Rationale =
+            $"{advice.WinPercent}% to win beats the {advice.PotOddsPercent}% pot odds — the price is right.";
+    }
+
+    // Same clamping the NPC brain uses: an aggressive amount becomes a legal
+    // BET / RAISE TO / ALL-IN.
+    private static void SetAggressiveLabel(DecisionContext ctx, MaxAdvice advice, long desired)
+    {
+        LegalActions legal = ctx.Legal;
+        long to = Math.Max(legal.MinBetOrRaiseTo, Math.Min(desired, legal.MaxBetOrRaiseTo));
+        if (to >= legal.MaxBetOrRaiseTo && legal.CanAllIn)
+            advice.ActionLabel = "ALL-IN";
+        else if (legal.CanBet)
+            advice.ActionLabel = $"BET ${to}";
+        else
+            advice.ActionLabel = $"RAISE TO ${to}";
     }
 
     // ------------------------------------------------------------- export CSV
