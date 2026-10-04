@@ -2,6 +2,7 @@ using CinematicPoker.Engine.AI;
 using CinematicPoker.Engine.Players;
 using CinematicPoker.Engine.Poker;
 using NUnit.Framework;
+using static CinematicPoker.Engine.Tests.TestHelpers;
 
 namespace CinematicPoker.Engine.Tests
 {
@@ -68,6 +69,43 @@ namespace CinematicPoker.Engine.Tests
             Assert.IsTrue(game.IsSessionOver, $"Session should finish within 2000 hands (played {hands}).");
             Assert.AreEqual(1, game.AlivePlayers.Count, "Exactly one player holds all the chips at the end.");
             Assert.AreEqual(totalChips, game.AlivePlayers[0].Stack, "Winner holds every chip in play.");
+        }
+
+        [Test]
+        public void HumanBustMarksHasHumanLostWhileOthersRemain()
+        {
+            var rules = new TableRules(smallBlind: 5, bigBlind: 10, startingStack: 1000);
+            // Three-handed: SB=1, BB=2, dealer/UTG=0. Cards deal SB, BB, dealer × 2.
+            var deck = StackedDeck.Parse(
+                "As", "4c", "2c",
+                "Ah", "5d", "7h",
+                "Kd", "Qs", "Jd", "9c", "8d");
+            var human = new HumanPlayer("human", "James", seat: 0, stack: 50);
+            var players = new System.Collections.Generic.List<PokerPlayer>
+            {
+                human,
+                new TestPlayer(1, 1000),
+                new TestPlayer(2, 1000)
+            };
+            var game = new PokerGame(rules, players, seed: 1, deckFactory: () => deck);
+            game.StartHand();
+
+            Assert.AreEqual(0, game.CurrentSeat);
+            game.SubmitAction(PlayerAction.AllIn());
+            game.SubmitAction(PlayerAction.Call());
+            game.SubmitAction(PlayerAction.Call());
+
+            while (game.Phase == GamePhase.HandInProgress)
+            {
+                LegalActions legal = game.GetLegalActions();
+                game.SubmitAction(legal.CanCheck ? PlayerAction.Check() : PlayerAction.Call());
+            }
+
+            Assert.AreEqual(PlayerStatus.Eliminated, human.Status);
+            Assert.AreEqual(0, human.Stack);
+            Assert.IsTrue(game.HasHumanLost);
+            Assert.IsFalse(game.IsSessionOver, "NPCs still have chips; the table is not empty.");
+            Assert.Greater(game.AlivePlayers.Count, 1);
         }
     }
 }

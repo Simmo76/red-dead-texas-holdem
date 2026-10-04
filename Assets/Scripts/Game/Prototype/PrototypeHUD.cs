@@ -285,11 +285,11 @@ namespace CinematicPoker.Game.Prototype
 
             _sessionOverText = CreateText((RectTransform)_sessionOverPanel.transform, "Message",
                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -45f),
-                new Vector2(660f, 60f), 28, TextAnchor.MiddleCenter);
+                new Vector2(660f, 60f), 36, TextAnchor.MiddleCenter);
 
             float x = 250f;
-            CreateButton((RectTransform)_sessionOverPanel.transform, "PLAY AGAIN", ref x, 200f, 0f,
-                new Color(0.2f, 0.5f, 0.25f), () => _scene.StartNewSession(), out _, 56f);
+            CreateButton((RectTransform)_sessionOverPanel.transform, "RESTART", ref x, 200f, 0f,
+                new Color(0.55f, 0.18f, 0.2f), () => _scene.StartNewSession(), out _, 56f);
 
             _sessionOverPanel.SetActive(false);
         }
