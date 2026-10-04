@@ -100,6 +100,22 @@ namespace CinematicPoker.Game.Presentation
         {
             if (Game == null || !Game.HasHumanLost) return;
             Game.RebuyHuman();
+            RestartLoop();
+        }
+
+        /// <summary>
+        /// James won the table and still has chips: sit a new set of opponents
+        /// without resetting his stack.
+        /// </summary>
+        public void ContinueAfterTableWin(IReadOnlyList<AIPlayer> opponents)
+        {
+            if (Game == null || !Game.HasHumanWon) return;
+            Game.ContinueWithNewOpponents(opponents);
+            RestartLoop();
+        }
+
+        private void RestartLoop()
+        {
             _awaitingHuman = false;
             if (_loop != null) StopCoroutine(_loop);
             _loop = StartCoroutine(GameLoop());

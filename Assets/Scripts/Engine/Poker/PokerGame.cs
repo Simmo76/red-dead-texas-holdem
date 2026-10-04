@@ -77,6 +77,32 @@ namespace CinematicPoker.Engine.Poker
         public bool HasHumanLost => Human != null && Human.Status == PlayerStatus.Eliminated;
 
         /// <summary>
+        /// True when James still has chips and is the only player left.
+        /// He has money to keep going — seat a new table rather than GAME OVER.
+        /// </summary>
+        public bool HasHumanWon
+        {
+            get
+            {
+                PokerPlayer human = Human;
+                return human != null
+                    && human.Status != PlayerStatus.Eliminated
+                    && human.Stack > 0
+                    && AlivePlayers.Count == 1
+                    && AlivePlayers[0].Seat == human.Seat;
+            }
+        }
+
+        /// <summary>
+        /// True when the human can sit another hand: they still have a stack,
+        /// or they busted and can buy back in against remaining opponents.
+        /// </summary>
+        public bool CanHumanKeepPlaying =>
+            HasHumanWon
+            || (Human != null && Human.Status != PlayerStatus.Eliminated && Human.Stack >= Rules.BigBlind)
+            || HasHumanLost;
+
+        /// <summary>
         /// Buy the human back in after a bust. Adds a fresh starting stack so
         /// they can sit the next hand against whoever is still at the table.
         /// Does not reset NPC stacks, the dealer, or the hand counter.
@@ -96,6 +122,36 @@ namespace CinematicPoker.Engine.Poker
 
             human.Stack = buyIn;
             human.Status = PlayerStatus.Active;
+            Phase = GamePhase.WaitingForHand;
+        }
+
+        /// <summary>
+        /// Seat a fresh set of opponents after James wins the table. He keeps
+        /// his stack; the new players buy in for a starting stack each.
+        /// </summary>
+        public void ContinueWithNewOpponents(IEnumerable<PokerPlayer> opponents)
+        {
+            if (Phase == GamePhase.HandInProgress)
+                throw new InvalidOperationException("Cannot reseat the table during a hand.");
+            PokerPlayer human = Human
+                ?? throw new InvalidOperationException("No human player to continue.");
+            if (human.Stack < Rules.BigBlind)
+                throw new InvalidOperationException("Human does not have enough chips to continue.");
+
+            var incoming = opponents?.ToList() ?? throw new ArgumentNullException(nameof(opponents));
+            if (incoming.Count == 0 || incoming.Any(p => p == null || p.IsHuman))
+                throw new ArgumentException("Opponents must be non-human players.");
+
+            _players.RemoveAll(p => !p.IsHuman);
+            _players.AddRange(incoming);
+            if (_players.Count < Rules.MinPlayers || _players.Count > Rules.MaxPlayers)
+                throw new ArgumentException($"Player count must be {Rules.MinPlayers}-{Rules.MaxPlayers}.");
+            if (_players.Select(p => p.Seat).Distinct().Count() != _players.Count)
+                throw new ArgumentException("Players must occupy distinct seats.");
+
+            human.Status = PlayerStatus.Active;
+            _round = null;
+            DealerSeat = -1;
             Phase = GamePhase.WaitingForHand;
         }
 

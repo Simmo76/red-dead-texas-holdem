@@ -104,6 +104,8 @@ namespace CinematicPoker.Engine.Tests
             Assert.AreEqual(PlayerStatus.Eliminated, human.Status);
             Assert.AreEqual(0, human.Stack);
             Assert.IsTrue(game.HasHumanLost);
+            Assert.IsFalse(game.HasHumanWon);
+            Assert.IsTrue(game.CanHumanKeepPlaying);
             Assert.IsFalse(game.IsSessionOver, "NPCs still have chips; the table is not empty.");
             Assert.Greater(game.AlivePlayers.Count, 1);
             Assert.AreEqual(GamePhase.WaitingForHand, game.Phase,
@@ -151,6 +153,53 @@ namespace CinematicPoker.Engine.Tests
             Assert.AreEqual(GamePhase.HandInProgress, game.Phase);
             Assert.AreEqual(hands + 1, game.HandNumber);
             Assert.IsNotNull(game.CurrentRound.GetSeat(0), "James is dealt into the next hand.");
+        }
+
+        [Test]
+        public void TableWinLetsHumanKeepStackAndSitNewOpponents()
+        {
+            var rules = new TableRules(smallBlind: 5, bigBlind: 10, startingStack: 1000);
+            var deck = StackedDeck.Parse(
+                "2c", "3d", "As",
+                "7h", "8c", "Ah",
+                "Kd", "Qs", "Jh", "9c", "4s");
+            var human = new HumanPlayer("human", "James", seat: 0, stack: 1000);
+            var villain = new TestPlayer(1, 30);
+            var other = new TestPlayer(2, 30);
+            var game = new PokerGame(rules, new System.Collections.Generic.List<PokerPlayer>
+            {
+                human, villain, other
+            }, seed: 1, deckFactory: () => deck);
+
+            game.StartHand();
+            Assert.AreEqual(0, game.CurrentSeat);
+            game.SubmitAction(PlayerAction.AllIn());
+            game.SubmitAction(PlayerAction.Call());
+            game.SubmitAction(PlayerAction.Call());
+            CheckCallDown(game);
+
+            Assert.IsFalse(game.HasHumanLost);
+            Assert.IsTrue(game.HasHumanWon);
+            Assert.IsTrue(game.CanHumanKeepPlaying);
+            Assert.IsTrue(game.IsSessionOver);
+            Assert.AreEqual(PlayerStatus.Active, human.Status);
+            Assert.Greater(human.Stack, 1000);
+            long kept = human.Stack;
+
+            game.ContinueWithNewOpponents(new[]
+            {
+                new TestPlayer(1, rules.StartingStack),
+                new TestPlayer(2, rules.StartingStack)
+            });
+
+            Assert.IsFalse(game.HasHumanWon);
+            Assert.AreEqual(kept, human.Stack, "James keeps the chips he won.");
+            Assert.AreEqual(GamePhase.WaitingForHand, game.Phase);
+            Assert.AreEqual(3, game.AlivePlayers.Count);
+
+            game.StartHand();
+            Assert.AreEqual(GamePhase.HandInProgress, game.Phase);
+            Assert.IsNotNull(game.CurrentRound.GetSeat(0));
         }
     }
 }

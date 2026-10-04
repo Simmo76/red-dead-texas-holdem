@@ -596,6 +596,25 @@ html, body {
     align-items: center;
 }
 
+.overlay-box.table-win {
+    padding: 44px 56px;
+    gap: 28px;
+    border-color: var(--gold);
+}
+
+.overlay-box.table-win .overlay-title {
+    font-size: clamp(28px, 5vw, 42px);
+    font-weight: 800;
+    letter-spacing: 4px;
+    color: var(--gold);
+    text-shadow: 0 3px 18px rgba(0, 0, 0, 0.9), 0 0 28px rgba(216, 178, 92, 0.35);
+}
+
+.overlay-box.table-win .overlay-actions {
+    flex-direction: column;
+    align-items: center;
+}
+
 .restart-btn { min-width: 220px; }
 
 .overlay-blurb {
@@ -796,4 +815,6 @@ html, body {
     .overlay-box { padding: 22px 30px; gap: 14px; }
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
     .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
+    .overlay-box.table-win { padding: 28px 36px; gap: 18px; }
+    .overlay-box.table-win .overlay-title { font-size: 26px; letter-spacing: 3px; }
 }

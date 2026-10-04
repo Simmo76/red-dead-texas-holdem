@@ -317,8 +317,27 @@ namespace CinematicPoker.Game.Prototype
 
         public void ContinueSession()
         {
-            if (Controller?.Game == null || !Controller.Game.HasHumanLost) return;
-            Controller.ContinueAfterHumanBust();
+            if (Controller?.Game == null) return;
+            if (Controller.Game.HasHumanLost)
+            {
+                Controller.ContinueAfterHumanBust();
+            }
+            else if (Controller.Game.HasHumanWon)
+            {
+                var npcs = new List<AIPlayer>();
+                for (int i = 0; i < NpcCount; i++)
+                {
+                    npcs.Add(new AIPlayer($"npc{i}", Roster[i].name, seat: i + 1, stack: TableRules.Default.StartingStack,
+                        profile: Roster[i].profile(), seed: Random.Range(int.MinValue, int.MaxValue)));
+                }
+                Controller.ContinueAfterTableWin(npcs);
+            }
+            else
+            {
+                return;
+            }
+
+            foreach (PrototypeCharacter character in _characters) character?.PoseSit();
             _hud.HideSessionOver();
         }
 
@@ -427,6 +446,12 @@ namespace CinematicPoker.Game.Prototype
             if (Controller.Game.HasHumanLost)
             {
                 _hud.ShowSessionOver("GAME OVER");
+                return;
+            }
+
+            if (Controller.Game.HasHumanWon)
+            {
+                _hud.ShowSessionOver("James takes the table!");
                 return;
             }
 
