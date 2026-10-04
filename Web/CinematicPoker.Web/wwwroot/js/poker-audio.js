@@ -16,6 +16,9 @@ window.pokerAudio = (function () {
     let voiceSrc = null;      // one table voice at a time so lines don't overlap
     let voicePlaying = false;
     let lastVoiceAt = 0;
+    let lastVoiceSeat = -1;
+    const lastSeatVoiceAt = {};
+    const recentClips = { idle: [], win: [], lose: [] };
     let aliveSeats = [];
     let awaitingHuman = false;
     let dealerSrc = null;
@@ -204,20 +207,56 @@ window.pokerAudio = (function () {
         return RANDOM_CLIPS;
     }
 
+    function clipKey(kind) {
+        return (kind === 'win') ? 'win' : (kind === 'lose' || kind === 'fold') ? 'lose' : 'idle';
+    }
+
+    // Avoid replaying a line until most of that pool has been heard.
+    function pickClip(kind) {
+        const size = poolSize(kind);
+        const recent = recentClips[clipKey(kind)];
+        const hold = Math.max(1, Math.floor(size * 0.7));
+        const candidates = [];
+        for (let i = 1; i <= size; i++) {
+            if (recent.indexOf(i) === -1) candidates.push(i);
+        }
+        if (!candidates.length) {
+            for (let i = 1; i <= size; i++) candidates.push(i);
+        }
+        const n = candidates[Math.floor(Math.random() * candidates.length)];
+        recent.push(n);
+        while (recent.length > hold) recent.shift();
+        return n;
+    }
+
+    function pickIdleSeat() {
+        const now = Date.now();
+        const fresh = aliveSeats.filter(function (s) {
+            return !lastSeatVoiceAt[s] || now - lastSeatVoiceAt[s] >= 22000;
+        }).filter(function (s) { return s !== lastVoiceSeat; });
+        const pool = fresh.length ? fresh : aliveSeats.filter(function (s) { return s !== lastVoiceSeat; });
+        const seats = pool.length ? pool : aliveSeats;
+        if (!seats.length) return 0;
+        return seats[Math.floor(Math.random() * seats.length)];
+    }
+
     // kind: 'idle' | 'win' | 'lose' | 'fold'
     // Seat is only used so idle banter can trigger a matching talk gesture.
+    // James (seat 0) never uses the outlaw pack — that's NPC table talk.
     function voice(seat, kind) {
-        if (muted || dealerPlaying) return;
+        if (muted || dealerPlaying || voicePlaying) return;
         if (!ensureCtx() || ctx.state !== 'running') return;
         const eventKind = (kind === 'win' || kind === 'lose' || kind === 'fold') ? kind : 'idle';
-        // Don't stack banter over an event line still playing.
-        if (voicePlaying && eventKind === 'idle') return;
+        if (seat === 0 && eventKind !== 'idle') return;
         const now = Date.now();
-        // Event lines can cut in sooner; banter waits for a clear table.
-        const gap = eventKind === 'idle' ? 5500 : 1200;
-        if (now - lastVoiceAt < gap && eventKind === 'idle') return;
+        // Table-wide gap for every line so folds/wins/banter cannot chorus.
+        const gap = eventKind === 'idle' ? 18000 : 8000;
+        if (now - lastVoiceAt < gap) return;
+        if (seat > 0 && lastSeatVoiceAt[seat] && now - lastSeatVoiceAt[seat] < 24000) return;
         lastVoiceAt = now;
-        const n = 1 + Math.floor(Math.random() * poolSize(eventKind));
+        lastVoiceSeat = seat;
+        if (seat > 0) lastSeatVoiceAt[seat] = now;
+        const n = pickClip(eventKind);
         try { if (voiceSrc) voiceSrc.stop(); } catch (e) { }
         voicePlaying = true;
         voiceSrc = playBuffer(poolUrl(eventKind, n), 0.95, 1, function () {
@@ -236,13 +275,10 @@ window.pokerAudio = (function () {
     (function scheduleChatter() {
         setTimeout(function () {
             if (!muted && !document.hidden && awaitingHuman && !voicePlaying && !dealerPlaying) {
-                const seat = aliveSeats.length
-                    ? aliveSeats[Math.floor(Math.random() * aliveSeats.length)]
-                    : 0;
-                voice(seat, 'idle');
+                voice(pickIdleSeat(), 'idle');
             }
             scheduleChatter();
-        }, 9000 + Math.random() * 12000);
+        }, 20000 + Math.random() * 18000);
     })();
 
     return {
