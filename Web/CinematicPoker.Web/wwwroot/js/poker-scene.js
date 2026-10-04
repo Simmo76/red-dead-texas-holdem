@@ -1880,11 +1880,13 @@ function positionHandCards() {
 
 function updateSeatCards(seat, i, data) {
   clearGroupChildren(seat.cards, state.scene);
-  if (i === 0 || !data.active) return;
+  const paths = data.reveal && data.reveal.length ? data.reveal : null;
+  // Keep revealed showdown cards on the felt even after the engine has
+  // already marked that seat eliminated / inactive.
+  if (i === 0 || (!data.active && !paths)) return;
 
   const basePos = seatPos(i, TABLE_RADIUS - 0.33);
   const yaw = seatAngle(i) - Math.PI / 2; // cards face along seat direction
-  const paths = data.reveal && data.reveal.length ? data.reveal : null;
 
   for (let c = 0; c < 2; c++) {
     const path = paths ? paths[c] : 'img/cards/back.png';

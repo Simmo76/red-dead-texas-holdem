@@ -402,7 +402,7 @@
         {
             SeatState s = SeatOf(p.Seat);
             bool folded = s != null && s.Folded;
-            bool eliminated = p.Status == PlayerStatus.Eliminated;
+            bool eliminated = ShownOut(p.Seat);
             bool acting = _game.CurrentSeat == p.Seat;
             string status =
                 folded ? "folded"
@@ -839,6 +839,20 @@
         return stack;
     }
 
+    // Eliminations are applied in the engine as soon as the pot is awarded,
+    // which is before this table has shown the hole cards or the dollar
+    // amount. Hide OUT until those events have been presented.
+    private bool ShownOut(int seat)
+    {
+        if (_game.GetPlayer(seat).Status != PlayerStatus.Eliminated) return false;
+        foreach (PokerEvent evt in _pending)
+        {
+            if (evt is PotAwarded or HandCompleted or PlayerEliminated)
+                return false;
+        }
+        return true;
+    }
+
     private void ApplyEvent(PokerEvent evt)
     {
         PlaySoundFor(evt);
@@ -871,6 +885,7 @@
 
             case ShowdownStarted showdown:
                 _showdownHandCount = showdown.RevealedHands.Count;
+                _statusLine = "Showdown — read their cards";
                 _showdownView.Clear();
                 foreach (var kv in showdown.RevealedHands.OrderBy(h => h.Key))
                 {
@@ -946,6 +961,9 @@
                         ? $"{winners} win{(award.WinnerSeats.Count == 1 ? "s" : "")} with {Pretty(award.WinningHand.Value.Category)}"
                         : $"{winners} take{(award.WinnerSeats.Count == 1 ? "s" : "")} the pot";
                 }
+                _statusLine = _bannerAmount.HasValue
+                    ? $"{_banner}  ·  ${_bannerAmount.Value}"
+                    : _banner;
                 break;
             }
 

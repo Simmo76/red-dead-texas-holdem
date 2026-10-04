@@ -244,19 +244,19 @@ html, body {
 .banner {
     position: absolute;
     left: 50%;
-    top: 28%;
+    top: 16%;
     transform: translateX(-50%);
     max-width: 86%;
     text-align: center;
     color: var(--gold);
-    background: rgba(8, 5, 3, 0.82);
+    background: rgba(8, 5, 3, 0.92);
     border: 1px solid var(--gold-dim);
     border-radius: 8px;
     padding: 10px 22px 12px;
     font-size: 15px;
     letter-spacing: 1px;
     animation: fadein 0.35s ease-out;
-    z-index: 6;
+    z-index: 12;
     pointer-events: none;
 }
 
@@ -297,7 +297,7 @@ html, body {
     background: rgba(8, 5, 3, 0.78);
     border: 1px solid var(--line);
     border-radius: 10px;
-    z-index: 6;
+    z-index: 12;
     pointer-events: none;
 }
 
