@@ -1153,11 +1153,8 @@ async function buildScene(canvas) {
 
     if (i === 0) continue; // no floating name label over the player himself
 
-    const label = makeLabel();
-    const labelPos = seatPos(i, SEAT_RADIUS + 0.05, 1.84);
-    label.sprite.position.copy(labelPos);
-    scene.add(label.sprite);
-    seat.label = label;
+    // NPC name/stack lives in the screen-space HUD (Home.razor actor-card),
+    // not as a world sprite that clips through the over-the-shoulder camera.
   }
 
   await Promise.all([backdropPromise, ...charPromises]);
@@ -1178,10 +1175,6 @@ async function buildScene(canvas) {
     if (!head) continue;
     head.getWorldPosition(hv);
     headY.push(hv.y);
-    if (seat.label) {
-      const labelPos = seatPos(i, SEAT_RADIUS + 0.05, hv.y + 0.28);
-      seat.label.sprite.position.copy(labelPos);
-    }
     if (i === 0) state.eyeHeight = hv.y;
   }
   if (headY.length) {
@@ -2281,7 +2274,6 @@ window.pokerScene = {
       if (!prevData || prevData.stack !== data.stack || prevData.out !== data.out) {
         updateStackChips(seat, data.seat, data);
       }
-      if (seat.label) drawLabel(seat.label, data);
       // Folded players (the human included) sit out the rest of the hand as
       // grey ghosts with arms folded; the flag clears when the next hand
       // deals, so colour and the thinking idle come back on their own.

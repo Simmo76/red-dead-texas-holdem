@@ -106,6 +106,29 @@
         </div>
     }
 
+    @if (HudActor != null)
+    {
+        var actor = HudActor;
+        var role = HudActorRole;
+        var status = HudActorStatusLine;
+        <div class="actor-card @(actor.IsHuman ? "you" : "") @(ShownOut(actor.Seat) ? "out" : "")">
+            <div class="actor-name">
+                @actor.Name
+                @if (!string.IsNullOrEmpty(role))
+                {
+                    <span class="actor-role">@role</span>
+                }
+            </div>
+            <div class="actor-stack">
+                @(ShownOut(actor.Seat) ? "OUT" : $"${ShownStack(actor.Seat)}")
+            </div>
+            @if (!string.IsNullOrEmpty(status) && !ShownOut(actor.Seat))
+            {
+                <div class="actor-status">@status</div>
+            }
+        </div>
+    }
+
     <div class="actionbar">
         @if (_awaitingHuman && _legal != null && !_showSlider)
         {
@@ -992,6 +1015,36 @@
     // ------------------------------------------------------------------ helpers
 
     private string NameOf(int seat) => _game.GetPlayer(seat).Name;
+
+    private PokerPlayer HudActor =>
+        _game == null || _sessionOver ? null : _game.CurrentPlayer;
+
+    private string HudActorRole
+    {
+        get
+        {
+            if (HudActor == null || Round == null) return null;
+            int seat = HudActor.Seat;
+            if (seat == Round.DealerSeat) return "dealer";
+            if (seat == Round.SmallBlindSeat) return "sb";
+            if (seat == Round.BigBlindSeat) return "bb";
+            return null;
+        }
+    }
+
+    private string HudActorStatusLine
+    {
+        get
+        {
+            PokerPlayer actor = HudActor;
+            if (actor == null) return null;
+            SeatState s = SeatOf(actor.Seat);
+            if (s != null && s.AllIn) return "ALL-IN";
+            if (s != null && s.CommittedThisStreet > 0) return $"bet ${s.CommittedThisStreet}";
+            if (actor.IsHuman) return null;
+            return "thinking…";
+        }
+    }
 
     private static string HandClip(HandCategory category) => category switch
     {
