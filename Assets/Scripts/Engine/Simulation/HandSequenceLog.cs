@@ -212,11 +212,11 @@ namespace CinematicPoker.Engine.Simulation
                 {
                     if (pa.WinnerSeats != null && pa.WinnerSeats.Contains(humanSeat) && pa.WinningHand.HasValue)
                     {
-                        winningHand = pa.WinningHand.Value.Category.ToString();
+                        winningHand = pa.WinningHand.Value.Describe();
                         break;
                     }
                     if (string.IsNullOrEmpty(winningHand) && pa.WinningHand.HasValue)
-                        winningHand = pa.WinningHand.Value.Category.ToString();
+                        winningHand = pa.WinningHand.Value.Describe();
                 }
                 string actions = string.Join("; ", DescribeActions(hand.Events, nameOf));
                 writer.WriteLine(string.Join(",",
@@ -407,7 +407,7 @@ namespace CinematicPoker.Engine.Simulation
                     string winners = pa.WinnerSeats != null
                         ? string.Join(", ", pa.WinnerSeats.Select(nameOf))
                         : "—";
-                    string category = pa.WinningHand.HasValue ? pa.WinningHand.Value.Category.ToString() : "—";
+                    string category = pa.WinningHand.HasValue ? pa.WinningHand.Value.Describe() : "—";
                     string payouts = FormatPayouts(pa.Payouts, nameOf);
                     writer.WriteLine($"| {potLabel} | {pa.Amount} | {winners} | {category} | {payouts} |");
                 }

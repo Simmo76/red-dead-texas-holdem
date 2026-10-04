@@ -410,7 +410,7 @@ namespace CinematicPoker.Game.Prototype
             PlayerAllIn a => $"{NameOf(a.Seat)} is ALL-IN ({a.ToAmount})",
             UncalledBetReturned u => $"{u.Amount} returned to {NameOf(u.Seat)}",
             PotAwarded p => $"{NameOf(p.WinnerSeats)} win{(p.WinnerSeats.Count == 1 ? "s" : "")} {p.Amount}" +
-                            (p.WinningHand.HasValue ? $" with {p.WinningHand.Value.Category}" : ""),
+                            (p.WinningHand.HasValue ? $" with {p.WinningHand.Value.Describe()}" : ""),
             PlayerEliminated e => $"{NameOf(e.Seat)} is eliminated!",
             _ => null
         };

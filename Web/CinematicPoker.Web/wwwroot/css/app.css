@@ -259,6 +259,14 @@ html, body {
     z-index: 6;
 }
 
+.banner-why {
+    margin-top: 6px;
+    color: #f3e6c0;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    line-height: 1.35;
+}
+
 @keyframes fadein {
     from { opacity: 0; transform: translate(-50%, 8px); }
     to { opacity: 1; transform: translate(-50%, 0); }
