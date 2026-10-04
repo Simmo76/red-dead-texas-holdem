@@ -413,10 +413,10 @@
         catch (JSException) { /* scene not available; HUD still works */ }
     }
 
-    private void SceneEmotion(int seat, string mood, double intensity)
+    private void SceneEmotion(int seat, string mood, double intensity, bool speak = true)
     {
         if (!_sceneReady) return;
-        _ = JS.InvokeVoidAsync("pokerScene.emotion", seat, mood, intensity);
+        _ = JS.InvokeVoidAsync("pokerScene.emotion", seat, mood, intensity, speak);
     }
 
     // 0 = settled, 1 = steaming. Read from the NPC's tilt after each hand.
@@ -829,20 +829,32 @@
                 SceneAction(foldedEvt.Seat, "fold");
                 // Letting a big pot go stings. The fold plays first; the
                 // disappointment follows when that gesture lets go.
+                // Don't fire a second voice — the fold line already spoke.
                 if (foldedEvt.Seat != 0 && Round != null && Round.PotTotal > _game.Rules.BigBlind * 16)
-                    SceneEmotion(foldedEvt.Seat, "lose", 0.4);
+                    SceneEmotion(foldedEvt.Seat, "lose", 0.4, speak: false);
                 break;
 
             case PotAwarded award:
             {
                 double potHeat = PotHeat(award.Amount);
+                // Body takes on every winner/loser; only one NPC speaks so the
+                // table doesn't stack the same sayings on top of each other.
+                bool spoken = false;
                 foreach (int seatIdx in award.WinnerSeats)
-                    SceneEmotion(seatIdx, "win", potHeat);
+                {
+                    bool speak = !spoken && seatIdx != 0;
+                    SceneEmotion(seatIdx, "win", potHeat, speak);
+                    if (speak) spoken = true;
+                }
                 if (award.WinningHand.HasValue)
                 {
                     foreach (int seatIdx in _revealed.Keys)
-                        if (!award.WinnerSeats.Contains(seatIdx))
-                            SceneEmotion(seatIdx, "lose", Math.Max(0.5, potHeat));
+                    {
+                        if (award.WinnerSeats.Contains(seatIdx)) continue;
+                        bool speak = !spoken && seatIdx != 0;
+                        SceneEmotion(seatIdx, "lose", Math.Max(0.5, potHeat), speak);
+                        if (speak) spoken = true;
+                    }
                 }
                 // A heads-up showdown (exactly two hands compared) gets a
                 // victory fanfare for whoever comes out on top.
