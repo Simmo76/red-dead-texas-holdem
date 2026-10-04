@@ -1153,11 +1153,8 @@ async function buildScene(canvas) {
 
     if (i === 0) continue; // no floating name label over the player himself
 
-    const label = makeLabel();
-    const labelPos = seatPos(i, SEAT_RADIUS + 0.05, 1.84);
-    label.sprite.position.copy(labelPos);
-    scene.add(label.sprite);
-    seat.label = label;
+    // NPC name/stack lives in the screen-space HUD (Home.razor actor-card),
+    // not as a world sprite that clips through the over-the-shoulder camera.
   }
 
   await Promise.all([backdropPromise, ...charPromises]);
@@ -1178,10 +1175,6 @@ async function buildScene(canvas) {
     if (!head) continue;
     head.getWorldPosition(hv);
     headY.push(hv.y);
-    if (seat.label) {
-      const labelPos = seatPos(i, SEAT_RADIUS + 0.05, hv.y + 0.28);
-      seat.label.sprite.position.copy(labelPos);
-    }
     if (i === 0) state.eyeHeight = hv.y;
   }
   if (headY.length) {
@@ -1880,11 +1873,13 @@ function positionHandCards() {
 
 function updateSeatCards(seat, i, data) {
   clearGroupChildren(seat.cards, state.scene);
-  if (i === 0 || !data.active) return;
+  const paths = data.reveal && data.reveal.length ? data.reveal : null;
+  // Keep revealed showdown cards on the felt even after the engine has
+  // already marked that seat eliminated / inactive.
+  if (i === 0 || (!data.active && !paths)) return;
 
   const basePos = seatPos(i, TABLE_RADIUS - 0.33);
   const yaw = seatAngle(i) - Math.PI / 2; // cards face along seat direction
-  const paths = data.reveal && data.reveal.length ? data.reveal : null;
 
   for (let c = 0; c < 2; c++) {
     const path = paths ? paths[c] : 'img/cards/back.png';
@@ -2279,7 +2274,6 @@ window.pokerScene = {
       if (!prevData || prevData.stack !== data.stack || prevData.out !== data.out) {
         updateStackChips(seat, data.seat, data);
       }
-      if (seat.label) drawLabel(seat.label, data);
       // Folded players (the human included) sit out the rest of the hand as
       // grey ghosts with arms folded; the flag clears when the next hand
       // deals, so colour and the thinking idle come back on their own.
@@ -2344,8 +2338,8 @@ window.pokerScene = {
     }
   },
 
-  // Fireworks and sparklers when the player takes a pot, plus a camera
-  // close-up of the player's character throwing a victory strike.
+  // Fireworks and sparklers when the player takes a pot. Stay on the
+  // seated table camera so opponent hole cards remain readable.
   celebrate() {
     if (!state.ready) return;
     launchCelebration();
@@ -2360,16 +2354,6 @@ window.pokerScene = {
       };
       strike();
     }
-    state.zoom.active = true;
-    state.zoom.kind = 'celebrate';
-    state.zoom.pos.set(0.42, 1.5, 0.1);
-    state.zoom.look.set(0, 1.18, 1.74);
-    clearTimeout(state.celebrateTimer);
-    state.celebrateTimer = setTimeout(() => {
-      if (state.zoom.active && state.zoom.kind === 'celebrate') {
-        state.zoom.active = false;
-      }
-    }, 3200);
   },
 
   // mood is win | lose | wait | neutral. intensity 0..1 picks the size of
