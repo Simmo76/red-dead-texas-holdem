@@ -73,9 +73,37 @@
         </div>
     }
 
+    @if (_showdownView.Count > 0)
+    {
+        <div class="showdown-strip">
+            @foreach (var row in _showdownView)
+            {
+                <div class="showdown-seat @(row.Winner ? "winner" : "")">
+                    <div class="showdown-name">@row.Name</div>
+                    <div class="showdown-cards">
+                        @foreach (var card in row.Cards)
+                        {
+                            <img class="hud-card" src="@CardImage(card)" alt="" />
+                        }
+                    </div>
+                    @if (!string.IsNullOrEmpty(row.HandName))
+                    {
+                        <div class="showdown-hand">@row.HandName</div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
     @if (_banner != null)
     {
-        <div class="banner">@_banner</div>
+        <div class="banner @(_playerWonPot ? "banner-win" : "banner-result")">
+            @if (_bannerAmount.HasValue)
+            {
+                <div class="banner-amount">$@_bannerAmount.Value</div>
+            }
+            <div class="banner-line">@_banner</div>
+        </div>
     }
 
     <div class="actionbar">
@@ -258,8 +286,20 @@
     private string _exportNote = "";
     private string _sessionOverMessage = "";
     private string _banner;
+    private long? _bannerAmount;
+    private bool _playerWonPot;
+    private readonly List<ShowdownRow> _showdownView = new();
     private string _statusLine = "";
     private int _loopToken;
+
+    private sealed class ShowdownRow
+    {
+        public int Seat;
+        public string Name;
+        public IReadOnlyList<Card> Cards;
+        public string HandName;
+        public bool Winner;
+    }
 
     private PokerRound Round => _game?.CurrentRound;
     private long PotNow => Round?.PotTotal ?? 0;
@@ -479,7 +519,10 @@
         _revealed.Clear();
         _pending.Clear();
         _shownBoard.Clear();
+        _showdownView.Clear();
         _banner = null;
+        _bannerAmount = null;
+        _playerWonPot = false;
         _sessionOver = false;
         _awaitingHuman = false;
         _showSlider = false;
@@ -743,13 +786,16 @@
         while (_pending.Count > 0)
         {
             if (token != _loopToken) return; // session restarted; new loop owns the queue
-            ApplyEvent(_pending.Dequeue());
-            int pause = PauseBefore(_pending.Count > 0 ? _pending.Peek() : null);
-            if (pause > 0)
-            {
-                StateHasChanged();
-                await PacedDelay(pause, token);
-            }
+            PokerEvent evt = _pending.Dequeue();
+            ApplyEvent(evt);
+            StateHasChanged();
+            int after = PauseAfter(evt);
+            if (after > 0)
+                await PacedDelay(after, token);
+            if (token != _loopToken) return;
+            int before = PauseBefore(_pending.Count > 0 ? _pending.Peek() : null);
+            if (before > 0)
+                await PacedDelay(before, token);
         }
         StateHasChanged();
     }
@@ -760,8 +806,20 @@
     private int PauseBefore(PokerEvent next) => next switch
     {
         FlopDealt or TurnDealt or RiverDealt => _quickMode ? 900 : 1400,
-        ShowdownStarted => _quickMode ? 1100 : 1800,
-        PotAwarded => _quickMode ? 900 : 1500,
+        ShowdownStarted => _quickMode ? 1400 : 2200,
+        PotAwarded => _quickMode ? 1200 : 2000,
+        _ => 0
+    };
+
+    // Extra dwell AFTER the current event is on screen: read opponent hole
+    // cards at showdown, then sit with the win/loss amount before the next
+    // hand wipes the table.
+    private int PauseAfter(PokerEvent evt) => evt switch
+    {
+        ShowdownStarted => _quickMode ? 1800 : 2800,
+        PotAwarded award => award.WinnerSeats.Contains(0)
+            ? (_quickMode ? 2400 : 3800)
+            : (_quickMode ? 1800 : 2800),
         _ => 0
     };
 
@@ -790,8 +848,11 @@
             case HandStarted started:
                 _revealed.Clear();
                 _shownBoard.Clear();
+                _showdownView.Clear();
                 _showdownHandCount = 0;
                 _banner = null;
+                _bannerAmount = null;
+                _playerWonPot = false;
                 break;
 
             case FlopDealt flop:
@@ -810,8 +871,19 @@
 
             case ShowdownStarted showdown:
                 _showdownHandCount = showdown.RevealedHands.Count;
-                foreach (var kv in showdown.RevealedHands)
+                _showdownView.Clear();
+                foreach (var kv in showdown.RevealedHands.OrderBy(h => h.Key))
+                {
                     _revealed[kv.Key] = kv.Value;
+                    _showdownView.Add(new ShowdownRow
+                    {
+                        Seat = kv.Key,
+                        Name = kv.Key == 0 ? "You" : NameOf(kv.Key),
+                        Cards = kv.Value,
+                        HandName = DescribeShownHand(kv.Value),
+                        Winner = false
+                    });
+                }
                 break;
 
             case PlayerChecked checkedEvt:
@@ -846,6 +918,7 @@
                 }
                 // The player's own win gets the full show: fireworks + sparklers,
                 // and the dealer names the winning hand (full house, straight, …).
+                // Stay on the table camera so opponent hole cards remain in view.
                 if (award.WinnerSeats.Contains(0))
                 {
                     if (_sceneReady)
@@ -853,10 +926,26 @@
                     if (award.WinningHand.HasValue)
                         PlayDealer(HandClip(award.WinningHand.Value.Category));
                 }
-                string winners = string.Join(" & ", award.WinnerSeats.Select(NameOf));
-                _banner = award.WinningHand.HasValue
-                    ? $"{winners} win{(award.WinnerSeats.Count == 1 ? "s" : "")} ${award.Amount} — {Pretty(award.WinningHand.Value.Category)}"
-                    : $"{winners} take{(award.WinnerSeats.Count == 1 ? "s" : "")} ${award.Amount}";
+                foreach (ShowdownRow row in _showdownView)
+                    row.Winner = award.WinnerSeats.Contains(row.Seat);
+                _playerWonPot = award.WinnerSeats.Contains(0);
+                long paid = 0;
+                if (award.Payouts != null)
+                    award.Payouts.TryGetValue(0, out paid);
+                _bannerAmount = _playerWonPot && paid > 0 ? paid : award.Amount;
+                string winners = string.Join(" & ", award.WinnerSeats.Select(s => s == 0 ? "You" : NameOf(s)));
+                if (_playerWonPot)
+                {
+                    _banner = award.WinningHand.HasValue
+                        ? $"YOU WON with {Pretty(award.WinningHand.Value.Category)}"
+                        : "YOU WON — everyone folded";
+                }
+                else
+                {
+                    _banner = award.WinningHand.HasValue
+                        ? $"{winners} win{(award.WinnerSeats.Count == 1 ? "s" : "")} with {Pretty(award.WinningHand.Value.Category)}"
+                        : $"{winners} take{(award.WinnerSeats.Count == 1 ? "s" : "")} the pot";
+                }
                 break;
             }
 
@@ -906,6 +995,13 @@
         if (_muted || string.IsNullOrEmpty(clip)) return;
         try { _ = JS.InvokeVoidAsync("pokerAudio.dealer", clip); }
         catch (JSException) { }
+    }
+
+    private string DescribeShownHand(IReadOnlyList<Card> hole)
+    {
+        if (hole == null || hole.Count + _shownBoard.Count < 5) return null;
+        try { return Pretty(HandEvaluator.Evaluate(hole, _shownBoard).Category); }
+        catch (ArgumentException) { return null; }
     }
 
     private static string Pretty(HandCategory category) => category switch

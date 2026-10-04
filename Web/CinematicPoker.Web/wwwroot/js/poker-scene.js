@@ -2344,8 +2344,8 @@ window.pokerScene = {
     }
   },
 
-  // Fireworks and sparklers when the player takes a pot, plus a camera
-  // close-up of the player's character throwing a victory strike.
+  // Fireworks and sparklers when the player takes a pot. Stay on the
+  // seated table camera so opponent hole cards remain readable.
   celebrate() {
     if (!state.ready) return;
     launchCelebration();
@@ -2360,16 +2360,6 @@ window.pokerScene = {
       };
       strike();
     }
-    state.zoom.active = true;
-    state.zoom.kind = 'celebrate';
-    state.zoom.pos.set(0.42, 1.5, 0.1);
-    state.zoom.look.set(0, 1.18, 1.74);
-    clearTimeout(state.celebrateTimer);
-    state.celebrateTimer = setTimeout(() => {
-      if (state.zoom.active && state.zoom.kind === 'celebrate') {
-        state.zoom.active = false;
-      }
-    }, 3200);
   },
 
   // mood is win | lose | wait | neutral. intensity 0..1 picks the size of

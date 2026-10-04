@@ -244,19 +244,94 @@ html, body {
 .banner {
     position: absolute;
     left: 50%;
-    top: 34%;
+    top: 28%;
     transform: translateX(-50%);
     max-width: 86%;
     text-align: center;
     color: var(--gold);
-    background: rgba(8, 5, 3, 0.72);
+    background: rgba(8, 5, 3, 0.82);
     border: 1px solid var(--gold-dim);
     border-radius: 8px;
-    padding: 8px 18px;
+    padding: 10px 22px 12px;
     font-size: 15px;
     letter-spacing: 1px;
     animation: fadein 0.35s ease-out;
     z-index: 6;
+    pointer-events: none;
+}
+
+.banner-amount {
+    font-size: 34px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    line-height: 1.1;
+    color: #f3d78a;
+    text-shadow: 0 0 18px rgba(216, 178, 92, 0.45);
+}
+
+.banner-line {
+    margin-top: 4px;
+    font-size: 14px;
+    letter-spacing: 1px;
+    color: var(--text);
+}
+
+.banner-win {
+    border-color: var(--gold);
+    background: rgba(18, 12, 4, 0.88);
+}
+
+.banner-win .banner-amount { color: #ffe9a8; }
+
+.showdown-strip {
+    position: absolute;
+    left: 50%;
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    max-width: 92%;
+    padding: 8px 10px;
+    background: rgba(8, 5, 3, 0.78);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    z-index: 6;
+    pointer-events: none;
+}
+
+.showdown-seat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 72px;
+    padding: 4px 6px;
+    border-radius: 8px;
+}
+
+.showdown-seat.winner {
+    background: rgba(216, 178, 92, 0.16);
+    outline: 1px solid var(--gold-dim);
+}
+
+.showdown-name {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+
+.showdown-seat.winner .showdown-name { color: var(--gold); }
+
+.showdown-cards { display: flex; gap: 3px; }
+.showdown-cards .hud-card { width: 36px; }
+
+.showdown-hand {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    color: var(--text);
 }
 
 @keyframes fadein {
@@ -547,7 +622,11 @@ html, body {
     .hud-board.expanded { right: calc(4px + env(safe-area-inset-right)); }
     .hud-board.expanded .hud-row { gap: 2px; }
     .hud-board.expanded .hud-card { width: 72px; }
-    .banner { font-size: 12px; top: 30%; }
+    .banner { font-size: 12px; top: 24%; }
+    .banner-amount { font-size: 26px; }
+    .banner-line { font-size: 12px; }
+    .showdown-strip { bottom: calc(108px + env(safe-area-inset-bottom, 0px)); gap: 6px; padding: 6px 8px; }
+    .showdown-cards .hud-card { width: 30px; }
 
     .act { padding: 12px 14px; font-size: 13px; letter-spacing: 1px; flex: 0 1 auto; }
     .actionbar { gap: 8px; }
@@ -567,7 +646,12 @@ html, body {
     .hud-board { top: 42px; gap: 4px; padding: 4px 5px; }
     .hud-card { width: 40px; }
     .hud-board.expanded .hud-card { width: 90px; }
-    .banner { font-size: 12px; top: 26%; }
+    .banner { font-size: 12px; top: 22%; }
+    .banner-amount { font-size: 24px; }
+    .banner-line { font-size: 12px; }
+    .showdown-strip { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); gap: 6px; padding: 4px 8px; }
+    .showdown-cards .hud-card { width: 28px; }
+    .showdown-name, .showdown-hand { font-size: 10px; }
 
     .act { padding: 10px 14px; font-size: 12px; flex: 0 1 auto; }
     .actionbar {
