@@ -132,7 +132,7 @@ GitHub Actions: `.github/workflows/android-apk.yml` runs the engine tests and th
 
 - No assets, characters, dialogue, music, logos or UI from third-party IP (RDR2, Star Wars, Playboy, James Bond, etc.). Genre inspiration only.
 - Licensed/CC0 sources only (Unity Asset Store, Poly Haven, Mixamo for prototyping); maintain an asset licence register before importing final art.
-- Monetisation direction: sell environment packs, never chips. No real-money wagering, no cash-out.
+- Monetisation direction: sell environment packs, never chips. No real-money wagering, no cash-out. The full plan — login, player tracking, account management, analytics and the purchase funnel — lives in [`docs/live-services-and-monetisation-plan.md`](docs/live-services-and-monetisation-plan.md).
 
 ### Bundled CC0 assets
 
