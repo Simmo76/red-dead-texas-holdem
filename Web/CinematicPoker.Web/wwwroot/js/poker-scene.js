@@ -2374,13 +2374,15 @@ window.pokerScene = {
 
   // mood is win | lose | wait | neutral. intensity 0..1 picks the size of
   // the take (a small pot shrugs, a stack-changing one throws the arms).
-  emotion(seatIndex, mood, intensity = 0.5) {
+  // speak=false plays the body take without a table voice line, so a pot
+  // full of reactions does not chorus the same sayings.
+  emotion(seatIndex, mood, intensity = 0.5, speak = true) {
     if (!state.ready) return;
     const seat = state.seats[seatIndex];
     if (seat && seat.char && !seat.char.dead && seat.char.playEmotion) {
       seat.char.playEmotion(mood, intensity);
     }
-    if (window.pokerAudio && (mood === 'win' || mood === 'lose')) {
+    if (speak && window.pokerAudio && (mood === 'win' || mood === 'lose')) {
       window.pokerAudio.voice(seatIndex, mood);
     }
   },
