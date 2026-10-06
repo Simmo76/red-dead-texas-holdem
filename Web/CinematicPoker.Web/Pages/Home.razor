@@ -7,7 +7,7 @@
 
 <PageTitle>Cinematic Poker</PageTitle>
 
-<div class="game3d">
+<div class="game3d @(_hudBoardExpanded ? "board-expanded" : "")">
 
     <canvas id="poker-canvas"></canvas>
 
@@ -95,6 +95,23 @@
         </div>
     }
 
+    @if (_banner != null)
+    {
+        <div class="banner @(_playerWonPot ? "banner-win" : "banner-result")">
+            @if (_bannerAmount.HasValue)
+            {
+                <div class="banner-amount">$@_bannerAmount.Value</div>
+            }
+            <div class="banner-line">@_banner</div>
+        </div>
+    }
+
+    @* Every window along the bottom edge shares one flow column: the
+       showdown strip, Maximilian's advisor, the actor card and the action
+       bar stack on top of each other instead of overlapping, whatever
+       height each one happens to have. *@
+    <div class="hud-bottom">
+
     @if (_showdownView.Count > 0)
     {
         <div class="showdown-strip">
@@ -117,16 +134,7 @@
         </div>
     }
 
-    @if (_banner != null)
-    {
-        <div class="banner @(_playerWonPot ? "banner-win" : "banner-result")">
-            @if (_bannerAmount.HasValue)
-            {
-                <div class="banner-amount">$@_bannerAmount.Value</div>
-            }
-            <div class="banner-line">@_banner</div>
-        </div>
-    }
+    <div class="hud-bottom-row">
 
     @if (HudActor != null)
     {
@@ -176,6 +184,8 @@
         </div>
     }
 
+    </div>
+
     <div class="actionbar">
         @if (_awaitingHuman && _legal != null && !_showSlider)
         {
@@ -216,6 +226,8 @@
                 </button>
             }
         }
+    </div>
+
     </div>
 
     @if (_sessionOver)
