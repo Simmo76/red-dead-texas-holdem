@@ -151,15 +151,16 @@
         </div>
     }
 
-    @* "What would AI do?" — Maximilian, the card-counting pro, reads the
-       numbers out loud whenever it's your turn. A small always-there window
-       (tap it to collapse to just the title bar), never a button. *@
-    @if (_awaitingHuman && _advice != null)
+    @* "What would AI do?" — Maximilian, the card-counting pro. On your turn
+       only the title button shows; his advice stays hidden until you tap it,
+       so the read is never spoiled before you've asked for it. Tap again to
+       put it away. It starts hidden again on every new turn. *@
+    @if (_awaitingHuman)
     {
         <div class="ai-advice @(_adviceCollapsed ? "collapsed" : "")" @onclick="ToggleAdvice"
-             title="Maximilian counts the cards and tells you what he'd do">
+             title="Tap and Maximilian counts the cards and tells you what he'd do">
             <div class="ai-advice-title">WHAT WOULD <span>AI</span> DO?</div>
-            @if (!_adviceCollapsed)
+            @if (!_adviceCollapsed && _advice != null)
             {
                 <div class="ai-advice-action">@_advice.ActionLabel</div>
                 <div class="ai-advice-stats">
@@ -933,7 +934,8 @@
                 _legal = _game.GetLegalActions();
                 _sliderValue = _legal.MinBetOrRaiseTo;
                 _showSlider = false;
-                _advice = ComputeAdvice();
+                _advice = null;           // computed on demand when the button is tapped
+                _adviceCollapsed = true;  // every turn starts as just the button
                 _awaitingHuman = true;
                 try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", true); }
                 catch (JSException) { }
@@ -1043,18 +1045,29 @@
     // Maximilian is a card-counting pro who shares the Professional NPC's
     // playbook, but with the humanising flaws stripped out: no decision
     // noise, no tilt, no random bluffs — just Monte Carlo equity (counting
-    // the unseen cards) measured against pot odds. His advice appears in a
-    // small window whenever it's the player's turn; tapping the window
-    // collapses it to its title bar for players who want to go it alone.
+    // the unseen cards) measured against pot odds. On the player's turn only
+    // the "WHAT WOULD AI DO?" button is shown; the count runs and the advice
+    // appears only when the player taps it, and every new turn starts back
+    // at the button so the read is opt-in each decision.
     private const int AdviceEquityIterations = 400;
     private const double MaxAggression = 0.65; // mirrors AIProfile.Professional
     private const double MaxTightness = 0.6;
     private const double MaxRiskTolerance = 0.5;
 
     private MaxAdvice _advice;
-    private bool _adviceCollapsed;
+    private bool _adviceCollapsed = true;
 
-    private void ToggleAdvice() => _adviceCollapsed = !_adviceCollapsed;
+    private void ToggleAdvice()
+    {
+        if (!_adviceCollapsed)
+        {
+            _adviceCollapsed = true;
+            return;
+        }
+        // First tap this turn: run the count now, not before.
+        _advice ??= ComputeAdvice();
+        if (_advice != null) _adviceCollapsed = false;
+    }
 
     private sealed class MaxAdvice
     {

@@ -549,8 +549,9 @@ html, body {
     color: var(--text-dim);
 }
 
-/* "What would AI do?" — Maximilian's small advisor window, pinned above the
-   FOLD button whenever it's the player's turn. Tap to collapse to the title. */
+/* "What would AI do?" — Maximilian's advisor, pinned above the FOLD button on
+   the player's turn. Rests as a small title-bar button; tapping it reveals the
+   advice, tapping again collapses it back to the button. */
 .ai-advice {
     position: absolute;
     left: calc(18px + env(safe-area-inset-left));
@@ -569,7 +570,6 @@ html, body {
 .ai-advice.collapsed {
     width: auto;
     padding: 8px 14px;
-    opacity: 0.8;
 }
 
 .ai-advice-title {
