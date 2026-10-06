@@ -227,7 +227,9 @@ html, body {
     position: absolute;
     top: calc(56px + env(safe-area-inset-top));
     left: 50%;
-    transform: translateX(-50%);
+    /* Offset left of centre so a 3-4 figure pot never slides under the
+       board panel pinned top-right (worst case: phone landscape). */
+    transform: translateX(calc(-50% - 70px));
     display: flex;
     align-items: center;
     gap: 10px;
