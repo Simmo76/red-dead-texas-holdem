@@ -151,9 +151,9 @@
         </div>
     }
 
-    @* "What would AI do?" — Maximilian, the card-counting pro, reads the
-       numbers out loud whenever it's your turn. A small always-there window
-       (tap it to collapse to just the title bar), never a button. *@
+    @* "What would AI do?" — Maximilian, the card-counting pro, is on call
+       whenever it's your turn. The window starts collapsed to just its title
+       bar; tap it to open his advice (and tap again to put it away). *@
     @if (_awaitingHuman && _advice != null)
     {
         <div class="ai-advice @(_adviceCollapsed ? "collapsed" : "")" @onclick="ToggleAdvice"
@@ -1043,16 +1043,16 @@
     // Maximilian is a card-counting pro who shares the Professional NPC's
     // playbook, but with the humanising flaws stripped out: no decision
     // noise, no tilt, no random bluffs — just Monte Carlo equity (counting
-    // the unseen cards) measured against pot odds. His advice appears in a
-    // small window whenever it's the player's turn; tapping the window
-    // collapses it to its title bar for players who want to go it alone.
+    // the unseen cards) measured against pot odds. His window sits collapsed
+    // to its title bar whenever it's the player's turn: tap it to open the
+    // advice, tap again to put it away. It stays however you left it.
     private const int AdviceEquityIterations = 400;
     private const double MaxAggression = 0.65; // mirrors AIProfile.Professional
     private const double MaxTightness = 0.6;
     private const double MaxRiskTolerance = 0.5;
 
     private MaxAdvice _advice;
-    private bool _adviceCollapsed;
+    private bool _adviceCollapsed = true; // closed until the player asks
 
     private void ToggleAdvice() => _adviceCollapsed = !_adviceCollapsed;
 
