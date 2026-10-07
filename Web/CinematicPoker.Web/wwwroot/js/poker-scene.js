@@ -1880,21 +1880,54 @@ function updateSeatCards(seat, i, data) {
   // already marked that seat eliminated / inactive.
   if (i === 0 || (!data.active && !paths)) return;
 
+  if (paths) {
+    // Revealed hands sit in from the rail (so they are not buried in the
+    // cowboy's torso from the over-the-shoulder camera) and tip toward
+    // the lens the same way James's pair does.
+    const basePos = seatPos(i, TABLE_RADIUS - 0.62);
+    const eye = state.camera
+      ? state.camera.position
+      : new THREE.Vector3(0, (state.eyeHeight || EYE_HEIGHT) + 0.25, SEAT_RADIUS + 0.9);
+    for (let c = 0; c < Math.min(2, paths.length); c++) {
+      const card = makeCard(paths[c], BOARD_W * 0.82, true);
+      const dir = c === 0 ? -1 : 1;
+      card.position.set(basePos.x, TABLE_TOP + 0.03, basePos.z);
+      card.lookAt(eye.x, eye.y, eye.z);
+      card.rotateZ(dir * 0.1);
+      card.translateX(dir * 0.075);
+      card.translateZ(0.006 * (c + 1));
+      seat.cards.push(card);
+      state.scene.add(card);
+    }
+    return;
+  }
+
   const basePos = seatPos(i, TABLE_RADIUS - 0.33);
   const yaw = seatAngle(i) - Math.PI / 2; // cards face along seat direction
 
   for (let c = 0; c < 2; c++) {
-    const path = paths ? paths[c] : 'img/cards/back.png';
-    const card = makeCard(path, CARD_W);
+    const card = makeCard('img/cards/back.png', CARD_W);
     const offset = (c === 0 ? -1 : 1) * (CARD_W / 2 + 0.008);
     const ox = Math.cos(yaw) * offset;
     const oz = -Math.sin(yaw) * offset;
-    // All table cards lie flat: revealed ones upright for the player's seat,
-    // face-down backs aligned with their owner's seat.
-    placeTableCard(card, basePos.x + ox, basePos.z + oz, 0, paths ? 0 : yaw);
+    placeTableCard(card, basePos.x + ox, basePos.z + oz, 0, yaw);
     seat.cards.push(card);
     state.scene.add(card);
   }
+}
+
+function seatCardZoom(seatIndex) {
+  const seat = state.seats[seatIndex];
+  if (!seat || !seat.cards.length) return null;
+  const centre = new THREE.Vector3();
+  for (const c of seat.cards) centre.add(c.position);
+  centre.divideScalar(seat.cards.length);
+  const height = 0.58;
+  return {
+    pos: new THREE.Vector3(centre.x, TABLE_TOP + height, centre.z + height * 0.12),
+    look: new THREE.Vector3(centre.x, TABLE_TOP + 0.02, centre.z),
+    kind: 'table'
+  };
 }
 
 // Each player's remaining stack sits on the rail in front of them, so the
@@ -2159,6 +2192,19 @@ window.pokerScene = {
     this.endBetPreview();
     state.zoom.active = false;
     if (state.applyCameraHome) state.applyCameraHome(true);
+  },
+
+  // Fly the seated camera onto an opponent's revealed hole cards so a
+  // win (including a fold-win) is readable without hunting the rail.
+  focusReveal(seatIndex) {
+    if (!state.ready) return;
+    const target = seatCardZoom(seatIndex);
+    if (!target) return;
+    this.endBetPreview();
+    state.zoom.active = true;
+    state.zoom.kind = target.kind;
+    state.zoom.pos.copy(target.pos);
+    state.zoom.look.copy(target.look);
   },
 
   lockLandscape() {
