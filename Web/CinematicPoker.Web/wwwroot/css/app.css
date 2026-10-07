@@ -344,6 +344,22 @@ html, body {
 .board-expanded .hud-stack { font-size: 16px; padding: 6px 12px; }
 .board-expanded .hud-pot { font-size: 13px; padding: 5px 12px; }
 
+/* The current actor's window joins the same column under the pot pill
+   (moved there in the markup), shrunk to match its neighbours so the
+   enlarged cards can never cover it on the right. */
+.board-expanded .hud-meters .actor-card {
+    order: 0;
+    margin-left: 0;
+    min-width: 0;
+    padding: 6px 12px 7px;
+    text-align: left;
+}
+
+.board-expanded .hud-meters .actor-name { font-size: 14px; }
+.board-expanded .hud-meters .actor-role { font-size: 12px; margin-left: 6px; }
+.board-expanded .hud-meters .actor-stack { font-size: 15px; margin-top: 1px; }
+.board-expanded .hud-meters .actor-status { font-size: 11px; }
+
 .hud-card.facedown { opacity: 0.35; }
 
 .banner {

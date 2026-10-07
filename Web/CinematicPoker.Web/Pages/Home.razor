@@ -58,6 +58,13 @@
                 <b>$@ShownStack(0)</b>
             </div>
             <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b></div>
+            @* While the enlarged card close-up owns the right edge, the
+               current actor's window joins this column under the pot pill
+               so the big cards can never cover it. *@
+            @if (_hudBoardExpanded && HudActor != null)
+            {
+                @ActorCardFragment
+            }
         </div>
 
         <div class="hud-board @(_hudBoardExpanded ? "expanded" : "")"
@@ -155,27 +162,12 @@
 
     <div class="hud-bottom-row">
 
-    @if (HudActor != null)
+    @* Expanded close-up moves this window up under the pot pill instead
+       (see the hud-meters block above). Round == null is a safety net so
+       the card is never lost entirely when the meters aren't rendered. *@
+    @if (HudActor != null && (!_hudBoardExpanded || Round == null))
     {
-        var actor = HudActor;
-        var role = HudActorRole;
-        var status = HudActorStatusLine;
-        <div class="actor-card @(actor.IsHuman ? "you" : "") @(ShownOut(actor.Seat) ? "out" : "")">
-            <div class="actor-name">
-                @actor.Name
-                @if (!string.IsNullOrEmpty(role))
-                {
-                    <span class="actor-role">@role</span>
-                }
-            </div>
-            <div class="actor-stack">
-                @(ShownOut(actor.Seat) ? "OUT" : $"${ShownStack(actor.Seat)}")
-            </div>
-            @if (!string.IsNullOrEmpty(status) && !ShownOut(actor.Seat))
-            {
-                <div class="actor-status">@status</div>
-            }
-        </div>
+        @ActorCardFragment
     }
 
     @* "What would AI do?" — Maximilian, the card-counting pro. On your turn
@@ -1566,6 +1558,32 @@
 
     private PokerPlayer HudActor =>
         _game == null || _sessionOver ? null : _game.CurrentPlayer;
+
+    // The current actor's window has two homes: the bottom row normally,
+    // and the top-left meter column (under the pot pill) while the enlarged
+    // card close-up owns the right edge. Only rendered when HudActor != null.
+    private RenderFragment ActorCardFragment => __builder =>
+    {
+        PokerPlayer actor = HudActor;
+        string role = HudActorRole;
+        string status = HudActorStatusLine;
+        <div class="actor-card @(actor.IsHuman ? "you" : "") @(ShownOut(actor.Seat) ? "out" : "")">
+            <div class="actor-name">
+                @actor.Name
+                @if (!string.IsNullOrEmpty(role))
+                {
+                    <span class="actor-role">@role</span>
+                }
+            </div>
+            <div class="actor-stack">
+                @(ShownOut(actor.Seat) ? "OUT" : $"${ShownStack(actor.Seat)}")
+            </div>
+            @if (!string.IsNullOrEmpty(status) && !ShownOut(actor.Seat))
+            {
+                <div class="actor-status">@status</div>
+            }
+        </div>
+    };
 
     private string HudActorRole
     {
