@@ -1601,26 +1601,29 @@ function spawnSparkler(pos, color, duration = 3.6) {
   state.fx.push({ kind: 'sparkler', mesh: pts, parts, origin: pos.clone(), duration, age: 0 });
 }
 
-// The full player-win show: staggered fireworks in the air over the table
-// plus a pair of sparklers crackling at the table edge in front of the seats.
+// The full player-win show, staged at the player's own seat (seat 0, the
+// +Z side): staggered fireworks over his head and his edge of the felt,
+// plus a pair of sparklers crackling on the rail either side of his cards.
 function launchCelebration() {
   if (!state.ready) return;
   const rockets = 7;
   for (let i = 0; i < rockets; i++) {
     setTimeout(() => {
       if (!state.scene) return;
-      // Alternate: low over the far side of the table (in frame from the
-      // seat) and above the player (in frame during the win close-up).
-      const overPlayer = i % 2 === 1;
+      // Alternate: low over the player's edge of the felt and higher over
+      // his head. Both stay on his side of the table and inside the frame
+      // of the seated camera, so the win clearly erupts where he sits.
+      const high = i % 2 === 1;
       const pos = new THREE.Vector3(
-        (Math.random() - 0.5) * 2.2,
-        overPlayer ? 1.8 + Math.random() * 0.4 : 1.5 + Math.random() * 0.5,
-        overPlayer ? 1.2 + Math.random() * 0.5 : -0.4 - Math.random() * 0.9);
+        (Math.random() - 0.5) * 1.1,
+        high ? 1.55 + Math.random() * 0.3 : 1.25 + Math.random() * 0.25,
+        high ? 1.05 + Math.random() * 0.35 : 0.65 + Math.random() * 0.35);
       spawnBurst(pos, FX_COLORS[Math.floor(Math.random() * FX_COLORS.length)]);
     }, i * 380 + Math.random() * 120);
   }
-  spawnSparkler(new THREE.Vector3(-0.92, TABLE_TOP + 0.03, 0.92), 0xffe9b0);
-  spawnSparkler(new THREE.Vector3(0.92, TABLE_TOP + 0.03, 0.92), 0xffe9b0);
+  // Sparklers flank the player's hole-card fan on the rail in front of him.
+  spawnSparkler(new THREE.Vector3(-0.42, TABLE_TOP + 0.03, 1.0), 0xffe9b0);
+  spawnSparkler(new THREE.Vector3(0.42, TABLE_TOP + 0.03, 1.0), 0xffe9b0);
 }
 
 // A few chips arcing from a seat's rail into the pot whenever that player
