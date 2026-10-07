@@ -92,6 +92,16 @@
                     }
                 }
             </div>
+            @if (HudWinningHand is { } winHand)
+            {
+                <div class="hud-row hud-winner" title="@winHand.Name's winning hand">
+                    <span class="hud-winner-name">@winHand.Name</span>
+                    @foreach (var card in winHand.Cards)
+                    {
+                        <img class="hud-card" src="@CardImage(card)" alt="" />
+                    }
+                </div>
+            }
         </div>
     }
 
@@ -101,6 +111,15 @@
             @if (_bannerAmount.HasValue)
             {
                 <div class="banner-amount">$@_bannerAmount.Value</div>
+            }
+            @if (HudWinningHand is { } winHand)
+            {
+                <div class="banner-cards">
+                    @foreach (var card in winHand.Cards)
+                    {
+                        <img class="hud-card" src="@CardImage(card)" alt="" />
+                    }
+                </div>
             }
             <div class="banner-line">@_banner</div>
         </div>
@@ -386,6 +405,7 @@
     private string _banner;
     private long? _bannerAmount;
     private bool _playerWonPot;
+    private int _pendingFocusSeat = -1;
     private readonly List<ShowdownRow> _showdownView = new();
     private string _statusLine = "";
     private int _loopToken;
@@ -621,6 +641,16 @@
             }
         }
         if (_sceneReady) await PushSceneState();
+        // One-shot: fly to the winner's cards after the snapshot has put them
+        // on the felt. Cleared immediately so later HUD updates do not yank
+        // the camera back if the player has already looked around.
+        if (_sceneReady && _pendingFocusSeat >= 0)
+        {
+            int seat = _pendingFocusSeat;
+            _pendingFocusSeat = -1;
+            try { await JS.InvokeVoidAsync("pokerScene.focusReveal", seat); }
+            catch (JSException) { }
+        }
     }
 
     private async Task PushSceneState()
@@ -752,6 +782,7 @@
         _banner = null;
         _bannerAmount = null;
         _playerWonPot = false;
+        _pendingFocusSeat = -1;
         _sessionOver = false;
         _humanLost = false;
         _humanWon = false;
@@ -819,6 +850,7 @@
         _banner = null;
         _bannerAmount = null;
         _playerWonPot = false;
+        _pendingFocusSeat = -1;
         _showdownView.Clear();
         _statusLine = "Dealing…";
         try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
@@ -1384,7 +1416,13 @@
                 _banner = null;
                 _bannerAmount = null;
                 _playerWonPot = false;
+                _pendingFocusSeat = -1;
                 _handHasCompleted = false;
+                if (_sceneReady)
+                {
+                    try { _ = JS.InvokeVoidAsync("pokerScene.resetCamera"); }
+                    catch (JSException) { }
+                }
                 break;
 
             case FlopDealt flop:
@@ -1406,17 +1444,8 @@
                 _statusLine = "Showdown — read their cards";
                 _showdownView.Clear();
                 foreach (var kv in showdown.RevealedHands.OrderBy(h => h.Key))
-                {
-                    _revealed[kv.Key] = kv.Value;
-                    _showdownView.Add(new ShowdownRow
-                    {
-                        Seat = kv.Key,
-                        Name = kv.Key == 0 ? "You" : NameOf(kv.Key),
-                        Cards = kv.Value,
-                        HandName = DescribeShownHand(kv.Value),
-                        Winner = false
-                    });
-                }
+                    RememberShownHand(kv.Key, kv.Value, winner: false);
+                _pendingFocusSeat = FirstOpponentRevealSeat();
                 break;
 
             case PlayerChecked checkedEvt:
@@ -1473,7 +1502,18 @@
                 }
                 foreach (ShowdownRow row in _showdownView)
                     row.Winner = award.WinnerSeats.Contains(row.Seat);
+                // Fold-wins never emit ShowdownStarted, so the winner's hole
+                // cards were never put on the felt or in the HUD. Show them
+                // anyway — this is a single-player table, and "someone else
+                // won" is exactly when you need to see what they held.
+                if (_showdownView.Count == 0)
+                {
+                    foreach (int seatIdx in award.WinnerSeats)
+                        RememberShownHand(seatIdx, HoleCardsOf(seatIdx), winner: true);
+                }
                 _playerWonPot = award.WinnerSeats.Contains(0);
+                if (!_playerWonPot)
+                    _pendingFocusSeat = FirstOpponentRevealSeat(award.WinnerSeats);
                 long paid = 0;
                 if (award.Payouts != null)
                     award.Payouts.TryGetValue(0, out paid);
@@ -1574,6 +1614,48 @@
         if (_muted || string.IsNullOrEmpty(clip)) return;
         try { _ = JS.InvokeVoidAsync("pokerAudio.dealer", clip); }
         catch (JSException) { }
+    }
+
+    // Opponent hole cards shown on the result banner and in the top-right
+    // HUD. Prefer an actual winner; fall back to the first revealed NPC.
+    private ShowdownRow HudWinningHand =>
+        _playerWonPot || _showdownView.Count == 0
+            ? null
+            : _showdownView.FirstOrDefault(r => r.Winner && r.Seat != 0 && r.Cards is { Count: > 0 })
+              ?? _showdownView.FirstOrDefault(r => r.Seat != 0 && r.Cards is { Count: > 0 });
+
+    private void RememberShownHand(int seat, IReadOnlyList<Card> hole, bool winner)
+    {
+        if (hole == null || hole.Count == 0) return;
+        if (seat != 0) _revealed[seat] = hole;
+        ShowdownRow existing = _showdownView.Find(r => r.Seat == seat);
+        if (existing != null)
+        {
+            existing.Cards = hole;
+            existing.HandName = DescribeShownHand(hole);
+            existing.Winner = winner || existing.Winner;
+            return;
+        }
+        _showdownView.Add(new ShowdownRow
+        {
+            Seat = seat,
+            Name = seat == 0 ? "You" : NameOf(seat),
+            Cards = hole,
+            HandName = DescribeShownHand(hole),
+            Winner = winner
+        });
+    }
+
+    private int FirstOpponentRevealSeat(IReadOnlyList<int> prefer = null)
+    {
+        if (prefer != null)
+        {
+            foreach (int seat in prefer)
+                if (seat != 0 && _revealed.ContainsKey(seat)) return seat;
+        }
+        foreach (ShowdownRow row in _showdownView)
+            if (row.Seat != 0 && row.Cards is { Count: > 0 }) return row.Seat;
+        return -1;
     }
 
     private string DescribeShownHand(IReadOnlyList<Card> hole)

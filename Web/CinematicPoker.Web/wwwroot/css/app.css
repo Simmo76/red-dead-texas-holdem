@@ -381,12 +381,45 @@ html, body {
     color: var(--text);
 }
 
+.banner-cards {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin: 8px 0 2px;
+}
+
+.banner-cards .hud-card {
+    width: 52px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+}
+
 .banner-win {
     border-color: var(--gold);
     background: rgba(18, 12, 4, 0.88);
 }
 
 .banner-win .banner-amount { color: #ffe9a8; }
+
+.hud-winner {
+    align-items: center;
+    gap: 5px;
+    margin-top: 2px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(216, 178, 92, 0.35);
+}
+
+.hud-winner-name {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--gold);
+    text-transform: uppercase;
+    max-width: 4.5em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hud-winner .hud-card { width: 36px; }
 
 .showdown-strip {
     align-self: center;
@@ -923,6 +956,8 @@ html, body {
     .banner { font-size: 12px; top: 24%; }
     .banner-amount { font-size: 26px; }
     .banner-line { font-size: 12px; }
+    .banner-cards .hud-card { width: 42px; }
+    .hud-winner .hud-card { width: 30px; }
     .showdown-strip { gap: 6px; padding: 6px 8px; }
     .showdown-cards .hud-card { width: 30px; }
     .hud-bottom-row { gap: 8px; padding: 0 calc(10px + env(safe-area-inset-right)) 2px calc(10px + env(safe-area-inset-left)); }
@@ -961,9 +996,12 @@ html, body {
         width: max(40px, min(90px, calc((100vw - 350px) / 5), calc((100vh - 230px) * 0.36)));
         width: max(40px, min(90px, calc((100vw - 350px) / 5), calc((100dvh - 230px) * 0.36)));
     }
-    .banner { font-size: 12px; top: 22%; }
+    .banner { font-size: 12px; top: 18%; }
     .banner-amount { font-size: 24px; }
     .banner-line { font-size: 12px; }
+    .banner-cards { margin: 6px 0 2px; gap: 5px; }
+    .banner-cards .hud-card { width: 40px; }
+    .hud-winner .hud-card { width: 28px; }
     .showdown-strip { gap: 6px; padding: 4px 8px; }
     .showdown-cards .hud-card { width: 28px; }
     .showdown-name, .showdown-hand { font-size: 10px; }
