@@ -13,7 +13,7 @@
 
     @if (!_introStarted)
     {
-        <div class="intro-overlay" @onclick="StartIntro">
+        <div class="intro-overlay @(_introFading ? "fading" : "")" @onclick="StartIntro">
             @if (_namePromptOpen)
             {
                 <div class="name-prompt" @onclick:stopPropagation="true">
@@ -538,6 +538,10 @@
 
     private bool _introStarted;
     private bool _introRequested;
+    private bool _introFading;
+
+    /* Matches the .intro-overlay.fading transition in app.css. */
+    private const int IntroFadeMs = 3000;
 
     private async Task StartIntro()
     {
@@ -629,7 +633,9 @@
         _introRequested = true; // the tap doubles as the audio-unlock gesture
         // If the scene is still loading, keep the title card up until it's in.
         for (int i = 0; i < 24 && !_sceneReady; i++) await Task.Delay(250);
-        _introStarted = true;
+        // Reveal the table first, then let the title card fade out over it.
+        _introFading = true;
+        StateHasChanged();
         // No opening camera sweep — go straight to the seated arcade view.
         try
         {
@@ -640,6 +646,8 @@
         {
             // Scene module still loading; gameplay HUD is already live.
         }
+        await Task.Delay(IntroFadeMs);
+        _introStarted = true;
     }
 
     // ------------------------------------------------------------- 3D scene
