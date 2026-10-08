@@ -6,7 +6,7 @@
 // short note asking to attach it — the spreadsheet is never pasted into the
 // message body any more.
 window.pokerExport = (function () {
-  var FILE_NAME = 'cinematic-poker-stats.csv';
+  var FILE_NAME = 'dead-mans-hand-stats.csv';
 
   function downloadCsv(filename, csv) {
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -44,7 +44,7 @@ window.pokerExport = (function () {
     }
     if (!navigator.canShare({ files: [file] })) return null;
     try {
-      await navigator.share({ files: [file], title: title || 'Cinematic Poker stats' });
+      await navigator.share({ files: [file], title: title || "Dead Man's Hand stats" });
       return { ok: true, shared: true, aborted: false, downloaded: false };
     } catch (err) {
       if (err && err.name === 'AbortError') {
@@ -61,21 +61,21 @@ window.pokerExport = (function () {
     // Fallback: download the .csv and open the email composer with a short
     // note (not the raw CSV) asking to attach the downloaded file.
     downloadCsv(FILE_NAME, csv);
-    openUri('mailto:?subject=' + encodeURIComponent(subject || 'Cinematic Poker stats') +
+    openUri('mailto:?subject=' + encodeURIComponent(subject || "Dead Man's Hand stats") +
       '&body=' + encodeURIComponent(
-        'My Cinematic Poker session stats and coaching notes are in the attached file.\n\n' +
+        "My Dead Man's Hand session stats and coaching notes are in the attached file.\n\n" +
         '(' + FILE_NAME + ' was just downloaded - attach it to this email before sending.)'));
     return { ok: true, shared: false, aborted: false, downloaded: true };
   }
 
   async function textCsv(csv) {
-    var sharedResult = await shareCsvFile(csv, 'Cinematic Poker stats');
+    var sharedResult = await shareCsvFile(csv, "Dead Man's Hand stats");
     if (sharedResult) return sharedResult;
     // Fallback: download the .csv and open the SMS composer with a short note.
     downloadCsv(FILE_NAME, csv);
     // iOS: sms:&body=  Android: sms:?body= — try the ampersand form first.
     openUri('sms:&body=' + encodeURIComponent(
-      'My Cinematic Poker session stats are in ' + FILE_NAME +
+      "My Dead Man's Hand session stats are in " + FILE_NAME +
       ' (just downloaded) - attaching it now.'));
     return { ok: true, shared: false, aborted: false, downloaded: true };
   }
