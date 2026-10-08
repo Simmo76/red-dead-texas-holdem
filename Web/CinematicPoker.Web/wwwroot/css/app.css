@@ -49,6 +49,13 @@ html, body {
     text-shadow: 0 0 24px rgba(216, 178, 92, 0.35);
 }
 
+.boot-subtitle {
+    margin-top: -6px;
+    font-size: 13px;
+    letter-spacing: 5px;
+    color: var(--gold-dim);
+}
+
 .boot-sub {
     color: var(--text-dim);
     letter-spacing: 2px;
@@ -154,6 +161,14 @@ html, body {
 }
 
 .intro-title span { color: var(--gold); }
+
+.intro-subtitle {
+    margin-top: -12px;
+    font-size: clamp(12px, 2vw, 16px);
+    letter-spacing: 7px;
+    color: var(--gold-dim);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
 
 .intro-tap {
     font-size: 14px;
