@@ -36,16 +36,9 @@
     <header class="topbar">
         <div class="brand">CINEMATIC <span>POKER</span></div>
         <div class="topbar-right">
-            <button class="chip-btn" @onclick="CycleBackdrop">@_backdropName</button>
-            <button class="chip-btn @(_muted ? "" : "active")" @onclick="ToggleMute">
-                @(_muted ? "SOUND OFF" : "SOUND ON")
+            <button class="chip-btn" @onclick="OpenSettings" title="Game settings">
+                <span class="chip-gear" aria-hidden="true">⚙</span> SETTINGS
             </button>
-            <button class="chip-btn @(_quickMode ? "active" : "")" @onclick="ToggleMode">
-                @(_quickMode ? "QUICK PLAY" : "CINEMATIC")
-            </button>
-            <button class="chip-btn" @onclick="CycleDifficulty">@DifficultyNames[_difficulty]</button>
-            <button class="chip-btn" @onclick="OpenExportPanel">EXPORT</button>
-            <button class="chip-btn" @onclick="StartSession">RESTART</button>
         </div>
     </header>
 
@@ -260,6 +253,59 @@
                         <button class="act call big" @onclick="OpenExportPanel">EXPORT STATS</button>
                         <button class="act call big" @onclick="StartSession">PLAY AGAIN</button>
                     }
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_settingsOpen)
+    {
+        <div class="overlay" @onclick="CloseSettings">
+            <div class="overlay-box settings-box" @onclick:stopPropagation="true">
+                <div class="overlay-title">SETTINGS</div>
+
+                <div class="settings-name">
+                    <label class="settings-label" for="settings-name-input">YOUR NAME</label>
+                    <div class="settings-name-controls">
+                        <input id="settings-name-input" class="name-input settings-name-input" type="text" maxlength="16"
+                               autocapitalize="words" autocomplete="nickname" autocorrect="off" spellcheck="false"
+                               placeholder="Your name" @bind="_settingsNameDraft" @bind:event="oninput"
+                               @onkeydown="OnSettingsNameKeyDown" />
+                        <button class="act call settings-save" disabled="@(!CanSaveSettingsName)" @onclick="SaveSettingsName">SAVE</button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_settingsNameNote))
+                    {
+                        <p class="settings-note">@_settingsNameNote</p>
+                    }
+                </div>
+
+                <div class="settings-rows">
+                    <div class="settings-row">
+                        <span class="settings-label">BACKDROP</span>
+                        <button class="chip-btn" @onclick="CycleBackdrop">@_backdropName</button>
+                    </div>
+                    <div class="settings-row">
+                        <span class="settings-label">SOUND</span>
+                        <button class="chip-btn @(_muted ? "" : "active")" @onclick="ToggleMute">
+                            @(_muted ? "SOUND OFF" : "SOUND ON")
+                        </button>
+                    </div>
+                    <div class="settings-row">
+                        <span class="settings-label">PACE</span>
+                        <button class="chip-btn @(_quickMode ? "active" : "")" @onclick="ToggleMode">
+                            @(_quickMode ? "QUICK PLAY" : "CINEMATIC")
+                        </button>
+                    </div>
+                    <div class="settings-row">
+                        <span class="settings-label">DIFFICULTY</span>
+                        <button class="chip-btn" @onclick="CycleDifficulty">@DifficultyNames[_difficulty]</button>
+                    </div>
+                </div>
+
+                <div class="overlay-actions">
+                    <button class="act small" @onclick="ExportFromSettings">EXPORT STATS</button>
+                    <button class="act allin settings-restart" @onclick="RestartFromSettings">RESTART</button>
+                    <button class="act small" @onclick="CloseSettings">CLOSE</button>
                 </div>
             </div>
         </div>
@@ -664,7 +710,7 @@
             return new
             {
                 seat = p.Seat,
-                name = p.Name,
+                name = DisplayName(p),
                 stack = ShownStack(p.Seat),
                 bet = s?.CommittedThisStreet ?? 0,
                 folded,
@@ -787,6 +833,7 @@
         _ = EndBetPreview(); // RESTART mid-sizing: drop the preview close-up
         _exportOpen = false;
         _exportNote = "";
+        _settingsOpen = false;
         try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
         catch (InvalidOperationException) { }
         catch (JSException) { }
@@ -1220,6 +1267,57 @@
             advice.ActionLabel = $"RAISE TO ${to}";
     }
 
+    // ------------------------------------------------------------- settings
+
+    private bool _settingsOpen;
+    private string _settingsNameDraft = "";
+    private string _settingsNameNote = "";
+
+    private bool CanSaveSettingsName => SanitizeName(_settingsNameDraft, allowEmpty: true).Length > 0;
+
+    private void OpenSettings()
+    {
+        _settingsNameDraft = PlayerName;
+        _settingsNameNote = "";
+        _settingsOpen = true;
+    }
+
+    private void CloseSettings()
+    {
+        _settingsOpen = false;
+        _settingsNameNote = "";
+    }
+
+    private async Task OnSettingsNameKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SaveSettingsName();
+    }
+
+    // Renames take effect immediately: the HUD reads PlayerName directly and
+    // the scene/actor windows go through DisplayName, so the engine's
+    // immutable player record never needs to change mid-session.
+    private async Task SaveSettingsName()
+    {
+        if (!CanSaveSettingsName) return;
+        _playerName = SanitizeName(_settingsNameDraft);
+        _settingsNameDraft = _playerName;
+        await PersistPlayerName(_playerName);
+        _settingsNameNote = $"Saved — the table knows you as {_playerName}.";
+        if (_sceneReady) await PushSceneState(); // refresh the 3D nameplate now
+    }
+
+    private void ExportFromSettings()
+    {
+        _settingsOpen = false;
+        OpenExportPanel();
+    }
+
+    private void RestartFromSettings()
+    {
+        _settingsOpen = false;
+        StartSession();
+    }
+
     // ------------------------------------------------------------- export CSV
 
     private void OpenExportPanel()
@@ -1556,6 +1654,10 @@
 
     private string NameOf(int seat) => _game.GetPlayer(seat).Name;
 
+    // The engine's player record is immutable, so a mid-session rename from
+    // the settings panel only changes what this HUD shows for the human seat.
+    private string DisplayName(PokerPlayer p) => p.IsHuman ? PlayerName : p.Name;
+
     private PokerPlayer HudActor =>
         _game == null || _sessionOver ? null : _game.CurrentPlayer;
 
@@ -1569,7 +1671,7 @@
         string status = HudActorStatusLine;
         <div class="actor-card @(actor.IsHuman ? "you" : "") @(ShownOut(actor.Seat) ? "out" : "")">
             <div class="actor-name">
-                @actor.Name
+                @DisplayName(actor)
                 @if (!string.IsNullOrEmpty(role))
                 {
                     <span class="actor-role">@role</span>

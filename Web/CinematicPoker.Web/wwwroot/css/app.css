@@ -871,6 +871,69 @@ html, body {
     cursor: not-allowed;
 }
 
+/* ------------------------------------------------------------- settings */
+
+.chip-gear { font-size: 14px; line-height: 1; }
+
+.settings-box {
+    max-width: min(440px, calc(100vw - 32px));
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    padding: 28px 36px;
+    gap: 20px;
+}
+
+.settings-name {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.settings-name-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.settings-name-input {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    text-align: left;
+}
+
+.settings-save { padding: 12px 22px; font-size: 14px; }
+
+.settings-note {
+    margin: 0;
+    color: var(--gold);
+    font-size: 13px;
+    letter-spacing: 0.4px;
+}
+
+.settings-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.settings-row .chip-btn { min-width: 150px; }
+
+.settings-label {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-align: left;
+}
+
 /* ------------------------------------------------------------- error ui */
 
 #blazor-error-ui {
@@ -1038,6 +1101,9 @@ html, body {
     .actionbar-left, .actionbar-right { gap: 8px; }
     .slider-panel { gap: 4px; }
     .overlay-box { padding: 22px 30px; gap: 14px; }
+    .settings-box { padding: 16px 24px; gap: 10px; }
+    .settings-rows { gap: 6px; }
+    .settings-save { padding: 9px 16px; font-size: 12px; }
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
     .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
     .overlay-box.table-win { padding: 28px 36px; gap: 18px; }
