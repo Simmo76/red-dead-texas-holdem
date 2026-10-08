@@ -148,7 +148,18 @@ html, body {
     align-items: center;
     justify-content: center;
     gap: 20px;
-    background: rgba(4, 4, 10, 0.74);
+    /* Western-poster backdrop, painted entirely from CSS: a faint crimson
+       film grain, rough horizontal brush bands, a blood-red vignette and
+       the dark base coat. */
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.45  0 0 0 0 0.04  0 0 0 0 0.05  0 0 0 0.4 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)'/%3E%3C/svg%3E") repeat,
+        repeating-linear-gradient(94deg,
+            transparent 0 140px,
+            rgba(96, 8, 14, 0.07) 140px 210px,
+            transparent 210px 330px,
+            rgba(118, 10, 16, 0.05) 330px 390px),
+        radial-gradient(130% 100% at 50% 40%, transparent 46%, rgba(74, 4, 10, 0.32) 100%),
+        rgba(5, 4, 9, 0.76);
     cursor: pointer;
     overflow: hidden;
 }
@@ -162,23 +173,31 @@ html, body {
     position: absolute;
     inset: -35%;
     pointer-events: none;
-    filter: blur(60px) saturate(1.2);
     will-change: transform, opacity;
 }
 
 .intro-overlay::before {
+    filter: blur(60px) saturate(1.2);
     background:
-        radial-gradient(38% 30% at 22% 68%, rgba(122, 8, 18, 0.5) 0%, transparent 70%),
-        radial-gradient(30% 36% at 76% 26%, rgba(88, 4, 20, 0.42) 0%, transparent 70%),
-        radial-gradient(24% 22% at 58% 78%, rgba(150, 18, 24, 0.3) 0%, transparent 68%);
+        radial-gradient(38% 30% at 22% 68%, rgba(128, 8, 16, 0.55) 0%, transparent 70%),
+        radial-gradient(30% 36% at 76% 26%, rgba(96, 4, 18, 0.46) 0%, transparent 70%),
+        radial-gradient(24% 22% at 58% 78%, rgba(154, 16, 20, 0.34) 0%, transparent 68%);
     animation: intro-blood-drift-a 46s ease-in-out infinite alternate;
 }
 
+/* Second layer carries the dusk-sun disc — the pale ember circle sitting
+   behind the title — plus its own counter-drifting red washes. */
 .intro-overlay::after {
+    filter: blur(26px) saturate(1.15);
     background:
-        radial-gradient(32% 42% at 80% 74%, rgba(104, 6, 16, 0.4) 0%, transparent 70%),
-        radial-gradient(26% 24% at 30% 22%, rgba(140, 12, 26, 0.3) 0%, transparent 66%),
-        radial-gradient(60% 46% at 50% 108%, rgba(70, 2, 10, 0.5) 0%, transparent 74%);
+        radial-gradient(circle at 50% 46.5%,
+            rgba(206, 128, 38, 0.17) 0%,
+            rgba(198, 110, 30, 0.13) 12.5%,
+            rgba(150, 52, 18, 0.05) 14.5%,
+            transparent 17%),
+        radial-gradient(32% 42% at 80% 74%, rgba(110, 6, 14, 0.34) 0%, transparent 70%),
+        radial-gradient(26% 24% at 30% 22%, rgba(142, 10, 22, 0.26) 0%, transparent 66%),
+        radial-gradient(60% 46% at 50% 108%, rgba(78, 2, 10, 0.38) 0%, transparent 74%);
     animation: intro-blood-drift-b 58s ease-in-out infinite alternate;
 }
 
@@ -209,21 +228,53 @@ html, body {
 }
 
 .intro-title {
-    font-size: clamp(30px, 6vw, 52px);
-    letter-spacing: 10px;
-    font-weight: 800;
-    color: var(--text);
-    text-shadow: 0 3px 14px rgba(0, 0, 0, 0.9);
+    font-family: 'Rye', Georgia, "Times New Roman", serif;
+    font-size: clamp(34px, 7.2vw, 72px);
+    letter-spacing: 3px;
+    font-weight: 400;
+    color: #efe5d0;
+    text-align: center;
+    text-shadow:
+        0 4px 4px rgba(10, 2, 2, 0.85),
+        0 3px 18px rgba(0, 0, 0, 0.9);
 }
 
-.intro-title span { color: var(--gold); }
+/* Poster-style type: the accent word goes blood-red with a dark halo. */
+.intro-title span {
+    color: #c6231b;
+    text-shadow:
+        0 4px 4px rgba(10, 2, 2, 0.9),
+        0 0 26px rgba(90, 6, 8, 0.8);
+}
+
+/* Red rule with a centred spade, straight off the one-sheet. */
+.intro-divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: min(460px, 64vw);
+    margin-top: -6px;
+}
+
+.intro-divider i {
+    flex: 1;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #b42620 14%, #b42620 86%, transparent);
+}
+
+.intro-divider b {
+    color: #b42620;
+    font-size: 22px;
+    line-height: 1;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+}
 
 .intro-subtitle {
-    margin-top: -12px;
-    font-size: clamp(12px, 2vw, 16px);
+    font-size: clamp(14px, 2.2vw, 21px);
     letter-spacing: 7px;
-    color: var(--gold-dim);
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    font-weight: bold;
+    color: #e6d9bd;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
 }
 
 .intro-tap {
@@ -231,6 +282,12 @@ html, body {
     letter-spacing: 5px;
     color: var(--text-dim);
     animation: intro-pulse 1.7s ease-in-out infinite;
+}
+
+.intro-star {
+    color: #b42620;
+    font-size: 11px;
+    vertical-align: 1px;
 }
 
 .name-prompt {
