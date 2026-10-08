@@ -162,6 +162,13 @@ html, body {
         rgba(5, 4, 9, 0.76);
     cursor: pointer;
     overflow: hidden;
+    transition: opacity 3s ease;
+}
+
+/* Tap-to-play: the whole title card dissolves slowly over the table. */
+.intro-overlay.fading {
+    opacity: 0;
+    pointer-events: none;
 }
 
 /* Sinister undertone: deep-red "paint" blooms drifting through the dark,
