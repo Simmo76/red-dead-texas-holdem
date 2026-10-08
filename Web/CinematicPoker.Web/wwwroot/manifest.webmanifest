@@ -1,6 +1,6 @@
 {
-    "name": "Cinematic Poker",
-    "short_name": "Poker",
+    "name": "Dead Man's Hand",
+    "short_name": "Dead Man's Hand",
     "description": "Private-table Texas Hold'em against five AI characters. Invitation only.",
     "start_url": "./",
     "scope": "./",

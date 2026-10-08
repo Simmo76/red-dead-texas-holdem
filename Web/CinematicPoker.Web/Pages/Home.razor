@@ -5,7 +5,7 @@
 @using CinematicPoker.Engine.Simulation
 @inject IJSRuntime JS
 
-<PageTitle>Cinematic Poker</PageTitle>
+<PageTitle>Dead Man's Hand</PageTitle>
 
 <div class="game3d @(_hudBoardExpanded ? "board-expanded" : "")">
 
@@ -28,13 +28,13 @@
             }
             else
             {
-                <div class="intro-title">CINEMATIC <span>POKER</span></div>
+                <div class="intro-title">DEAD MAN'S <span>HAND</span></div>
                 <div class="intro-tap">TAP TO PLAY</div>
             }
         </div>
     }
     <header class="topbar">
-        <div class="brand">CINEMATIC <span>POKER</span></div>
+        <div class="brand">DEAD MAN'S <span>HAND</span></div>
         <div class="topbar-right">
             <button class="chip-btn" @onclick="OpenSettings" title="Game settings">
                 <span class="chip-gear" aria-hidden="true">⚙</span> SETTINGS
@@ -1351,7 +1351,7 @@
         try
         {
             var result = await JS.InvokeAsync<ExportShareResult>(
-                "pokerExport.emailCsv", BuildExportCsv(), "Cinematic Poker stats");
+                "pokerExport.emailCsv", BuildExportCsv(), "Dead Man's Hand stats");
             _exportNote = ShareNote(result, "email");
         }
         catch (JSException)
@@ -1386,7 +1386,7 @@
         if (_handLog.CompletedHandCount == 0) return;
         try
         {
-            await JS.InvokeVoidAsync("pokerExport.downloadCsv", "cinematic-poker-stats.csv", BuildExportCsv());
+            await JS.InvokeVoidAsync("pokerExport.downloadCsv", "dead-mans-hand-stats.csv", BuildExportCsv());
             _exportNote = "CSV downloaded.";
         }
         catch (JSException)
