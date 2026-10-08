@@ -380,6 +380,31 @@ function updateActorOutline(seatIndex) {
 
 let ARROW_Y = 1.92; // updated after seats plant so it stays above their heads
 
+// Brief camera push toward whoever the action is on, so the player can tell
+// at a glance who is thinking. Skipped for the player's own turn (the action
+// bar already owns that moment) and whenever a deliberate zoom (card reveal,
+// bet sizing) has the camera; it releases itself after a beat and the normal
+// easing glides the view back out to the home seat framing.
+const ACTOR_FOCUS_MS = 1800;
+const ACTOR_FOCUS_PUSH = 0.32; // fraction of the way toward the actor's face
+
+function startActorFocus(seatIndex) {
+  const focus = state.actorFocus;
+  if (!focus) return;
+  if (seatIndex <= 0 || state.zoom.active || state.intro.active) {
+    focus.active = false;
+    return;
+  }
+  const p = seatPos(seatIndex, SEAT_RADIUS - 0.1);
+  focus.look.set(p.x, ARROW_Y - 0.5, p.z); // face height under the turn arrow
+  focus.pos.copy(focus.look).sub(state.camHome)
+    .multiplyScalar(ACTOR_FOCUS_PUSH).add(state.camHome);
+  // Keep the push-in from dipping under the table sightline.
+  focus.pos.y = Math.max(focus.pos.y, state.camHome.y - 0.22);
+  focus.until = performance.now() + ACTOR_FOCUS_MS;
+  focus.active = true;
+}
+
 function updateDealerArrow(dealerSeat) {
   const arrow = state.dealerArrow;
   if (!arrow) return;
@@ -811,6 +836,7 @@ async function buildScene(canvas) {
   state.view = view;
   state.pivot = new THREE.Vector3(0, TABLE_TOP, 0);
   state.zoom = { active: false, kind: 'board', pos: new THREE.Vector3(), look: new THREE.Vector3() };
+  state.actorFocus = { active: false, until: 0, pos: new THREE.Vector3(), look: new THREE.Vector3() };
   state.intro = { active: false, start: 0, phase: 0 };
   state.camHome = new THREE.Vector3();
   state.camLook = new THREE.Vector3(0, TABLE_TOP, 0);
@@ -1238,7 +1264,13 @@ async function buildScene(canvas) {
     } else if (state.zoom.active) {
       _desiredPos.copy(state.zoom.pos);
       _lookTarget.copy(state.zoom.look);
+    } else if (state.actorFocus.active && performance.now() < state.actorFocus.until) {
+      // Lean toward whoever the action is on; expiry falls through to the
+      // home branch next frame and the lerp below eases the view back out.
+      _desiredPos.copy(state.actorFocus.pos);
+      _lookTarget.copy(state.actorFocus.look);
     } else {
+      state.actorFocus.active = false;
       const yaw = view.homeYaw + view.offYaw;
       const pitch = view.homePitch + view.offPitch;
       const dist = view.dist * view.distScale;
@@ -2194,6 +2226,7 @@ window.pokerScene = {
     if (!state.ready) return;
     this.endBetPreview();
     state.zoom.active = false;
+    state.actorFocus.active = false;
     if (state.applyCameraHome) state.applyCameraHome(true);
   },
 
@@ -2204,6 +2237,7 @@ window.pokerScene = {
     const target = seatCardZoom(seatIndex);
     if (!target) return;
     this.endBetPreview();
+    state.actorFocus.active = false;
     state.zoom.active = true;
     state.zoom.kind = target.kind;
     state.zoom.pos.copy(target.pos);
@@ -2221,6 +2255,7 @@ window.pokerScene = {
   betPreview(amount) {
     if (!state.ready) return;
     const amt = Math.max(0, Math.floor(amount || 0));
+    state.actorFocus.active = false;
     state.zoom.active = true;
     state.zoom.kind = 'bet';
     // Hide the already-committed chips while sizing: the preview stack shows
@@ -2291,6 +2326,7 @@ window.pokerScene = {
     const actorSeat = actor ? actor.seat : -1;
     if (actorSeat !== state.lastActorSeat) {
       state.lastActorSeat = actorSeat;
+      startActorFocus(actorSeat);
       for (const data of seats) {
         if (data.seat === actorSeat || data.folded || !data.active) continue;
         const s = state.seats[data.seat];
