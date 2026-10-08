@@ -572,18 +572,21 @@ html, body {
 
 .hud-winner .hud-card { width: 36px; }
 
+/* Hand-compare window: bigger cards and type so the YOU-vs-them read is
+   obvious, but still capped and kept inside .hud-bottom's flow column so it
+   stacks above the action bar instead of covering the banner or NEXT HAND. */
 .showdown-strip {
     align-self: center;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 10px;
-    max-width: 92%;
-    padding: 8px 10px;
-    background: rgba(8, 5, 3, 0.78);
+    gap: 18px;
+    max-width: min(560px, 78vw);
+    padding: 14px 18px;
+    background: rgba(8, 5, 3, 0.86);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 12px;
     pointer-events: none;
 }
 
@@ -591,10 +594,10 @@ html, body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    min-width: 72px;
-    padding: 4px 6px;
-    border-radius: 8px;
+    gap: 6px;
+    min-width: 110px;
+    padding: 8px 12px;
+    border-radius: 10px;
 }
 
 .showdown-seat.winner {
@@ -603,20 +606,20 @@ html, body {
 }
 
 .showdown-name {
-    font-size: 11px;
-    letter-spacing: 1px;
+    font-size: 14px;
+    letter-spacing: 1.5px;
     color: var(--text-dim);
     text-transform: uppercase;
 }
 
 .showdown-seat.winner .showdown-name { color: var(--gold); }
 
-.showdown-cards { display: flex; gap: 3px; }
-.showdown-cards .hud-card { width: 36px; }
+.showdown-cards { display: flex; gap: 6px; }
+.showdown-cards .hud-card { width: 58px; }
 
 .showdown-hand {
-    font-size: 11px;
-    letter-spacing: 0.5px;
+    font-size: 14px;
+    letter-spacing: 0.6px;
     color: var(--text);
 }
 
@@ -1172,8 +1175,10 @@ html, body {
     .banner-line { font-size: 12px; }
     .banner-cards .hud-card { width: 42px; }
     .hud-winner .hud-card { width: 30px; }
-    .showdown-strip { gap: 6px; padding: 6px 8px; }
-    .showdown-cards .hud-card { width: 30px; }
+    .showdown-strip { gap: 12px; padding: 10px 12px; max-width: min(420px, 84vw); }
+    .showdown-seat { min-width: 88px; padding: 6px 8px; gap: 5px; }
+    .showdown-cards .hud-card { width: 46px; }
+    .showdown-name, .showdown-hand { font-size: 12px; }
     .hud-bottom-row { gap: 8px; padding: 0 calc(10px + env(safe-area-inset-right)) 2px calc(10px + env(safe-area-inset-left)); }
     .actor-card { min-width: 120px; padding: 8px 12px; }
     .actor-name { font-size: 15px; }
@@ -1216,9 +1221,10 @@ html, body {
     .banner-cards { margin: 6px 0 2px; gap: 5px; }
     .banner-cards .hud-card { width: 40px; }
     .hud-winner .hud-card { width: 28px; }
-    .showdown-strip { gap: 6px; padding: 4px 8px; }
-    .showdown-cards .hud-card { width: 28px; }
-    .showdown-name, .showdown-hand { font-size: 10px; }
+    .showdown-strip { gap: 10px; padding: 8px 10px; max-width: min(380px, 70vw); }
+    .showdown-seat { min-width: 80px; padding: 5px 8px; gap: 4px; }
+    .showdown-cards .hud-card { width: 42px; }
+    .showdown-name, .showdown-hand { font-size: 11px; }
     .hud-bottom-row { gap: 8px; padding: 0 calc(14px + env(safe-area-inset-right)) 2px calc(14px + env(safe-area-inset-left)); }
     .actor-card { min-width: 120px; padding: 6px 12px; }
     .actor-name { font-size: 14px; }
