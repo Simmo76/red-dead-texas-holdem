@@ -1009,19 +1009,27 @@ html, body {
 /* ------------------------------------------------------- hand rankings */
 
 .hands-box {
-    max-width: min(760px, calc(100vw - 32px));
+    width: calc(100vw - 24px);
+    max-width: 760px;
     max-height: calc(100vh - 24px);
     max-height: calc(100dvh - 24px);
-    overflow-y: auto;
-    padding: 20px 24px;
-    gap: 14px;
+    overflow: hidden;
+    padding: 16px 18px;
+    gap: 12px;
+    align-items: center;
 }
 
 .hands-chart {
     display: block;
-    width: 100%;
-    /* Keep the chart plus the CLOSE button inside one screen. */
-    max-height: calc(100dvh - 140px);
+    /* The box is a flex column with a viewport-capped height: letting the
+       image shrink (min-height: 0) scales the whole chart down to whatever
+       room is left after the CLOSE button, on any screen size. */
+    flex: 0 1 auto;
+    min-height: 0;
+    width: auto;
+    max-width: 100%;
+    max-height: calc(100vh - 130px);
+    max-height: calc(100dvh - 130px);
     object-fit: contain;
     border-radius: 12px;
 }
@@ -1257,8 +1265,8 @@ html, body {
     .slider-panel { gap: 4px; }
     .overlay-box { padding: 22px 30px; gap: 14px; }
     .settings-box { padding: 16px 24px; gap: 10px; }
-    .hands-box { padding: 12px 16px; gap: 8px; }
-    .hands-chart { max-height: calc(100dvh - 100px); }
+    .hands-box { padding: 10px 12px; gap: 8px; }
+    .hands-chart { max-height: calc(100vh - 90px); max-height: calc(100dvh - 90px); }
     .settings-rows { gap: 6px; }
     .settings-save { padding: 9px 16px; font-size: 12px; }
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
