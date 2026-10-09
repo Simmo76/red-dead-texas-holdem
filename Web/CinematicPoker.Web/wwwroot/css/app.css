@@ -36,29 +36,33 @@ html, body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 14px;
-    background: radial-gradient(ellipse at center, #241608 0%, var(--bg) 70%);
+    justify-content: flex-end;
+    gap: 10px;
+    padding-bottom: max(28px, 8vh);
+    /* Same one-sheet as the Blazor intro so loading never flashes a
+       different title card. Painted title lives in the art. */
+    background: #1a0c08 url("img/intro-splash.jpg") center / cover no-repeat;
 }
 
-.boot-title {
-    font-size: 34px;
-    letter-spacing: 8px;
-    color: var(--gold);
-    font-weight: bold;
-    text-shadow: 0 0 24px rgba(216, 178, 92, 0.35);
-}
-
+.boot-title,
 .boot-subtitle {
-    margin-top: -6px;
-    font-size: 13px;
-    letter-spacing: 5px;
-    color: var(--gold-dim);
+    /* Title art is in the splash image; keep DOM text for a11y only. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .boot-sub {
-    color: var(--text-dim);
-    letter-spacing: 2px;
+    color: #e8dcc4;
+    letter-spacing: 3px;
+    font-size: 13px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
     animation: pulse 1.6s ease-in-out infinite;
 }
 
@@ -137,7 +141,7 @@ html, body {
     background: rgba(35, 26, 12, 0.85);
 }
 
-/* ----------------------------------------------------- intro movie */
+/* ----------------------------------------------------- intro splash */
 
 .intro-overlay {
     position: fixed;
@@ -148,21 +152,27 @@ html, body {
     align-items: center;
     justify-content: center;
     gap: 20px;
-    /* Western-poster backdrop, painted entirely from CSS: a faint crimson
-       film grain, rough horizontal brush bands, a blood-red vignette and
-       the dark base coat. */
-    background:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.45  0 0 0 0 0.04  0 0 0 0 0.05  0 0 0 0.4 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)'/%3E%3C/svg%3E") repeat,
-        repeating-linear-gradient(94deg,
-            transparent 0 140px,
-            rgba(96, 8, 14, 0.07) 140px 210px,
-            transparent 210px 330px,
-            rgba(118, 10, 16, 0.05) 330px 390px),
-        radial-gradient(130% 100% at 50% 40%, transparent 46%, rgba(74, 4, 10, 0.32) 100%),
-        rgba(5, 4, 9, 0.76);
     cursor: pointer;
     overflow: hidden;
     transition: opacity 3s ease;
+}
+
+/* Owner-supplied western one-sheet: title, subtitle and TAP TO PLAY are
+   painted into the art, so the splash is the image itself. */
+.intro-overlay.intro-splash {
+    background:
+        #1a0c08 url("img/intro-splash.jpg") center / cover no-repeat;
+}
+
+/* Name prompt: dim the art so the form stays readable. */
+.intro-overlay.intro-splash.prompting {
+    background-image:
+        linear-gradient(rgba(6, 3, 2, 0.72), rgba(6, 3, 2, 0.72)),
+        url("img/intro-splash.jpg");
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    cursor: default;
 }
 
 /* Tap-to-play: the whole title card dissolves slowly over the table. */
@@ -171,67 +181,28 @@ html, body {
     pointer-events: none;
 }
 
-/* Sinister undertone: deep-red "paint" blooms drifting through the dark,
-   like ink dispersing in water. Two blurred layers move against each
-   other very slowly so the mix never looks like a loop. */
-.intro-overlay::before,
-.intro-overlay::after {
-    content: "";
-    position: absolute;
-    inset: -35%;
-    pointer-events: none;
-    will-change: transform, opacity;
-}
-
-.intro-overlay::before {
-    filter: blur(60px) saturate(1.2);
-    background:
-        radial-gradient(38% 30% at 22% 68%, rgba(128, 8, 16, 0.55) 0%, transparent 70%),
-        radial-gradient(30% 36% at 76% 26%, rgba(96, 4, 18, 0.46) 0%, transparent 70%),
-        radial-gradient(24% 22% at 58% 78%, rgba(154, 16, 20, 0.34) 0%, transparent 68%);
-    animation: intro-blood-drift-a 46s ease-in-out infinite alternate;
-}
-
-/* Second layer carries the dusk-sun disc — the pale ember circle sitting
-   behind the title — plus its own counter-drifting red washes. */
-.intro-overlay::after {
-    filter: blur(26px) saturate(1.15);
-    background:
-        radial-gradient(circle at 50% 46.5%,
-            rgba(206, 128, 38, 0.17) 0%,
-            rgba(198, 110, 30, 0.13) 12.5%,
-            rgba(150, 52, 18, 0.05) 14.5%,
-            transparent 17%),
-        radial-gradient(32% 42% at 80% 74%, rgba(110, 6, 14, 0.34) 0%, transparent 70%),
-        radial-gradient(26% 24% at 30% 22%, rgba(142, 10, 22, 0.26) 0%, transparent 66%),
-        radial-gradient(60% 46% at 50% 108%, rgba(78, 2, 10, 0.38) 0%, transparent 74%);
-    animation: intro-blood-drift-b 58s ease-in-out infinite alternate;
-}
-
-/* Keep the title, tap hint and name prompt above the paint layers. */
 .intro-overlay > * {
     position: relative;
     z-index: 1;
 }
 
-@keyframes intro-blood-drift-a {
-    0%   { transform: translate(-3%, 2%) rotate(0deg) scale(1); opacity: 0.55; }
-    35%  { transform: translate(2%, -2%) rotate(5deg) scale(1.08); opacity: 0.8; }
-    70%  { transform: translate(4%, 3%) rotate(2deg) scale(1.14); opacity: 0.6; }
-    100% { transform: translate(-1%, -3%) rotate(-4deg) scale(1.05); opacity: 0.75; }
-}
-
-@keyframes intro-blood-drift-b {
-    0%   { transform: translate(3%, -2%) rotate(0deg) scale(1.1); opacity: 0.65; }
-    40%  { transform: translate(-2%, 3%) rotate(-6deg) scale(1); opacity: 0.45; }
-    100% { transform: translate(-4%, -1%) rotate(3deg) scale(1.12); opacity: 0.7; }
+/* Soft pulse over the painted red TAP TO PLAY banner in the splash. */
+.intro-tap-pulse {
+    position: absolute;
+    left: 50%;
+    top: 62%;
+    width: min(420px, 52vw);
+    height: clamp(28px, 5.2vw, 40px);
+    transform: translate(-50%, -50%);
+    border-radius: 2px;
+    background: rgba(255, 230, 200, 0.16);
+    box-shadow: 0 0 18px rgba(180, 40, 28, 0.35);
+    animation: intro-pulse 1.7s ease-in-out infinite;
+    pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .intro-overlay::before,
-    .intro-overlay::after {
-        animation: none;
-    }
+    .intro-tap-pulse { animation: none; opacity: 0.55; }
 }
 
 .intro-title {
@@ -246,55 +217,11 @@ html, body {
         0 3px 18px rgba(0, 0, 0, 0.9);
 }
 
-/* Poster-style type: the accent word goes blood-red with a dark halo. */
 .intro-title span {
     color: #c6231b;
     text-shadow:
         0 4px 4px rgba(10, 2, 2, 0.9),
         0 0 26px rgba(90, 6, 8, 0.8);
-}
-
-/* Red rule with a centred spade, straight off the one-sheet. */
-.intro-divider {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    width: min(460px, 64vw);
-    margin-top: -6px;
-}
-
-.intro-divider i {
-    flex: 1;
-    height: 3px;
-    background: linear-gradient(90deg, transparent, #b42620 14%, #b42620 86%, transparent);
-}
-
-.intro-divider b {
-    color: #b42620;
-    font-size: 22px;
-    line-height: 1;
-    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
-}
-
-.intro-subtitle {
-    font-size: clamp(14px, 2.2vw, 21px);
-    letter-spacing: 7px;
-    font-weight: bold;
-    color: #e6d9bd;
-    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
-}
-
-.intro-tap {
-    font-size: 14px;
-    letter-spacing: 5px;
-    color: var(--text-dim);
-    animation: intro-pulse 1.7s ease-in-out infinite;
-}
-
-.intro-star {
-    color: #b42620;
-    font-size: 11px;
-    vertical-align: 1px;
 }
 
 .name-prompt {
