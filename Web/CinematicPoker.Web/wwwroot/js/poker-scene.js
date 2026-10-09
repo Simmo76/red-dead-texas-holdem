@@ -349,8 +349,16 @@ function makeDealerArrow() {
   return group;
 }
 
-// Shared gold hull material for the current actor's outline. The vertex
-// displacement runs before skinning, so the hull inflates in bind space.
+// Shared gold hull material for the current actor's outline. The hull is
+// inflated in screen space: the offset grows with the vertex's view depth so
+// the outline keeps a constant pixel width whether the actor sits next to
+// the camera or across the table (a fixed world-space offset all but
+// vanished on the far seats).
+const OUTLINE_PX = 2.5; // outline thickness in CSS pixels
+const _outlineUniforms = {
+  uOutlinePx: { value: OUTLINE_PX },
+  uOutlineViewH: { value: 720 }, // canvas CSS height, refreshed on resize
+};
 let _outlineMat = null;
 function outlineMaterial() {
   if (_outlineMat) return _outlineMat;
@@ -358,12 +366,25 @@ function outlineMaterial() {
     color: 0xffc14d, side: THREE.BackSide, toneMapped: false,
   });
   _outlineMat.onBeforeCompile = (shader) => {
+    shader.uniforms.uOutlinePx = _outlineUniforms.uOutlinePx;
+    shader.uniforms.uOutlineViewH = _outlineUniforms.uOutlineViewH;
     // Inflate after skinning so the hull follows the posed surface normals
     // (bind-space offset before skinning intersects the body and reads as
-    // dark z-fighting patches on the shirt).
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <skinning_vertex>',
-      '#include <skinning_vertex>\n\ttransformed += normalize( normal ) * 0.0052;');
+    // dark z-fighting patches on the shirt). World units per screen pixel at
+    // view depth z is 2z / (P[1][1] * viewportHeight); dividing by the
+    // model's uniform scale converts that back to object space, where
+    // `transformed` lives.
+    shader.vertexShader = 'uniform float uOutlinePx;\n'
+      + 'uniform float uOutlineViewH;\n'
+      + shader.vertexShader.replace(
+        '#include <skinning_vertex>',
+        `#include <skinning_vertex>
+\t{
+\t\tfloat outlineViewZ = max( -( modelViewMatrix * vec4( transformed, 1.0 ) ).z, 0.0 );
+\t\tfloat outlineWorldPerPx = 2.0 * outlineViewZ / ( projectionMatrix[1][1] * uOutlineViewH );
+\t\tfloat outlineModelScale = length( modelViewMatrix[0].xyz );
+\t\ttransformed += normalize( normal ) * ( uOutlinePx * outlineWorldPerPx / outlineModelScale );
+\t}`);
   };
   return _outlineMat;
 }
@@ -1752,6 +1773,7 @@ function resizeIfNeeded(canvas, renderer, camera) {
   if (w === lastW && h === lastH) return;
   lastW = w; lastH = h;
   if (w === 0 || h === 0) return;
+  _outlineUniforms.uOutlineViewH.value = h;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   state.baseFov = 52;
