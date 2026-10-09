@@ -36,29 +36,33 @@ html, body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 14px;
-    background: radial-gradient(ellipse at center, #241608 0%, var(--bg) 70%);
+    justify-content: flex-end;
+    gap: 10px;
+    padding-bottom: max(28px, 8vh);
+    /* Same one-sheet as the Blazor intro so loading never flashes a
+       different title card. Painted title lives in the art. */
+    background: #1a0c08 url("img/intro-splash.jpg") center / cover no-repeat;
 }
 
-.boot-title {
-    font-size: 34px;
-    letter-spacing: 8px;
-    color: var(--gold);
-    font-weight: bold;
-    text-shadow: 0 0 24px rgba(216, 178, 92, 0.35);
-}
-
+.boot-title,
 .boot-subtitle {
-    margin-top: -6px;
-    font-size: 13px;
-    letter-spacing: 5px;
-    color: var(--gold-dim);
+    /* Title art is in the splash image; keep DOM text for a11y only. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .boot-sub {
-    color: var(--text-dim);
-    letter-spacing: 2px;
+    color: #e8dcc4;
+    letter-spacing: 3px;
+    font-size: 13px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
     animation: pulse 1.6s ease-in-out infinite;
 }
 
