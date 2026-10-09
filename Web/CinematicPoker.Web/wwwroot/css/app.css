@@ -41,7 +41,8 @@ html, body {
     padding-bottom: max(28px, 8vh);
     /* Same one-sheet as the Blazor intro so loading never flashes a
        different title card. Painted title lives in the art. */
-    background: #1a0c08 url("img/intro-splash.jpg") center / cover no-repeat;
+    /* Paths are relative to this stylesheet (css/), not the page. */
+    background: #1a0c08 url("../img/intro-splash.jpg") center / cover no-repeat;
 }
 
 .boot-title,
@@ -161,14 +162,14 @@ html, body {
    painted into the art, so the splash is the image itself. */
 .intro-overlay.intro-splash {
     background:
-        #1a0c08 url("img/intro-splash.jpg") center / cover no-repeat;
+        #1a0c08 url("../img/intro-splash.jpg") center / cover no-repeat;
 }
 
 /* Name prompt: dim the art so the form stays readable. */
 .intro-overlay.intro-splash.prompting {
     background-image:
         linear-gradient(rgba(6, 3, 2, 0.72), rgba(6, 3, 2, 0.72)),
-        url("img/intro-splash.jpg");
+        url("../img/intro-splash.jpg");
     background-position: center;
     background-size: cover;
     background-repeat: no-repeat;
