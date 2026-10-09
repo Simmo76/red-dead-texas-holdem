@@ -469,9 +469,12 @@
     // a dwell pause before a street / showdown / pot award), stepping through
     // the rest of the hand action by action as fast as the player taps.
     // After the pot is awarded the same control becomes NEXT HAND so the
-    // result stays on screen until the player chooses to continue.
+    // result stays on screen until the player chooses to continue. At the
+    // start of a session the same control is DEAL: nothing is dealt until
+    // the player presses it.
     private bool _skipRequested;
     private bool _awaitingNextHand;
+    private bool _awaitingFirstDeal;
     private bool _handHasCompleted;
 
     private bool HumanIsBusted => _game != null && _game.HasHumanLost;
@@ -479,15 +482,18 @@
     private bool CanFastForward =>
         _game != null && !_sessionOver && !_awaitingHuman
         && (_awaitingNextHand
+            || _awaitingFirstDeal
             || (SeatOf(0) is { Folded: true }
                 && (_game.Phase == GamePhase.HandInProgress || _pending.Count > 0)));
 
     private string NextHandButtonLabel =>
-        !_awaitingNextHand ? "SKIP »"
+        _awaitingFirstDeal ? "DEAL"
+        : !_awaitingNextHand ? "SKIP »"
         : HumanIsBusted ? "CONTINUE" : "NEXT HAND";
 
     private string NextHandButtonTitle =>
-        !_awaitingNextHand ? "Skip to the next action"
+        _awaitingFirstDeal ? "Deal the first hand"
+        : !_awaitingNextHand ? "Skip to the next action"
         : HumanIsBusted ? "See game over"
         : _game is { HasHumanWon: true } ? "Continue with your stack"
         : "Go to the next hand";
@@ -839,6 +845,7 @@
         _advice = null;
         _skipRequested = false;
         _awaitingNextHand = false;
+        _awaitingFirstDeal = true; // nothing happens until the player taps DEAL
         _handHasCompleted = false;
         _ = EndBetPreview(); // RESTART mid-sizing: drop the preview close-up
         _exportOpen = false;
@@ -894,6 +901,7 @@
         _advice = null;
         _skipRequested = false;
         _awaitingNextHand = false;
+        _awaitingFirstDeal = false; // CONTINUE GAME was the press; deal straight away
         _handHasCompleted = false;
         _exportOpen = false;
         _banner = null;
@@ -995,6 +1003,18 @@
                         await Task.Delay(50);
                     _skipRequested = false;
                     _awaitingNextHand = false;
+                }
+                else if (_awaitingFirstDeal)
+                {
+                    // Session start: hold the table until the player taps
+                    // DEAL, so nothing happens until they're ready.
+                    _skipRequested = false;
+                    _statusLine = "Tap DEAL when you're ready";
+                    StateHasChanged();
+                    while (token == _loopToken && !_skipRequested)
+                        await Task.Delay(50);
+                    _skipRequested = false;
+                    _awaitingFirstDeal = false;
                 }
                 else if (_game.Phase == GamePhase.WaitingForHand)
                 {
