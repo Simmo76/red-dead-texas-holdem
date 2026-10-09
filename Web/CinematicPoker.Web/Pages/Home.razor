@@ -38,6 +38,9 @@
     <header class="topbar">
         <div class="brand">DEAD MAN'S <span>HAND</span></div>
         <div class="topbar-right">
+            <button class="chip-btn" @onclick="OpenHandRankings" title="Poker hand rankings">
+                <span class="chip-gear" aria-hidden="true">♠</span> HANDS
+            </button>
             <button class="chip-btn" @onclick="OpenSettings" title="Game settings">
                 <span class="chip-gear" aria-hidden="true">⚙</span> SETTINGS
             </button>
@@ -308,6 +311,19 @@
                     <button class="act small" @onclick="ExportFromSettings">EXPORT STATS</button>
                     <button class="act allin settings-restart" @onclick="RestartFromSettings">RESTART</button>
                     <button class="act small" @onclick="CloseSettings">CLOSE</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_handRankingsOpen)
+    {
+        <div class="overlay" @onclick="CloseHandRankings">
+            <div class="overlay-box hands-box" @onclick:stopPropagation="true">
+                <img class="hands-chart" src="img/hand-rankings.jpg"
+                     alt="Poker hand rankings from best to worst: royal flush, straight flush, four of a kind, full house, flush, straight, three of a kind, two pair, pair, high card" />
+                <div class="overlay-actions">
+                    <button class="act small" @onclick="CloseHandRankings">CLOSE</button>
                 </div>
             </div>
         </div>
@@ -844,6 +860,7 @@
         _exportOpen = false;
         _exportNote = "";
         _settingsOpen = false;
+        _handRankingsOpen = false;
         try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
         catch (InvalidOperationException) { }
         catch (JSException) { }
@@ -1276,6 +1293,14 @@
         else
             advice.ActionLabel = $"RAISE TO ${to}";
     }
+
+    // -------------------------------------------------------- hand rankings
+
+    private bool _handRankingsOpen;
+
+    private void OpenHandRankings() => _handRankingsOpen = true;
+
+    private void CloseHandRankings() => _handRankingsOpen = false;
 
     // ------------------------------------------------------------- settings
 
