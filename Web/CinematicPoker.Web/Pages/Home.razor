@@ -13,7 +13,8 @@
 
     @if (!_introStarted)
     {
-        <div class="intro-overlay @(_introFading ? "fading" : "")" @onclick="StartIntro">
+        <div class="intro-overlay intro-splash @(_introFading ? "fading" : "") @(_namePromptOpen ? "prompting" : "")"
+             @onclick="StartIntro" role="button" aria-label="Tap to play">
             @if (_namePromptOpen)
             {
                 <div class="name-prompt" @onclick:stopPropagation="true">
@@ -28,10 +29,9 @@
             }
             else
             {
-                <div class="intro-title">DEAD MAN'S <span>HAND</span></div>
-                <div class="intro-divider" aria-hidden="true"><i></i><b>♠</b><i></i></div>
-                <div class="intro-subtitle">TEXAS HOLD&rsquo;EM POKER</div>
-                <div class="intro-tap"><span class="intro-star">★</span> TAP TO PLAY <span class="intro-star">★</span></div>
+                @* Title art + TAP TO PLAY live in the splash image; keep a
+                   pulsing hotspot over the painted CTA so the cue still animates. *@
+                <div class="intro-tap-pulse" aria-hidden="true"></div>
             }
         </div>
     }
