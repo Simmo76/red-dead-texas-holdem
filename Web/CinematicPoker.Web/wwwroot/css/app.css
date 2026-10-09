@@ -187,20 +187,21 @@ html, body {
     z-index: 1;
 }
 
-/* Soft pulse over the painted red TAP TO PLAY banner in the splash.
-   Must beat `.intro-overlay > * { position: relative }` so top% is
-   viewport-anchored onto the banner (~72% of the cover art), not the
-   subtitle that sits near flex-center. */
+/* Soft pulse hugging the painted TAP TO PLAY banner (splash art measures
+   the button at ~17%×12% of the image; with cover cropping that reads
+   about 32vw × 8vh — sized just outside the red plate, not a wide bar).
+   Beats `.intro-overlay > * { position: relative }` so top% is viewport-
+   anchored onto the banner. */
 .intro-overlay .intro-tap-pulse {
     position: absolute;
     left: 50%;
-    top: 72%;
-    width: min(440px, 56vw);
-    height: clamp(30px, 5.5vw, 42px);
+    top: 73%;
+    width: clamp(220px, 32vw, 300px);
+    height: clamp(32px, 8vh, 52px);
     transform: translate(-50%, -50%);
-    border-radius: 2px;
-    background: rgba(255, 220, 190, 0.18);
-    box-shadow: 0 0 20px rgba(180, 40, 28, 0.4);
+    border-radius: 3px;
+    background: rgba(255, 220, 190, 0.2);
+    box-shadow: 0 0 10px 2px rgba(180, 40, 28, 0.35);
     animation: intro-pulse 1.7s ease-in-out infinite;
     pointer-events: none;
     z-index: 2;
