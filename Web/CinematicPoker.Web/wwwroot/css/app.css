@@ -119,7 +119,7 @@ html, body {
 
 .brand span { color: var(--gold); }
 
-.topbar-right { display: flex; gap: 10px; }
+.topbar-right { display: flex; gap: 12px; }
 
 .chip-btn {
     background: var(--panel);
@@ -132,6 +132,20 @@ html, body {
     cursor: pointer;
     transition: all 0.15s;
     font-family: inherit;
+}
+
+.topbar-right .chip-btn {
+    position: relative;
+    padding: 10px 20px;
+    font-size: 13px;
+}
+
+/* Invisible tap halo: near-miss taps still hit the button instead of
+   falling through to the 3D canvas (which would nudge the camera). */
+.topbar-right .chip-btn::after {
+    content: "";
+    position: absolute;
+    inset: -6px -4px;
 }
 
 .chip-btn:hover { color: var(--text); border-color: var(--gold-dim); }
@@ -964,7 +978,7 @@ html, body {
 
 /* ------------------------------------------------------------- settings */
 
-.chip-gear { font-size: 14px; line-height: 1; }
+.chip-gear { font-size: 15px; line-height: 1; }
 
 .settings-box {
     max-width: min(440px, calc(100vw - 32px));
@@ -1105,9 +1119,10 @@ html, body {
 
 @media (max-width: 620px) and (orientation: portrait) {
     .topbar { padding-left: calc(10px + env(safe-area-inset-left)); padding-right: calc(10px + env(safe-area-inset-right)); }
-    /* Four buttons don't fit beside the brand on a phone: let them wrap. */
-    .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+    /* The buttons don't fit beside the brand on a phone: let them wrap. */
+    .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
     .chip-btn { padding: 5px 10px; font-size: 10px; letter-spacing: 1px; }
+    .topbar-right .chip-btn { padding: 8px 13px; font-size: 11px; }
     .brand { font-size: 12px; letter-spacing: 2px; }
 
     /* Left-aligned: the wrapped second row of topbar buttons owns the right. */
@@ -1150,8 +1165,9 @@ html, body {
 
 @media (max-height: 500px) and (orientation: landscape) {
     .topbar { padding-top: 6px; }
-    .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 5px; max-width: 72%; }
+    .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 72%; }
     .chip-btn { padding: 4px 10px; font-size: 10px; }
+    .topbar-right .chip-btn { padding: 7px 13px; font-size: 11px; }
     .brand { font-size: 12px; letter-spacing: 2px; }
 
     .hud-meters { top: 42px; gap: 8px; }
