@@ -613,27 +613,43 @@ function makeCharacter(gltf, spec, extraClips) {
   // the next hand starts.
   //
   // Plain alpha on a multi-part character shows its own insides (the far
-  // side of the head, the eyes from behind). The classic fix: while ghosted,
-  // depth-only copies of every mesh lay down the nearest surface depth first;
-  // the semi-transparent body then depth-tests against that buffer with
-  // depthWrite off so only the outer shell blends.
+  // side of the head, the eyes from behind) — the x-ray look. Fix: order-
+  // independent transparency via depth peeling, keeping only the front peel.
+  // While ghosted, depth-only copies of every mesh run in the opaque queue
+  // and record the nearest body surface per pixel; the semi-transparent
+  // colour pass then depth-tests (LessEqual) against that peel with
+  // depthWrite off, so exactly one layer — the outer shell — blends over the
+  // scene and interior surfaces are rejected.
   //
-  // The prepass stays in the *opaque* queue (transparent: false) with skinning
-  // and matching side so animated geometry actually writes depth; otherwise
-  // whole body regions fail the colour pass and vanish.
+  // The prepass must keep depthTest ENABLED: WebGL skips depth *writes*
+  // whenever the test is disabled, so a depthTest:false prepass writes
+  // nothing at all and the body degrades to unsorted alpha (the x-ray).
+  // Normal LessEqual testing also keeps the peel honest against the table —
+  // parts genuinely hidden behind the rail stay hidden, same as when the
+  // character renders opaque.
   //
-  // depthTest: false on the prepass ignores table depth that already
-  // filled the buffer — otherwise torsos behind the rail never write depth and
-  // only the head survives as a floating grey ghost.
+  // The prepass stays in the *opaque* queue (transparent: false); skinning is
+  // automatic because the clones are SkinnedMesh sharing the source skeleton,
+  // so the peel follows the animated pose exactly.
+  //
+  // FrontSide everywhere to match the colour pass, which forces FrontSide
+  // while ghosted — a double-sided peel would write back-face depth the
+  // front-only colour pass can never match, punching holes in the body.
   function ghostDepthMaterial(srcMat) {
     const m = new THREE.MeshBasicMaterial({
       colorWrite: false,
       transparent: false,
       depthWrite: true,
-      depthTest: false,
-      side: srcMat.side,
+      depthTest: true,
+      side: THREE.FrontSide,
     });
-    m.skinning = !!srcMat.skinning;
+    // Alpha-carded shells (hair, lashes) must cut their texture silhouette
+    // into the peel, or their card quads stamp solid rectangles of depth
+    // that erase the face behind them.
+    if (srcMat.alphaTest > 0 || srcMat.transparent) {
+      m.map = srcMat.map || null;
+      m.alphaTest = Math.max(srcMat.alphaTest || 0, 0.35);
+    }
     return m;
   }
   const ghostParts = [];
