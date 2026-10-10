@@ -811,6 +811,40 @@ function makeCharacter(gltf, spec, extraClips) {
     return character.playOnce(mood === 'win' ? 'Attack' : 'Fold', mood === 'win' ? 2.2 : 1.0);
   };
   character.tickFidget = () => {};
+
+  // Professional-poker steady hands: the seated idles keep drumming Jacob's
+  // fingers, which reads as nervous fiddling from the over-the-shoulder
+  // camera. For the player only, capture the finger pose from the first
+  // frame of the thinking idle and re-assert it after every mixer update, so
+  // the hands rest dead still while the rest of the body keeps breathing.
+  // The pin eases out during gestures/reactions (and the bust slump) so
+  // bets, folds and win/lose takes still play with their full animation.
+  if (isPlayer && sitAction) {
+    const FINGER_BONE = /^(thumb|index|middle|ring|pinky)_\d+_[lr]$/;
+    const fingerPose = [];
+    const prevTime = sitAction.time;
+    sitAction.time = 0;
+    mixer.update(0);
+    root.traverse((o) => {
+      if (o.isBone && FINGER_BONE.test(o.name)) {
+        fingerPose.push({ bone: o, quat: o.quaternion.clone() });
+      }
+    });
+    sitAction.time = prevTime;
+    mixer.update(0);
+    if (fingerPose.length) {
+      let pinW = 1;
+      let lastT = null;
+      character.tickFidget = (t) => {
+        const dt = lastT === null ? 0 : Math.max(0, t - lastT);
+        lastT = t;
+        const target = (character.dead || character.reacting) ? 0 : 1;
+        pinW += (target - pinW) * Math.min(1, dt * 6);
+        if (pinW < 0.01) return;
+        for (const p of fingerPose) p.bone.quaternion.slerp(p.quat, pinW);
+      };
+    }
+  }
   character.ensureSit = () => {
     if (character.dead || character.reacting || !sitAction) return;
     if (!sitAction.isRunning() || sitAction.getEffectiveWeight() < 0.2) hardSit();
