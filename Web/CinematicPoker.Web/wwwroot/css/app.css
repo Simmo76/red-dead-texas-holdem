@@ -455,6 +455,25 @@ html, body {
 
 .hud-card.facedown { opacity: 0.35; }
 
+/* Result spotlight: while the win/lose banner is up, this veil darkens
+   everything behind it — the 3D table cards and the board HUD — so the
+   result reads first. The banner (z:12) and the .hud-bottom column with
+   the showdown strip and NEXT HAND (z:8) stay bright above it. Clicks
+   pass through so the table stays tappable. */
+.result-dim {
+    position: absolute;
+    inset: 0;
+    background: rgba(6, 8, 4, 0.62);
+    z-index: 6;
+    pointer-events: none;
+    animation: dimfade 0.45s ease-out;
+}
+
+@keyframes dimfade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 .banner {
     position: absolute;
     left: 50%;
