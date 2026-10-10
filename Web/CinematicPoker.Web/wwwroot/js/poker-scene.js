@@ -459,7 +459,7 @@ function characterMaterial(material, shirt, meshName, hatTint) {
     shader.uniforms.uHue = { value: hue };
     shader.uniforms.uSat = { value: sat };
     shader.uniforms.uTint = { value: tint || new THREE.Color(1, 1, 1) };
-    shader.uniforms.uTintAmt = { value: tint ? 0.9 : 0 };
+    shader.uniforms.uTintAmt = { value: tint ? 1.0 : 0 };
     shader.uniforms.uGrey = { value: m.userData.foldGrey || 0 };
     shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\nuniform vec3 uTint;\nuniform float uTintAmt;\nuniform float uGrey;\n' +
       shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
@@ -469,7 +469,7 @@ function characterMaterial(material, shirt, meshName, hatTint) {
         vec3 c = diffuseColor.rgb;
         c = c * ca + cross(kGrey, c) * sa + kGrey * dot(kGrey, c) * (1.0 - ca);
         c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uSat);
-        c = mix(c, uTint * (dot(c, vec3(0.299, 0.587, 0.114)) * 1.9 + 0.08), uTintAmt);
+        c = mix(c, uTint * (dot(c, vec3(0.299, 0.587, 0.114)) * 2.2 + 0.1), uTintAmt);
         diffuseColor.rgb = clamp(c, 0.0, 1.0);
       }`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
       gl_FragColor.rgb = mix(gl_FragColor.rgb,
