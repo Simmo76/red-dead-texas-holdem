@@ -5,9 +5,10 @@
 // the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
 // Every seat, including the player, is a random outfit of David Grette's
 // Jacob cowboy. Check/bet/fold stay on Jacob's own clips. Active seats idle
-// on Cocomotion AS_Idle_Sit_Thinking_01; folded seats hold
-// AS_Idle_Sit_ArmsFolded_01. Win / lose stay Mighty Cat takes. All mood
-// clips are Humanoid-retargeted onto Jacob
+// on a Mighty Cat poker take (AS_Poker_Player_01-03) holding their hole
+// cards — card meshes are pinned to the hands so the hold reads; folded
+// seats hold Cocomotion AS_Idle_Sit_ArmsFolded_01. Win / lose stay Mighty
+// Cat takes. All mood clips are Humanoid-retargeted onto Jacob
 // (see docs/mighty-cat-poker-animation-map.md).
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
@@ -521,13 +522,19 @@ function makeCharacter(gltf, spec, extraClips) {
   const findMood = (name) => THREE.AnimationClip.findByName(moodClips, name);
   const pick = (names) => names[Math.floor(Math.random() * names.length)];
 
-  // Active seats loop sit-thinking; a fold swaps the home idle to arms-folded
-  // for the rest of the hand, then thinking returns on the next deal.
+  // Active seats loop a Mighty Cat poker take, visibly holding their hole
+  // cards; a fold swaps the home idle to arms-folded for the rest of the
+  // hand, then the card hold returns on the next deal. The character starts
+  // on sit-thinking only because the seat-plant measures the pose with
+  // palms at lap height — placeSeatedCharacter switches to the hold idle
+  // once the body is planted.
   const THINKING_IDLE = 'IdleSitThinking01';
   const FOLDED_IDLE = 'IdleSitArmsFolded01';
+  const HOLD_IDLES = ['IdlePoker01', 'IdlePoker02', 'IdlePoker03'];
   const WIN_CLIPS = ['Win01', 'Win02', 'Win03'];
   const LOSE_CLIPS = ['Lose01', 'Lose02', 'Lose03', 'Lose04'];
 
+  const holdIdle = HOLD_IDLES.find((n) => findMood(n)) ? pick(HOLD_IDLES.filter((n) => findMood(n))) : THINKING_IDLE;
   const idleName = THINKING_IDLE;
   const sitClip = findMood(idleName) || findBody('Sit');
   const isPlayer = !!spec.cards;
@@ -545,10 +552,14 @@ function makeCharacter(gltf, spec, extraClips) {
   }
 
   const character = {
-    root, mixer, sitAction, findBody, findMood,
+    root, mixer, sitAction, findBody, findMood, holdIdle,
     dead: false, reacting: false, isPlayer, armPose: null, armW: 1,
     outlineOn: false, folded: false, foldW: 0, idleName,
   };
+
+  // Bone lookup for pinning held cards to the hands each frame.
+  character.bones = {};
+  root.traverse((o) => { if (o.isBone) character.bones[o.name] = o; });
 
   const adoptSitAction = (next, name) => {
     sitAction = next;
@@ -582,6 +593,7 @@ function makeCharacter(gltf, spec, extraClips) {
     runSit(next);
     next.time = Math.random() * clip.duration;
   };
+  character.switchHomeIdle = switchHomeIdle;
 
   // Inverted-hull outline (the classic stencil-outline look): a back-face
   // copy of every mesh, inflated along the normals, shown only while this
@@ -655,7 +667,7 @@ function makeCharacter(gltf, spec, extraClips) {
   character.setFolded = (on) => {
     if (character.folded === on) return;
     character.folded = on;
-    const name = on ? FOLDED_IDLE : THINKING_IDLE;
+    const name = on ? FOLDED_IDLE : character.holdIdle;
     const clip = findMood(name) || findBody('Sit');
     if (!clip || !sitAction || sitAction.getClip() === clip) return;
     // A Fold / FoldShake already in flight should land on the new hold, not
@@ -697,7 +709,7 @@ function makeCharacter(gltf, spec, extraClips) {
     }
   };
 
-  // Idle is AS_Idle_Sit_Thinking_01 until a fold; then AS_Idle_Sit_ArmsFolded_01.
+  // Idle is a card-holding poker take until a fold; then AS_Idle_Sit_ArmsFolded_01.
 
   // Unused for Jacob: the sit pose is the hold. Kept so a gesture can still
   // fade a pinned pose back in if one is ever stored on the character.
@@ -749,7 +761,7 @@ function makeCharacter(gltf, spec, extraClips) {
         character.reacting = false;
         // Always snap back onto a seated loop. A faded-out sit left at
         // weight 0 drops Jacob into the standing bind (arms out).
-        const wantName = character.folded ? FOLDED_IDLE : THINKING_IDLE;
+        const wantName = character.folded ? FOLDED_IDLE : character.holdIdle;
         const want = findMood(wantName) || findBody('Sit');
         if (want && (!sitAction || sitAction.getClip() !== want)) {
           const nextSit = makeSitAction(want);
@@ -1154,6 +1166,14 @@ async function buildScene(canvas) {
     character.root.updateMatrixWorld(true);
     character.modelYaw = modelYaw;
     character.seatFacing = facing;
+
+    // Planted. Swap from the lap-height measuring pose onto this seat's
+    // card-holding poker idle.
+    if (character.holdIdle && character.switchHomeIdle) {
+      character.switchHomeIdle(character.holdIdle);
+      character.mixer.update(0);
+      character.root.updateMatrixWorld(true);
+    }
   };
 
   for (let i = 0; i < SEATS; i++) {
@@ -1302,6 +1322,7 @@ async function buildScene(canvas) {
     }
 
     updateFx(dt);
+    updateHeldCards();
     positionHandCards();
     resizeIfNeeded(canvas, renderer, camera);
     renderer.render(scene, camera);
@@ -1814,19 +1835,20 @@ function updateHole(paths) {
   layoutHoleCards();
 }
 
-// ---- the player's cards: a fan on the felt, in front of his seat ----
+// ---- the player's cards: a fan held in his hands ----
 
-// Spot on the felt in front of the player where his card fan rests — well
-// inside the rail so the pair reads clearly past his body from the camera.
+// Fallback spot on the felt in front of the player, used until his
+// character has loaded and whenever he has folded (mucked cards go back to
+// the felt rather than riding the arms-folded pose).
 const HOLE_ANCHOR = new THREE.Vector3(0, TABLE_TOP + 0.02, TABLE_RADIUS - 0.24);
 
 // Where the player's committed chips land (same ring updateSeatChips uses for
 // seat 0), so the sizing preview grows exactly where the real bet will sit.
 const BET_SPOT = new THREE.Vector3(0, TABLE_TOP, TABLE_RADIUS - 0.62);
 
-// Leave the seated pose alone. A shoulder/elbow solve written for a different
-// rig shears Jacob's face and sleeves, so the hole cards stay at the anchor
-// on the felt instead of being pinned between the hands.
+// Leave the seated pose alone — the poker idle already mimes holding the
+// pair, so the fan simply tracks the hand grip each frame (positionHandCards)
+// instead of bending the arms with an IK solve.
 function setupPlayerArms() {
   state.holeAnchor = HOLE_ANCHOR.clone();
   layoutHoleCards();
@@ -1864,6 +1886,16 @@ function positionHandCards() {
   const handZoom = state.zoom.active && state.zoom.kind === 'hand';
   const boardZoom = state.zoom.active && state.zoom.kind === 'board';
   const betZoom = state.zoom.active && state.zoom.kind === 'bet';
+  // The fan is held in the player's hands: track the grip every frame so
+  // the pair rides the idle's sway. Folded (or not yet loaded) drops the
+  // anchor back onto the felt.
+  if (!boardZoom) {
+    const char0 = state.seats[0] && state.seats[0].char;
+    if (!char0 || char0.folded || char0.dead || !heldCardAnchor(char0, state.holeAnchor)) {
+      state.holeAnchor.copy(HOLE_ANCHOR);
+    }
+    if (!state.holeFlat) layoutHoleCards();
+  }
   if (handZoom) {
     // Hover above and just in front of the pair (backing straight toward the
     // seat would put the camera inside the player's leaned-forward head).
@@ -1898,9 +1930,73 @@ function positionHandCards() {
   }
 }
 
+// ---- cards held in the cowboys' hands ----
+//
+// Active seats play a Mighty Cat poker idle that mimes holding a pair, so a
+// small fan of card meshes is pinned to the hand bones every frame: backs
+// for the NPCs, and the player's own fan rides his hand too (see
+// positionHandCards). The group is scene-level — parenting to the bone
+// would inherit the rig scale and need per-rig axis guesses; a world-space
+// follow of the hand works for every take.
+const _heldHandL = new THREE.Vector3();
+const _heldHandR = new THREE.Vector3();
+const _heldHead = new THREE.Vector3();
+
+function setSeatHeldCards(seat, on) {
+  if (!on) {
+    if (seat.heldCards) { state.scene.remove(seat.heldCards); seat.heldCards = null; }
+    return;
+  }
+  if (seat.heldCards) return;
+  const group = new THREE.Group();
+  const w = CARD_W * 0.8;
+  for (let c = 0; c < 2; c++) {
+    const card = makeCard('img/cards/back.png', w);
+    const dir = c === 0 ? -1 : 1;
+    // Fan the pair out of the fist: bottom edges together at the grip,
+    // faces toward the owner's head, separated planes so no z-fighting.
+    card.rotation.z = dir * 0.16;
+    card.position.set(dir * 0.028, w * (190 / 140) * 0.38, 0.004 * (c + 1));
+    group.add(card);
+  }
+  seat.heldCards = group;
+  state.scene.add(group);
+}
+
+// Grip point: between the hands when they're together (a two-handed hold),
+// otherwise the left hand carries the pair.
+function heldCardAnchor(char, out) {
+  const bones = char.bones || {};
+  const hl = bones.hand_l, hr = bones.hand_r;
+  if (!hl) return false;
+  hl.getWorldPosition(_heldHandL);
+  out.copy(_heldHandL);
+  if (hr) {
+    hr.getWorldPosition(_heldHandR);
+    if (_heldHandL.distanceTo(_heldHandR) < 0.22) out.lerp(_heldHandR, 0.5);
+  }
+  return true;
+}
+
+function updateHeldCards() {
+  for (const seat of state.seats) {
+    const group = seat.heldCards;
+    const char = seat.char;
+    if (!group || !char) continue;
+    const head = char.bones && char.bones.head;
+    if (!head || !heldCardAnchor(char, group.position)) { group.visible = false; continue; }
+    // Hide the pair while a win/lose take throws the arms around, and once
+    // the seat is a ghost; the home idle is the only honest card hold.
+    group.visible = !char.dead && !char.reacting && char.foldW < 0.5;
+    head.getWorldPosition(_heldHead);
+    group.lookAt(_heldHead); // faces to the owner, backs to the table
+  }
+}
+
 function updateSeatCards(seat, i, data) {
   clearGroupChildren(seat.cards, state.scene);
   const paths = data.reveal && data.reveal.length ? data.reveal : null;
+  setSeatHeldCards(seat, i !== 0 && data.active && !paths);
   // Keep revealed showdown cards on the felt even after the engine has
   // already marked that seat eliminated / inactive.
   if (i === 0 || (!data.active && !paths)) return;
@@ -1924,21 +2020,9 @@ function updateSeatCards(seat, i, data) {
       seat.cards.push(card);
       state.scene.add(card);
     }
-    return;
   }
-
-  const basePos = seatPos(i, TABLE_RADIUS - 0.33);
-  const yaw = seatAngle(i) - Math.PI / 2; // cards face along seat direction
-
-  for (let c = 0; c < 2; c++) {
-    const card = makeCard('img/cards/back.png', CARD_W);
-    const offset = (c === 0 ? -1 : 1) * (CARD_W / 2 + 0.008);
-    const ox = Math.cos(yaw) * offset;
-    const oz = -Math.sin(yaw) * offset;
-    placeTableCard(card, basePos.x + ox, basePos.z + oz, 0, yaw);
-    seat.cards.push(card);
-    state.scene.add(card);
-  }
+  // No felt backs for live unrevealed hands any more — those cards are the
+  // held pair pinned to the character's hands (setSeatHeldCards above).
 }
 
 function seatCardZoom(seatIndex) {
@@ -2197,6 +2281,41 @@ window.pokerScene = {
         foldedDur: foldedClip ? Number(foldedClip.duration.toFixed(2)) : 0,
         reacting: !!c.reacting,
       };
+    });
+  },
+
+  // Screen-space centre of the player's first hole card (CSS px), for tests.
+  holeScreen() {
+    if (!state.holeCards.length || !state.camera || !state.renderer) return null;
+    const v = new THREE.Vector3();
+    state.holeCards[0].getWorldPosition(v).project(state.camera);
+    const rect = state.renderer.domElement.getBoundingClientRect();
+    return {
+      x: rect.left + (v.x + 1) / 2 * rect.width,
+      y: rect.top + (-v.y + 1) / 2 * rect.height,
+      visible: state.holeCards[0].visible,
+    };
+  },
+
+  heldDebug() {
+    const v = new THREE.Vector3();
+    return (state.seats || []).map((seat, i) => {
+      const c = seat && seat.char;
+      const g = seat && seat.heldCards;
+      const row = { i, held: !!g };
+      if (g) {
+        row.visible = g.visible;
+        row.pos = g.position.toArray().map(n => Number(n.toFixed(2)));
+      }
+      if (c && c.bones && c.bones.hand_l) {
+        c.bones.hand_l.getWorldPosition(v);
+        row.handL = v.toArray().map(n => Number(n.toFixed(2)));
+      }
+      if (c && c.bones && c.bones.hand_r) {
+        c.bones.hand_r.getWorldPosition(v);
+        row.handR = v.toArray().map(n => Number(n.toFixed(2)));
+      }
+      return row;
     });
   },
 
