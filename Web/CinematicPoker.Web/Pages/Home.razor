@@ -234,14 +234,16 @@
                 {
                     @* Folded and spectating: step through the action one tap
                        at a time, or jump straight to the next hand. *@
-                    <button class="act ff" @onclick="FastForward"
-                            title="Skip to the next action">
-                        SKIP »
-                    </button>
-                    <button class="act ff ff-next" @onclick="SkipToNextHand"
-                            title="Fast-forward to the next hand">
-                        NEXT HAND »
-                    </button>
+                    <div class="actionbar-right">
+                        <button class="act ff" @onclick="FastForward"
+                                title="Skip to the next action">
+                            SKIP »
+                        </button>
+                        <button class="act ff ff-next" @onclick="SkipToNextHand"
+                                title="Fast-forward to the next hand">
+                            NEXT HAND »
+                        </button>
+                    </div>
                 }
                 else
                 {
