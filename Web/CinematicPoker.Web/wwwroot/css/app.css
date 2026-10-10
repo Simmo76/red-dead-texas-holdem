@@ -132,6 +132,31 @@ html, body {
     cursor: pointer;
     transition: all 0.15s;
     font-family: inherit;
+    /* Centre the icon + label instead of relying on baseline alignment,
+       so the visible pill matches what the finger expects to hit. */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    touch-action: manipulation;
+}
+
+/* The HANDS/SETTINGS pills are primary touch targets: render them a
+   notch larger than the shared chip style used inside the settings panel. */
+.topbar .chip-btn {
+    border-radius: 22px;
+    padding: 10px 20px;
+    min-height: 40px;
+    font-size: 13px;
+    position: relative;
+}
+
+/* Invisible halo: taps that land just outside the pill still count.
+   Narrower on the sides so adjacent buttons' halos never overlap. */
+.topbar .chip-btn::after {
+    content: "";
+    position: absolute;
+    inset: -6px -3px;
 }
 
 .chip-btn:hover { color: var(--text); border-color: var(--gold-dim); }
@@ -964,7 +989,7 @@ html, body {
 
 /* ------------------------------------------------------------- settings */
 
-.chip-gear { font-size: 14px; line-height: 1; }
+.chip-gear { font-size: 16px; line-height: 1; }
 
 .settings-box {
     max-width: min(440px, calc(100vw - 32px));
@@ -1108,10 +1133,12 @@ html, body {
     /* Four buttons don't fit beside the brand on a phone: let them wrap. */
     .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
     .chip-btn { padding: 5px 10px; font-size: 10px; letter-spacing: 1px; }
+    .topbar .chip-btn { padding: 7px 13px; min-height: 34px; font-size: 11px; }
+    .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; }
 
     /* Left-aligned: the wrapped second row of topbar buttons owns the right. */
-    .hud-meters { top: calc(48px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); transform: none; flex-direction: column; align-items: flex-start; gap: 6px; }
+    .hud-meters { top: calc(54px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); transform: none; flex-direction: column; align-items: flex-start; gap: 6px; }
     .hud-pot { font-size: 15px; padding: 6px 14px; }
     .hud-stack { font-size: 20px; padding: 7px 14px; }
     .hud-stack-icon { width: 20px; height: 20px; flex-basis: 20px; }
@@ -1152,6 +1179,8 @@ html, body {
     .topbar { padding-top: 6px; }
     .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 5px; max-width: 72%; }
     .chip-btn { padding: 4px 10px; font-size: 10px; }
+    .topbar .chip-btn { padding: 6px 13px; min-height: 32px; font-size: 11px; }
+    .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; }
 
     .hud-meters { top: 42px; gap: 8px; }
