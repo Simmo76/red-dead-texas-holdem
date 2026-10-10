@@ -56,7 +56,7 @@
         <div class="hud-meters">
             <div class="hud-stack" title="Chips you have left">
                 <span class="hud-stack-icon" aria-hidden="true"></span>
-                <span class="hud-stack-name">@PlayerName.ToUpperInvariant()</span>
+                <span class="hud-stack-name" style="color:@SeatColor(0)">@PlayerName.ToUpperInvariant()</span>
                 <b>$@ShownStack(0)</b>
             </div>
             <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b></div>
@@ -104,7 +104,7 @@
             @if (HudWinningHand is { } winHand)
             {
                 <div class="hud-row hud-winner" title="@winHand.Name's winning hand">
-                    <span class="hud-winner-name">@winHand.Name</span>
+                    <span class="hud-winner-name" style="color:@SeatColor(winHand.Seat)">@winHand.Name</span>
                     @foreach (var card in winHand.Cards)
                     {
                         <img class="hud-card" src="@CardImage(card)" alt="" />
@@ -151,7 +151,7 @@
             @foreach (var row in _showdownView)
             {
                 <div class="showdown-seat @(row.Winner ? "winner" : "")">
-                    <div class="showdown-name">@row.Name</div>
+                    <div class="showdown-name" style="color:@SeatColor(row.Seat)">@row.Name</div>
                     <div class="showdown-cards">
                         @foreach (var card in row.Cards)
                         {
@@ -396,6 +396,15 @@
         ("Nick", AIProfile.CallingStation),
         ("Pete", AIProfile.Professional)
     };
+
+    // Per-seat accent colours: every name in the HUD is painted with its
+    // seat's colour, and the 3D scene tints that character's hat to match,
+    // so a name always points at a hat around the table. Keep in sync with
+    // SEAT_COLORS in wwwroot/js/poker-scene.js.
+    private static readonly string[] SeatColors =
+        { "#e0b84a", "#d87a6a", "#7aa5d8", "#8cc47e", "#c08ad8", "#5ec8b8" };
+
+    private static string SeatColor(int seat) => SeatColors[seat % SeatColors.Length];
 
     // ---------------------------------------------------------- difficulty
 
@@ -1760,7 +1769,7 @@
         string role = HudActorRole;
         string status = HudActorStatusLine;
         <div class="actor-card @(actor.IsHuman ? "you" : "") @(ShownOut(actor.Seat) ? "out" : "")">
-            <div class="actor-name">
+            <div class="actor-name" style="color:@SeatColor(actor.Seat)">
                 @DisplayName(actor)
                 @if (!string.IsNullOrEmpty(role))
                 {

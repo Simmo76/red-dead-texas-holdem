@@ -43,6 +43,11 @@ const WESTERN_LOOKS = [
   { pants: 3, jacket: 0, shirt: 2, shirtOpt: 0, scarf: 0, hat: 0, hair: 'full', gun: false, holster: false, belt: true, head: 'dirt' }
 ];
 
+// Per-seat accent colours. Each seat's hat is tinted with its colour and the
+// HUD paints that player's name in the same colour, so a name always points
+// at a hat around the table. Keep in sync with SeatColors in Pages/Home.razor.
+const SEAT_COLORS = [0xe0b84a, 0xd87a6a, 0x7aa5d8, 0x8cc47e, 0xc08ad8, 0x5ec8b8];
+
 function westernMeshNames(look) {
   const names = new Set(['Boots', 'Hands_Optimized', 'Hair_cap']);
   names.add(`Pants__${look.pants}`);
@@ -420,16 +425,20 @@ function loadGlb(loader, url) {
   }));
 }
 
-// Per-character clone of a mesh material with two shader hooks:
+// Per-character clone of a mesh material with three shader hooks:
 // - shirt: a hue-rotate + desaturate pass on the albedo (Rodrigues rotation
 //   about the grey axis), so one shared shirt texture can yield genuinely
 //   different colours per seat (a plain colour multiply can only darken).
+// - hatTint: a luminance colourize on the albedo (hat meshes only) — the
+//   leather texture's shading survives but the hat takes the seat's accent
+//   colour, matching the colour the HUD paints that player's name in.
 // - uGrey: a fold grey-out on the final colour — while raised, the fragment
 //   collapses to a pale luminance, and with the material's opacity lowered the
 //   folded player reads as a muted grey ghost until the next hand.
-function characterMaterial(material, shirt, meshName) {
+function characterMaterial(material, shirt, meshName, hatTint) {
   const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
   const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
+  const tint = hatTint ? new THREE.Color(hatTint) : null;
   const m = material.clone();
   // Hair cards and lashes are thin shells and need both sides. The head meshes
   // do too: the iris and cornea are separate shells whose normals face inward
@@ -449,8 +458,10 @@ function characterMaterial(material, shirt, meshName) {
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uHue = { value: hue };
     shader.uniforms.uSat = { value: sat };
+    shader.uniforms.uTint = { value: tint || new THREE.Color(1, 1, 1) };
+    shader.uniforms.uTintAmt = { value: tint ? 0.75 : 0 };
     shader.uniforms.uGrey = { value: m.userData.foldGrey || 0 };
-    shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\nuniform float uGrey;\n' +
+    shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\nuniform vec3 uTint;\nuniform float uTintAmt;\nuniform float uGrey;\n' +
       shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
       {
         const vec3 kGrey = vec3(0.57735026919);
@@ -458,13 +469,14 @@ function characterMaterial(material, shirt, meshName) {
         vec3 c = diffuseColor.rgb;
         c = c * ca + cross(kGrey, c) * sa + kGrey * dot(kGrey, c) * (1.0 - ca);
         c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uSat);
+        c = mix(c, uTint * (dot(c, vec3(0.299, 0.587, 0.114)) * 1.6 + 0.05), uTintAmt);
         diffuseColor.rgb = clamp(c, 0.0, 1.0);
       }`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
       gl_FragColor.rgb = mix(gl_FragColor.rgb,
         vec3(dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114)) * 0.6 + 0.3), uGrey);`);
     m.userData.foldShader = shader;
   };
-  m.customProgramCacheKey = () => `char-${hue.toFixed(3)}-${sat}`;
+  m.customProgramCacheKey = () => `char-${hue.toFixed(3)}-${sat}-${hatTint || 0}`;
   return m;
 }
 
@@ -499,6 +511,13 @@ function makeCharacter(gltf, spec, extraClips) {
 
   // Every mesh gets a per-seat material clone so this character can grey out
   // independently when he folds.
+  // Like the head, a hat can load as a group with child meshes per material
+  // slot, so hat-ness is decided by the mesh or any ancestor's name.
+  const isHatMesh = (obj) => {
+    for (let p = obj; p; p = p.parent)
+      if (/^Hat__/.test((p.name || '').replace(/\.\d+$/, ''))) return true;
+    return false;
+  };
   const bodyMeshes = [];
   const bodyMats = [];
   root.traverse((obj) => {
@@ -507,8 +526,9 @@ function makeCharacter(gltf, spec, extraClips) {
     obj.receiveShadow = true;
     obj.frustumCulled = false; // skinned mesh bounds lag the animated pose
     const shirt = spec.shirt && obj.name === 'jimmy_body_top' ? spec.shirt : null;
+    const hatTint = spec.hatColor && isHatMesh(obj) ? spec.hatColor : null;
     const srcMats = Array.isArray(obj.material) ? obj.material : [obj.material];
-    const made = srcMats.map((mat) => characterMaterial(mat, shirt, obj.name));
+    const made = srcMats.map((mat) => characterMaterial(mat, shirt, obj.name, hatTint));
     obj.material = made.length === 1 ? made[0] : made;
     bodyMeshes.push(obj);
     bodyMats.push(...made);
@@ -1130,7 +1150,11 @@ async function buildScene(canvas) {
   // One rig, every outfit. A fresh draw every time the table is built.
   const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
   const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=7');
-  const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS);
+  // Every seat wears a hat so the seat's accent colour always has somewhere
+  // to live; hatless presets borrow a hat (and the matching short hair so the
+  // full hairstyle doesn't clip through the brim).
+  const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS)
+    .map((look, i) => look.hat ? look : { ...look, hat: 1 + (i % 2), hair: 'cut' });
 
   // Position a seated character at seat i: face the table and plant the
   // idle's hands on the felt. The thinking clip holds the palms at lap
@@ -1214,8 +1238,13 @@ async function buildScene(canvas) {
     const pos = seatPos(i, SEAT_RADIUS);
     const facing = Math.atan2(-pos.x, -pos.z); // yaw toward table centre
 
-    // Every seat, including the player, is one of this game's looks.
-    const spec = { look: lineup[i], cards: i === 0, scale: WESTERN_SCALE };
+    // Every seat, including the player, is one of this game's looks, with
+    // the hat tinted in the seat's accent colour (the HUD paints this
+    // player's name in the same colour).
+    const spec = {
+      look: lineup[i], cards: i === 0, scale: WESTERN_SCALE,
+      hatColor: SEAT_COLORS[i % SEAT_COLORS.length]
+    };
     charPromises.push(Promise.all([westernModel, mightyCatModel]).then(([gltf, mc]) => {
       const character = makeCharacter(gltf, spec, mc && mc.animations);
       if (!character) return;
