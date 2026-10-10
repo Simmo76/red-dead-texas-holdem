@@ -7,7 +7,11 @@
 
 <PageTitle>Dead Man's Hand</PageTitle>
 
-<div class="game3d @(_hudBoardExpanded ? "board-expanded" : "")">
+@* Tapping anywhere outside the enlarged card close-up contracts it back
+   to its corner size; the close-up itself stops propagation so its own
+   tap still toggles (see ToggleHudBoard). *@
+<div class="game3d @(_hudBoardExpanded ? "board-expanded" : "")"
+     @onclick="CollapseHudBoard">
 
     <canvas id="poker-canvas"></canvas>
 
@@ -66,7 +70,7 @@
         </div>
 
         <div class="hud-board @(_hudBoardExpanded ? "expanded" : "")"
-             @onclick="ToggleHudBoard">
+             @onclick="ToggleHudBoard" @onclick:stopPropagation="true">
             <div class="hud-row">
                 @* Dealt cards fill from the right so they hug the border,
                    aligned above the player's pair. *@
@@ -1179,6 +1183,12 @@
     }
 
     private void ToggleMode() => _quickMode = !_quickMode;
+
+    // Any tap outside the enlarged close-up (wired on the root .game3d div)
+    // puts the window back to its normal corner size. Taps on the window
+    // itself stop propagation, so this never fights the toggle below. The
+    // camera is left alone: this is a dismiss, not "back to my seat".
+    private void CollapseHudBoard() => _hudBoardExpanded = false;
 
     // Tapping the community-cards window also brings the camera home to the
     // over-the-shoulder view, so it doubles as a "back to my seat" button.
