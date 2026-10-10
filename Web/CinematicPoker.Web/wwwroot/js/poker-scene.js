@@ -469,6 +469,44 @@ function characterMaterial(material, shirt, meshName) {
   return m;
 }
 
+// The shared "sit still holding your cards" idle: the quiet beat of
+// AS_Blackjack_Player_03 (IdleBlackjack03, t = 2.4s-3.8s) where the hands
+// hold the pair up near the chest and the body barely moves. Built once and
+// shared by every seat; played ping-pong at half speed (the idle bakes carry
+// half the source keys, so 0.5 restores real time).
+const HOLD_IDLE_NAME = 'HoldCards';
+const HOLD_IDLE_SRC = 'IdleBlackjack03';
+const HOLD_WINDOW = [2.4, 3.8]; // seconds in the baked clip
+const HOLD_TIMESCALE = 0.5;
+let _holdClip = null;
+function getHoldClip(findMood) {
+  if (_holdClip) return _holdClip;
+  const src = findMood(HOLD_IDLE_SRC);
+  if (!src) return null;
+  // Resample rather than AnimationUtils.subclip: the GLB export optimises
+  // away redundant keys, so a naive slice can drop whole tracks (stale bone
+  // locations would then leak in from whatever clip played before).
+  const [t0, t1] = HOLD_WINDOW;
+  const fps = 15; // the bake's own key rate
+  const n = Math.max(2, Math.round((t1 - t0) * fps) + 1);
+  const tracks = [];
+  for (const tr of src.tracks) {
+    const size = tr.getValueSize();
+    const interp = tr.createInterpolant();
+    const times = new Float32Array(n);
+    const values = new Float32Array(n * size);
+    for (let i = 0; i < n; i++) {
+      const t = t0 + (t1 - t0) * (i / (n - 1));
+      times[i] = t - t0;
+      const sample = interp.evaluate(t);
+      for (let d = 0; d < size; d++) values[i * size + d] = sample[d];
+    }
+    tracks.push(new tr.constructor(tr.name, times, values));
+  }
+  _holdClip = new THREE.AnimationClip(HOLD_IDLE_NAME, t1 - t0, tracks);
+  return _holdClip;
+}
+
 function makeCharacter(gltf, spec, extraClips) {
   if (!gltf) return null;
   // All seats share one model, so clone the skinned rig per seat.
@@ -522,26 +560,43 @@ function makeCharacter(gltf, spec, extraClips) {
   const findMood = (name) => THREE.AnimationClip.findByName(moodClips, name);
   const pick = (names) => names[Math.floor(Math.random() * names.length)];
 
-  // Active seats loop a Mighty Cat poker take, visibly holding their hole
-  // cards; a fold swaps the home idle to arms-folded for the rest of the
-  // hand, then the card hold returns on the next deal. The character starts
-  // on sit-thinking only because the seat-plant measures the pose with
-  // palms at lap height — placeSeatedCharacter switches to the hold idle
-  // once the body is planted.
+  // Active seats all share ONE calm card hold: a near-still stretch of the
+  // Mighty Cat AS_Blackjack_Player_03 take where the player just sits
+  // holding his pair up and studying it. The full takes are busy performance
+  // loops (and the idle bakes carry half the keys, so they run 2x fast) —
+  // a ping-pong over the quiet window at half speed reads as breathing
+  // instead of gesturing. A fold swaps the home idle to arms-folded for the
+  // rest of the hand, then the hold returns on the next deal. The character
+  // starts on sit-thinking only because the seat-plant measures the pose
+  // with palms at lap height — placeSeatedCharacter switches to the hold
+  // idle once the body is planted.
   const THINKING_IDLE = 'IdleSitThinking01';
   const FOLDED_IDLE = 'IdleSitArmsFolded01';
-  const HOLD_IDLES = ['IdlePoker01', 'IdlePoker02', 'IdlePoker03'];
   const WIN_CLIPS = ['Win01', 'Win02', 'Win03'];
   const LOSE_CLIPS = ['Lose01', 'Lose02', 'Lose03', 'Lose04'];
 
-  const holdIdle = HOLD_IDLES.find((n) => findMood(n)) ? pick(HOLD_IDLES.filter((n) => findMood(n))) : THINKING_IDLE;
+  const holdClip = getHoldClip(findMood);
+  const holdIdle = holdClip ? HOLD_IDLE_NAME : THINKING_IDLE;
+  // The home-idle machinery looks clips up by name; route the synthetic
+  // hold clip through the same lookup.
+  const findSit = (name) => (name === HOLD_IDLE_NAME ? holdClip : null)
+    || findMood(name) || findBody(name) || findBody('Sit');
   const idleName = THINKING_IDLE;
   const sitClip = findMood(idleName) || findBody('Sit');
   const isPlayer = !!spec.cards;
   let sitAction = null;
   const makeSitAction = (clip) => {
     const action = mixer.clipAction(clip);
-    action.setLoop(THREE.LoopRepeat, Infinity);
+    if (clip === holdClip) {
+      // Bounce inside the quiet window so the loop has no jump cut, at half
+      // speed so the breathing reads at real time.
+      action.setLoop(THREE.LoopPingPong, Infinity);
+      action._homeTimeScale = HOLD_TIMESCALE;
+    } else {
+      action.setLoop(THREE.LoopRepeat, Infinity);
+      action._homeTimeScale = 1;
+    }
+    action.timeScale = action._homeTimeScale;
     action.enabled = true;
     return action;
   };
@@ -576,12 +631,12 @@ function makeCharacter(gltf, spec, extraClips) {
     action.paused = false;
     action.reset();
     action.setEffectiveWeight(1);
-    action.setEffectiveTimeScale(1);
+    action.setEffectiveTimeScale(action._homeTimeScale || 1);
     action.play();
   };
 
   const switchHomeIdle = (name) => {
-    const clip = findMood(name) || findBody('Sit');
+    const clip = findSit(name);
     if (!clip) return;
     if (sitAction && sitAction.getClip() === clip
         && sitAction.isRunning() && sitAction.getEffectiveWeight() > 0.5) {
@@ -668,7 +723,7 @@ function makeCharacter(gltf, spec, extraClips) {
     if (character.folded === on) return;
     character.folded = on;
     const name = on ? FOLDED_IDLE : character.holdIdle;
-    const clip = findMood(name) || findBody('Sit');
+    const clip = findSit(name);
     if (!clip || !sitAction || sitAction.getClip() === clip) return;
     // A Fold / FoldShake already in flight should land on the new hold, not
     // fade back to thinking. Retarget the restore clip but leave the gesture
@@ -762,7 +817,7 @@ function makeCharacter(gltf, spec, extraClips) {
         // Always snap back onto a seated loop. A faded-out sit left at
         // weight 0 drops Jacob into the standing bind (arms out).
         const wantName = character.folded ? FOLDED_IDLE : character.holdIdle;
-        const want = findMood(wantName) || findBody('Sit');
+        const want = findSit(wantName);
         if (want && (!sitAction || sitAction.getClip() !== want)) {
           const nextSit = makeSitAction(want);
           nextSit.time = Math.random() * want.duration;
