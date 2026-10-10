@@ -388,14 +388,36 @@
 </div>
 
 @code {
-    private static readonly (string Name, Func<AIProfile> Profile)[] Roster =
+    private static readonly Func<AIProfile>[] Roster =
     {
-        ("Simon", AIProfile.Maniac),
-        ("Steve", AIProfile.Regular),
-        ("Tom", AIProfile.Rock),
-        ("Nick", AIProfile.CallingStation),
-        ("Pete", AIProfile.Professional)
+        AIProfile.Maniac,
+        AIProfile.Regular,
+        AIProfile.Rock,
+        AIProfile.CallingStation,
+        AIProfile.Professional
     };
+
+    // Table nicknames handed out at random each time a fresh roster sits down,
+    // so any given personality can wear any of these names.
+    private static readonly string[] NpcNamePool =
+    {
+        "Nickey 2-guns",
+        "Tommy Gunn",
+        "Stevie Wanders",
+        "Jimmy two-hands",
+        "Simmo Says"
+    };
+
+    private string[] ShuffledNpcNames()
+    {
+        var names = (string[])NpcNamePool.Clone();
+        for (int i = names.Length - 1; i > 0; i--)
+        {
+            int j = _rng.Next(i + 1);
+            (names[i], names[j]) = (names[j], names[i]);
+        }
+        return names;
+    }
 
     // ---------------------------------------------------------- difficulty
 
@@ -411,7 +433,7 @@
         for (int i = 0; i < Roster.Length; i++)
         {
             if (_game.GetPlayer(i + 1) is AIPlayer ai)
-                CopyProfile(WithDifficulty(Roster[i].Profile()), ai.Profile);
+                CopyProfile(WithDifficulty(Roster[i]()), ai.Profile);
         }
     }
 
@@ -864,10 +886,11 @@
     {
         var rules = TableRules.Default;
         var players = new List<PokerPlayer> { new HumanPlayer("human", PlayerName, seat: 0, stack: rules.StartingStack) };
+        string[] npcNames = ShuffledNpcNames();
         for (int i = 0; i < Roster.Length; i++)
         {
-            players.Add(new AIPlayer($"npc{i}", Roster[i].Name, seat: i + 1, stack: rules.StartingStack,
-                profile: WithDifficulty(Roster[i].Profile()), seed: _rng.Next()));
+            players.Add(new AIPlayer($"npc{i}", npcNames[i], seat: i + 1, stack: rules.StartingStack,
+                profile: WithDifficulty(Roster[i]()), seed: _rng.Next()));
         }
 
         _game = new PokerGame(rules, players, seed: _rng.Next());
@@ -968,10 +991,11 @@
     private List<PokerPlayer> CreateNpcRoster()
     {
         var npcs = new List<PokerPlayer>();
+        string[] npcNames = ShuffledNpcNames();
         for (int i = 0; i < Roster.Length; i++)
         {
-            npcs.Add(new AIPlayer($"npc{i}", Roster[i].Name, seat: i + 1, stack: TableRules.Default.StartingStack,
-                profile: WithDifficulty(Roster[i].Profile()), seed: _rng.Next()));
+            npcs.Add(new AIPlayer($"npc{i}", npcNames[i], seat: i + 1, stack: TableRules.Default.StartingStack,
+                profile: WithDifficulty(Roster[i]()), seed: _rng.Next()));
         }
         return npcs;
     }
