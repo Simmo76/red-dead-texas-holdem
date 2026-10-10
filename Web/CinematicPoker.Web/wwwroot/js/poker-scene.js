@@ -1207,7 +1207,7 @@ async function buildScene(canvas) {
   };
 
   for (let i = 0; i < SEATS; i++) {
-    const seat = { group: new THREE.Group(), cards: [], chips: null, stackChips: null, char: null, label: null };
+    const seat = { group: new THREE.Group(), cards: [], cardSig: 'none', chips: null, stackChips: null, char: null, label: null };
     state.seats.push(seat);
     scene.add(seat.group);
 
@@ -1948,11 +1948,27 @@ function positionHandCards() {
   }
 }
 
+// What a seat's spot on the felt should be showing for the given snapshot:
+// the revealed pair, two face-down backs, or nothing. updateSeatCards records
+// the signature it actually drew, so the per-update comparison checks the
+// scene's real contents rather than trusting that every earlier snapshot
+// was applied — a single missed update can no longer leave a seat's cards
+// off the table for the rest of the hand.
+function seatCardSig(i, data) {
+  if (i === 0) return 'none'; // the player's pair is handled by updateHole
+  // Revealed showdown cards stay on the felt even after the engine has
+  // already marked that seat eliminated / inactive.
+  if (data.reveal && data.reveal.length) return 'reveal:' + data.reveal.join(',');
+  return data.active ? 'backs' : 'none';
+}
+
 function updateSeatCards(seat, i, data) {
   clearGroupChildren(seat.cards, state.scene);
+  // Record 'none' while the felt really is empty; the real signature is
+  // committed only after the new cards have landed, so a failure partway
+  // through leaves a signature that forces a clean redraw next push.
+  seat.cardSig = 'none';
   const paths = data.reveal && data.reveal.length ? data.reveal : null;
-  // Keep revealed showdown cards on the felt even after the engine has
-  // already marked that seat eliminated / inactive.
   if (i === 0 || (!data.active && !paths)) return;
 
   if (paths) {
@@ -1974,6 +1990,7 @@ function updateSeatCards(seat, i, data) {
       seat.cards.push(card);
       state.scene.add(card);
     }
+    seat.cardSig = seatCardSig(i, data);
     return;
   }
 
@@ -1989,6 +2006,7 @@ function updateSeatCards(seat, i, data) {
     seat.cards.push(card);
     state.scene.add(card);
   }
+  seat.cardSig = seatCardSig(i, data);
 }
 
 function seatCardZoom(seatIndex) {
@@ -2231,6 +2249,15 @@ function buildClub() {
 window.pokerScene = {
   get loaded() { return state.ready; },
 
+  // Test/diagnostic hook: what each seat's spot on the felt currently shows.
+  cardsDebug() {
+    return (state.seats || []).map((seat, i) => ({
+      seat: i,
+      cards: seat && seat.cards ? seat.cards.length : -1,
+      sig: seat ? seat.cardSig : null,
+    }));
+  },
+
   idleDebug() {
     return (state.seats || []).map((seat, i) => {
       const c = seat && seat.char;
@@ -2347,7 +2374,6 @@ window.pokerScene = {
     if (json === state.lastJson) return;
 
     const prev = state.lastJson ? JSON.parse(state.lastJson) : null;
-    state.lastJson = json;
 
     if (!prev || JSON.stringify(prev.board) !== JSON.stringify(snapshot.board)) {
       updateBoard(snapshot.board || []);
@@ -2389,8 +2415,9 @@ window.pokerScene = {
       const seat = state.seats[data.seat];
       if (!seat) continue;
       const prevData = prev ? (prev.seats || []).find(s => s.seat === data.seat) : null;
-      if (!prevData || JSON.stringify(prevData.reveal) !== JSON.stringify(data.reveal)
-          || prevData.active !== data.active) {
+      // Compare against what is actually on the felt (seat.cardSig), not the
+      // previous snapshot: self-healing if an earlier update was ever missed.
+      if (seat.cardSig !== seatCardSig(data.seat, data)) {
         updateSeatCards(seat, data.seat, data);
       }
       if (!prevData || prevData.bet !== data.bet) updateSeatChips(seat, data.seat, data.bet);
@@ -2420,6 +2447,12 @@ window.pokerScene = {
     if (window.pokerAudio && window.pokerAudio.setAlive) {
       window.pokerAudio.setAlive(seats.filter(s => s.seat !== 0 && !s.out).map(s => s.seat));
     }
+
+    // Only remember the snapshot once it has fully applied. If anything above
+    // throws, the next snapshot diffs against the last state that really
+    // landed instead of one the table never showed (which used to leave
+    // seats' cards missing until their state happened to change again).
+    state.lastJson = json;
   },
 
   // A short talking gesture, played when a character's voice line fires.
