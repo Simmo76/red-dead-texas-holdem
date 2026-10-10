@@ -670,6 +670,12 @@ html, body {
     color: var(--gold);
 }
 
+/* One tap straight to the next deal — stands out from the step-wise SKIP. */
+.act.ff-next {
+    background: rgba(216, 178, 92, 0.16);
+    border-color: var(--gold);
+}
+
 .act.small {
     padding: 9px 14px;
     font-size: 12px;

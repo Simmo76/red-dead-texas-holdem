@@ -230,10 +230,26 @@
             <div class="waiting">@_statusLine</div>
             @if (CanFastForward)
             {
-                <button class="act ff" @onclick="FastForward"
-                        title="@NextHandButtonTitle">
-                    @NextHandButtonLabel
-                </button>
+                @if (!_awaitingNextHand)
+                {
+                    @* Folded and spectating: step through the action one tap
+                       at a time, or jump straight to the next hand. *@
+                    <button class="act ff" @onclick="FastForward"
+                            title="Skip to the next action">
+                        SKIP »
+                    </button>
+                    <button class="act ff ff-next" @onclick="SkipToNextHand"
+                            title="Fast-forward to the next hand">
+                        NEXT HAND »
+                    </button>
+                }
+                else
+                {
+                    <button class="act ff" @onclick="FastForward"
+                            title="@NextHandButtonTitle">
+                        @NextHandButtonLabel
+                    </button>
+                }
             }
         }
     </div>
@@ -480,13 +496,19 @@
 
     // ------------------------------------------------------- fast forward
 
-    // Once the player has folded they're only spectating, so a SKIP button
-    // appears: each tap cuts short one pacing wait (an NPC's think time, or
-    // a dwell pause before a street / showdown / pot award), stepping through
-    // the rest of the hand action by action as fast as the player taps.
-    // After the pot is awarded the same control becomes NEXT HAND so the
-    // result stays on screen until the player chooses to continue.
+    // Once the player has folded they're only spectating, so two buttons
+    // appear straight away:
+    //  - SKIP: each tap cuts short one pacing wait (an NPC's think time, or
+    //    a dwell pause before a street / showdown / pot award), stepping
+    //    through the rest of the hand action by action as fast as the
+    //    player taps.
+    //  - NEXT HAND: one tap fast-forwards every remaining wait AND the
+    //    result hold, going straight to the next deal.
+    // After the pot is awarded (when the player didn't ask to jump ahead)
+    // the SKIP control becomes NEXT HAND so the result stays on screen
+    // until the player chooses to continue.
     private bool _skipRequested;
+    private bool _skipToNextHand;
     private bool _awaitingNextHand;
     private bool _handHasCompleted;
 
@@ -498,13 +520,11 @@
             || (SeatOf(0) is { Folded: true }
                 && (_game.Phase == GamePhase.HandInProgress || _pending.Count > 0)));
 
-    private string NextHandButtonLabel =>
-        !_awaitingNextHand ? "SKIP »"
-        : HumanIsBusted ? "CONTINUE" : "NEXT HAND";
+    // Labels for the single button shown while the result is on screen.
+    private string NextHandButtonLabel => HumanIsBusted ? "CONTINUE" : "NEXT HAND";
 
     private string NextHandButtonTitle =>
-        !_awaitingNextHand ? "Skip to the next action"
-        : HumanIsBusted ? "See game over"
+        HumanIsBusted ? "See game over"
         : _game is { HasHumanWon: true } ? "Continue with your stack"
         : "Go to the next hand";
 
@@ -516,14 +536,20 @@
 
     private void FastForward() => _skipRequested = true;
 
-    // A pacing wait the fast-forward button can cut short. Each tap skips at
-    // most one wait, so skipped actions still land on the table one by one.
+    // One tap, no more waits: every remaining pacing pause in this hand is
+    // cut short and the result hold is bypassed, straight to the next deal.
+    private void SkipToNextHand() => _skipToNextHand = true;
+
+    // A pacing wait the fast-forward buttons can cut short. A SKIP tap skips
+    // at most one wait, so skipped actions still land on the table one by
+    // one; NEXT HAND stays latched and skips them all.
     private async Task PacedDelay(int ms, int token)
     {
         const int sliceMs = 50;
         for (int elapsed = 0; elapsed < ms; elapsed += sliceMs)
         {
             if (token != _loopToken) return;
+            if (_skipToNextHand && CanFastForward) return;
             if (_skipRequested && CanFastForward)
             {
                 _skipRequested = false;
@@ -854,6 +880,7 @@
         _showSlider = false;
         _advice = null;
         _skipRequested = false;
+        _skipToNextHand = false;
         _awaitingNextHand = false;
         _handHasCompleted = false;
         _ = EndBetPreview(); // RESTART mid-sizing: drop the preview close-up
@@ -910,6 +937,7 @@
         _showSlider = false;
         _advice = null;
         _skipRequested = false;
+        _skipToNextHand = false;
         _awaitingNextHand = false;
         _handHasCompleted = false;
         _exportOpen = false;
@@ -994,13 +1022,23 @@
 
             if (_game.Phase == GamePhase.WaitingForHand || tableSettled)
             {
-                if (_handHasCompleted)
+                if (_handHasCompleted && _skipToNextHand && !tableSettled)
+                {
+                    // The player asked for the next hand while spectating:
+                    // don't hold on the result, deal straight away. A settled
+                    // table (bust or table win) still holds below so the
+                    // final result can never be skipped past.
+                    _skipToNextHand = false;
+                    _skipRequested = false;
+                }
+                else if (_handHasCompleted)
                 {
                     // Hold on the win/lose banner until the player taps
                     // NEXT HAND. Ignore leftover SKIP taps from the just-
                     // finished hand so the result cannot be skipped by
                     // accident.
                     _skipRequested = false;
+                    _skipToNextHand = false;
                     _awaitingNextHand = true;
                     _statusLine = HumanIsBusted
                         ? "Tap CONTINUE when you've seen the result"
