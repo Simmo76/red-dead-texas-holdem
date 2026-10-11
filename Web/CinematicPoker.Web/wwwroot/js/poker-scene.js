@@ -394,31 +394,26 @@ function updateButtonChips(dealerSeat, sbSeat, bbSeat) {
   setButtonChip(b.bb, bbSeat, -0.24);
 }
 
-// ------------------------------------------------------------------ dealer arrow
-
-// A golden arrow hanging over the head of whoever must act, pointing down.
-function makeDealerArrow() {
-  const group = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0xe8b23c, emissive: 0x8a5f12, roughness: 0.35, metalness: 0.4
-  });
-  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.12, 12), mat);
-  tip.rotation.x = Math.PI; // point straight down
-  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.12, 10), mat);
-  shaft.position.y = 0.115;
-  group.add(tip, shaft);
-  group.visible = false;
-  return group;
-}
+// ------------------------------------------------------------------ actor outline
 
 // Shared gold hull material for the current actor's outline. The hull is
 // inflated in screen space: the offset grows with the vertex's view depth so
 // the outline keeps a constant pixel width whether the actor sits next to
 // the camera or across the table (a fixed world-space offset all but
 // vanished on the far seats).
-const OUTLINE_PX = 2.5; // outline thickness in CSS pixels
+// The outline glows and throbs to mark the turn (it replaced the old
+// overhead arrow): thickness swells between OUTLINE_PX_MIN/MAX while the
+// opacity and colour fade between a dim ember and a bright gold flare,
+// all driven by one shared pulse in the render loop.
+const OUTLINE_PX_MIN = 2.0;       // thinnest the outline gets, CSS pixels
+const OUTLINE_PX_MAX = 5.5;       // thickest, at the peak of the throb
+const OUTLINE_OPACITY_MIN = 0.35; // faded trough of the glow
+const OUTLINE_OPACITY_MAX = 1.0;  // full-strength peak
+const OUTLINE_PULSE_HZ = 1.1;     // throb speed, cycles per second
+const _outlineColorDim = new THREE.Color(0xcf9230);
+const _outlineColorHot = new THREE.Color(0xffe08a);
 const _outlineUniforms = {
-  uOutlinePx: { value: OUTLINE_PX },
+  uOutlinePx: { value: OUTLINE_PX_MIN },
   uOutlineViewH: { value: 720 }, // canvas CSS height, refreshed on resize
 };
 let _outlineMat = null;
@@ -426,6 +421,7 @@ function outlineMaterial() {
   if (_outlineMat) return _outlineMat;
   _outlineMat = new THREE.MeshBasicMaterial({
     color: 0xffc14d, side: THREE.BackSide, toneMapped: false,
+    transparent: true, opacity: OUTLINE_OPACITY_MAX, depthWrite: false,
   });
   _outlineMat.onBeforeCompile = (shader) => {
     shader.uniforms.uOutlinePx = _outlineUniforms.uOutlinePx;
@@ -451,7 +447,7 @@ function outlineMaterial() {
   return _outlineMat;
 }
 
-// Outline whoever currently has to act (same signal as the turn arrow).
+// Outline whoever currently has to act.
 function updateActorOutline(seatIndex) {
   for (let i = 0; i < state.seats.length; i++) {
     const c = state.seats[i].char;
@@ -459,18 +455,6 @@ function updateActorOutline(seatIndex) {
       c.setOutline(i === seatIndex);
     }
   }
-}
-
-let ARROW_Y = 1.92; // updated after seats plant so it stays above their heads
-
-function updateDealerArrow(dealerSeat) {
-  const arrow = state.dealerArrow;
-  if (!arrow) return;
-  if (dealerSeat < 0) { arrow.visible = false; return; }
-  const pos = seatPos(dealerSeat, SEAT_RADIUS - 0.1);
-  // Hang it above the seated character's head (labels float higher still).
-  arrow.position.set(pos.x, ARROW_Y, pos.z);
-  arrow.visible = true;
 }
 
 // ------------------------------------------------------------------ characters
@@ -1053,9 +1037,6 @@ async function buildScene(canvas) {
   lampGroup.add(cord, shade, bulb);
   scene.add(lampGroup);
 
-  state.dealerArrow = makeDealerArrow();
-  scene.add(state.dealerArrow);
-
   state.buttons = makeButtonChips();
   scene.add(state.buttons.dealer.mesh, state.buttons.sb.mesh, state.buttons.bb.mesh);
 
@@ -1346,8 +1327,8 @@ async function buildScene(canvas) {
 
   await Promise.all([backdropPromise, ...charPromises]);
 
-  // Labels, turn arrow, and the over-the-shoulder camera were framed for the
-  // old foot-plant height. Re-seat them on the planted heads so they don't
+  // Labels and the over-the-shoulder camera were framed for the old
+  // foot-plant height. Re-seat them on the planted heads so they don't
   // float above the now-lower sit.
   const headY = [];
   const hv = new THREE.Vector3();
@@ -1365,7 +1346,6 @@ async function buildScene(canvas) {
     if (i === 0) state.eyeHeight = hv.y;
   }
   if (headY.length) {
-    ARROW_Y = Math.max(...headY) + 0.28;
     applyCameraHome();
   }
 
@@ -1448,10 +1428,16 @@ async function buildScene(canvas) {
       }
     }
 
-    // The turn arrow bobs and slowly spins over the actor's head.
-    if (state.dealerArrow && state.dealerArrow.visible) {
-      state.dealerArrow.position.y = ARROW_Y + Math.sin(t * 2.2) * 0.035;
-      state.dealerArrow.rotation.y = t * 1.2;
+    // The actor's outline glows and throbs: one shared pulse drives the
+    // hull's pixel thickness, its opacity, and a dim-ember-to-bright-gold
+    // colour swing, so the stencil swells and flares, then fades back.
+    if (_outlineMat) {
+      const pulse = 0.5 + 0.5 * Math.sin(t * OUTLINE_PULSE_HZ * 2 * Math.PI);
+      _outlineUniforms.uOutlinePx.value =
+        OUTLINE_PX_MIN + (OUTLINE_PX_MAX - OUTLINE_PX_MIN) * pulse;
+      _outlineMat.opacity =
+        OUTLINE_OPACITY_MIN + (OUTLINE_OPACITY_MAX - OUTLINE_OPACITY_MIN) * pulse;
+      _outlineMat.color.lerpColors(_outlineColorDim, _outlineColorHot, pulse);
     }
 
     // Press-and-hold magnifier: the held community card eases to 2x and
@@ -2498,7 +2484,8 @@ window.pokerScene = {
     if (!prev || prev.pot !== snapshot.pot) updatePot(snapshot.pot);
 
     const seats = snapshot.seats || [];
-    // The arrow tracks whoever currently has to act (including the player).
+    // The glowing outline tracks whoever currently has to act (including
+    // the player).
     const actor = seats.find(s => s.actor);
     const actorSeat = actor ? actor.seat : -1;
     if (actorSeat !== state.lastActorSeat) {
@@ -2511,7 +2498,6 @@ window.pokerScene = {
         }
       }
     }
-    updateDealerArrow(actorSeat);
     updateActorOutline(actorSeat);
 
     // Dealer/blind pucks: the DEALER button rides with the deal all hand;
