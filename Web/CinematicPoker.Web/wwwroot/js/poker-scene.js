@@ -1415,6 +1415,9 @@ async function buildScene(canvas) {
       if (seat.char.ensureSit) seat.char.ensureSit();
       seat.char.applyArmPose(dt);
       seat.char.updateFold(dt);
+      // After the pose settles, re-seat the CardHold between the palms so
+      // hole cards track HoldCards wrist motion.
+      if (seat.char.cardHold) syncCardHold(seat.char);
     }
 
     // Ease drag/pinch offsets toward their targets, then orbit the table
@@ -2010,24 +2013,62 @@ function ensureCardHold(character) {
   if (!character || character.cardHold) return character && character.cardHold;
   const handL = findCharBone(character, ['hand_l', 'LeftHand']);
   const handR = findCharBone(character, ['hand_r', 'RightHand']);
+  const midL = findCharBone(character, ['middle_01_l']);
+  const midR = findCharBone(character, ['middle_01_r']);
+  const head = findCharBone(character, ['head', 'Head']);
   character.handL = handL;
   character.handR = handR;
+  character.midL = midL;
+  character.midR = midR;
+  character.headBone = head;
   const hold = new THREE.Group();
   hold.name = 'CardHold';
-  // Cradle in the left palm (HoldCards looks / supports with the right).
-  // Local +Y is along the fingers; nudge into the palm and slightly up off
-  // the skin so the planes don't z-fight the hand mesh.
-  if (handL) {
-    handL.add(hold);
-    hold.position.set(0.0, 0.055, 0.012);
-    // PlaneGeometry faces +Z; rotate so the face points out of the palm
-    // (toward the eyes in the HoldCards pose) rather than along the wrist.
-    hold.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
-  } else {
-    character.root.add(hold);
-  }
+  // Parent to the character root and re-seat in the palms every frame so the
+  // pair stays between both hands as HoldCards moves the wrists (a fixed
+  // left-hand local offset drifted outside the grip on several takes).
+  character.root.add(hold);
   character.cardHold = hold;
+  syncCardHold(character);
   return hold;
+}
+
+// Palm centre ≈ lerp(hand, middle_01). Aim the helper between both palms and
+// face it toward the head so looking-at-cards idles cradle the pair.
+const _palmL = new THREE.Vector3();
+const _palmR = new THREE.Vector3();
+const _headPos = new THREE.Vector3();
+const _holdScale = new THREE.Vector3(1, 1, 1);
+function syncCardHold(character) {
+  const hold = character && character.cardHold;
+  if (!hold || !character.handL) return;
+  character.handL.getWorldPosition(_palmL);
+  if (character.midL) {
+    character.midL.getWorldPosition(_holdPos);
+    _palmL.lerp(_holdPos, 0.4);
+  }
+  if (character.handR) {
+    character.handR.getWorldPosition(_palmR);
+    if (character.midR) {
+      character.midR.getWorldPosition(_holdPos);
+      _palmR.lerp(_holdPos, 0.4);
+    }
+    _palmL.lerp(_palmR, 0.5);
+  }
+  if (character.headBone) character.headBone.getWorldPosition(_headPos);
+  else _headPos.copy(_palmL).add(new THREE.Vector3(0, 0.35, 0));
+  // Nudge slightly toward the head so cards sit in the grip, not under the
+  // palms / into the felt.
+  _palmL.lerp(_headPos, 0.08);
+  _holdMat.lookAt(_palmL, _headPos, _faceUp);
+  _faceQuat.setFromRotationMatrix(_holdMat);
+  // lookAt aims -Z at the head; PlaneGeometry faces +Z — flip so the card
+  // face (or back) looks toward the eyes.
+  _faceQuat.multiply(_holdQuat.setFromAxisAngle(_faceUp, Math.PI));
+  hold.parent.updateWorldMatrix(true, false);
+  hold.parent.worldToLocal(_palmL);
+  hold.position.copy(_palmL);
+  hold.parent.getWorldQuaternion(_parentQuat);
+  hold.quaternion.copy(_parentQuat.invert().multiply(_faceQuat));
 }
 
 function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
@@ -2038,8 +2079,10 @@ function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
     hold.add(card);
     card.scale.setScalar(1);
     // Slight fan + millimetre separation so overlapping faces don't z-fight.
-    card.position.set(dir * 0.032, 0.004 * (i + 1), 0);
-    card.rotation.set(faceUp ? 0 : Math.PI, 0, dir * 0.14);
+    // Local +Z faces the eyes (see syncCardHold); keep the pair close to the
+    // helper origin so it reads inside the grip.
+    card.position.set(dir * 0.028, 0.002 * (i + 1), 0.004);
+    card.rotation.set(faceUp ? 0 : Math.PI, 0, dir * 0.12);
   }
 }
 
@@ -2529,6 +2572,28 @@ window.pokerScene = {
         hasFoldedClip: !!foldedClip,
         foldedDur: foldedClip ? Number(foldedClip.duration.toFixed(2)) : 0,
         reacting: !!c.reacting,
+      };
+    });
+  },
+
+  // Where each seat's CardHold sits and what (if anything) is parented to it.
+  holdDebug() {
+    const tmp = new THREE.Vector3();
+    return (state.seats || []).map((seat, i) => {
+      const c = seat && seat.char;
+      const hold = c && c.cardHold;
+      if (!hold) return { i, hold: false };
+      hold.getWorldPosition(tmp);
+      const kids = hold.children.map((ch) => ch.parent && ch.parent.name);
+      const cardParents = (i === 0 ? state.holeCards : (seat.cards || []))
+        .map((card) => card.parent && card.parent.name);
+      return {
+        i,
+        hold: true,
+        parent: hold.parent && hold.parent.name,
+        kids: hold.children.length,
+        cardParents,
+        world: [+tmp.x.toFixed(3), +tmp.y.toFixed(3), +tmp.z.toFixed(3)],
       };
     });
   },
