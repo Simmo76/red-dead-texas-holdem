@@ -1252,10 +1252,9 @@ async function buildScene(canvas) {
   // Skinned Boot meshes report bind-pose AABBs, so plant from foot/ball bones.
   // soleTargetY is the saloon board top (raycast), not world y=0 — tile tops
   // sit a few centimetres above the mesh's lowest vertex.
-  // Jacob's cowboy boots hang well below the ball/foot joints; 12 cm still
-  // left half a boot in the boards, so keep a deeper sole drop.
-  const FOOT_SOLE_DROP = 0.22; // joint → sole under a cowboy boot
-  const SOLE_CLEARANCE = 0.03; // keep leather just kissing the boards
+  // Jacob's cowboy boots hang below the ball/foot joints.
+  const FOOT_SOLE_DROP = 0.14; // joint → sole under a cowboy boot
+  const SOLE_CLEARANCE = 0.02; // keep leather just kissing the boards
   const placeSeatedCharacter = (character, i, facing, soleTargetY = 0) => {
     character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
     scene.add(character.root);
@@ -1385,11 +1384,9 @@ async function buildScene(canvas) {
     return deal;
   });
 
-  // Raycast the saloon boards under the table pocket — tile tops can sit
-  // above the backdrop's y=0 skirt. Fall back to the env AABB min when the
-  // meshopt scene doesn't produce ray hits.
-  const probeSaloonFloorY = () => {
-    const env = state.saloonEnv;
+  // Raycast the saloon boards under the table pocket. Shared by the backdrop
+  // load (to drop tile tops onto y=0) and the seat re-plant.
+  const probeEnvFloorY = (env) => {
     if (!env) return 0;
     env.updateMatrixWorld(true);
     const raycaster = new THREE.Raycaster();
@@ -1414,6 +1411,7 @@ async function buildScene(canvas) {
     const box = new THREE.Box3().setFromObject(env);
     return Number.isFinite(box.min.y) ? box.min.y : 0;
   };
+  const probeSaloonFloorY = () => probeEnvFloorY(state.saloonEnv);
 
   for (let i = 0; i < SEATS; i++) {
     const seat = { group: new THREE.Group(), cards: [], cardSig: 'none', chips: null, stackChips: null, char: null, label: null, chair: null };
@@ -1465,19 +1463,29 @@ async function buildScene(canvas) {
 
   await Promise.all([backdropPromise, ...charPromises]);
 
-  // Re-plant every seat onto the real saloon board height, then re-seat chairs.
-  const saloonFloorY = probeSaloonFloorY();
-  state.saloonFloorY = saloonFloorY;
+  // The baked pub floor's top sits above the mesh skirt (~0.3–0.4 m). The
+  // table/camera were framed for boards at y=0, so drop the whole saloon
+  // until a raycast under the pocket reads ~0 — otherwise boots plant
+  // through the visual tiles while the felt stays at TABLE_TOP.
+  if (state.saloonEnv) {
+    const floorY = probeSaloonFloorY();
+    if (floorY > 0.01) {
+      state.saloonEnv.position.y -= floorY;
+      state.saloonEnv.updateMatrixWorld(true);
+    }
+  }
+  state.saloonFloorY = probeSaloonFloorY();
+
+  // Re-plant every seat onto the aligned saloon boards, then re-seat chairs.
   for (let i = 0; i < state.seats.length; i++) {
     const seat = state.seats[i];
     if (!seat.char) continue;
     const facing = seat.facing ?? Math.atan2(
       -seat.char.root.position.x, -seat.char.root.position.z);
-    placeSeatedCharacter(seat.char, i, facing, saloonFloorY);
+    placeSeatedCharacter(seat.char, i, facing, state.saloonFloorY);
     if (seat.chair) {
       alignChairToCharacter(seat.chair, seat.char, facing, i);
-      // Chair legs on the boards, not on world zero under thick tiles.
-      seat.chair.position.y += saloonFloorY;
+      seat.chair.position.y += state.saloonFloorY;
     }
   }
 
@@ -2857,7 +2865,7 @@ window.pokerScene = {
         floorY: Number(floorY.toFixed(3)),
         rootY: Number(c.root.position.y.toFixed(3)),
         minJointY: Number(minJoint.toFixed(3)),
-        soleEstY: Number((minJoint - 0.22).toFixed(3)),
+        soleEstY: Number((minJoint - 0.14).toFixed(3)),
         chairY: seat.chair ? Number(seat.chair.position.y.toFixed(3)) : null,
       };
     });
