@@ -1253,8 +1253,8 @@ async function buildScene(canvas) {
   // soleTargetY is the saloon board top (raycast), not world y=0 — tile tops
   // sit a few centimetres above the mesh's lowest vertex.
   // Jacob's cowboy boots hang below the ball/foot joints.
-  const FOOT_SOLE_DROP = 0.14; // joint → sole under a cowboy boot
-  const SOLE_CLEARANCE = 0.02; // keep leather just kissing the boards
+  const FOOT_SOLE_DROP = 0.17; // joint → sole under a cowboy boot
+  const SOLE_CLEARANCE = 0.025; // keep leather just kissing the boards
   const placeSeatedCharacter = (character, i, facing, soleTargetY = 0) => {
     character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
     scene.add(character.root);
@@ -2865,7 +2865,7 @@ window.pokerScene = {
         floorY: Number(floorY.toFixed(3)),
         rootY: Number(c.root.position.y.toFixed(3)),
         minJointY: Number(minJoint.toFixed(3)),
-        soleEstY: Number((minJoint - 0.14).toFixed(3)),
+        soleEstY: Number((minJoint - 0.17).toFixed(3)),
         chairY: seat.chair ? Number(seat.chair.position.y.toFixed(3)) : null,
       };
     });
