@@ -522,6 +522,15 @@ def main() -> None:
         bpy.context.scene.frame_set(1)
         bpy.context.view_layer.update()
 
+    # Drop any non-outfit junk (Blender defaults, helpers) before export.
+    keep_meshes = {o.name for o in meshes}
+    for o in list(bpy.data.objects):
+        if o.type == "MESH" and o.name not in keep_meshes:
+            print("removing junk mesh", o.name)
+            bpy.data.objects.remove(o, do_unlink=True)
+        elif o.type in ("LIGHT", "CAMERA") and o != jacob:
+            bpy.data.objects.remove(o, do_unlink=True)
+
     print("meshes", sorted(o.name for o in bpy.data.objects if o.type == "MESH"))
     print("arm scale", tuple(jacob.scale))
     print(
