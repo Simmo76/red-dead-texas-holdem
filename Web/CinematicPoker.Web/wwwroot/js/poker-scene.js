@@ -2018,6 +2018,9 @@ const _cardWorld = new THREE.Vector3();
 const _faceQuat = new THREE.Quaternion();
 const _parentQuat = new THREE.Quaternion();
 const _faceUp = new THREE.Vector3(0, 1, 0);
+const _camRight = new THREE.Vector3();
+const _camUp = new THREE.Vector3();
+const _fanLocal = new THREE.Vector3();
 
 function findCharBone(character, names) {
   let found = null;
@@ -2102,37 +2105,52 @@ function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
     // Bone-parented bounds lag the pose; never cull held cards.
     card.frustumCulled = false;
     card.renderOrder = 2;
-    // Wide fan so both ranks/suits read from the OTS camera — the near card
-    // sits left/back, the far card right/forward with a clear corner peek.
+    // Wide fan so both ranks/suits read from the OTS camera — left card
+    // back/left, right card forward/right with a clear index-corner peek.
     // Local +Z faces the eyes (see syncCardHold).
-    card.position.set(dir * 0.055, 0.004 * (i + 1), 0.01 + i * 0.012);
-    card.rotation.set(faceUp ? 0 : Math.PI, dir * -0.08, dir * 0.28);
+    card.position.set(dir * 0.085, 0.005 * (i + 1), 0.012 + i * 0.02);
+    card.rotation.set(faceUp ? 0 : Math.PI, dir * -0.12, dir * 0.48);
   }
 }
 
 // Player pair: keep faces readable from the over-the-shoulder camera while
 // the cards still ride the animated palm (local position stays parented).
 // Blend the palm-facing hold with a camera aim so the pair stays in the grip
-// instead of full-billboarding out in front of the chest.
+// instead of full-billboarding out in front of the chest. Fan along the
+// camera's right/up axes (projected into the hold) so both index corners
+// stay screen-separated from the OTS shoulder seat — a hold-local X fan
+// often collapses into near/far stacking from that angle.
 function faceHeldCardsTowardCamera(cards) {
   if (!state.camera || !cards.length) return;
+  state.camera.updateMatrixWorld(true);
+  // Reuse _holdPos as the camera forward for a shallow depth stagger.
+  state.camera.getWorldDirection(_holdPos);
+  _camRight.setFromMatrixColumn(state.camera.matrixWorld, 0).normalize();
+  _camUp.setFromMatrixColumn(state.camera.matrixWorld, 1).normalize();
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
-    if (!card.parent) continue;
+    const parent = card.parent;
+    if (!parent) continue;
+    const dir = i === 0 ? -1 : 1;
+    parent.updateWorldMatrix(true, false);
+    parent.getWorldPosition(_cardWorld);
+    // Screen-space fan from the palm centre: left/right across the view,
+    // slight vertical split, tiny depth so faces don't z-fight.
+    _fanLocal.copy(_cardWorld)
+      .addScaledVector(_camRight, dir * 0.075)
+      .addScaledVector(_camUp, 0.012 + dir * 0.018)
+      .addScaledVector(_holdPos, -0.01 * (i + 1));
+    parent.worldToLocal(_fanLocal);
+    card.position.copy(_fanLocal);
+
+    parent.getWorldQuaternion(_parentQuat);
     card.getWorldPosition(_cardWorld);
-    // Start from the helper's palm-facing orientation, then ease toward the
-    // camera so ranks stay readable from the seat without leaving the hands.
-    card.parent.getWorldQuaternion(_parentQuat);
     _holdMat.lookAt(_cardWorld, state.camera.position, _faceUp);
     _faceQuat.setFromRotationMatrix(_holdMat);
     _faceQuat.multiply(_holdQuat.setFromAxisAngle(_faceUp, Math.PI));
-    _holdQuat.copy(_parentQuat).slerp(_faceQuat, 0.72);
+    _holdQuat.copy(_parentQuat).slerp(_faceQuat, 0.78);
     card.quaternion.copy(_parentQuat.invert().multiply(_holdQuat));
-    const dir = i === 0 ? -1 : 1;
-    // Match layoutCardsInHold fan so the back card's index corner stays clear.
-    card.rotateZ(dir * 0.32);
-    card.rotateY(dir * -0.1);
-    card.position.set(dir * 0.055, 0.004 * (i + 1), 0.01 + i * 0.012);
+    card.rotateZ(dir * 0.45);
   }
 }
 
