@@ -495,6 +495,12 @@
     private HandSequenceLog _handLog = new();
     private readonly Random _rng = new();
     private readonly Dictionary<int, IReadOnlyList<Card>> _revealed = new();
+
+    // Seats whose fold has actually been SHOWN on the table (the PlayerFolded
+    // event was presented). The engine's SeatState.Folded flips the moment an
+    // action is submitted — queued events can lag that by several seconds, so
+    // the 3D table reads fold state from here instead of the live engine.
+    private readonly HashSet<int> _shownFolded = new();
     private int _showdownHandCount; // hands compared at the current showdown
 
     // The engine resolves a hand synchronously (a call on the turn can deal
@@ -792,7 +798,14 @@
         var seats = _game.Players.Select(p =>
         {
             SeatState s = SeatOf(p.Seat);
-            bool folded = s != null && s.Folded;
+            // Use the fold as the table has PRESENTED it, not the engine's
+            // live flag. The engine marks a seat folded the instant the
+            // action is submitted, but that fold can still be queued behind
+            // dwell pauses — reading the live flag here mucked the cards
+            // (and greyed the player) seconds before the fold gesture
+            // played, which read as "his cards vanished while he was still
+            // in the hand".
+            bool folded = _shownFolded.Contains(p.Seat);
             bool eliminated = ShownOut(p.Seat);
             bool acting = _game.CurrentSeat == p.Seat;
             string status =
@@ -915,6 +928,7 @@
         _handLog.BeginSession(0, rules, players);
 
         _revealed.Clear();
+        _shownFolded.Clear();
         _pending.Clear();
         _shownBoard.Clear();
         _showdownView.Clear();
@@ -1629,6 +1643,7 @@
         {
             case HandStarted started:
                 _revealed.Clear();
+                _shownFolded.Clear();
                 _shownBoard.Clear();
                 _showdownView.Clear();
                 _showdownHandCount = 0;
@@ -1672,6 +1687,7 @@
                 break;
 
             case PlayerFolded foldedEvt:
+                _shownFolded.Add(foldedEvt.Seat);
                 SceneAction(foldedEvt.Seat, "fold");
                 // Letting a big pot go stings. The fold plays first; the
                 // disappointment follows when that gesture lets go.

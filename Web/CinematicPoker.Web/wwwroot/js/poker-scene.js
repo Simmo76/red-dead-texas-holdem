@@ -2355,7 +2355,11 @@ function updateSeatCards(seat, i, data) {
   // seat (long axis radial). yaw = π/2 − seatAngle keeps every seat aligned;
   // the old seatAngle − π/2 formula only worked for seats 0/3 and left the
   // others looking landscape / stacked toward the rail.
-  const basePos = seatPos(i, TABLE_RADIUS - 0.33);
+  // The ring sits in from the rail, clear of the hands: the table idles
+  // (observe / protect-cards) plant palms and forearms on the felt right
+  // where a −0.33 ring put the backs, which buried the near seats' cards
+  // under their own arms from the over-the-shoulder camera.
+  const basePos = seatPos(i, TABLE_RADIUS - 0.44);
   const facing = seatAngle(i);
   const yaw = Math.PI / 2 - facing;
   const tx = -Math.sin(facing);
@@ -2877,9 +2881,13 @@ window.pokerScene = {
       // Folded players (the human included) sit out the rest of the hand as
       // grey ghosts with arms folded; the flag clears when the next hand
       // deals, so colour and the thinking idle come back on their own.
+      // Busted (out) players ghost the same way: left in full colour they
+      // read as still in the hand — "his cards are missing" — when really
+      // they're out of the game. The grey arms-folded hold says so at a
+      // glance; the bust slump below still plays over it once.
       // Chairs leave with the fold so the ghost floats free of furniture.
       const foldedOut = (!!data.folded || !!data.out);
-      if (seat.char) seat.char.setFolded(!!data.folded && !data.out);
+      if (seat.char) seat.char.setFolded(foldedOut);
       if (seat.chair) seat.chair.visible = !foldedOut;
       if (seat.char && typeof data.heat === 'number') seat.char.heat = data.heat;
       if (seat.char && data.out) {
