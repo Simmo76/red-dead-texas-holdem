@@ -3,12 +3,15 @@
 // dance club) built procedurally from primitives, each with its own mood
 // lighting. Props/textures are CC0; the saloon is a web-optimised conversion
 // of the repo owner's licensed Unity pub scene (see tools/build_saloon_backdrop.py).
-// Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy. Check/bet/fold stay on Jacob's own clips. The player draws
-// one of Cocomotion AS_Idle_HoldCards_01–03 ContinuousLoop; NPC seats each
-// draw one of the table sit / observe idles from the NPC Idle package.
-// Folded seats hold AS_Idle_Sit_ArmsFolded_01. Win / lose stay Mighty Cat.
-// All mood clips are Humanoid-retargeted onto Jacob
+// The player is always a random outfit of David Grette's Jacob cowboy.
+// NPC seats draw from Jacob outfits plus the Sheriff and Bandit characters
+// from the same Western series (baked web GLBs; see tools/bake_western_npc.py).
+// Check/bet/fold stay on Jacob's seated clips (copied onto Sheriff/Bandit).
+// The player draws one of Cocomotion AS_Idle_HoldCards_01–03 ContinuousLoop;
+// NPC seats each draw one of the table sit / observe idles from the NPC Idle
+// package. Folded seats hold AS_Idle_Sit_ArmsFolded_01. Win / lose stay
+// Mighty Cat takes. All mood clips are Humanoid-retargeted onto the shared
+// UE4 bone names
 // (see docs/mighty-cat-poker-animation-map.md).
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
@@ -504,7 +507,7 @@ function characterMaterial(material, shirt, meshName, hatTint) {
   // on this export, and a front-only pass draws the white sclera instead of
   // the eye. Solid cloth stays front-faced.
   const alphaCard = !!(m.transparent || m.alphaTest > 0);
-  const headMesh = /^Head__|^Jacob_head/i.test(meshName || '');
+  const headMesh = /^Head__|^Jacob_head|^Sheriff_Head|^Michael_head/i.test(meshName || '');
   m.side = (alphaCard || headMesh) ? THREE.DoubleSide : THREE.FrontSide;
   m.shadowSide = THREE.FrontSide;
   m.userData.baseOpacity = m.opacity;
@@ -573,8 +576,10 @@ function makeCharacter(gltf, spec, extraClips) {
   // Like the head, a hat can load as a group with child meshes per material
   // slot, so hat-ness is decided by the mesh or any ancestor's name.
   const isHatMesh = (obj) => {
-    for (let p = obj; p; p = p.parent)
-      if (/^Hat__/.test((p.name || '').replace(/\.\d+$/, ''))) return true;
+    for (let p = obj; p; p = p.parent) {
+      const n = (p.name || '').replace(/\.\d+$/, '');
+      if (/^Hat(__|$)/.test(n)) return true;
+    }
     return false;
   };
   const bodyMeshes = [];
@@ -1242,14 +1247,26 @@ async function buildScene(canvas) {
   state.seats = [];
   const charPromises = [];
 
-  // One rig, every outfit. A fresh draw every time the table is built.
-  const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
+  // Jacob outfits for every seat, plus Sheriff and Bandit as NPC-only draws.
+  // A fresh cast every time the table is built.
+  const jacobModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
+  const sheriffModel = loadGlb(loader, 'models/characters/western/Sheriff.glb?v=1');
+  const banditModel = loadGlb(loader, 'models/characters/western/Bandit.glb?v=1');
   const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=9');
-  // Every seat wears a hat so the seat's accent colour always has somewhere
-  // to live; hatless presets borrow a hat (and the matching short hair so the
-  // full hairstyle doesn't clip through the brim).
-  const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS)
-    .map((look, i) => look.hat ? look : { ...look, hat: 1 + (i % 2), hair: 'cut' });
+  // Every Jacob look wears a hat so the seat's accent colour always has
+  // somewhere to live; hatless presets borrow a hat (and the matching short
+  // hair so the full hairstyle doesn't clip through the brim). Sheriff and
+  // Bandit already ship with a hat mesh named Hat__1.
+  const withHat = (look, i) => (look.hat ? look : { ...look, hat: 1 + (i % 2), hair: 'cut' });
+  const jacobPool = shuffle(WESTERN_LOOKS.map((look, i) => ({ kind: 'jacob', look: withHat(look, i) })));
+  const playerPick = jacobPool[0];
+  // NPCs draw from the remaining Jacob outfits plus Sheriff and Bandit.
+  const npcPool = shuffle([
+    ...jacobPool.slice(1),
+    { kind: 'sheriff', look: null },
+    { kind: 'bandit', look: null },
+  ]).slice(0, SEATS - 1);
+  const lineup = [playerPick, ...npcPool];
 
   // Position a seated character at seat i: face the table and plant the
   // idle's hands on the felt. The thinking clip holds the palms at lap
@@ -1365,18 +1382,25 @@ async function buildScene(canvas) {
       seat.chair = chair;
     }
 
-    // Every seat, including the player, is one of this game's looks, with
-    // the hat tinted in the seat's accent colour (the HUD paints this
+    // Seat 0 is always Jacob; NPC seats may be Jacob, Sheriff, or Bandit.
+    // Hats are tinted in the seat's accent colour (the HUD paints that
     // player's name in the same colour).
+    const pick = lineup[i];
     const spec = {
-      look: lineup[i], cards: i === 0, scale: WESTERN_SCALE,
+      look: pick.look, cards: i === 0, scale: WESTERN_SCALE,
       hatColor: SEAT_COLORS[i % SEAT_COLORS.length]
     };
-    charPromises.push(Promise.all([westernModel, mightyCatModel, idleDeal]).then(([gltf, mc, deal]) => {
+    charPromises.push(Promise.all([
+      jacobModel, sheriffModel, banditModel, mightyCatModel, idleDeal
+    ]).then(([jacob, sheriff, bandit, mc, deal]) => {
       spec.idleName = deal[i];
+      const gltf = pick.kind === 'sheriff' ? sheriff
+        : pick.kind === 'bandit' ? bandit
+        : jacob;
       const character = makeCharacter(gltf, spec, mc && mc.animations);
       if (!character) return;
       character.variant = i;
+      character.kind = pick.kind;
       placeSeatedCharacter(character, i, facing);
       if (seat.chair) {
         alignChairToCharacter(seat.chair, character, facing, i);
