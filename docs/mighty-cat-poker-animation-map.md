@@ -4,11 +4,12 @@ Pack: [Unity Asset Store](https://assetstore.unity.com/packages/3d/animations/po
 
 ## What runs now
 
-Jacob keeps his own `Check` / `Bet` / `Fold` / `FoldShake` clips. Active seats each draw one of Cocomotion `AS_Idle_HoldCards_01–03_ContinuousLoop` (`IdleHoldCards01–03`) for that game. Folded seats hold `AS_Idle_Sit_ArmsFolded_01` (`IdleSitArmsFolded01`) until the next hand. Win and lose stay Mighty Cat takes. All mood clips are Humanoid-retargeted onto Jacob (`tools/bake_idle_sit_thinking.py`, `tools/bake_mighty_cat_humanoid.py` → `mighty-cat.glb`).
+Jacob keeps his own `Check` / `Bet` / `Fold` / `FoldShake` clips. The **player** draws one of Cocomotion `AS_Idle_HoldCards_01–03_ContinuousLoop` (`IdleHoldCards01–03`) and parents hole cards into a palm `CardHold`. **NPC** seats each draw one table sit / observe idle from the NPC Idle Animations pack (`IdleSit01–06`, `IdleTableObserve*`, `IdleTableProtectCards01`) with hole cards face-down on the felt. Folded seats hold `AS_Idle_Sit_ArmsFolded_01` (`IdleSitArmsFolded01`) until the next hand. Win and lose stay Mighty Cat takes. All mood clips are Humanoid-retargeted onto Jacob (`tools/bake_idle_sit_thinking.py`, `tools/bake_mighty_cat_humanoid.py` → `mighty-cat.glb`).
 
 | Event | Clip |
 |---|---|
-| Idle | random `IdleHoldCards01–03` (`AS_Idle_HoldCards_01–03_ContinuousLoop`) while in the hand |
+| Player idle | random `IdleHoldCards01–03` (`AS_Idle_HoldCards_01–03_ContinuousLoop`) while in the hand |
+| NPC idle | random `IdleSit01–06` / `IdleTableObserveLeft01` / `IdleTableObserveRight01` / `IdleTableObserveLeftRight01` / `IdleTableProtectCards01` |
 | Folded hold | `IdleSitArmsFolded01` (`AS_Idle_Sit_ArmsFolded_01`) for the rest of the hand |
 | Check / bet / call / raise / all-in | Jacob `Check` / `Bet` |
 | Fold | Jacob `Fold` / `FoldShake` (player), then the arms-folded hold |
