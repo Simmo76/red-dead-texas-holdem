@@ -2081,10 +2081,13 @@ function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
     const dir = i === 0 ? -1 : 1;
     hold.add(card);
     card.scale.setScalar(1);
+    // Bone-parented bounds lag the pose; never cull held cards.
+    card.frustumCulled = false;
+    card.renderOrder = 2;
     // Slight fan + millimetre separation so overlapping faces don't z-fight.
     // Local +Z faces the eyes (see syncCardHold); keep the pair close to the
     // helper origin so it reads inside the grip.
-    card.position.set(dir * 0.028, 0.002 * (i + 1), 0.004);
+    card.position.set(dir * 0.028, 0.002 * (i + 1), 0.006);
     card.rotation.set(faceUp ? 0 : Math.PI, 0, dir * 0.12);
   }
 }
