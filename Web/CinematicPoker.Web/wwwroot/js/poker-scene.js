@@ -2205,6 +2205,13 @@ function updateHole(paths) {
   clearGroupChildren(state.holeCards, state.scene);
   for (let i = 0; i < paths.length; i++) {
     const card = makeCard(paths[i], 0.145, true);
+    // The player's own pair must always read over everything else in the
+    // scene (his body, the rail, chip stacks), so skip the depth test and
+    // draw the cards after the rest of the frame. renderOrder climbs with i
+    // so the second card of the fan still overlaps the first correctly.
+    card.material.depthTest = false;
+    card.material.depthWrite = false;
+    card.renderOrder = 20 + i;
     state.holeCards.push(card);
   }
   layoutHoleCards();
