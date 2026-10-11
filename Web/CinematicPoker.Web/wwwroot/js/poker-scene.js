@@ -1,8 +1,8 @@
-// Over-the-shoulder poker scene (Three.js) set on a neon arcade street, with
-// five extra switchable backdrops (beach, desert, shed, space station, dance
-// club) built procedurally from primitives, each with its own mood lighting.
-// Props/textures are CC0; the street backdrop is a web-optimised conversion of
-// the repo owner's licensed Unity asset (Leartes "Stylized Cyberpunk Arcade").
+// Over-the-shoulder poker scene (Three.js) set in the Dead Man's Hand saloon,
+// with five extra switchable backdrops (beach, desert, shed, space station,
+// dance club) built procedurally from primitives, each with its own mood
+// lighting. Props/textures are CC0; the saloon is a web-optimised conversion
+// of the repo owner's licensed Unity pub scene (see tools/build_saloon_backdrop.py).
 // Every seat, including the player, is a random outfit of David Grette's
 // Jacob cowboy. Check/bet/fold stay on Jacob's own clips. Active seats idle
 // on Cocomotion AS_Idle_Sit_Thinking_01; folded seats hold
@@ -87,7 +87,7 @@ const _introLook = new THREE.Vector3(0, 0.95, 0);
 
 function endIntro() {
   if (state.intro) state.intro.active = false;
-  if (state.setEnvironment) state.setEnvironment(0); // settle into ARCADE
+  if (state.setEnvironment) state.setEnvironment(0); // settle into SALOON
 }
 
 const state = {
@@ -885,8 +885,8 @@ async function buildScene(canvas) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x07070f);
-  scene.fog = new THREE.Fog(0x07070f, 14, 70);
+  scene.background = new THREE.Color(0x1a120c);
+  scene.fog = new THREE.Fog(0x1a120c, 10, 36);
 
   const camera = new THREE.PerspectiveCamera(52, canvas.clientWidth / canvas.clientHeight, 0.05, 140);
 
@@ -938,11 +938,11 @@ async function buildScene(canvas) {
   setupLookControls(canvas, view);
   requestLandscapeLock();
 
-  // ---- lighting: cool neon night around the street, with the familiar warm
-  // lantern pool kept over the felt so the game still reads like a card den.
-  const ambient = new THREE.AmbientLight(0x5a6690, 1.2);
+  // ---- lighting: warm indoor saloon wash, with the familiar lantern pool
+  // kept over the felt so the game still reads like a card den.
+  const ambient = new THREE.AmbientLight(0xb89870, 0.7);
   scene.add(ambient);
-  const hemi = new THREE.HemisphereLight(0x46538a, 0x1c1a2e, 0.9);
+  const hemi = new THREE.HemisphereLight(0xe8c898, 0x3a2818, 0.55);
   scene.add(hemi);
 
   const lantern = new THREE.PointLight(0xffc477, 22, 9, 1.9);
@@ -961,13 +961,13 @@ async function buildScene(canvas) {
   keyLight.shadow.camera.far = 11;
   scene.add(keyLight, keyLight.target);
 
-  // Soft neon spill from the arcade street: a hint of cyan one side and
-  // magenta the other, kept subtle so faces stay skin-toned.
-  const fill = new THREE.PointLight(0x9adfe8, 3.5, 9, 2);
+  // Soft warm spill from the saloon lamps / window light so faces stay
+  // readable without neon tint.
+  const fill = new THREE.PointLight(0xffd2a0, 2.2, 10, 2);
   fill.position.set(3.2, 2.0, 2.6);
   scene.add(fill);
 
-  const backFill = new THREE.PointLight(0xe08ad8, 4.5, 11, 2);
+  const backFill = new THREE.PointLight(0xffb068, 2.8, 12, 2);
   backFill.position.set(-2.4, 2.2, -3.6);
   scene.add(backFill);
 
@@ -994,80 +994,74 @@ async function buildScene(canvas) {
   state.buttons = makeButtonChips();
   scene.add(state.buttons.dealer.mesh, state.buttons.sb.mesh, state.buttons.bb.mesh);
 
-  // ---- street backdrop: the repo owner's licensed Leartes "Stylized
-  // Cyberpunk Arcade" environment, converted to one merged meshopt GLB.
-  // The set is a dressed street, not a plaza: its origin sits inside a light
-  // mast and the ground meshes were stripped in the web conversion. So the
-  // whole street is scaled/offset to wrap its clearest pocket (between the
-  // crate cluster and the storefront row) around the table, with the set's
-  // street level (y=-1.85 in the GLB's world frame) raised to y=0 so the
-  // table legs and the players' boots sit on the arcade floor.
-  const ARCADE_SCALE = 1.0;
-  const ARCADE_POCKET = { x: -7.5, y: -1.85, z: -3.0 }; // table spot, GLB world frame
+  // ---- saloon backdrop: owner-licensed Dead Man's Hand pub Unity scene,
+  // rebuilt as one merged meshopt GLB with the players' table pocket (the
+  // red-circle mark south of the central round tables) already centred on
+  // the origin and cleared of furniture. Rotate 180° so the bar sits across
+  // the table in the player's forward view.
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
-  const backdropPromise = loadGlb(loader, 'models/env/backdrop.glb').then((gltf) => {
+  const backdropPromise = loadGlb(loader, 'models/env/backdrop.glb?v=2').then((gltf) => {
     if (!gltf) return;
     const env = new THREE.Group();
-    const street = gltf.scene;
-    street.rotation.y = Math.PI; // arcade frontage wraps around the player's view
-    street.scale.setScalar(ARCADE_SCALE);
-    street.position.set(
-      -ARCADE_POCKET.x * ARCADE_SCALE,
-      -ARCADE_POCKET.y * ARCADE_SCALE,
-      -ARCADE_POCKET.z * ARCADE_SCALE);
-    street.traverse((m) => {
-      if (m.isMesh) {
-        m.castShadow = false;
-        m.receiveShadow = false;
-        // Punch up the neon signage so it glows through the night fog.
-        if (m.material && m.material.emissiveIntensity) {
-          m.material.emissiveIntensity *= 3.0;
+    const saloon = gltf.scene;
+    saloon.rotation.y = Math.PI; // bar across the table from the player seat
+    saloon.traverse((m) => {
+      if (!m.isMesh) return;
+      m.castShadow = false;
+      m.receiveShadow = false;
+      const mats = Array.isArray(m.material) ? m.material : [m.material];
+      for (const mat of mats) {
+        if (!mat) continue;
+        if (mat.map) {
+          mat.map.colorSpace = THREE.SRGBColorSpace;
+          mat.map.needsUpdate = true;
+        }
+        if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness ?? 0, 0.15);
+        if (mat.roughness !== undefined) mat.roughness = Math.max(mat.roughness ?? 0.8, 0.75);
+        // Glassware / bottles: keep a little translucency without sorting pain.
+        if (mat.transparent || (mat.opacity !== undefined && mat.opacity < 0.99)) {
+          mat.transparent = true;
+          mat.opacity = Math.min(mat.opacity ?? 0.55, 0.55);
+          mat.depthWrite = false;
         }
       }
     });
-    env.add(street);
-    // Street lamps: cool pools over the storefront row and the crate cluster
-    // so the backdrop reads instead of dissolving into the night. They live in
-    // the env group, so they switch off with the arcade backdrop.
+    env.add(saloon);
+    // Warm hanging-lamp pools around the room so the walls and bar read
+    // under the indoor fog. They live in the env group and switch off with
+    // the saloon backdrop.
     const lampSpecs = [
-      [0x8fb8ff, 50, 24, [4.5, 3.6, -7.5]],   // storefront frontage, north-east
-      [0x9fc4ff, 45, 22, [-6.0, 3.4, -8.0]],  // crate cluster, north-west
-      [0xffb493, 38, 22, [11.0, 3.2, -1.5]],  // warm spill down the east street
-      [0x8fa8e8, 32, 24, [-13.0, 3.8, -12.0]], // west cluster rim light
-      [0x7d8fc8, 70, 36, [0.0, 9.0, -13.0]]    // broad wash: mid-street ground + facades
+      [0xffd2a0, 28, 14, [0.0, 3.2, -6.5]],   // bar face (forward of player)
+      [0xffc090, 18, 12, [-5.5, 3.0, -2.0]],  // left booths
+      [0xffc090, 18, 12, [6.5, 3.0, -2.0]],   // right booths
+      [0xffe0b8, 22, 16, [0.0, 3.4, 3.5]],    // behind player / south wall
+      [0xffb878, 16, 11, [-7.0, 2.8, -7.0]],  // far left corner
+      [0xffb878, 16, 11, [8.0, 2.8, -7.0]]    // far right corner
     ];
     for (const [color, intensity, dist, pos] of lampSpecs) {
       const lamp = new THREE.PointLight(color, intensity, dist, 1.8);
       lamp.position.set(pos[0], pos[1], pos[2]);
       env.add(lamp);
     }
-    // The converted set has no ground surface (only thin neon grid lines), so
-    // lay a night asphalt slab at street level for the table to stand on.
-    const asphalt = new THREE.Mesh(
-      new THREE.CircleGeometry(70, 48),
-      new THREE.MeshStandardMaterial({ color: 0x181d30, roughness: 0.96, metalness: 0.05 }));
-    asphalt.rotation.x = -Math.PI / 2;
-    asphalt.position.y = -0.01; // just below the shadow catcher
-    env.add(asphalt);
     scene.add(env);
     state.envGroups[0] = env;
     env.visible = state.envIndex === 0;
   });
 
-  // Faint cool moonlight so the street silhouettes read against the night.
-  // (Doubles as the sun/celestial key for the other switchable backdrops.)
-  const moon = new THREE.DirectionalLight(0x7285c8, 1.8);
-  moon.position.set(-14, 26, 10);
+  // Soft daylight key through the windows (also the celestial key for the
+  // other switchable backdrops).
+  const moon = new THREE.DirectionalLight(0xffe2c0, 0.85);
+  moon.position.set(-8, 18, -6);
   scene.add(moon);
 
-  // ---- switchable backdrops: the arcade GLB plus five procedural sets that
+  // ---- switchable backdrops: the saloon GLB plus five procedural sets that
   // are built lazily on first visit. Each entry retunes the mood lighting
-  // (ambient / hemisphere / celestial / neon fills) while the warm lantern
-  // pool over the felt stays constant so the game always reads the same.
+  // (ambient / hemisphere / celestial / fills) while the warm lantern pool
+  // over the felt stays constant so the game always reads the same.
   // bg doubles as the fog colour so distant geometry melts into the sky.
   const ENVS = [
-    { name: 'ARCADE', bg: 0x07070f, fog: [14, 70], amb: [0x5a6690, 1.2], hemi: [0x46538a, 0x1c1a2e, 0.9], dir: [0x7285c8, 1.8, [-14, 26, 10]], fill: [0x9adfe8, 4.5], back: [0xe08ad8, 5.5], build: null },
+    { name: 'SALOON', bg: 0x1a120c, fog: [10, 36], amb: [0xb89870, 0.7], hemi: [0xe8c898, 0x3a2818, 0.55], dir: [0xffe2c0, 0.85, [-8, 18, -6]], fill: [0xffd2a0, 2.2], back: [0xffb068, 2.8], build: null },
     { name: 'BEACH', bg: 0x2f9ed3, fog: [30, 130], amb: [0xbfd8e8, 0.65], hemi: [0xcfe8ff, 0x8a7a5a, 0.55], dir: [0xfff2d8, 1.7, [18, 30, 12]], fill: [0xbfe8ff, 1.2], back: [0xffe8c8, 1.2], build: buildBeach },
     { name: 'DESERT', bg: 0xe8b878, fog: [25, 110], amb: [0xd8b890, 0.85], hemi: [0xf0d0a8, 0x9a6a3a, 0.7], dir: [0xffd8a0, 2.4, [-20, 18, 8]], fill: [0xffc890, 1.2], back: [0xff9860, 1.8], build: buildDesert },
     { name: 'SHED', bg: 0x0d0906, fog: [8, 26], amb: [0x584838, 0.35], hemi: [0x4a3828, 0x140c06, 0.35], dir: [0xc8a878, 0.15, [-6, 12, 6]], fill: [0xffb868, 1.2], back: [0x684828, 1.0], build: buildShed },
@@ -1096,9 +1090,10 @@ async function buildScene(canvas) {
     fill.color.setHex(def.fill[0]); fill.intensity = def.fill[1];
     backFill.color.setHex(def.back[0]); backFill.intensity = def.back[1];
   };
+  state.setEnvironment(0);
 
   // The backdrop doesn't receive shadows (perf), so a shadow catcher under
-  // the table keeps the players grounded on the street.
+  // the table keeps the players grounded on the saloon floor.
   const catcher = new THREE.Mesh(
     new THREE.CircleGeometry(3.6, 40),
     new THREE.ShadowMaterial({ opacity: 0.45 }));
@@ -1142,8 +1137,8 @@ async function buildScene(canvas) {
   scene.add(base);
 
   // ---- seats (characters + cards + labels). Chairs are left out for now.
-  // (The street backdrop supplies its own clutter — crates, bottles, arcade
-  // cabinets — so the old saloon barrels/boxes are gone.)
+  // (The saloon backdrop already dresses the room — booths, bar stools,
+  // bottles — so we don't add extra Kenney clutter around the table.)
   state.seats = [];
   const charPromises = [];
 
@@ -2381,7 +2376,7 @@ window.pokerScene = {
   // Cycle to the next backdrop set; returns the new backdrop name for the
   // topbar button label.
   cycleBackdrop() {
-    if (!state.ready || !state.setEnvironment) return 'ARCADE';
+    if (!state.ready || !state.setEnvironment) return 'SALOON';
     const next = (state.envIndex + 1) % state.envNames.length;
     state.setEnvironment(next);
     return state.envNames[next];

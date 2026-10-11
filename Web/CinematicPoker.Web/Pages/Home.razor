@@ -720,7 +720,7 @@
         // Reveal the table first, then let the title card fade out over it.
         _introFading = true;
         StateHasChanged();
-        // No opening camera sweep — go straight to the seated arcade view.
+        // No opening camera sweep — go straight to the seated saloon view.
         try
         {
             await JS.InvokeVoidAsync("pokerScene.lockLandscape");
@@ -1949,7 +1949,7 @@
 
     // -------------------------------------------------------------- backdrop
 
-    private string _backdropName = "ARCADE";
+    private string _backdropName = "SALOON";
 
     private async Task CycleBackdrop()
     {
