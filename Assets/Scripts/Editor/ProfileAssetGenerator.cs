@@ -18,12 +18,12 @@ namespace CinematicPoker.Editor
 
         private static readonly (string name, float skill, float aggr, float tight, float bluff, float noise)[] Roster =
         {
-            // name        skill aggr  tight bluff noise
-            ("Simon",      0.35f, 0.90f, 0.10f, 0.40f, 0.25f), // maniac
-            ("Steve",      0.50f, 0.50f, 0.50f, 0.15f, 0.10f), // regular, tilts hard
-            ("Tom",        0.45f, 0.25f, 0.85f, 0.03f, 0.10f), // rock
-            ("Nick",       0.25f, 0.20f, 0.15f, 0.05f, 0.20f), // calling station
-            ("Pete",       0.90f, 0.65f, 0.60f, 0.20f, 0.03f)  // the shark
+            // name                 skill aggr  tight bluff noise
+            ("Simmo Says",      0.35f, 0.90f, 0.10f, 0.40f, 0.25f), // maniac
+            ("Stevie Wanders",  0.50f, 0.50f, 0.50f, 0.15f, 0.10f), // regular, tilts hard
+            ("Tommy Gunn",      0.45f, 0.25f, 0.85f, 0.03f, 0.10f), // rock
+            ("Nickey 2-guns",   0.25f, 0.20f, 0.15f, 0.05f, 0.20f), // calling station
+            ("Jimmy two-hands", 0.90f, 0.65f, 0.60f, 0.20f, 0.03f)  // the shark
         };
 
         [MenuItem("Cinematic Poker/Generate Prototype AI Profiles")]
@@ -46,7 +46,7 @@ namespace CinematicPoker.Editor
                 asset.tightness = tight;
                 asset.bluffFrequency = bluff;
                 asset.decisionNoise = noise;
-                asset.tiltSensitivity = name == "Steve" ? 0.8f : 0.4f;
+                asset.tiltSensitivity = name == "Stevie Wanders" ? 0.8f : 0.4f;
                 asset.opponentAwareness = skill;
                 asset.potOddsAccuracy = skill;
                 asset.positionAwareness = skill;

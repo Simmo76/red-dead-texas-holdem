@@ -42,25 +42,47 @@ namespace CinematicPoker.Game.Prototype
         private const float SeatRadius = 1.7f;
         private static readonly Vector3 TableCentre = new Vector3(0f, TableHeight, 0f);
 
-        private static readonly (string name, System.Func<AIProfile> profile)[] Roster =
+        private static readonly System.Func<AIProfile>[] Roster =
         {
-            ("Simon", AIProfile.Maniac),
-            ("Steve", AIProfile.Regular),
-            ("Tom", AIProfile.Rock),
-            ("Nick", AIProfile.CallingStation),
-            ("Pete", AIProfile.Professional)
+            AIProfile.Maniac,
+            AIProfile.Regular,
+            AIProfile.Rock,
+            AIProfile.CallingStation,
+            AIProfile.Professional
+        };
+
+        // Table nicknames dealt out at random each session, so any personality
+        // can wear any of these names.
+        private static readonly string[] NpcNamePool =
+        {
+            "Nickey 2-guns",
+            "Tommy Gunn",
+            "Stevie Wanders",
+            "Jimmy two-hands",
+            "Simmo Says"
         };
 
         // Kenney mini-character models (CC0) matched to the roster above.
         private static readonly string[] CharacterModels =
         {
-            "character-male-a",   // Simon
-            "character-male-b",   // Steve
-            "character-male-c",   // Tom
-            "character-male-d",   // Nick
-            "character-male-c"    // Pete
+            "character-male-a",   // maniac
+            "character-male-b",   // regular
+            "character-male-c",   // rock
+            "character-male-d",   // calling station
+            "character-male-c"    // professional
 
         };
+
+        private static string[] ShuffledNpcNames()
+        {
+            var names = (string[])NpcNamePool.Clone();
+            for (int i = names.Length - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                (names[i], names[j]) = (names[j], names[i]);
+            }
+            return names;
+        }
 
         public PokerTableController Controller { get; private set; }
 
@@ -303,10 +325,11 @@ namespace CinematicPoker.Game.Prototype
             var rules = TableRules.Default;
             var human = new HumanPlayer("human", "James", seat: 0, stack: rules.StartingStack);
             var npcs = new List<AIPlayer>();
+            string[] npcNames = ShuffledNpcNames();
             for (int i = 0; i < NpcCount; i++)
             {
-                npcs.Add(new AIPlayer($"npc{i}", Roster[i].name, seat: i + 1, stack: rules.StartingStack,
-                    profile: Roster[i].profile(), seed: Random.Range(int.MinValue, int.MaxValue)));
+                npcs.Add(new AIPlayer($"npc{i}", npcNames[i], seat: i + 1, stack: rules.StartingStack,
+                    profile: Roster[i](), seed: Random.Range(int.MinValue, int.MaxValue)));
             }
 
             ResetTableVisuals();
@@ -325,10 +348,11 @@ namespace CinematicPoker.Game.Prototype
             else if (Controller.Game.HasHumanWon)
             {
                 var npcs = new List<AIPlayer>();
+                string[] npcNames = ShuffledNpcNames();
                 for (int i = 0; i < NpcCount; i++)
                 {
-                    npcs.Add(new AIPlayer($"npc{i}", Roster[i].name, seat: i + 1, stack: TableRules.Default.StartingStack,
-                        profile: Roster[i].profile(), seed: Random.Range(int.MinValue, int.MaxValue)));
+                    npcs.Add(new AIPlayer($"npc{i}", npcNames[i], seat: i + 1, stack: TableRules.Default.StartingStack,
+                        profile: Roster[i](), seed: Random.Range(int.MinValue, int.MaxValue)));
                 }
                 Controller.ContinueAfterTableWin(npcs);
             }

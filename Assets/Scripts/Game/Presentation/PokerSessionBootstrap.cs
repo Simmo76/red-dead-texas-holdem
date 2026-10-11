@@ -41,7 +41,13 @@ namespace CinematicPoker.Game.Presentation
 
             var npcs = new List<AIPlayer>();
             int count = Mathf.Clamp(npcCount, 1, 5);
-            string[] fallbackNames = { "Simon", "Steve", "Tom", "Nick", "Pete" };
+            // Table nicknames shuffled each session so any personality can wear any name.
+            string[] fallbackNames = { "Nickey 2-guns", "Tommy Gunn", "Stevie Wanders", "Jimmy two-hands", "Simmo Says" };
+            for (int i = fallbackNames.Length - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                (fallbackNames[i], fallbackNames[j]) = (fallbackNames[j], fallbackNames[i]);
+            }
             for (int i = 0; i < count; i++)
             {
                 var profileAsset = env != null && env.npcPool != null && i < env.npcPool.Length ? env.npcPool[i] : null;
