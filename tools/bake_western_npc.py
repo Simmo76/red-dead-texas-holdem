@@ -1,8 +1,10 @@
 """Bake a David Grette western NPC (Sheriff / Bandit) to a web GLB.
 
 Imports the owner-supplied Unity FBX, keeps one seated-table outfit, assigns
-downscaled albedo (and hair/lash alpha) maps, copies Jacob's seated body
-clips onto the shared UE4 bone names, and writes a web-optimised GLB.
+downscaled albedo (and hair/lash alpha) maps, then **aim-copies** Jacob's
+body clips and the mighty-cat mood catalogue onto the NPC so it shares the
+table's biped constraints (metres at scale 1, seated pelvis/hand/foot
+heights, same animation names the scene plays on Jacob).
 
 Usage:
   CHAR=sheriff blender --background --python tools/bake_western_npc.py
@@ -22,12 +24,63 @@ from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[1]
 JACOB = ROOT / "Web/CinematicPoker.Web/wwwroot/models/characters/western/Jacob.glb"
+MIGHTY = ROOT / "Web/CinematicPoker.Web/wwwroot/models/characters/western/mighty-cat.glb"
 OUT_DIR = ROOT / "Web/CinematicPoker.Web/wwwroot/models/characters/western"
 TEX_CACHE = Path("/tmp/western-npc-tex")
 MAX_TEX = int(os.environ.get("MAX_TEX", "1024"))
 HEAD_TEX = int(os.environ.get("HEAD_TEX", "1024"))
 
 CHAR = os.environ.get("CHAR", "sheriff").strip().lower()
+
+# Clips the table plays on every biped. Body takes live on Jacob.glb; mood
+# takes live on mighty-cat.glb (already Humanoid-retargeted onto Jacob).
+BODY_CLIPS = [
+    "Attack", "Bet", "Check", "Crouch", "Fold", "FoldShake", "Sit", "SitCards", "Talk",
+]
+MOOD_CLIPS = [
+    "IdleSitThinking01", "IdleSitArmsFolded01",
+    "IdleHoldCards01", "IdleHoldCards02", "IdleHoldCards03",
+    "IdleSit01", "IdleSit02", "IdleSit03", "IdleSit04", "IdleSit05", "IdleSit06",
+    "IdleTableObserveLeft01", "IdleTableObserveRight01",
+    "IdleTableObserveLeftRight01", "IdleTableProtectCards01",
+    "Win01", "Win02", "Win03", "Lose01", "Lose02", "Lose03", "Lose04",
+]
+
+# Facing-space aim-copy bone map (same as tools/bake_mighty_cat_humanoid.py).
+AIM_CHILD = {
+    "pelvis": "spine_01",
+    "spine_01": "spine_02",
+    "spine_02": "spine_03",
+    "spine_03": "neck_01",
+    "neck_01": "head",
+    "clavicle_l": "upperarm_l",
+    "upperarm_l": "lowerarm_l",
+    "lowerarm_l": "hand_l",
+    "hand_l": "middle_01_l",
+    "clavicle_r": "upperarm_r",
+    "upperarm_r": "lowerarm_r",
+    "lowerarm_r": "hand_r",
+    "hand_r": "middle_01_r",
+    "thigh_l": "calf_l",
+    "calf_l": "foot_l",
+    "foot_l": "ball_l",
+    "thigh_r": "calf_r",
+    "calf_r": "foot_r",
+    "foot_r": "ball_r",
+}
+for side in ("l", "r"):
+    for finger in ("index", "middle", "ring", "pinky", "thumb"):
+        AIM_CHILD[f"{finger}_01_{side}"] = f"{finger}_02_{side}"
+        if finger != "thumb":
+            AIM_CHILD[f"{finger}_02_{side}"] = f"{finger}_03_{side}"
+
+AIM_ORDER = [
+    "pelvis", "spine_01", "spine_02", "spine_03", "neck_01",
+    "clavicle_l", "upperarm_l", "lowerarm_l", "hand_l",
+    "clavicle_r", "upperarm_r", "lowerarm_r", "hand_r",
+    "thigh_l", "calf_l", "foot_l",
+    "thigh_r", "calf_r", "foot_r",
+] + [n for n in AIM_CHILD if n.split("_")[0] in ("index", "middle", "ring", "pinky", "thumb")]
 
 SPECS = {
     "sheriff": {
@@ -250,108 +303,308 @@ def assign_materials(spec: dict, prepared: dict[str, Path]) -> None:
                 o.material_slots[i].material = mat
 
 
-def _quat_axis_angle(axis, degrees: float):
-    from mathutils import Quaternion
-    return Quaternion(axis, degrees * 3.14159265 / 180.0)
-
-
 def strip_shape_keys() -> None:
     for obj in list(bpy.data.objects):
         if obj.type == "MESH" and obj.data.shape_keys is not None:
             obj.shape_key_clear()
 
 
-def author_sit_pose(arm: bpy.types.Object) -> None:
-    """Pose the standing UE4 rig into a chair sit (keeps the standing bind).
+def force_unit_scale(arm: bpy.types.Object) -> None:
+    """Bake any residual object scale so the GLB root is metres at scale 1."""
+    apply_object_scales(arm)
+    arm.scale = (1.0, 1.0, 1.0)
+    for o in bpy.data.objects:
+        if o.parent == arm:
+            o.scale = (1.0, 1.0, 1.0)
+    bpy.context.view_layer.update()
+    print("arm scale after unitize", tuple(arm.scale))
 
-    Jacob's seated clips cannot be fcurve-copied onto this FBX bind — the glTF
-    Jacob skeleton has different bone axes after its own sit-as-rest bake.
-    Runtime plays the keyed Sit clip and skips Jacob-only mood takes.
-    """
-    from mathutils import Euler
 
-    bpy.ops.object.mode_set(mode="OBJECT")
-    bpy.context.view_layer.objects.active = arm
-    bpy.ops.object.mode_set(mode="POSE")
-    bpy.ops.pose.transforms_clear()
+# ---- Jacob → NPC facing-space aim retarget (same biped constraints) ----
+
+def wpos(arm, n):
+    return (arm.matrix_world @ arm.pose.bones[n].matrix).to_translation()
+
+
+def wpos_any(src, n):
+    """World position of a bone on an armature, or of a same-named empty."""
+    if getattr(src, "type", None) == "ARMATURE":
+        return wpos(src, n)
+    # src is a dict name→Object (mighty-cat empties)
+    obj = src.get(n) if isinstance(src, dict) else None
+    if obj is None:
+        from mathutils import Vector
+        return Vector((0, 0, 0))
+    return obj.matrix_world.to_translation()
+
+
+def facing_q(src):
+    from mathutils import Vector, Matrix
+    x = wpos_any(src, "clavicle_l") - wpos_any(src, "clavicle_r")
+    x = x.normalized() if x.length > 1e-5 else Vector((1, 0, 0))
+    z = Vector((0, 0, 1))
+    y = z.cross(x)
+    y = y.normalized() if y.length > 1e-5 else Vector((0, 1, 0))
+    z = x.cross(y).normalized()
+    m = Matrix.Identity(4)
+    m.col[0][0:3] = x
+    m.col[1][0:3] = y
+    m.col[2][0:3] = z
+    return m.to_quaternion()
+
+
+def pose_arm_matrix(arm, name, cache):
+    if name in cache:
+        return cache[name]
+    pb = arm.pose.bones[name]
+    rest = pb.bone.matrix_local
+    basis = pb.matrix_basis
+    if pb.parent:
+        parent = pose_arm_matrix(arm, pb.parent.name, cache)
+        mat = parent @ pb.parent.bone.matrix_local.inverted() @ rest @ basis
+    else:
+        mat = rest @ basis
+    cache[name] = mat
+    return mat
+
+
+def set_world_q(arm, name, world_q, cache):
+    pb = arm.pose.bones[name]
+    if pb.parent:
+        parent_world = arm.matrix_world @ pose_arm_matrix(arm, pb.parent.name, cache)
+    else:
+        parent_world = arm.matrix_world
+    local_m = parent_world.inverted() @ world_q.to_matrix().to_4x4()
+    rest = pb.bone.matrix_local
+    if pb.parent:
+        basis = rest.inverted() @ pb.parent.bone.matrix_local @ local_m
+    else:
+        basis = rest.inverted() @ local_m
+    pb.rotation_mode = "QUATERNION"
+    pb.rotation_quaternion = basis.to_quaternion()
+    cache.pop(name, None)
+
+
+def bone_aim_local(arm, name, child):
+    return (arm.data.bones[name].matrix_local.inverted() @ arm.data.bones[child].head_local).normalized()
+
+
+def clear_pose(arm):
     for pb in arm.pose.bones:
         pb.rotation_mode = "QUATERNION"
+        pb.location = (0, 0, 0)
+        pb.rotation_quaternion = (1, 0, 0, 0)
+        pb.scale = (1, 1, 1)
 
-    # Drop hips to cushion height in armature space, then bend legs/arms.
-    pelvis = arm.pose.bones["pelvis"]
-    mat = pelvis.matrix.copy()
-    target = mat.to_translation().copy()
-    target.y = -0.02
-    target.z = 0.52
-    mat.translation = target
-    pelvis.matrix = mat
+
+def src_has(src, n):
+    if getattr(src, "type", None) == "ARMATURE":
+        return n in src.pose.bones
+    return isinstance(src, dict) and n in src
+
+
+def aim_copy_frame(dst, src):
+    """Full-body aim-copy: match source limb aims + pelvis world translation.
+
+    `src` is either Jacob's armature or a dict of mighty-cat bone empties.
+    """
+    clear_pose(dst)
     bpy.context.view_layer.update()
+    # Plant pelvis at the source world position (same chair height / depth).
+    if "pelvis" in dst.pose.bones and src_has(src, "pelvis"):
+        src_pelvis = wpos_any(src, "pelvis")
+        pb = dst.pose.bones["pelvis"]
+        mat = pb.matrix.copy()
+        mat.translation = dst.matrix_world.inverted() @ src_pelvis
+        pb.matrix = mat
+        bpy.context.view_layer.update()
 
-    def set_euler(name, x, y, z):
-        if name not in arm.pose.bones:
-            return
-        pb = arm.pose.bones[name]
-        pb.rotation_mode = "XYZ"
-        pb.rotation_euler = Euler((
-            x * 3.14159265 / 180.0,
-            y * 3.14159265 / 180.0,
-            z * 3.14159265 / 180.0,
-        ))
-        pb.rotation_mode = "QUATERNION"
+    s_face = facing_q(src)
+    d_face = facing_q(dst)
+    cache = {}
+    for dn in AIM_ORDER:
+        ch = AIM_CHILD.get(dn)
+        if not ch or dn not in dst.pose.bones or ch not in dst.pose.bones:
+            continue
+        if not src_has(src, dn) or not src_has(src, ch):
+            continue
+        src_aim = wpos_any(src, ch) - wpos_any(src, dn)
+        if src_aim.length < 1e-6:
+            continue
+        world_dir = d_face @ (s_face.conjugated() @ src_aim.normalized())
+        la = bone_aim_local(dst, dn, ch)
+        cur = (dst.matrix_world @ pose_arm_matrix(dst, dn, cache)).to_quaternion()
+        set_world_q(dst, dn, (cur @ la).rotation_difference(world_dir) @ cur, cache)
 
-    # Milder calf so feet stay near the floor (prior bake buried them).
-    pose = {
-        "thigh_l": (-50, 0, 10),
-        "thigh_r": (-50, 0, -10),
-        "calf_l": (70, 0, 0),
-        "calf_r": (70, 0, 0),
-        "foot_l": (-10, 0, 0),
-        "foot_r": (-10, 0, 0),
-        "spine_01": (8, 0, 0),
-        "spine_02": (6, 0, 0),
-        "spine_03": (4, 0, 0),
-        "clavicle_l": (0, 0, -8),
-        "clavicle_r": (0, 0, 8),
-        "upperarm_l": (45, -12, -45),
-        "upperarm_r": (45, 12, 45),
-        "lowerarm_l": (8, 0, -50),
-        "lowerarm_r": (8, 0, 50),
-        "hand_l": (12, 0, -12),
-        "hand_r": (12, 0, 12),
+
+def collect_actions(prefix_names):
+    """Map clean clip name → Action from recently imported glTF data."""
+    found = {}
+    for act in bpy.data.actions:
+        base = act.name.split("_")[0]
+        # mighty-cat clips are already clean names; Jacob is Name_root.001
+        for want in prefix_names:
+            if act.name == want or base == want:
+                found.setdefault(want, act)
+    return found
+
+
+def enable_empty_nla(empties: dict) -> None:
+    for obj in empties.values():
+        if not obj.animation_data:
+            continue
+        obj.animation_data.use_nla = True
+        obj.animation_data.action = None
+        for track in obj.animation_data.nla_tracks:
+            track.mute = False
+
+
+def mute_empty_tracks_except(empties: dict, clip_name: str) -> int:
+    """Solo the NLA tracks for one mood clip across all bone empties."""
+    hit = 0
+    for obj in empties.values():
+        if not obj.animation_data:
+            continue
+        for track in obj.animation_data.nla_tracks:
+            keep = any(
+                s.action and (
+                    s.action.name == f"{clip_name}_{obj.name}"
+                    or s.action.name.startswith(f"{clip_name}_")
+                    or track.name == clip_name
+                )
+                for s in track.strips
+            )
+            # Tracks are named like IdleSit01
+            keep = keep or track.name == clip_name
+            track.mute = not keep
+            if keep:
+                hit += 1
+    return hit
+
+
+def mood_frame_range(empties: dict, clip_name: str):
+    f0, f1 = None, None
+    for obj in empties.values():
+        if not obj.animation_data:
+            continue
+        for track in obj.animation_data.nla_tracks:
+            if track.name != clip_name:
+                continue
+            for s in track.strips:
+                if s.action:
+                    a0, a1 = int(s.action.frame_range[0]), int(s.action.frame_range[1])
+                    f0 = a0 if f0 is None else min(f0, a0)
+                    f1 = a1 if f1 is None else max(f1, a1)
+    return f0, f1
+
+
+def retarget_biped_clips(dst_arm: bpy.types.Object) -> None:
+    """Bake Jacob body + mighty-cat mood clips onto the NPC via aim-copy.
+
+    Resulting GLB carries the same clip catalogue the table plays on Jacob, so
+    Sheriff/Bandit share scale, seating, and animation constraints.
+    """
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=str(JACOB))
+    jacob_objs = [o for o in bpy.data.objects if o not in before]
+    jacob = next(o for o in jacob_objs if o.type == "ARMATURE")
+    jacob.location = (0.0, 0.0, 0.0)
+    if jacob.animation_data is None:
+        jacob.animation_data_create()
+
+    body_acts = collect_actions(BODY_CLIPS)
+    print("jacob body clips", sorted(body_acts))
+    if "Sit" not in body_acts:
+        die("Jacob Sit missing")
+
+    # Mighty-cat imports as per-bone empties with NLA tracks (not one armature).
+    before_m = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=str(MIGHTY))
+    empties = {
+        o.name: o
+        for o in bpy.data.objects
+        if o not in before_m and o.type == "EMPTY" and o.name in jacob.pose.bones
     }
-    for name, xyz in pose.items():
-        set_euler(name, *xyz)
+    enable_empty_nla(empties)
+    print("mighty empties", len(empties))
+
+    if dst_arm.animation_data is None:
+        dst_arm.animation_data_create()
+    while dst_arm.animation_data.nla_tracks:
+        dst_arm.animation_data.nla_tracks.remove(dst_arm.animation_data.nla_tracks[0])
+
+    scene = bpy.context.scene
+    key_bones = [n for n in AIM_ORDER if n in dst_arm.pose.bones and n in jacob.pose.bones]
+    if "head" in dst_arm.pose.bones and "head" in jacob.pose.bones:
+        key_bones.append("head")
+
+    def bake_from_source(name, src, f0, f1, step):
+        new_act = bpy.data.actions.new(name=name)
+        new_act.use_fake_user = True
+        dst_arm.animation_data.action = new_act
+        frames = list(range(f0, f1 + 1, step))
+        if frames[-1] != f1:
+            frames.append(f1)
+        print(f"  retarget {name}: {len(frames)} frames ({f0}-{f1} step {step})")
+        for i, frame in enumerate(frames):
+            scene.frame_set(frame)
+            bpy.context.view_layer.update()
+            aim_copy_frame(dst_arm, src)
+            bpy.context.view_layer.update()
+            out_f = 1 + i
+            for bname in key_bones:
+                pb = dst_arm.pose.bones[bname]
+                pb.rotation_mode = "QUATERNION"
+                pb.keyframe_insert(data_path="location", frame=out_f)
+                pb.keyframe_insert(data_path="rotation_quaternion", frame=out_f)
+                pb.keyframe_insert(data_path="scale", frame=out_f)
+        for fc in new_act.fcurves:
+            for kp in fc.keyframe_points:
+                kp.interpolation = "LINEAR"
+        track = dst_arm.animation_data.nla_tracks.new()
+        track.name = name
+        track.strips.new(name, 1, new_act).action = new_act
+
+    for name in BODY_CLIPS:
+        if name not in body_acts:
+            continue
+        src_act = body_acts[name]
+        jacob.animation_data.action = src_act
+        bake_from_source(name, jacob, int(src_act.frame_range[0]), int(src_act.frame_range[1]), 1)
+
+    for name in MOOD_CLIPS:
+        hit = mute_empty_tracks_except(empties, name)
+        f0, f1 = mood_frame_range(empties, name)
+        if not hit or f0 is None:
+            print(f"  skip mood {name}: no NLA tracks")
+            continue
+        # Cap long performance takes so the bake stays web-sized.
+        f1 = min(f1, f0 + 120)
+        bake_from_source(name, empties, f0, f1, 2)
+
+    # Preview Sit for bounds / export.
+    jacob.animation_data.action = body_acts["Sit"]
+    scene.frame_set(int(body_acts["Sit"].frame_range[0]))
     bpy.context.view_layer.update()
+    aim_copy_frame(dst_arm, jacob)
+    bpy.context.view_layer.update()
+    dst_arm.animation_data.action = bpy.data.actions.get("Sit")
     print(
-        "sit pose pelvis",
-        tuple(round(c, 3) for c in (arm.matrix_world @ arm.pose.bones["pelvis"].head)),
+        "preview sit pelvis",
+        tuple(round(c, 3) for c in wpos(dst_arm, "pelvis")),
         "head",
-        tuple(round(c, 3) for c in (arm.matrix_world @ arm.pose.bones["head"].head)),
+        tuple(round(c, 3) for c in wpos(dst_arm, "head")),
+        "hand_l",
+        tuple(round(c, 3) for c in wpos(dst_arm, "hand_l")),
         "foot_l",
-        tuple(round(c, 3) for c in (arm.matrix_world @ arm.pose.bones["foot_l"].head)),
+        tuple(round(c, 3) for c in wpos(dst_arm, "foot_l")),
     )
 
-
-def key_sit_action(arm: bpy.types.Object) -> bpy.types.Action:
-    """Key the current pose as a looping Sit clip (standing bind unchanged)."""
-    if arm.animation_data is None:
-        arm.animation_data_create()
-    while arm.animation_data.nla_tracks:
-        arm.animation_data.nla_tracks.remove(arm.animation_data.nla_tracks[0])
-    act = bpy.data.actions.new(name="Sit")
-    act.use_fake_user = True
-    arm.animation_data.action = act
-    for pb in arm.pose.bones:
-        pb.rotation_mode = "QUATERNION"
-        for frame in (1, 48):
-            pb.keyframe_insert(data_path="location", frame=frame)
-            pb.keyframe_insert(data_path="rotation_quaternion", frame=frame)
-            pb.keyframe_insert(data_path="scale", frame=frame)
-    track = arm.animation_data.nla_tracks.new()
-    track.name = "Sit"
-    track.strips.new("Sit", 1, act).action = act
-    print("keyed Sit hold action")
-    return act
+    for o in list(jacob_objs) + list(empties.values()):
+        try:
+            bpy.data.objects.remove(o, do_unlink=True)
+        except ReferenceError:
+            pass
 
 
 def export_glb(path: Path) -> None:
@@ -388,29 +641,37 @@ def main() -> None:
     prepared = prepare_textures(spec)
     print("textures prepared", len(prepared))
 
+    if not MIGHTY.exists():
+        die(f"missing mighty-cat {MIGHTY}")
+
     clear_scene()
     arm = import_fbx(spec["fbx"])
     arm.name = "root"
-    apply_object_scales(arm)
+    force_unit_scale(arm)
     cull_and_rename(spec)
     assign_materials(spec, prepared)
-    # Standing bind + authored Sit clip. Jacob clip reuse shears this skeleton.
     strip_shape_keys()
-    author_sit_pose(arm)
-    key_sit_action(arm)
+    # Aim-copy Jacob body + mighty-cat mood clips so this biped shares the
+    # table's seated height, hand plant, and animation catalogue.
+    retarget_biped_clips(arm)
+    force_unit_scale(arm)
 
-    # Quick height report after cull.
+    # Evaluated bounds under the preview Sit pose.
+    dg = bpy.context.evaluated_depsgraph_get()
     mins = Vector((1e9, 1e9, 1e9))
     maxs = Vector((-1e9, -1e9, -1e9))
     for o in bpy.data.objects:
-        if o.type != "MESH":
+        if o.type != "MESH" or o.parent != arm:
             continue
-        for v in o.bound_box:
-            w = o.matrix_world @ Vector(v)
+        eo = o.evaluated_get(dg)
+        for v in eo.bound_box:
+            w = eo.matrix_world @ Vector(v)
             mins.x, mins.y, mins.z = min(mins.x, w.x), min(mins.y, w.y), min(mins.z, w.z)
             maxs.x, maxs.y, maxs.z = max(maxs.x, w.x), max(maxs.y, w.y), max(maxs.z, w.z)
-    print("bounds", tuple(mins), tuple(maxs), "height", maxs.z - mins.z)
+    print("eval sit bounds", tuple(round(c, 3) for c in mins), tuple(round(c, 3) for c in maxs),
+          "height", round(maxs.z - mins.z, 3))
     print("meshes", sorted(o.name for o in bpy.data.objects if o.type == "MESH"))
+    print("arm scale", tuple(arm.scale))
 
     export_glb(spec["out"])
 
