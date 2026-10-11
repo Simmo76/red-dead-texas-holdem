@@ -2021,6 +2021,8 @@ const _faceUp = new THREE.Vector3(0, 1, 0);
 const _camRight = new THREE.Vector3();
 const _camUp = new THREE.Vector3();
 const _fanLocal = new THREE.Vector3();
+const _baseQuat = new THREE.Quaternion();
+const _blCorner = new THREE.Vector3();
 
 function findCharBone(character, names) {
   let found = null;
@@ -2095,80 +2097,74 @@ function syncCardHold(character) {
   hold.quaternion.copy(_parentQuat.invert().multiply(_faceQuat));
 }
 
-// Seat-0 HoldCards V: bottoms pinched at the thumbs, tops spread so both
-// rank/suit indices read from the OTS seat. Matches the user reference grip
-// (front card right, back card left, ~20–30° tip-back). Project offsets on
-// camera right/up so a hold-local X fan cannot collapse into near/far stacking.
-const HOLD_FAN_ANGLE = 0.48;   // ±Z twist (~27.5°) → narrow readable V
-const HOLD_FAN_BASE_X = 0.018; // bottom pinch; front right / back left
-const HOLD_FAN_TILT = -0.42;   // tip tops back toward the OTS camera (~24°)
-const HOLD_FAN_BLEND = 0.75;   // palm cradle ↔ camera aim
+// Seat-0 HoldCards fan: rotate around each card's bottom-LEFT corner so the
+// top-left rank/suit indices stay clear. Back card more CCW (left), front
+// card more upright / slightly CW (right), layered front-on-top. Tip-back
+// ~20–30° toward the OTS camera; facing blends palm cradle with camera aim.
+const HOLD_FAN_BACK = 0.40;    // back card Z twist (CCW / left)
+const HOLD_FAN_FRONT = -0.08;  // front card Z twist (slight CW / right)
+const HOLD_FAN_TILT = -0.40;   // tip tops back toward the OTS camera (~23°)
+const HOLD_FAN_BLEND = 0.72;   // palm cradle ↔ camera aim
+
+function holdFanAngle(i, n) {
+  if (n <= 1) return 0;
+  const t = i / (n - 1);
+  return HOLD_FAN_BACK * (1 - t) + HOLD_FAN_FRONT * t;
+}
+
+// Pin card so its local bottom-left corner sits on pivot in parent space.
+function pinCardBottomLeft(card, pivotX, pivotY, pivotZ) {
+  const halfW = (card.geometry?.parameters?.width || 0.145) * 0.5;
+  const halfH = (card.geometry?.parameters?.height || 0.197) * 0.5;
+  _blCorner.set(-halfW, -halfH, 0).applyQuaternion(card.quaternion);
+  card.position.set(pivotX - _blCorner.x, pivotY - _blCorner.y, pivotZ - _blCorner.z);
+}
 
 function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
   if (!hold) return;
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
-    const dir = i === 0 ? -1 : 1;
+    const theta = holdFanAngle(i, cards.length);
     hold.add(card);
     card.scale.setScalar(1);
     // Bone-parented bounds lag the pose; never cull held cards.
     card.frustumCulled = false;
-    card.renderOrder = 2;
-    // Initial V matches faceHeldCardsTowardCamera (overwritten each frame).
-    // Pivot bottoms together: lateral += (h/2)·sin(fan) so rotateZ spreads tops.
-    const halfH = (card.geometry?.parameters?.height || 0.197) * 0.5;
-    const x = dir * (HOLD_FAN_BASE_X + halfH * Math.sin(HOLD_FAN_ANGLE));
-    card.position.set(x, 0.004 * (i + 1), 0.012 + i * 0.016);
-    card.rotation.set(
-      faceUp ? HOLD_FAN_TILT : Math.PI + HOLD_FAN_TILT,
-      dir * -0.06,
-      dir * HOLD_FAN_ANGLE,
-    );
+    card.renderOrder = 2 + i;
+    // Seed pose; faceHeldCardsTowardCamera overwrites each frame.
+    card.rotation.set(faceUp ? HOLD_FAN_TILT : Math.PI + HOLD_FAN_TILT, 0, theta);
+    pinCardBottomLeft(card, 0, 0, 0.012 + i * 0.014);
   }
 }
 
-// Player pair: cradle a bottom-pivoted V in the palms, ease faces toward the
-// OTS camera so both indices stay readable without floating side-by-side
-// billboards. Fan lateral is projected on camera right/up.
+// Player pair: shared bottom-left pivot in the palms, ease faces toward the
+// OTS camera so both indices stay readable (asymmetric fan, not a centre V).
 function faceHeldCardsTowardCamera(cards) {
   if (!state.camera || !cards.length) return;
+  const parent = cards[0].parent;
+  if (!parent) return;
   state.camera.updateMatrixWorld(true);
-  const camFwd = _holdPos;
-  state.camera.getWorldDirection(camFwd);
-  _camRight.setFromMatrixColumn(state.camera.matrixWorld, 0).normalize();
-  _camUp.setFromMatrixColumn(state.camera.matrixWorld, 1).normalize();
-  // Keep a dedicated forward copy — camFwd/_holdPos is also a syncCardHold temp.
-  const fwdX = camFwd.x, fwdY = camFwd.y, fwdZ = camFwd.z;
+  parent.updateWorldMatrix(true, false);
+  parent.getWorldPosition(_cardWorld);
+  parent.getWorldQuaternion(_parentQuat);
+
+  // One shared facing from the hold centre — then fan in hold-local Z so the
+  // bottom-left corners stay coincident.
+  _holdMat.lookAt(_cardWorld, state.camera.position, _faceUp);
+  _faceQuat.setFromRotationMatrix(_holdMat);
+  _faceQuat.multiply(_holdQuat.setFromAxisAngle(_faceUp, Math.PI));
+  _holdQuat.copy(_parentQuat).slerp(_faceQuat, HOLD_FAN_BLEND);
+  _baseQuat.copy(_parentQuat).invert().multiply(_holdQuat);
+
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
-    const parent = card.parent;
-    if (!parent) continue;
-    const dir = i === 0 ? -1 : 1;
-    const halfH = (card.geometry?.parameters?.height || 0.197) * 0.5;
-    // Bottom-pivoted lateral: thumbs pinch near centre; tops fan wider.
-    const lateral = dir * (HOLD_FAN_BASE_X + halfH * Math.sin(HOLD_FAN_ANGLE));
-    parent.updateWorldMatrix(true, false);
-    parent.getWorldPosition(_cardWorld);
-    _fanLocal.set(
-      _cardWorld.x + _camRight.x * lateral + _camUp.x * (0.006 + i * 0.004) + fwdX * (-0.01 * (i + 1)),
-      _cardWorld.y + _camRight.y * lateral + _camUp.y * (0.006 + i * 0.004) + fwdY * (-0.01 * (i + 1)),
-      _cardWorld.z + _camRight.z * lateral + _camUp.z * (0.006 + i * 0.004) + fwdZ * (-0.01 * (i + 1)),
-    );
-    parent.worldToLocal(_fanLocal);
-    card.position.copy(_fanLocal);
-
-    parent.getWorldQuaternion(_parentQuat);
-    _cardWorld.set(0, 0, 0);
-    card.localToWorld(_cardWorld);
-    _holdMat.lookAt(_cardWorld, state.camera.position, _faceUp);
-    _faceQuat.setFromRotationMatrix(_holdMat);
-    _faceQuat.multiply(_holdQuat.setFromAxisAngle(_faceUp, Math.PI));
-    _holdQuat.copy(_parentQuat).slerp(_faceQuat, HOLD_FAN_BLEND);
-    card.quaternion.copy(_parentQuat.invert().multiply(_holdQuat));
-    // Tip back toward the seat camera, then V-twist so both indices peek.
+    if (card.parent !== parent) continue;
+    const theta = holdFanAngle(i, cards.length);
+    card.quaternion.copy(_baseQuat);
     card.rotateX(HOLD_FAN_TILT);
-    card.rotateY(dir * -0.06);
-    card.rotateZ(dir * HOLD_FAN_ANGLE);
+    card.rotateZ(theta);
+    // Shared bottom-left pivot; slight Z lift so the front card sits on top.
+    pinCardBottomLeft(card, 0, 0, 0.012 + i * 0.014);
+    card.renderOrder = 2 + i;
   }
 }
 
@@ -2341,14 +2337,20 @@ function updateSeatCards(seat, i, data) {
     return;
   }
 
-  // Active opponents: face-down backs on the felt in front of the seat.
+  // Active opponents: face-down backs on the felt, portrait relative to the
+  // seat (long axis radial). yaw = π/2 − seatAngle keeps every seat aligned;
+  // the old seatAngle − π/2 formula only worked for seats 0/3 and left the
+  // others looking landscape / stacked toward the rail.
   const basePos = seatPos(i, TABLE_RADIUS - 0.33);
-  const yaw = seatAngle(i) - Math.PI / 2;
+  const facing = seatAngle(i);
+  const yaw = Math.PI / 2 - facing;
+  const tx = -Math.sin(facing);
+  const tz = Math.cos(facing);
+  const cardW = CARD_W * 0.85;
   for (let c = 0; c < 2; c++) {
-    const card = makeCard('img/cards/back.png', CARD_W * 0.85);
-    const offset = (c === 0 ? -1 : 1) * (CARD_W / 2 + 0.008);
-    placeTableCard(card, basePos.x + Math.cos(yaw) * offset,
-      basePos.z - Math.sin(yaw) * offset, 0, yaw);
+    const card = makeCard('img/cards/back.png', cardW);
+    const offset = (c === 0 ? -1 : 1) * (cardW / 2 + 0.006);
+    placeTableCard(card, basePos.x + tx * offset, basePos.z + tz * offset, 0, yaw);
     seat.cards.push(card);
     state.scene.add(card);
   }
