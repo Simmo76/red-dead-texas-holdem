@@ -995,12 +995,12 @@ async function buildScene(canvas) {
   setupLookControls(canvas, view);
   requestLandscapeLock();
 
-  // ---- lighting: warm indoor saloon wash, with the familiar lantern pool
-  // kept over the felt so the game still reads like a card den.
-  // Room wash stays well under the table pool so walls/booths fall away.
-  const ambient = new THREE.AmbientLight(0xb89870, 0.28);
+  // ---- lighting: warm lantern pool over the felt, with a soft purple/pink
+  // room wash (the old arcade magenta spill) so the saloon background reads
+  // with that slight rose hue without competing with the table.
+  const ambient = new THREE.AmbientLight(0x6a4a78, 0.32);
   scene.add(ambient);
-  const hemi = new THREE.HemisphereLight(0xe8c898, 0x2a1a10, 0.22);
+  const hemi = new THREE.HemisphereLight(0xb878a8, 0x1a1020, 0.28);
   scene.add(hemi);
 
   const lantern = new THREE.PointLight(0xffc477, 28, 7.0, 1.85);
@@ -1020,13 +1020,12 @@ async function buildScene(canvas) {
   keyLight.shadow.camera.far = 11;
   scene.add(keyLight, keyLight.target);
 
-  // Soft warm spill — quiet enough that faces stay readable without lighting
-  // up the bar and booths.
-  const fill = new THREE.PointLight(0xffd2a0, 0.7, 7, 2);
+  // Cool rose fills for the room — quiet enough that faces stay readable.
+  const fill = new THREE.PointLight(0xd8a0c8, 0.85, 8, 2);
   fill.position.set(3.2, 2.0, 2.6);
   scene.add(fill);
 
-  const backFill = new THREE.PointLight(0xffb068, 0.8, 8, 2);
+  const backFill = new THREE.PointLight(0xe08ad8, 1.1, 9, 2);
   backFill.position.set(-2.4, 2.2, -3.6);
   scene.add(backFill);
 
@@ -1096,17 +1095,16 @@ async function buildScene(canvas) {
       }
     });
     env.add(saloon);
-    // Warm hanging-lamp pools around the room — dimmer than the table
-    // lantern so the bar and booths read as background. They live in the
-    // env group and switch off with the saloon backdrop. Positions follow
-    // the room nudge so the bar lamp stays on the bar face.
+    // Soft purple/pink hanging-lamp pools — dimmer than the table lantern so
+    // the bar and booths read as background with the original rose wash.
+    // They live in the env group and switch off with the saloon backdrop.
     const lampSpecs = [
-      [0xffd2a0, 6, 10, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],   // bar face
-      [0xffc090, 4, 9, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // left booths
-      [0xffc090, 4, 9, [6.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],   // right booths
-      [0xffe0b8, 5, 10, [0.0, 3.4, 3.5 + SALOON_BAR_NUDGE_Z]],    // behind player
-      [0xffb878, 3, 8, [-7.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]],  // far left corner
-      [0xffb878, 3, 8, [8.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]]    // far right corner
+      [0xe8a8d0, 5, 10, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],   // bar face
+      [0xd090c8, 3.5, 9, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // left booths
+      [0xd090c8, 3.5, 9, [6.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],   // right booths
+      [0xc8a0d8, 4, 10, [0.0, 3.4, 3.5 + SALOON_BAR_NUDGE_Z]],    // behind player
+      [0xb878c8, 2.5, 8, [-7.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]],  // far left corner
+      [0xb878c8, 2.5, 8, [8.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]]    // far right corner
     ];
     for (const [color, intensity, dist, pos] of lampSpecs) {
       const lamp = new THREE.PointLight(color, intensity, dist, 1.8);
@@ -1118,9 +1116,9 @@ async function buildScene(canvas) {
     env.visible = state.envIndex === 0;
   });
 
-  // Soft daylight key through the windows (also the celestial key for the
+  // Soft violet key through the windows (also the celestial key for the
   // other switchable backdrops) — held back so the room stays moody.
-  const moon = new THREE.DirectionalLight(0xffe2c0, 0.28);
+  const moon = new THREE.DirectionalLight(0xc8a0e0, 0.32);
   moon.position.set(-8, 18, -6);
   scene.add(moon);
 
@@ -1130,7 +1128,7 @@ async function buildScene(canvas) {
   // over the felt stays constant so the game always reads the same.
   // bg doubles as the fog colour so distant geometry melts into the sky.
   const ENVS = [
-    { name: 'SALOON', bg: 0x0c0806, fog: [6, 22], amb: [0xb89870, 0.28], hemi: [0xe8c898, 0x2a1a10, 0.22], dir: [0xffe2c0, 0.28, [-8, 18, -6]], fill: [0xffd2a0, 0.7], back: [0xffb068, 0.8], build: null },
+    { name: 'SALOON', bg: 0x0a0610, fog: [6, 22], amb: [0x6a4a78, 0.32], hemi: [0xb878a8, 0x1a1020, 0.28], dir: [0xc8a0e0, 0.32, [-8, 18, -6]], fill: [0xd8a0c8, 0.85], back: [0xe08ad8, 1.1], build: null },
     { name: 'BEACH', bg: 0x2f9ed3, fog: [30, 130], amb: [0xbfd8e8, 0.65], hemi: [0xcfe8ff, 0x8a7a5a, 0.55], dir: [0xfff2d8, 1.7, [18, 30, 12]], fill: [0xbfe8ff, 1.2], back: [0xffe8c8, 1.2], build: buildBeach },
     { name: 'DESERT', bg: 0xe8b878, fog: [25, 110], amb: [0xd8b890, 0.85], hemi: [0xf0d0a8, 0x9a6a3a, 0.7], dir: [0xffd8a0, 2.4, [-20, 18, 8]], fill: [0xffc890, 1.2], back: [0xff9860, 1.8], build: buildDesert },
     { name: 'SHED', bg: 0x0d0906, fog: [8, 26], amb: [0x584838, 0.35], hemi: [0x4a3828, 0x140c06, 0.35], dir: [0xc8a878, 0.15, [-6, 12, 6]], fill: [0xffb868, 1.2], back: [0x684828, 1.0], build: buildShed },
@@ -2533,7 +2531,10 @@ window.pokerScene = {
       // Folded players (the human included) sit out the rest of the hand as
       // grey ghosts with arms folded; the flag clears when the next hand
       // deals, so colour and the thinking idle come back on their own.
+      // Chairs leave with the fold so the ghost floats free of furniture.
+      const foldedOut = (!!data.folded || !!data.out);
       if (seat.char) seat.char.setFolded(!!data.folded && !data.out);
+      if (seat.chair) seat.chair.visible = !foldedOut;
       if (seat.char && typeof data.heat === 'number') seat.char.heat = data.heat;
       if (seat.char && data.out) {
         // A bust plays a lose reaction once, then settles back to sitting.
