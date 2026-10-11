@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using CinematicPoker.Engine.AI;
 using CinematicPoker.Engine.Players;
 using CinematicPoker.Engine.Poker;
+using CinematicPoker.Game.Mobile;
 using CinematicPoker.Game.Presentation;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -316,6 +317,8 @@ namespace CinematicPoker.Game.Prototype
             Controller.Configure(ScriptableObject.CreateInstance<PlayModeSettings>());
             Controller.EngineEvent += OnEngineEvent;
             Controller.SessionFinished += OnSessionFinished;
+            // Saves a photo to the phone gallery whenever the player wins.
+            Controller.gameObject.AddComponent<WinPhotoCapture>().Attach(Controller);
         }
 
         public void StartNewSession()
