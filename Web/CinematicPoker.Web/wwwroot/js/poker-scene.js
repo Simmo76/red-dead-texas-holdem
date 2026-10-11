@@ -1203,7 +1203,7 @@ async function buildScene(canvas) {
   // ---- seats (blue-cushion chairs + characters + cards + labels)
   // Kenney chairCushion under every cowboy; the saloon still dresses the
   // rest of the room (booths, bar stools, bottles).
-  const chairGltf = await loadGlb(loader, 'models/props/furniture/chair.glb?v=2');
+  const chairGltf = await loadGlb(loader, 'models/props/furniture/chair.glb?v=3');
   state.seats = [];
   const charPromises = [];
 
