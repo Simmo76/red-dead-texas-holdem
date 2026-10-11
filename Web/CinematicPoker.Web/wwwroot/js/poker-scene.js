@@ -4,10 +4,11 @@
 // lighting. Props/textures are CC0; the saloon is a web-optimised conversion
 // of the repo owner's licensed Unity pub scene (see tools/build_saloon_backdrop.py).
 // Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy. Check/bet/fold stay on Jacob's own clips. Active seats idle
-// on Cocomotion AS_Idle_Sit_Thinking_01; folded seats hold
-// AS_Idle_Sit_ArmsFolded_01. Win / lose stay Mighty Cat takes. All mood
-// clips are Humanoid-retargeted onto Jacob
+// Jacob cowboy. Check/bet/fold stay on Jacob's own clips. The player draws
+// one of Cocomotion AS_Idle_HoldCards_01–03 ContinuousLoop; NPC seats each
+// draw one of the table sit / observe idles from the NPC Idle package.
+// Folded seats hold AS_Idle_Sit_ArmsFolded_01. Win / lose stay Mighty Cat.
+// All mood clips are Humanoid-retargeted onto Jacob
 // (see docs/mighty-cat-poker-animation-map.md).
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
@@ -76,8 +77,9 @@ function shuffle(list) {
 }
 
 // The player's own body, seen from the over-the-shoulder camera. Same cowboy
-// pool as the other seats. His hole cards stay on the felt in front of him;
-// the sit pose already rests his hands on his lap.
+// pool as the other seats. Only the player's hole cards parent to a palm
+// helper on hand_l so HoldCards reads as holding/looking at the pair; NPC
+// hole cards stay face-down on the felt.
 
 // Opening cinematic: seconds per backdrop sweep (desert, then club). The
 // matching audio parts are sequenced by pokerAudio.playIntro on the same
@@ -598,16 +600,35 @@ function makeCharacter(gltf, spec, extraClips) {
   const findMood = (name) => THREE.AnimationClip.findByName(moodClips, name);
   const pick = (names) => names[Math.floor(Math.random() * names.length)];
 
-  // Active seats loop sit-thinking; a fold swaps the home idle to arms-folded
-  // for the rest of the hand, then thinking returns on the next deal.
-  const THINKING_IDLE = 'IdleSitThinking01';
+  // Player: HoldCards continuous loop. NPCs: table sit / observe idles.
+  // A fold swaps the home idle to arms-folded for the rest of the hand, then
+  // the seat's pick returns on the next deal.
+  const HOLD_CARDS_IDLES = ['IdleHoldCards01', 'IdleHoldCards02', 'IdleHoldCards03'];
+  const NPC_IDLES = [
+    'IdleSit01', 'IdleSit02', 'IdleSit03', 'IdleSit04', 'IdleSit05', 'IdleSit06',
+    'IdleTableObserveLeft01', 'IdleTableObserveRight01',
+    'IdleTableObserveLeftRight01', 'IdleTableProtectCards01',
+  ];
   const FOLDED_IDLE = 'IdleSitArmsFolded01';
   const WIN_CLIPS = ['Win01', 'Win02', 'Win03'];
   const LOSE_CLIPS = ['Lose01', 'Lose02', 'Lose03', 'Lose04'];
 
-  const idleName = THINKING_IDLE;
-  const sitClip = findMood(idleName) || findBody('Sit');
+  const pickFallbackIdle = () => (
+    findMood('IdleSitThinking01') ? 'IdleSitThinking01' : 'Sit'
+  );
+  const pickHoldCardsIdle = () => {
+    const available = HOLD_CARDS_IDLES.filter((n) => findMood(n));
+    return available.length ? pick(available) : pickFallbackIdle();
+  };
+  const pickNpcIdle = () => {
+    const available = NPC_IDLES.filter((n) => findMood(n));
+    return available.length ? pick(available) : pickFallbackIdle();
+  };
   const isPlayer = !!spec.cards;
+  const idleName = (spec.idleName && findMood(spec.idleName))
+    ? spec.idleName
+    : (isPlayer ? pickHoldCardsIdle() : pickNpcIdle());
+  const sitClip = findMood(idleName) || findBody('Sit');
   let sitAction = null;
   const makeSitAction = (clip) => {
     const action = mixer.clipAction(clip);
@@ -746,27 +767,28 @@ function makeCharacter(gltf, spec, extraClips) {
   }
 
   character.setFolded = (on) => {
-    if (character.folded !== on) {
-      character.folded = on;
-      // Drop the chair as soon as they fold so the ghost isn't sat on furniture.
+    if (character.folded === on) {
+      // Keep chair visibility in sync even when fold state is unchanged.
       if (character.chair) character.chair.visible = !on;
-      const name = on ? FOLDED_IDLE : THINKING_IDLE;
-      const clip = findMood(name) || findBody('Sit');
-      if (clip && sitAction && sitAction.getClip() !== clip) {
-        // A Fold / FoldShake already in flight should land on the new hold, not
-        // fade back to thinking. Retarget the restore clip but leave the gesture
-        // playing — stopping the current sit here is what left everyone standing.
-        if (character.reacting) {
-          const next = makeSitAction(clip);
-          next.time = Math.random() * clip.duration;
-          adoptSitAction(next, name);
-        } else {
-          switchHomeIdle(name);
-        }
-      }
-    } else if (character.chair) {
-      character.chair.visible = !on;
+      return;
     }
+    character.folded = on;
+    // Drop the chair as soon as they fold so the ghost isn't sat on furniture.
+    if (character.chair) character.chair.visible = !on;
+    const name = on ? FOLDED_IDLE : character.homeIdle;
+    const clip = findMood(name) || findBody('Sit');
+    if (!clip || !sitAction || sitAction.getClip() === clip) return;
+    // A Fold / FoldShake already in flight should land on the new hold, not
+    // fade back to the card-hold idle. Retarget the restore clip but leave
+    // the gesture playing — stopping the current sit here is what left
+    // everyone standing.
+    if (character.reacting) {
+      const next = makeSitAction(clip);
+      next.time = Math.random() * clip.duration;
+      adoptSitAction(next, name);
+      return;
+    }
+    switchHomeIdle(name);
   };
   character.updateFold = (dt) => {
     const target = character.folded ? 1 : 0;
@@ -797,7 +819,7 @@ function makeCharacter(gltf, spec, extraClips) {
     }
   };
 
-  // Idle is AS_Idle_Sit_Thinking_01 until a fold; then AS_Idle_Sit_ArmsFolded_01.
+  // Idle is one of AS_Idle_HoldCards_01–03 until a fold; then AS_Idle_Sit_ArmsFolded_01.
 
   // Unused for Jacob: the sit pose is the hold. Kept so a gesture can still
   // fade a pinned pose back in if one is ever stored on the character.
@@ -849,7 +871,7 @@ function makeCharacter(gltf, spec, extraClips) {
         character.reacting = false;
         // Always snap back onto a seated loop. A faded-out sit left at
         // weight 0 drops Jacob into the standing bind (arms out).
-        const wantName = character.folded ? FOLDED_IDLE : THINKING_IDLE;
+        const wantName = character.folded ? FOLDED_IDLE : character.homeIdle;
         const want = findMood(wantName) || findBody('Sit');
         if (want && (!sitAction || sitAction.getClip() !== want)) {
           const nextSit = makeSitAction(want);
@@ -880,6 +902,7 @@ function makeCharacter(gltf, spec, extraClips) {
   // Seated emotion takes retargeted from the Mighty Cat card-game pack.
   character.variant = 0;
   character.heat = 0.25;
+  character.homeIdle = idleName;
   character.idleName = idleName;
   character._queued = null;
   character.playEmotion = (mood, intensity = 0.5) => {
@@ -940,7 +963,7 @@ function makeCharacter(gltf, spec, extraClips) {
 // ------------------------------------------------------------------ scene build
 
 async function buildScene(canvas) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1219,7 +1242,7 @@ async function buildScene(canvas) {
 
   // One rig, every outfit. A fresh draw every time the table is built.
   const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=7');
+  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=9');
   // Every seat wears a hat so the seat's accent colour always has somewhere
   // to live; hatless presets borrow a hat (and the matching short hair so the
   // full hairstyle doesn't clip through the brim).
@@ -1300,6 +1323,27 @@ async function buildScene(canvas) {
     character.seatFacing = facing;
   };
 
+  // Player: one HoldCards loop. NPCs: shuffled bag of table sit/observe
+  // idles so neighbouring seats rarely lockstep on the same take.
+  const idleDeal = Promise.all([mightyCatModel]).then(([mc]) => {
+    const anims = mc.animations || [];
+    const holdPool = ['IdleHoldCards01', 'IdleHoldCards02', 'IdleHoldCards03']
+      .filter((n) => THREE.AnimationClip.findByName(anims, n));
+    const npcPool = [
+      'IdleSit01', 'IdleSit02', 'IdleSit03', 'IdleSit04', 'IdleSit05', 'IdleSit06',
+      'IdleTableObserveLeft01', 'IdleTableObserveRight01',
+      'IdleTableObserveLeftRight01', 'IdleTableProtectCards01',
+    ].filter((n) => THREE.AnimationClip.findByName(anims, n));
+    const holdBag = holdPool.length ? holdPool : ['IdleSitThinking01'];
+    const npcBag = npcPool.length ? npcPool : ['IdleSitThinking01'];
+    const deal = new Array(SEATS);
+    deal[0] = holdBag[Math.floor(Math.random() * holdBag.length)];
+    const bag = [];
+    while (bag.length < SEATS - 1) bag.push(...shuffle(npcBag.slice()));
+    for (let i = 1; i < SEATS; i++) deal[i] = bag[i - 1];
+    return deal;
+  });
+
   for (let i = 0; i < SEATS; i++) {
     const seat = { group: new THREE.Group(), cards: [], cardSig: 'none', chips: null, stackChips: null, char: null, label: null, chair: null };
     state.seats.push(seat);
@@ -1326,7 +1370,8 @@ async function buildScene(canvas) {
       look: lineup[i], cards: i === 0, scale: WESTERN_SCALE,
       hatColor: SEAT_COLORS[i % SEAT_COLORS.length]
     };
-    charPromises.push(Promise.all([westernModel, mightyCatModel]).then(([gltf, mc]) => {
+    charPromises.push(Promise.all([westernModel, mightyCatModel, idleDeal]).then(([gltf, mc, deal]) => {
+      spec.idleName = deal[i];
       const character = makeCharacter(gltf, spec, mc && mc.animations);
       if (!character) return;
       character.variant = i;
@@ -1369,8 +1414,7 @@ async function buildScene(canvas) {
     applyCameraHome();
   }
 
-  // Pin both of the player's arms in a fixed hold pose — hands resting on
-  // the table edge with the hole cards parked between them.
+  // Only the player gets a CardHold palm helper; NPC hole cards stay on felt.
   setupPlayerArms();
 
   state.renderer = renderer;
@@ -1389,6 +1433,9 @@ async function buildScene(canvas) {
       if (seat.char.ensureSit) seat.char.ensureSit();
       seat.char.applyArmPose(dt);
       seat.char.updateFold(dt);
+      // Player only: re-seat CardHold between the palms so hole cards track
+      // HoldCards wrist motion.
+      if (seat.char.isPlayer && seat.char.cardHold) syncCardHold(seat.char);
     }
 
     // Ease drag/pinch offsets toward their targets, then orbit the table
@@ -1690,10 +1737,12 @@ function pickCardZoomTarget(canvas, e) {
   if (!hits.length) return null;
   const obj = hits[0].object;
 
-  // The player's own pair: fly to just in front of the fan resting on the
-  // table (the exact camera spot comes from positionHandCards).
+  // The player's own pair: fly to the held fan (exact camera spot comes from
+  // positionHandCards once the palm world position is known).
   if (state.holeCards.includes(obj)) {
-    return { pos: state.camera.position.clone(), look: obj.position.clone(), kind: 'hand' };
+    const look = new THREE.Vector3();
+    obj.getWorldPosition(look);
+    return { pos: state.camera.position.clone(), look, kind: 'hand' };
   }
 
   // Hover over the whole group the tapped card belongs to (all five community
@@ -1706,7 +1755,8 @@ function pickCardZoomTarget(canvas, e) {
   }
   if (!group || !group.length) return null;
   const centre = new THREE.Vector3();
-  for (const c of group) centre.add(c.position);
+  const tmp = new THREE.Vector3();
+  for (const c of group) centre.add(c.getWorldPosition(tmp));
   centre.divideScalar(group.length);
   // Height chosen so the group fills the view: wider groups sit higher. The
   // camera hangs a touch behind the group so the top-down view stays stable
@@ -1949,8 +1999,189 @@ function resizeIfNeeded(canvas, renderer, camera) {
 // ------------------------------------------------------------------ state updates
 
 function clearGroupChildren(list, parent) {
-  for (const m of list) parent.remove(m);
+  // Cards may be parented to a hand-bone helper rather than the scene root.
+  for (const m of list) {
+    if (m.parent) m.parent.remove(m);
+    else if (parent) parent.remove(m);
+  }
   list.length = 0;
+}
+
+// ---- hole cards in the hands (HoldCards idle) ----
+
+// Jacob's hand bone runs +Y toward the fingers (middle_01_*). A small helper
+// sits in the palm so the dealt pair rides the HoldCards wrist motion.
+const _holdPos = new THREE.Vector3();
+const _holdQuat = new THREE.Quaternion();
+const _holdMat = new THREE.Matrix4();
+const _cardWorld = new THREE.Vector3();
+const _faceQuat = new THREE.Quaternion();
+const _parentQuat = new THREE.Quaternion();
+const _faceUp = new THREE.Vector3(0, 1, 0);
+const _camRight = new THREE.Vector3();
+const _camUp = new THREE.Vector3();
+const _fanLocal = new THREE.Vector3();
+const _baseQuat = new THREE.Quaternion();
+const _blCorner = new THREE.Vector3();
+
+function findCharBone(character, names) {
+  let found = null;
+  character.root.traverse((o) => {
+    if (!found && o.isBone && names.includes(o.name)) found = o;
+  });
+  return found;
+}
+
+function ensureCardHold(character) {
+  if (!character || character.cardHold) return character && character.cardHold;
+  const handL = findCharBone(character, ['hand_l', 'LeftHand']);
+  const handR = findCharBone(character, ['hand_r', 'RightHand']);
+  const midL = findCharBone(character, ['middle_01_l']);
+  const midR = findCharBone(character, ['middle_01_r']);
+  const head = findCharBone(character, ['head', 'Head']);
+  character.handL = handL;
+  character.handR = handR;
+  character.midL = midL;
+  character.midR = midR;
+  character.headBone = head;
+  const hold = new THREE.Group();
+  hold.name = 'CardHold';
+  // Parent to hand_l so the helper rides the wrist; syncCardHold then
+  // rewrites its local pose each frame to the mid-palm point between both
+  // hands (a fixed left-only offset drifted outside the grip on several takes).
+  if (handL) handL.add(hold);
+  else character.root.add(hold);
+  character.cardHold = hold;
+  syncCardHold(character);
+  return hold;
+}
+
+// Palm centre ≈ lerp(hand, middle_01). Aim the helper between both palms and
+// face it toward the head so looking-at-cards idles cradle the pair.
+const _palmL = new THREE.Vector3();
+const _palmR = new THREE.Vector3();
+const _headPos = new THREE.Vector3();
+const _headFallback = new THREE.Vector3(0, 0.35, 0);
+function syncCardHold(character) {
+  const hold = character && character.cardHold;
+  const parent = hold && hold.parent;
+  if (!hold || !character.handL || !parent) return;
+  character.handL.getWorldPosition(_palmL);
+  if (character.midL) {
+    character.midL.getWorldPosition(_holdPos);
+    _palmL.lerp(_holdPos, 0.45);
+  }
+  if (character.handR) {
+    character.handR.getWorldPosition(_palmR);
+    if (character.midR) {
+      character.midR.getWorldPosition(_holdPos);
+      _palmR.lerp(_holdPos, 0.45);
+    }
+    // Bias slightly toward the left palm (typical cradle) while still
+    // tracking the right hand's support.
+    _palmL.lerp(_palmR, 0.4);
+  }
+  if (character.headBone) character.headBone.getWorldPosition(_headPos);
+  else _headPos.copy(_palmL).add(_headFallback);
+  // Small nudge toward the eyes so the pair clears the palm skin.
+  _palmL.lerp(_headPos, 0.05);
+  _holdMat.lookAt(_palmL, _headPos, _faceUp);
+  _faceQuat.setFromRotationMatrix(_holdMat);
+  // lookAt aims -Z at the head; PlaneGeometry faces +Z — flip so the card
+  // face (or back) looks toward the eyes.
+  _faceQuat.multiply(_holdQuat.setFromAxisAngle(_faceUp, Math.PI));
+  parent.updateWorldMatrix(true, false);
+  parent.worldToLocal(_palmL);
+  hold.position.copy(_palmL);
+  parent.getWorldQuaternion(_parentQuat);
+  hold.quaternion.copy(_parentQuat.invert().multiply(_faceQuat));
+}
+
+// Seat-0 HoldCards fan: rotate around each card's bottom-LEFT corner so the
+// top-left rank/suit indices stay clear. Back card more CCW (left), front
+// card more upright / slightly CW (right), layered front-on-top. Tip-back
+// ~20–30° toward the OTS camera; facing blends palm cradle with camera aim.
+const HOLD_FAN_BACK = 0.58;    // back card Z twist (CCW / left)
+const HOLD_FAN_FRONT = -0.18;  // front card Z twist (CW / right)
+const HOLD_FAN_TILT = -0.32;   // tip tops back toward the OTS camera (~18°)
+const HOLD_FAN_BLEND = 0.62;   // palm cradle ↔ camera aim
+// Shared bottom-left pivot in CardHold local space (nudge left so the fan
+// opens to the right from the grip, matching a real thumb-corner hold).
+const HOLD_PIVOT_X = -0.02;
+const HOLD_PIVOT_Y = -0.008;
+const HOLD_PIVOT_Z = 0.018;
+
+function holdFanAngle(i, n) {
+  if (n <= 1) return 0;
+  const t = i / (n - 1);
+  return HOLD_FAN_BACK * (1 - t) + HOLD_FAN_FRONT * t;
+}
+
+// Pin card so its local bottom-left corner sits on pivot in parent space.
+function pinCardBottomLeft(card, pivotX, pivotY, pivotZ) {
+  const halfW = (card.geometry?.parameters?.width || 0.145) * 0.5;
+  const halfH = (card.geometry?.parameters?.height || 0.197) * 0.5;
+  _blCorner.set(-halfW, -halfH, 0).applyQuaternion(card.quaternion);
+  card.position.set(pivotX - _blCorner.x, pivotY - _blCorner.y, pivotZ - _blCorner.z);
+}
+
+function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
+  if (!hold) return;
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    const theta = holdFanAngle(i, cards.length);
+    hold.add(card);
+    card.scale.setScalar(1);
+    // Bone-parented bounds lag the pose; never cull held cards.
+    card.frustumCulled = false;
+    card.renderOrder = 2 + i;
+    // Seed pose; faceHeldCardsTowardCamera overwrites each frame.
+    card.rotation.set(faceUp ? HOLD_FAN_TILT : Math.PI + HOLD_FAN_TILT, 0, theta);
+    pinCardBottomLeft(card, HOLD_PIVOT_X, HOLD_PIVOT_Y, HOLD_PIVOT_Z + i * 0.014);
+  }
+}
+
+// Player pair: shared bottom-left pivot in the palms, ease faces toward the
+// OTS camera so both indices stay readable (asymmetric fan, not a centre V).
+function faceHeldCardsTowardCamera(cards) {
+  if (!state.camera || !cards.length) return;
+  const parent = cards[0].parent;
+  if (!parent) return;
+  state.camera.updateMatrixWorld(true);
+  parent.updateWorldMatrix(true, false);
+  parent.getWorldPosition(_cardWorld);
+  parent.getWorldQuaternion(_parentQuat);
+
+  // One shared facing from the hold centre — then fan in hold-local Z so the
+  // bottom-left corners stay coincident.
+  _holdMat.lookAt(_cardWorld, state.camera.position, _faceUp);
+  _faceQuat.setFromRotationMatrix(_holdMat);
+  _faceQuat.multiply(_holdQuat.setFromAxisAngle(_faceUp, Math.PI));
+  _holdQuat.copy(_parentQuat).slerp(_faceQuat, HOLD_FAN_BLEND);
+  _baseQuat.copy(_parentQuat).invert().multiply(_holdQuat);
+
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    if (card.parent !== parent) continue;
+    const theta = holdFanAngle(i, cards.length);
+    card.quaternion.copy(_baseQuat);
+    card.rotateX(HOLD_FAN_TILT);
+    card.rotateZ(theta);
+    // Shared bottom-left pivot; slight Z lift so the front card sits on top.
+    pinCardBottomLeft(card, HOLD_PIVOT_X, HOLD_PIVOT_Y, HOLD_PIVOT_Z + i * 0.014);
+    card.renderOrder = 2 + i;
+  }
+}
+
+function playerCardAnchor(out) {
+  const seat = state.seats[0];
+  const hold = seat && seat.char && seat.char.cardHold;
+  if (hold) {
+    hold.updateWorldMatrix(true, false);
+    hold.getWorldPosition(out);
+    return out;
+  }
+  return out.copy(HOLE_ANCHOR);
 }
 
 function updateBoard(paths) {
@@ -1973,61 +2204,75 @@ function updateHole(paths) {
   for (let i = 0; i < paths.length; i++) {
     const card = makeCard(paths[i], 0.145, true);
     state.holeCards.push(card);
-    state.scene.add(card);
   }
   layoutHoleCards();
 }
 
-// ---- the player's cards: a fan on the felt, in front of his seat ----
-
-// Spot on the felt in front of the player where his card fan rests — well
-// inside the rail so the pair reads clearly past his body from the camera.
+// Fallback felt spot if the player's hand bones are not ready yet; also used
+// as a camera framing reference when the pair is laid flat for board zoom.
 const HOLE_ANCHOR = new THREE.Vector3(0, TABLE_TOP + 0.02, TABLE_RADIUS - 0.24);
 
 // Where the player's committed chips land (same ring updateSeatChips uses for
 // seat 0), so the sizing preview grows exactly where the real bet will sit.
 const BET_SPOT = new THREE.Vector3(0, TABLE_TOP, TABLE_RADIUS - 0.62);
 
-// Leave the seated pose alone. A shoulder/elbow solve written for a different
-// rig shears Jacob's face and sleeves, so the hole cards stay at the anchor
-// on the felt instead of being pinned between the hands.
+// Wire the player's palm helper and park any already-dealt hole cards in it.
+// Arm IK is intentionally not applied — Jacob's HoldCards idle owns the pose.
 function setupPlayerArms() {
+  const seat = state.seats[0];
+  if (seat && seat.char) ensureCardHold(seat.char);
   state.holeAnchor = HOLE_ANCHOR.clone();
   layoutHoleCards();
 }
 
-// The pair rests tilted back toward the player's eyes so the faces read from
-// the seat. A slight fan plus a few millimetres of separation between the
-// two planes keeps the overlapping faces from z-fighting.
-const _eyePoint = new THREE.Vector3();
+// Parent the player's pair into his left-hand CardHold helper. Faces are
+// re-aimed at the camera each frame in positionHandCards so the OTS view
+// stays readable while the wrists follow HoldCards.
 function layoutHoleCards() {
-  if (!state.holeAnchor) return;
   state.holeFlat = false;
-  _eyePoint.set(0, (state.eyeHeight || EYE_HEIGHT) + 0.25, SEAT_RADIUS + 0.9);
-  for (let i = 0; i < state.holeCards.length; i++) {
-    const card = state.holeCards[i];
-    const dir = i === 0 ? -1 : 1;
-    card.scale.setScalar(1);
-    card.position.copy(state.holeAnchor);
-    card.lookAt(_eyePoint);
-    card.rotateZ(dir * 0.13);         // small fan, like a pair held together
-    card.translateX(dir * 0.045);
-    card.translateY(0.055);           // bottom edge rests at the anchor
-    card.translateZ(0.006 * (i + 1)); // separated planes: no z-fighting
+  const seat = state.seats[0];
+  const hold = seat && seat.char ? ensureCardHold(seat.char) : null;
+  if (!hold || !state.holeCards.length) {
+    // No character yet (or mucked): keep meshes out of the scene graph.
+    for (const card of state.holeCards) {
+      if (card.parent) card.parent.remove(card);
+    }
+    return;
   }
+  layoutCardsInHold(hold, state.holeCards, { faceUp: true });
+  faceHeldCardsTowardCamera(state.holeCards);
+  playerCardAnchor(state.holeAnchor);
 }
 
 // Handles the hand-zoom camera target, plus how the pair behaves during the
 // other zooms: laid flat under the community row while the board close-up is
 // active (so you can read your hand against the board), hidden during an
-// opponent-pair close-up.
+// opponent-pair close-up. Also keeps held cards glued to the animated palm.
 const _handZoomDir = new THREE.Vector3();
 const _betFocus = new THREE.Vector3();
 function positionHandCards() {
-  if (!state.holeCards.length || !state.holeAnchor) return;
+  // Only the player's face-up pair needs a per-frame camera aim (and zoom
+  // framing); NPC backs sit on the felt.
+  if (!state.holeCards.length) return;
   const handZoom = state.zoom.active && state.zoom.kind === 'hand';
   const boardZoom = state.zoom.active && state.zoom.kind === 'board';
   const betZoom = state.zoom.active && state.zoom.kind === 'bet';
+  if (boardZoom && !state.holeFlat) {
+    state.holeFlat = true;
+    const spacing = BOARD_W + 0.014;
+    for (let i = 0; i < state.holeCards.length; i++) {
+      const card = state.holeCards[i];
+      state.scene.add(card); // detach from the palm for the flat board layout
+      card.scale.setScalar(BOARD_W / 0.145); // match the community card size
+      placeTableCard(card, (i - (state.holeCards.length - 1) / 2) * spacing, 0.64, 0, 0);
+    }
+  } else if (!boardZoom && state.holeFlat) {
+    layoutHoleCards(); // back into the character's hands (also resets scale)
+  } else if (!state.holeFlat) {
+    playerCardAnchor(state.holeAnchor);
+    faceHeldCardsTowardCamera(state.holeCards);
+  }
+  if (!state.holeAnchor) return;
   if (handZoom) {
     // Hover above and just in front of the pair (backing straight toward the
     // seat would put the camera inside the player's leaned-forward head).
@@ -2045,17 +2290,6 @@ function positionHandCards() {
     state.zoom.pos.copy(_betFocus).addScaledVector(_handZoomDir, 0.52)
       .setY(state.holeAnchor.y + 0.34);
     state.zoom.look.copy(_betFocus).setY(TABLE_TOP + 0.03);
-  }
-  if (boardZoom && !state.holeFlat) {
-    state.holeFlat = true;
-    const spacing = BOARD_W + 0.014;
-    for (let i = 0; i < state.holeCards.length; i++) {
-      const card = state.holeCards[i];
-      card.scale.setScalar(BOARD_W / 0.145); // match the community card size
-      placeTableCard(card, (i - (state.holeCards.length - 1) / 2) * spacing, 0.64, 0, 0);
-    }
-  } else if (!boardZoom && state.holeFlat) {
-    layoutHoleCards(); // back into the character's hands (also resets scale)
   }
   for (const card of state.holeCards) {
     card.visible = handZoom || boardZoom || betZoom || !state.zoom.active;
@@ -2083,12 +2317,12 @@ function updateSeatCards(seat, i, data) {
   // through leaves a signature that forces a clean redraw next push.
   seat.cardSig = 'none';
   const paths = data.reveal && data.reveal.length ? data.reveal : null;
+  // Folded / out / inactive seats with nothing to show: leave the felt empty
+  // (and never parent cards to NPC hands — no floating cards on arms-folded).
   if (i === 0 || (!data.active && !paths)) return;
 
   if (paths) {
-    // Revealed hands sit in from the rail (so they are not buried in the
-    // cowboy's torso from the over-the-shoulder camera) and tip toward
-    // the lens the same way James's pair does.
+    // Showdown reveals stay on the felt (readable from the OTS camera).
     const basePos = seatPos(i, TABLE_RADIUS - 0.62);
     const eye = state.camera
       ? state.camera.position
@@ -2108,15 +2342,20 @@ function updateSeatCards(seat, i, data) {
     return;
   }
 
+  // Active opponents: face-down backs on the felt, portrait relative to the
+  // seat (long axis radial). yaw = π/2 − seatAngle keeps every seat aligned;
+  // the old seatAngle − π/2 formula only worked for seats 0/3 and left the
+  // others looking landscape / stacked toward the rail.
   const basePos = seatPos(i, TABLE_RADIUS - 0.33);
-  const yaw = seatAngle(i) - Math.PI / 2; // cards face along seat direction
-
+  const facing = seatAngle(i);
+  const yaw = Math.PI / 2 - facing;
+  const tx = -Math.sin(facing);
+  const tz = Math.cos(facing);
+  const cardW = CARD_W * 0.85;
   for (let c = 0; c < 2; c++) {
-    const card = makeCard('img/cards/back.png', CARD_W);
-    const offset = (c === 0 ? -1 : 1) * (CARD_W / 2 + 0.008);
-    const ox = Math.cos(yaw) * offset;
-    const oz = -Math.sin(yaw) * offset;
-    placeTableCard(card, basePos.x + ox, basePos.z + oz, 0, yaw);
+    const card = makeCard('img/cards/back.png', cardW);
+    const offset = (c === 0 ? -1 : 1) * (cardW / 2 + 0.006);
+    placeTableCard(card, basePos.x + tx * offset, basePos.z + tz * offset, 0, yaw);
     seat.cards.push(card);
     state.scene.add(card);
   }
@@ -2127,12 +2366,14 @@ function seatCardZoom(seatIndex) {
   const seat = state.seats[seatIndex];
   if (!seat || !seat.cards.length) return null;
   const centre = new THREE.Vector3();
-  for (const c of seat.cards) centre.add(c.position);
+  const tmp = new THREE.Vector3();
+  for (const c of seat.cards) centre.add(c.getWorldPosition(tmp));
   centre.divideScalar(seat.cards.length);
+  // NPC / reveal pairs sit on the felt — frame from above the table.
   const height = 0.58;
   return {
-    pos: new THREE.Vector3(centre.x, TABLE_TOP + height, centre.z + height * 0.12),
-    look: new THREE.Vector3(centre.x, TABLE_TOP + 0.02, centre.z),
+    pos: new THREE.Vector3(centre.x, centre.y + height, centre.z + height * 0.12),
+    look: new THREE.Vector3(centre.x, centre.y, centre.z),
     kind: 'table'
   };
 }
@@ -2373,20 +2614,106 @@ window.pokerScene = {
   },
 
   idleDebug() {
+    const holdNames = ['IdleHoldCards01', 'IdleHoldCards02', 'IdleHoldCards03'];
+    const npcNames = [
+      'IdleSit01', 'IdleSit02', 'IdleSit03', 'IdleSit04', 'IdleSit05', 'IdleSit06',
+      'IdleTableObserveLeft01', 'IdleTableObserveRight01',
+      'IdleTableObserveLeftRight01', 'IdleTableProtectCards01',
+    ];
     return (state.seats || []).map((seat, i) => {
       const c = seat && seat.char;
       if (!c) return { i };
       const sit = c.sitAction;
       const foldedClip = c.findMood && c.findMood('IdleSitArmsFolded01');
+      const hold = holdNames.filter((n) => c.findMood && c.findMood(n));
+      const npcIdles = npcNames.filter((n) => c.findMood && c.findMood(n));
       return {
         i,
+        isPlayer: !!c.isPlayer,
         folded: !!c.folded,
+        homeIdle: c.homeIdle,
         idleName: c.idleName,
         sitClip: sit && sit.getClip() && sit.getClip().name,
         sitW: sit ? Number(sit.getEffectiveWeight().toFixed(2)) : 0,
+        holdCards: hold,
+        npcIdles,
         hasFoldedClip: !!foldedClip,
         foldedDur: foldedClip ? Number(foldedClip.duration.toFixed(2)) : 0,
         reacting: !!c.reacting,
+      };
+    });
+  },
+
+  // Local/world pose of the player's held hole cards (fan tuning).
+  holeDebug() {
+    const tmp = new THREE.Vector3();
+    const bl = new THREE.Vector3();
+    return (state.holeCards || []).map((card, i) => {
+      card.updateWorldMatrix(true, false);
+      card.getWorldPosition(tmp);
+      const halfW = (card.geometry?.parameters?.width || 0.145) * 0.5;
+      const halfH = (card.geometry?.parameters?.height || 0.197) * 0.5;
+      bl.set(-halfW, -halfH, 0).applyMatrix4(card.matrixWorld);
+      return {
+        i,
+        parent: card.parent && card.parent.name,
+        local: [+card.position.x.toFixed(3), +card.position.y.toFixed(3), +card.position.z.toFixed(3)],
+        world: [+tmp.x.toFixed(3), +tmp.y.toFixed(3), +tmp.z.toFixed(3)],
+        bl: [+bl.x.toFixed(3), +bl.y.toFixed(3), +bl.z.toFixed(3)],
+        fan: +holdFanAngle(i, state.holeCards.length).toFixed(3),
+      };
+    });
+  },
+
+  // NPC felt backs: long-axis vs seat radial (want ~±1) and pair separation axis.
+  npcCardDebug() {
+    const up = new THREE.Vector3();
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    return (state.seats || []).slice(1).map((seat, idx) => {
+      const i = idx + 1;
+      const cards = seat.cards || [];
+      if (cards.length < 2) return { i, n: cards.length };
+      const facing = seatAngle(i);
+      const radial = new THREE.Vector3(Math.cos(facing), 0, Math.sin(facing));
+      cards[0].updateWorldMatrix(true, false);
+      cards[1].updateWorldMatrix(true, false);
+      up.set(0, 1, 0).transformDirection(cards[0].matrixWorld);
+      cards[0].getWorldPosition(a);
+      cards[1].getWorldPosition(b);
+      const sep = b.clone().sub(a);
+      sep.y = 0;
+      const tangent = new THREE.Vector3(-Math.sin(facing), 0, Math.cos(facing));
+      return {
+        i,
+        yaw: +(Math.PI / 2 - facing).toFixed(3),
+        heightDotRadial: +up.dot(radial).toFixed(3),
+        sepDotTangent: +sep.normalize().dot(tangent).toFixed(3),
+      };
+    });
+  },
+
+  // Where the player's CardHold sits and what is parented to it (NPCs: none).
+  holdDebug() {
+    const tmp = new THREE.Vector3();
+    return (state.seats || []).map((seat, i) => {
+      const c = seat && seat.char;
+      const hold = c && c.cardHold;
+      if (!hold) {
+        const cardParents = (i === 0 ? state.holeCards : (seat.cards || []))
+          .map((card) => card.parent && (card.parent.name || 'scene'));
+        return { i, hold: false, cardParents };
+      }
+      hold.getWorldPosition(tmp);
+      const cardParents = (i === 0 ? state.holeCards : (seat.cards || []))
+        .map((card) => card.parent && card.parent.name);
+      return {
+        i,
+        hold: true,
+        parent: hold.parent && hold.parent.name,
+        kids: hold.children.length,
+        cardParents,
+        world: [+tmp.x.toFixed(3), +tmp.y.toFixed(3), +tmp.z.toFixed(3)],
       };
     });
   },
