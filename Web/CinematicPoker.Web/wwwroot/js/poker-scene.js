@@ -2101,14 +2101,15 @@ function syncCardHold(character) {
 // top-left rank/suit indices stay clear. Back card more CCW (left), front
 // card more upright / slightly CW (right), layered front-on-top. Tip-back
 // ~20–30° toward the OTS camera; facing blends palm cradle with camera aim.
-const HOLD_FAN_BACK = 0.52;    // back card Z twist (CCW / left)
-const HOLD_FAN_FRONT = -0.14;  // front card Z twist (CW / right)
-const HOLD_FAN_TILT = -0.36;   // tip tops back toward the OTS camera (~21°)
-const HOLD_FAN_BLEND = 0.68;   // palm cradle ↔ camera aim
-// Shared bottom-left pivot in CardHold local space (slight lift off the palm).
-const HOLD_PIVOT_X = -0.01;
-const HOLD_PIVOT_Y = -0.01;
-const HOLD_PIVOT_Z = 0.016;
+const HOLD_FAN_BACK = 0.58;    // back card Z twist (CCW / left)
+const HOLD_FAN_FRONT = -0.18;  // front card Z twist (CW / right)
+const HOLD_FAN_TILT = -0.32;   // tip tops back toward the OTS camera (~18°)
+const HOLD_FAN_BLEND = 0.62;   // palm cradle ↔ camera aim
+// Shared bottom-left pivot in CardHold local space (nudge left so the fan
+// opens to the right from the grip, matching a real thumb-corner hold).
+const HOLD_PIVOT_X = -0.02;
+const HOLD_PIVOT_Y = -0.008;
+const HOLD_PIVOT_Z = 0.018;
 
 function holdFanAngle(i, n) {
   if (n <= 1) return 0;
