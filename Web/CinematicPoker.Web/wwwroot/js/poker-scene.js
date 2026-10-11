@@ -139,22 +139,28 @@ function seatPos(i, radius, y = 0) {
   return new THREE.Vector3(Math.cos(a) * radius, y, Math.sin(a) * radius);
 }
 
-// Kenney Furniture Kit chairCushion (blue pad). Origin is at the feet; at
-// scale 1 the cushion centroid sits near (-0.11, 0.23, 0.10). Kept in world
-// space (not parented to the rig) so Jacob's root scale can't inflate the
-// seat into a torso-height slab.
-const CHAIR_SCALE = 2.35;
-const _CHAIR_SEAT_XZ = new THREE.Vector3(-0.106, 0, 0.101);
-const _CHAIR_SEAT_Y = 0.234; // cushion height at scale 1
+// Dead Man's Hand PUB mesh_chair_02 (fabric pad + wood). Baked to ~0.95 m
+// tall with the open side on local +Z and the backrest on local -Z. Kept in
+// world space (not parented to the rig) so Jacob's root scale can't inflate
+// the seat into a torso-height slab.
+const CHAIR_SCALE = 1.0;
+// Cushion centroid at scale 1 (see tools bake of mesh_chair_02).
+const _CHAIR_SEAT_XZ = new THREE.Vector3(0.001, 0, 0.021);
+const _CHAIR_SEAT_Y = 0.479;
+// Mesh open-side faces +Z after bake; Three.js object forward is -Z, and the
+// previous seats were 180° off — yaw the chair so the backrest sits behind
+// the cowboy (away from the table).
+const CHAIR_YAW_OFFSET = Math.PI;
 const _chairSeatOff = new THREE.Vector3();
 const _chairAnchor = new THREE.Vector3();
 const _toTable = new THREE.Vector3();
 
 function placeChairAt(chair, facing, anchorXz, cushionY) {
+  const yaw = facing + CHAIR_YAW_OFFSET;
   chair.scale.setScalar(CHAIR_SCALE);
-  chair.rotation.set(0, facing, 0);
+  chair.rotation.set(0, yaw, 0);
   _chairSeatOff.copy(_CHAIR_SEAT_XZ).multiplyScalar(CHAIR_SCALE);
-  _chairSeatOff.applyAxisAngle(new THREE.Vector3(0, 1, 0), facing);
+  _chairSeatOff.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
   const seatH = _CHAIR_SEAT_Y * CHAIR_SCALE;
   chair.position.set(
     anchorXz.x - _chairSeatOff.x,
@@ -162,7 +168,7 @@ function placeChairAt(chair, facing, anchorXz, cushionY) {
     anchorXz.z - _chairSeatOff.z);
 }
 
-// Plant the chair on the floor with its blue cushion under the hips.
+// Plant the chair on the floor with its fabric cushion under the hips.
 function alignChairToCharacter(chair, character, facing, seatIndex) {
   let hips = null;
   character.root.traverse((o) => {
@@ -1200,10 +1206,10 @@ async function buildScene(canvas) {
   base.position.y = 0.025;
   scene.add(base);
 
-  // ---- seats (blue-cushion chairs + characters + cards + labels)
-  // Kenney chairCushion under every cowboy; the saloon still dresses the
-  // rest of the room (booths, bar stools, bottles).
-  const chairGltf = await loadGlb(loader, 'models/props/furniture/chair.glb?v=3');
+  // ---- seats (DMH PUB chairs + characters + cards + labels)
+  // mesh_chair_02 under every cowboy; the saloon still dresses the rest of
+  // the room (booths, bar stools, bottles).
+  const chairGltf = await loadGlb(loader, 'models/props/furniture/chair.glb?v=4');
   state.seats = [];
   const charPromises = [];
 
