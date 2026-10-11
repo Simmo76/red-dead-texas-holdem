@@ -169,7 +169,9 @@ function placeChairAt(chair, facing, anchorXz, cushionY) {
     anchorXz.z - _chairSeatOff.z);
 }
 
-// Plant the chair on the floor with its fabric cushion under the hips.
+// Plant the chair on the floor with its fabric cushion under the hips (XZ).
+// Legs stay at y=0 — sinking the chair to follow a low hip plant is what put
+// both chair feet and cowboy boots through the saloon floor.
 function alignChairToCharacter(chair, character, facing, seatIndex) {
   let hips = null;
   character.root.traverse((o) => {
@@ -180,9 +182,10 @@ function alignChairToCharacter(chair, character, facing, seatIndex) {
   const parent = character.root.parent;
   if (parent && chair.parent !== parent) parent.add(chair);
 
+  const cushionH = _CHAIR_SEAT_Y * CHAIR_SCALE;
   if (!hips) {
     const fallback = seatPos(seatIndex, SEAT_RADIUS - 0.02);
-    placeChairAt(chair, facing, fallback, _CHAIR_SEAT_Y * CHAIR_SCALE);
+    placeChairAt(chair, facing, fallback, cushionH);
     return;
   }
 
@@ -194,8 +197,7 @@ function alignChairToCharacter(chair, character, facing, seatIndex) {
     _chairAnchor.add(_toTable);
   }
 
-  // Cushion just under the hips so the cowboy sits on the pad, not through it.
-  placeChairAt(chair, facing, _chairAnchor, _chairAnchor.y - 0.05);
+  placeChairAt(chair, facing, _chairAnchor, cushionH);
 }
 
 // ------------------------------------------------------------------ cards
@@ -1011,12 +1013,12 @@ async function buildScene(canvas) {
   setupLookControls(canvas, view);
   requestLandscapeLock();
 
-  // ---- lighting: warm lantern pool over the felt, with a soft purple/pink
-  // room wash (the old arcade magenta spill) so the saloon background reads
-  // with that slight rose hue without competing with the table.
-  const ambient = new THREE.AmbientLight(0x7a5088, 0.38);
+  // ---- lighting: warm lantern pool over the felt, with a strong purple/pink
+  // room wash (the old arcade magenta spill) so the saloon bar and booths
+  // read with a clear rose hue without competing with the table lantern.
+  const ambient = new THREE.AmbientLight(0x9a58a8, 0.48);
   scene.add(ambient);
-  const hemi = new THREE.HemisphereLight(0xc888b0, 0x1a1020, 0.34);
+  const hemi = new THREE.HemisphereLight(0xe090c8, 0x1a0c22, 0.42);
   scene.add(hemi);
 
   const lantern = new THREE.PointLight(0xffc477, 28, 7.0, 1.85);
@@ -1036,12 +1038,12 @@ async function buildScene(canvas) {
   keyLight.shadow.camera.far = 11;
   scene.add(keyLight, keyLight.target);
 
-  // Cool rose fills for the room — quiet enough that faces stay readable.
-  const fill = new THREE.PointLight(0xd8a0c8, 0.85, 8, 2);
+  // Cool rose fills for the room — louder pink so the bar reads magenta.
+  const fill = new THREE.PointLight(0xf0a0d8, 1.35, 9, 2);
   fill.position.set(3.2, 2.0, 2.6);
   scene.add(fill);
 
-  const backFill = new THREE.PointLight(0xe08ad8, 1.1, 9, 2);
+  const backFill = new THREE.PointLight(0xf078e0, 1.7, 10, 2);
   backFill.position.set(-2.4, 2.2, -3.6);
   scene.add(backFill);
 
@@ -1108,16 +1110,16 @@ async function buildScene(canvas) {
       }
     });
     env.add(saloon);
-    // Soft purple/pink hanging-lamp pools — dimmer than the table lantern so
-    // the bar and booths read as background with the original rose wash.
-    // They live in the env group and switch off with the saloon backdrop.
+    // Purple/pink hanging-lamp pools — stronger on the bar face so the
+    // backdrop reads magenta, still under the table lantern. They live in
+    // the env group and switch off with the saloon backdrop.
     const lampSpecs = [
-      [0xe8a8d0, 5, 10, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],   // bar face
-      [0xd090c8, 3.5, 9, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // left booths
-      [0xd090c8, 3.5, 9, [6.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],   // right booths
-      [0xc8a0d8, 4, 10, [0.0, 3.4, 3.5 + SALOON_BAR_NUDGE_Z]],    // behind player
-      [0xb878c8, 2.5, 8, [-7.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]],  // far left corner
-      [0xb878c8, 2.5, 8, [8.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]]    // far right corner
+      [0xff78d0, 9, 12, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],   // bar face
+      [0xe868c8, 5.5, 10, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]], // left booths
+      [0xe868c8, 5.5, 10, [6.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // right booths
+      [0xd878e0, 6, 11, [0.0, 3.4, 3.5 + SALOON_BAR_NUDGE_Z]],    // behind player
+      [0xc858d0, 4, 9, [-7.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]],  // far left corner
+      [0xc858d0, 4, 9, [8.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]]    // far right corner
     ];
     for (const [color, intensity, dist, pos] of lampSpecs) {
       const lamp = new THREE.PointLight(color, intensity, dist, 1.8);
@@ -1130,8 +1132,8 @@ async function buildScene(canvas) {
   });
 
   // Soft violet key through the windows (also the celestial key for the
-  // other switchable backdrops) — held back so the room stays moody.
-  const moon = new THREE.DirectionalLight(0xc8a0e0, 0.32);
+  // other switchable backdrops) — a notch stronger so walls pick up pink.
+  const moon = new THREE.DirectionalLight(0xd890e8, 0.42);
   moon.position.set(-8, 18, -6);
   scene.add(moon);
 
@@ -1141,7 +1143,7 @@ async function buildScene(canvas) {
   // over the felt stays constant so the game always reads the same.
   // bg doubles as the fog colour so distant geometry melts into the sky.
   const ENVS = [
-    { name: 'SALOON', bg: 0x0a0610, fog: [6, 22], amb: [0x6a4a78, 0.32], hemi: [0xb878a8, 0x1a1020, 0.28], dir: [0xc8a0e0, 0.32, [-8, 18, -6]], fill: [0xd8a0c8, 0.85], back: [0xe08ad8, 1.1], build: null },
+    { name: 'SALOON', bg: 0x100818, fog: [6, 22], amb: [0x9a58a8, 0.48], hemi: [0xe090c8, 0x1a0c22, 0.42], dir: [0xd890e8, 0.42, [-8, 18, -6]], fill: [0xf0a0d8, 1.35], back: [0xf078e0, 1.7], build: null },
     { name: 'BEACH', bg: 0x2f9ed3, fog: [30, 130], amb: [0xbfd8e8, 0.65], hemi: [0xcfe8ff, 0x8a7a5a, 0.55], dir: [0xfff2d8, 1.7, [18, 30, 12]], fill: [0xbfe8ff, 1.2], back: [0xffe8c8, 1.2], build: buildBeach },
     { name: 'DESERT', bg: 0xe8b878, fog: [25, 110], amb: [0xd8b890, 0.85], hemi: [0xf0d0a8, 0x9a6a3a, 0.7], dir: [0xffd8a0, 2.4, [-20, 18, 8]], fill: [0xffc890, 1.2], back: [0xff9860, 1.8], build: buildDesert },
     { name: 'SHED', bg: 0x0d0906, fog: [8, 26], amb: [0x584838, 0.35], hemi: [0x4a3828, 0x140c06, 0.35], dir: [0xc8a878, 0.15, [-6, 12, 6]], fill: [0xffb868, 1.2], back: [0x684828, 1.0], build: buildShed },
@@ -1232,9 +1234,11 @@ async function buildScene(canvas) {
   const lineup = shuffle(WESTERN_LOOKS).slice(0, SEATS)
     .map((look, i) => look.hat ? look : { ...look, hat: 1 + (i % 2), hair: 'cut' });
 
-  // Position a seated character at seat i: face the table and plant the
-  // idle's hands on the felt. The thinking clip holds the palms at lap
-  // height, so a foot-plant left everyone hovering above the rail.
+  // Position a seated character at seat i: face the table, plant the idle's
+  // hands on the felt, then lift any boot soles that sank through the floor.
+  // (A pure foot-plant used to leave everyone hovering above the rail; the
+  // hand plant still sets the sit height, and the floor clamp only raises.)
+  const FLOOR_SOLE_Y = 0.02; // keep boot leather just kissing the boards
   const placeSeatedCharacter = (character, i, facing) => {
     character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
     scene.add(character.root);
@@ -1302,6 +1306,29 @@ async function buildScene(canvas) {
       character.root.position.z += mid.z * (scale - 1);
     }
     character.root.updateMatrixWorld(true);
+
+    // Hand-on-felt can drop the sit so boot soles clip the saloon boards.
+    // Raise (never lower) until the lowest boot mesh clears the floor.
+    const bootBox = new THREE.Box3();
+    let minSole = Infinity;
+    character.root.traverse((o) => {
+      if (!o.isMesh || !/boot/i.test(o.name || '')) return;
+      bootBox.setFromObject(o);
+      if (Number.isFinite(bootBox.min.y)) minSole = Math.min(minSole, bootBox.min.y);
+    });
+    if (!isFinite(minSole)) {
+      // Fall back to ankle bones plus a small sole drop below the joint.
+      for (const f of [lFoot, rFoot]) {
+        if (!f) continue;
+        f.getWorldPosition(v);
+        minSole = Math.min(minSole, v.y - 0.045);
+      }
+    }
+    if (isFinite(minSole) && minSole < FLOOR_SOLE_Y) {
+      character.root.position.y += FLOOR_SOLE_Y - minSole;
+      character.root.updateMatrixWorld(true);
+    }
+
     character.modelYaw = modelYaw;
     character.seatFacing = facing;
   };
