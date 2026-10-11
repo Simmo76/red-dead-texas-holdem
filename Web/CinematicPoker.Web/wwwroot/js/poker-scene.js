@@ -2135,26 +2135,26 @@ function faceHeldCardsTowardCamera(cards) {
     const dir = i === 0 ? -1 : 1;
     parent.updateWorldMatrix(true, false);
     parent.getWorldPosition(_cardWorld);
-    // Aggressive screen fan: ~11cm centre split so both index corners read
-    // from the OTS seat (card width is ~14.5cm).
+    // Side-by-side fan in camera space: ~16cm centre split (card ~14.5cm wide)
+    // leaves a clear gap between ranks from the OTS seat.
     _fanLocal.set(
-      _cardWorld.x + _camRight.x * dir * 0.11 + _camUp.x * (0.01 + dir * 0.025) + fwdX * (-0.012 * (i + 1)),
-      _cardWorld.y + _camRight.y * dir * 0.11 + _camUp.y * (0.01 + dir * 0.025) + fwdY * (-0.012 * (i + 1)),
-      _cardWorld.z + _camRight.z * dir * 0.11 + _camUp.z * (0.01 + dir * 0.025) + fwdZ * (-0.012 * (i + 1)),
+      _cardWorld.x + _camRight.x * dir * 0.16 + _camUp.x * (0.02 + i * 0.01) + fwdX * (-0.02 * (i + 1)),
+      _cardWorld.y + _camRight.y * dir * 0.16 + _camUp.y * (0.02 + i * 0.01) + fwdY * (-0.02 * (i + 1)),
+      _cardWorld.z + _camRight.z * dir * 0.16 + _camUp.z * (0.02 + i * 0.01) + fwdZ * (-0.02 * (i + 1)),
     );
     parent.worldToLocal(_fanLocal);
     card.position.copy(_fanLocal);
 
     parent.getWorldQuaternion(_parentQuat);
-    // Face the camera from the new centre, then twist into a readable fan.
+    // Full billboard toward the camera so ranks stay flat-on to the seat,
+    // then a light twist so the pair still reads as a held fan.
     _cardWorld.set(0, 0, 0);
     card.localToWorld(_cardWorld);
     _holdMat.lookAt(_cardWorld, state.camera.position, _faceUp);
     _faceQuat.setFromRotationMatrix(_holdMat);
     _faceQuat.multiply(_holdQuat.setFromAxisAngle(_faceUp, Math.PI));
-    _holdQuat.copy(_parentQuat).slerp(_faceQuat, 0.85);
-    card.quaternion.copy(_parentQuat.invert().multiply(_holdQuat));
-    card.rotateZ(dir * 0.55);
+    card.quaternion.copy(_parentQuat.invert().multiply(_faceQuat));
+    card.rotateZ(dir * 0.22);
   }
 }
 
