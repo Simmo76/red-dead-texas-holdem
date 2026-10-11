@@ -975,7 +975,9 @@ async function buildScene(canvas) {
   scene.background = new THREE.Color(0x1a120c);
   scene.fog = new THREE.Fog(0x1a120c, 10, 36);
 
-  const camera = new THREE.PerspectiveCamera(52, canvas.clientWidth / canvas.clientHeight, 0.05, 140);
+  // 60° is slightly wider than a "normal" lens, giving a gentle fish-eye
+  // stretch toward the frame edges without distorting the characters.
+  const camera = new THREE.PerspectiveCamera(60, canvas.clientWidth / canvas.clientHeight, 0.05, 140);
 
   // Orbit around the table-top centre. Home is the over-the-shoulder seat
   // plus a 10° clockwise yaw (peek at James's hole cards) and 10° more
@@ -1990,7 +1992,7 @@ function resizeIfNeeded(canvas, renderer, camera) {
   _outlineUniforms.uOutlineViewH.value = h;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
-  state.baseFov = 52;
+  state.baseFov = 60;
   camera.fov = state.baseFov;
   camera.updateProjectionMatrix();
   if (state.applyCameraHome) state.applyCameraHome();
