@@ -598,16 +598,17 @@ function makeCharacter(gltf, spec, extraClips) {
 
   const mixer = new THREE.AnimationMixer(root);
   const bodyClips = gltf.animations || [];
-  // Sheriff/Bandit meshes are rebound onto Jacob's armature at bake time, so
-  // they share Jacob's bone axes and use the same mighty-cat mood catalogue.
-  const moodClips = extraClips || [];
+  // Jacob outfits use mighty-cat mood clips. Sheriff/Bandit keep their native
+  // UE4 skin + authored Sit (Jacob rebind exploded neck/hair verts).
+  const useMood = !!spec.look;
+  const moodClips = useMood ? (extraClips || []) : [];
   const findBody = (name) => THREE.AnimationClip.findByName(bodyClips, name);
   const findMood = (name) => THREE.AnimationClip.findByName(moodClips, name);
   const pick = (names) => names[Math.floor(Math.random() * names.length)];
 
   // Player: HoldCards continuous loop. NPCs: table sit / observe idles.
   // A fold swaps the home idle to arms-folded for the rest of the hand, then
-  // the seat's pick returns on the next deal.
+  // the seat's pick returns on the next deal. Non-Jacob NPCs stay on Sit.
   const HOLD_CARDS_IDLES = ['IdleHoldCards01', 'IdleHoldCards02', 'IdleHoldCards03'];
   const NPC_IDLES = [
     'IdleSit01', 'IdleSit02', 'IdleSit03', 'IdleSit04', 'IdleSit05', 'IdleSit06',
@@ -626,13 +627,16 @@ function makeCharacter(gltf, spec, extraClips) {
     return available.length ? pick(available) : pickFallbackIdle();
   };
   const pickNpcIdle = () => {
+    if (!useMood) return 'Sit';
     const available = NPC_IDLES.filter((n) => findMood(n));
     return available.length ? pick(available) : pickFallbackIdle();
   };
   const isPlayer = !!spec.cards;
-  const idleName = (spec.idleName && findMood(spec.idleName))
-    ? spec.idleName
-    : (isPlayer ? pickHoldCardsIdle() : pickNpcIdle());
+  const idleName = (!useMood)
+    ? 'Sit'
+    : ((spec.idleName && findMood(spec.idleName))
+      ? spec.idleName
+      : (isPlayer ? pickHoldCardsIdle() : pickNpcIdle()));
   const sitClip = findMood(idleName) || findBody('Sit');
   let sitAction = null;
   const makeSitAction = (clip) => {
@@ -1250,8 +1254,8 @@ async function buildScene(canvas) {
   // Jacob outfits for every seat, plus Sheriff and Bandit as NPC-only draws.
   // A fresh cast every time the table is built.
   const jacobModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const sheriffModel = loadGlb(loader, 'models/characters/western/Sheriff.glb?v=7');
-  const banditModel = loadGlb(loader, 'models/characters/western/Bandit.glb?v=7');
+  const sheriffModel = loadGlb(loader, 'models/characters/western/Sheriff.glb?v=8');
+  const banditModel = loadGlb(loader, 'models/characters/western/Bandit.glb?v=8');
   const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=9');
   // Every Jacob look wears a hat so the seat's accent colour always has
   // somewhere to live; hatless presets borrow a hat (and the matching short
