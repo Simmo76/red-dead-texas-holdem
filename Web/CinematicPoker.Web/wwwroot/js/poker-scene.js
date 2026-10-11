@@ -773,6 +773,13 @@ function makeCharacter(gltf, spec, extraClips) {
       depthWrite: true,
       depthTest: true,
       side: THREE.FrontSide,
+      // Nudge the prepass slightly away from the camera. The colour pass is
+      // drawn by a different shader program, and cross-program depth output
+      // is not guaranteed bit-identical on every (mobile) GPU; without the
+      // offset the LessEqual test can fail and body parts vanish.
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 2,
     });
     // Alpha-carded shells (hair, lashes) must cut their texture silhouette
     // into the peel, or their card quads stamp solid rectangles of depth
@@ -1932,11 +1939,8 @@ function spawnChipToss(seatIndex, count = 3) {
   const from = seatPos(seatIndex, TABLE_RADIUS - 0.18);
   for (let i = 0; i < count; i++) {
     const chip = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.045, 0.045, 0.012, 16),
-      new THREE.MeshStandardMaterial({
-        color: CHIP_COLORS[Math.floor(Math.random() * CHIP_COLORS.length)],
-        roughness: 0.55,
-      }));
+      chipGeometry(),
+      chipMaterial(CHIP_COLORS[Math.floor(Math.random() * CHIP_COLORS.length)]));
     chip.castShadow = true;
     const start = new THREE.Vector3(from.x, TABLE_TOP + 0.03, from.z);
     const end = POT_POS.clone().add(new THREE.Vector3(
@@ -2007,8 +2011,12 @@ function updateFx(dt) {
       if (alive) continue;
     }
     state.scene.remove(fx.mesh);
-    fx.mesh.geometry.dispose();
-    fx.mesh.material.dispose();
+    // Chip tosses borrow the shared pooled chip geometry/material — disposing
+    // those would tear the buffers out from under every chip on the table.
+    if (fx.kind !== 'chip') {
+      fx.mesh.geometry.dispose();
+      fx.mesh.material.dispose();
+    }
     state.fx.splice(i, 1);
   }
 }
@@ -2811,6 +2819,9 @@ window.pokerScene = {
       };
     });
   },
+
+  // Diagnostics hook: exposes internal scene state for headless testing.
+  debugState() { return state; },
 
   // Opening cinematic disabled: stay on the normal seat view. Returns 0 so
   // callers know not to wait or play intro audio.
