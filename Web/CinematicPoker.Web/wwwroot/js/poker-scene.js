@@ -1250,8 +1250,8 @@ async function buildScene(canvas) {
   // Jacob outfits for every seat, plus Sheriff and Bandit as NPC-only draws.
   // A fresh cast every time the table is built.
   const jacobModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const sheriffModel = loadGlb(loader, 'models/characters/western/Sheriff.glb?v=6');
-  const banditModel = loadGlb(loader, 'models/characters/western/Bandit.glb?v=6');
+  const sheriffModel = loadGlb(loader, 'models/characters/western/Sheriff.glb?v=7');
+  const banditModel = loadGlb(loader, 'models/characters/western/Bandit.glb?v=7');
   const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=9');
   // Every Jacob look wears a hat so the seat's accent colour always has
   // somewhere to live; hatless presets borrow a hat (and the matching short
