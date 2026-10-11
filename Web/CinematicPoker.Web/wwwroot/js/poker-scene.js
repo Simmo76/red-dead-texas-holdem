@@ -139,60 +139,56 @@ function seatPos(i, radius, y = 0) {
   return new THREE.Vector3(Math.cos(a) * radius, y, Math.sin(a) * radius);
 }
 
-// Kenney Furniture Kit chairCushion (blue pad), normalised so CHAIR_SCALE
-// matches the earlier plain-chair framing. Origin is at the feet; the
-// cushion centroid at scale 1 sits near (-0.11, 0.23, 0.10).
-const CHAIR_SCALE = 2.76;
-const _CHAIR_SEAT_LOCAL = new THREE.Vector3(-0.106, 0, 0.101);
+// Kenney Furniture Kit chairCushion (blue pad). Origin is at the feet; at
+// scale 1 the cushion centroid sits near (-0.11, 0.23, 0.10). Kept in world
+// space (not parented to the rig) so Jacob's root scale can't inflate the
+// seat into a torso-height slab.
+const CHAIR_SCALE = 2.35;
+const _CHAIR_SEAT_XZ = new THREE.Vector3(-0.106, 0, 0.101);
+const _CHAIR_SEAT_Y = 0.234; // cushion height at scale 1
 const _chairSeatOff = new THREE.Vector3();
 const _chairAnchor = new THREE.Vector3();
 const _toTable = new THREE.Vector3();
 
-function placeChairAt(chair, facing, anchor) {
+function placeChairAt(chair, facing, anchorXz, cushionY) {
   chair.scale.setScalar(CHAIR_SCALE);
-  chair.rotation.y = facing;
-  _chairSeatOff.copy(_CHAIR_SEAT_LOCAL).multiplyScalar(CHAIR_SCALE);
+  chair.rotation.set(0, facing, 0);
+  _chairSeatOff.copy(_CHAIR_SEAT_XZ).multiplyScalar(CHAIR_SCALE);
   _chairSeatOff.applyAxisAngle(new THREE.Vector3(0, 1, 0), facing);
+  const seatH = _CHAIR_SEAT_Y * CHAIR_SCALE;
   chair.position.set(
-    anchor.x - _chairSeatOff.x,
-    anchor.y,
-    anchor.z - _chairSeatOff.z);
+    anchorXz.x - _chairSeatOff.x,
+    cushionY - seatH,
+    anchorXz.z - _chairSeatOff.z);
 }
 
-// Parent the chair under the seated rig so it tracks the solved pose.
+// Plant the chair on the floor with its blue cushion under the hips.
 function alignChairToCharacter(chair, character, facing, seatIndex) {
   let hips = null;
   character.root.traverse((o) => {
     if (!hips && o.isBone && (o.name === 'hips' || o.name === 'pelvis')) hips = o;
   });
+
+  // Stay a sibling of the rig (scene root), never a child of the scaled body.
+  const parent = character.root.parent;
+  if (parent && chair.parent !== parent) parent.add(chair);
+
   if (!hips) {
-    placeChairAt(chair, facing, seatPos(seatIndex, SEAT_RADIUS - 0.02));
+    const fallback = seatPos(seatIndex, SEAT_RADIUS - 0.02);
+    placeChairAt(chair, facing, fallback, _CHAIR_SEAT_Y * CHAIR_SCALE);
     return;
   }
 
-  if (chair.parent !== character.root) character.root.add(chair);
-
   hips.getWorldPosition(_chairAnchor);
+  // Slight push toward the table so the pad sits under the sit, not behind it.
   _toTable.set(-_chairAnchor.x, 0, -_chairAnchor.z);
   if (_toTable.lengthSq() > 1e-6) {
-    _toTable.normalize().multiplyScalar(0.08);
+    _toTable.normalize().multiplyScalar(0.06);
     _chairAnchor.add(_toTable);
   }
 
-  character.root.updateMatrixWorld(true);
-  character.root.worldToLocal(_chairAnchor);
-
-  // Chair scale is a world size; divide out the rig root scale so the seat
-  // doesn't inherit the body scale and become a slab around the table.
-  const parentScale = character.root.scale.x || 1;
-  const localScale = CHAIR_SCALE / parentScale;
-  chair.scale.setScalar(localScale);
-  const relYaw = character.modelYaw || 0;
-  chair.rotation.set(0, relYaw, 0);
-  _chairSeatOff.copy(_CHAIR_SEAT_LOCAL).multiplyScalar(localScale);
-  _chairSeatOff.applyAxisAngle(new THREE.Vector3(0, 1, 0), relYaw);
-  _chairAnchor.sub(_chairSeatOff);
-  chair.position.copy(_chairAnchor);
+  // Cushion just under the hips so the cowboy sits on the pad, not through it.
+  placeChairAt(chair, facing, _chairAnchor, _chairAnchor.y - 0.05);
 }
 
 // ------------------------------------------------------------------ cards
@@ -996,20 +992,19 @@ async function buildScene(canvas) {
 
   // ---- lighting: warm indoor saloon wash, with the familiar lantern pool
   // kept over the felt so the game still reads like a card den.
-  // Room wash stays a step dimmer than the table so walls/booths fall away
-  // and the players + felt keep the focus.
-  const ambient = new THREE.AmbientLight(0xb89870, 0.42);
+  // Room wash stays well under the table pool so walls/booths fall away.
+  const ambient = new THREE.AmbientLight(0xb89870, 0.28);
   scene.add(ambient);
-  const hemi = new THREE.HemisphereLight(0xe8c898, 0x3a2818, 0.32);
+  const hemi = new THREE.HemisphereLight(0xe8c898, 0x2a1a10, 0.22);
   scene.add(hemi);
 
-  const lantern = new THREE.PointLight(0xffc477, 26, 7.5, 1.9);
+  const lantern = new THREE.PointLight(0xffc477, 28, 7.0, 1.85);
   lantern.position.set(0, 2.15, 0);
   scene.add(lantern);
 
   // Shadow-casting key light from the lamp: grounds characters and props.
   // Tighter cone so the pool hugs the table rather than the room.
-  const keyLight = new THREE.SpotLight(0xffc98a, 34, 8.5, Math.PI / 2.8, 0.55, 1.6);
+  const keyLight = new THREE.SpotLight(0xffc98a, 36, 8.0, Math.PI / 3.0, 0.5, 1.55);
   keyLight.position.set(0, 2.7, 0);
   keyLight.target.position.set(0, 0, 0);
   keyLight.castShadow = true;
@@ -1020,13 +1015,13 @@ async function buildScene(canvas) {
   keyLight.shadow.camera.far = 11;
   scene.add(keyLight, keyLight.target);
 
-  // Soft warm spill from the saloon lamps / window light so faces stay
-  // readable without neon tint — kept quieter than the table lantern.
-  const fill = new THREE.PointLight(0xffd2a0, 1.2, 8, 2);
+  // Soft warm spill — quiet enough that faces stay readable without lighting
+  // up the bar and booths.
+  const fill = new THREE.PointLight(0xffd2a0, 0.7, 7, 2);
   fill.position.set(3.2, 2.0, 2.6);
   scene.add(fill);
 
-  const backFill = new THREE.PointLight(0xffb068, 1.4, 9, 2);
+  const backFill = new THREE.PointLight(0xffb068, 0.8, 8, 2);
   backFill.position.set(-2.4, 2.2, -3.6);
   scene.add(backFill);
 
@@ -1059,7 +1054,7 @@ async function buildScene(canvas) {
   // the origin and cleared of furniture. Rotate 180° so the bar sits across
   // the table in the player's forward view, then nudge the room so the
   // table/characters sit a little closer to the bar.
-  const SALOON_BAR_NUDGE_Z = 1.35; // metres toward the bar (player forward)
+  const SALOON_BAR_NUDGE_Z = 2.4; // metres toward the bar (player forward)
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const backdropPromise = loadGlb(loader, 'models/env/backdrop.glb?v=2').then((gltf) => {
@@ -1101,12 +1096,12 @@ async function buildScene(canvas) {
     // env group and switch off with the saloon backdrop. Positions follow
     // the room nudge so the bar lamp stays on the bar face.
     const lampSpecs = [
-      [0xffd2a0, 12, 12, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],   // bar face
-      [0xffc090, 8, 10, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // left booths
-      [0xffc090, 8, 10, [6.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],   // right booths
-      [0xffe0b8, 9, 12, [0.0, 3.4, 3.5 + SALOON_BAR_NUDGE_Z]],    // behind player
-      [0xffb878, 6, 9, [-7.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]],  // far left corner
-      [0xffb878, 6, 9, [8.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]]    // far right corner
+      [0xffd2a0, 6, 10, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],   // bar face
+      [0xffc090, 4, 9, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // left booths
+      [0xffc090, 4, 9, [6.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],   // right booths
+      [0xffe0b8, 5, 10, [0.0, 3.4, 3.5 + SALOON_BAR_NUDGE_Z]],    // behind player
+      [0xffb878, 3, 8, [-7.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]],  // far left corner
+      [0xffb878, 3, 8, [8.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]]    // far right corner
     ];
     for (const [color, intensity, dist, pos] of lampSpecs) {
       const lamp = new THREE.PointLight(color, intensity, dist, 1.8);
@@ -1120,7 +1115,7 @@ async function buildScene(canvas) {
 
   // Soft daylight key through the windows (also the celestial key for the
   // other switchable backdrops) — held back so the room stays moody.
-  const moon = new THREE.DirectionalLight(0xffe2c0, 0.45);
+  const moon = new THREE.DirectionalLight(0xffe2c0, 0.28);
   moon.position.set(-8, 18, -6);
   scene.add(moon);
 
@@ -1130,7 +1125,7 @@ async function buildScene(canvas) {
   // over the felt stays constant so the game always reads the same.
   // bg doubles as the fog colour so distant geometry melts into the sky.
   const ENVS = [
-    { name: 'SALOON', bg: 0x120c08, fog: [8, 28], amb: [0xb89870, 0.42], hemi: [0xe8c898, 0x3a2818, 0.32], dir: [0xffe2c0, 0.45, [-8, 18, -6]], fill: [0xffd2a0, 1.2], back: [0xffb068, 1.4], build: null },
+    { name: 'SALOON', bg: 0x0c0806, fog: [6, 22], amb: [0xb89870, 0.28], hemi: [0xe8c898, 0x2a1a10, 0.22], dir: [0xffe2c0, 0.28, [-8, 18, -6]], fill: [0xffd2a0, 0.7], back: [0xffb068, 0.8], build: null },
     { name: 'BEACH', bg: 0x2f9ed3, fog: [30, 130], amb: [0xbfd8e8, 0.65], hemi: [0xcfe8ff, 0x8a7a5a, 0.55], dir: [0xfff2d8, 1.7, [18, 30, 12]], fill: [0xbfe8ff, 1.2], back: [0xffe8c8, 1.2], build: buildBeach },
     { name: 'DESERT', bg: 0xe8b878, fog: [25, 110], amb: [0xd8b890, 0.85], hemi: [0xf0d0a8, 0x9a6a3a, 0.7], dir: [0xffd8a0, 2.4, [-20, 18, 8]], fill: [0xffc890, 1.2], back: [0xff9860, 1.8], build: buildDesert },
     { name: 'SHED', bg: 0x0d0906, fog: [8, 26], amb: [0x584838, 0.35], hemi: [0x4a3828, 0x140c06, 0.35], dir: [0xc8a878, 0.15, [-6, 12, 6]], fill: [0xffb868, 1.2], back: [0x684828, 1.0], build: buildShed },
