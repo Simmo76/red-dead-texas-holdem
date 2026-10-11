@@ -2101,10 +2101,14 @@ function syncCardHold(character) {
 // top-left rank/suit indices stay clear. Back card more CCW (left), front
 // card more upright / slightly CW (right), layered front-on-top. Tip-back
 // ~20–30° toward the OTS camera; facing blends palm cradle with camera aim.
-const HOLD_FAN_BACK = 0.40;    // back card Z twist (CCW / left)
-const HOLD_FAN_FRONT = -0.08;  // front card Z twist (slight CW / right)
-const HOLD_FAN_TILT = -0.40;   // tip tops back toward the OTS camera (~23°)
-const HOLD_FAN_BLEND = 0.72;   // palm cradle ↔ camera aim
+const HOLD_FAN_BACK = 0.52;    // back card Z twist (CCW / left)
+const HOLD_FAN_FRONT = -0.14;  // front card Z twist (CW / right)
+const HOLD_FAN_TILT = -0.36;   // tip tops back toward the OTS camera (~21°)
+const HOLD_FAN_BLEND = 0.68;   // palm cradle ↔ camera aim
+// Shared bottom-left pivot in CardHold local space (slight lift off the palm).
+const HOLD_PIVOT_X = -0.01;
+const HOLD_PIVOT_Y = -0.01;
+const HOLD_PIVOT_Z = 0.016;
 
 function holdFanAngle(i, n) {
   if (n <= 1) return 0;
@@ -2132,7 +2136,7 @@ function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
     card.renderOrder = 2 + i;
     // Seed pose; faceHeldCardsTowardCamera overwrites each frame.
     card.rotation.set(faceUp ? HOLD_FAN_TILT : Math.PI + HOLD_FAN_TILT, 0, theta);
-    pinCardBottomLeft(card, 0, 0, 0.012 + i * 0.014);
+    pinCardBottomLeft(card, HOLD_PIVOT_X, HOLD_PIVOT_Y, HOLD_PIVOT_Z + i * 0.014);
   }
 }
 
@@ -2163,7 +2167,7 @@ function faceHeldCardsTowardCamera(cards) {
     card.rotateX(HOLD_FAN_TILT);
     card.rotateZ(theta);
     // Shared bottom-left pivot; slight Z lift so the front card sits on top.
-    pinCardBottomLeft(card, 0, 0, 0.012 + i * 0.014);
+    pinCardBottomLeft(card, HOLD_PIVOT_X, HOLD_PIVOT_Y, HOLD_PIVOT_Z + i * 0.014);
     card.renderOrder = 2 + i;
   }
 }
@@ -2642,15 +2646,48 @@ window.pokerScene = {
   // Local/world pose of the player's held hole cards (fan tuning).
   holeDebug() {
     const tmp = new THREE.Vector3();
+    const bl = new THREE.Vector3();
     return (state.holeCards || []).map((card, i) => {
       card.updateWorldMatrix(true, false);
       card.getWorldPosition(tmp);
+      const halfW = (card.geometry?.parameters?.width || 0.145) * 0.5;
+      const halfH = (card.geometry?.parameters?.height || 0.197) * 0.5;
+      bl.set(-halfW, -halfH, 0).applyMatrix4(card.matrixWorld);
       return {
         i,
         parent: card.parent && card.parent.name,
         local: [+card.position.x.toFixed(3), +card.position.y.toFixed(3), +card.position.z.toFixed(3)],
         world: [+tmp.x.toFixed(3), +tmp.y.toFixed(3), +tmp.z.toFixed(3)],
-        rotZ: +card.rotation.z.toFixed(3),
+        bl: [+bl.x.toFixed(3), +bl.y.toFixed(3), +bl.z.toFixed(3)],
+        fan: +holdFanAngle(i, state.holeCards.length).toFixed(3),
+      };
+    });
+  },
+
+  // NPC felt backs: long-axis vs seat radial (want ~±1) and pair separation axis.
+  npcCardDebug() {
+    const up = new THREE.Vector3();
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    return (state.seats || []).slice(1).map((seat, idx) => {
+      const i = idx + 1;
+      const cards = seat.cards || [];
+      if (cards.length < 2) return { i, n: cards.length };
+      const facing = seatAngle(i);
+      const radial = new THREE.Vector3(Math.cos(facing), 0, Math.sin(facing));
+      cards[0].updateWorldMatrix(true, false);
+      cards[1].updateWorldMatrix(true, false);
+      up.set(0, 1, 0).transformDirection(cards[0].matrixWorld);
+      cards[0].getWorldPosition(a);
+      cards[1].getWorldPosition(b);
+      const sep = b.clone().sub(a);
+      sep.y = 0;
+      const tangent = new THREE.Vector3(-Math.sin(facing), 0, Math.cos(facing));
+      return {
+        i,
+        yaw: +(Math.PI / 2 - facing).toFixed(3),
+        heightDotRadial: +up.dot(radial).toFixed(3),
+        sepDotTangent: +sep.normalize().dot(tangent).toFixed(3),
       };
     });
   },
