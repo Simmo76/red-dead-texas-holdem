@@ -2095,14 +2095,6 @@ function syncCardHold(character) {
   hold.quaternion.copy(_parentQuat.invert().multiply(_faceQuat));
 }
 
-// V-fan for a two-card HoldCards grip (bottoms nearer the thumbs, tops spread
-// so both index corners read from the OTS seat). Tuned against seat-camera
-// captures: too-narrow values collapse into a stacked peek.
-const HOLD_FAN_ANGLE = 0.55;   // ±Z twist (~31°) → readable V
-const HOLD_FAN_BASE_X = 0.045; // L/R shift so centres clear each other on screen
-const HOLD_FAN_TILT = -0.40;   // tip tops back toward the OTS camera (~23°)
-const HOLD_FAN_BLEND = 0.88;   // prefer camera aim so ranks stay flat-on
-
 function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
   if (!hold) return;
   for (let i = 0; i < cards.length; i++) {
@@ -2113,24 +2105,15 @@ function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
     // Bone-parented bounds lag the pose; never cull held cards.
     card.frustumCulled = false;
     card.renderOrder = 2;
-    // Initial V matches faceHeldCardsTowardCamera (overwritten each frame).
-    // Pivot bottoms together: lateral += (h/2)·sin(fan) so rotateZ spreads tops.
-    const halfH = (card.geometry?.parameters?.height || 0.197) * 0.5;
-    const x = dir * (HOLD_FAN_BASE_X + halfH * Math.sin(HOLD_FAN_ANGLE));
-    card.position.set(x, 0.004 * (i + 1), 0.012 + i * 0.016);
-    card.rotation.set(
-      faceUp ? HOLD_FAN_TILT : Math.PI + HOLD_FAN_TILT,
-      dir * -0.06,
-      dir * HOLD_FAN_ANGLE,
-    );
+    // Seed pose; faceHeldCardsTowardCamera overwrites each frame.
+    card.position.set(dir * 0.12, 0.006 * (i + 1), 0.014 + i * 0.02);
+    card.rotation.set(faceUp ? -0.35 : Math.PI - 0.35, dir * -0.1, dir * 0.35);
   }
 }
 
-// Player pair: cradle a bottom-pivoted V in the palms, then ease faces toward
-// the OTS camera so both rank/suit indices stay readable without floating the
-// cards as detached side-by-side billboards. Fan offsets are projected through
-// the camera's right/up axes so a hold-local X split cannot collapse into
-// near/far stacking from the shoulder seat.
+// Player pair: fan along the camera's right/up axes and mostly face the seat
+// camera so both ranks stay readable from OTS (hold-local X fans collapse
+// into near/far stacking from the shoulder). Proven in seat-camera captures.
 function faceHeldCardsTowardCamera(cards) {
   if (!state.camera || !cards.length) return;
   state.camera.updateMatrixWorld(true);
@@ -2138,41 +2121,32 @@ function faceHeldCardsTowardCamera(cards) {
   state.camera.getWorldDirection(camFwd);
   _camRight.setFromMatrixColumn(state.camera.matrixWorld, 0).normalize();
   _camUp.setFromMatrixColumn(state.camera.matrixWorld, 1).normalize();
-  // Keep a dedicated forward copy — camFwd/_holdPos is also a syncCardHold temp.
   const fwdX = camFwd.x, fwdY = camFwd.y, fwdZ = camFwd.z;
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
     const parent = card.parent;
     if (!parent) continue;
     const dir = i === 0 ? -1 : 1;
-    const halfH = (card.geometry?.parameters?.height || 0.197) * 0.5;
-    // Bottom-pivoted lateral: thumbs pinch near centre; tops fan wider.
-    const lateral = dir * (HOLD_FAN_BASE_X + halfH * Math.sin(HOLD_FAN_ANGLE));
     parent.updateWorldMatrix(true, false);
     parent.getWorldPosition(_cardWorld);
-    // Stay at the palm: tiny up/depth stagger only (no wide centre split).
+    // ~12cm centre split in camera space — both faces read without a huge gap.
     _fanLocal.set(
-      _cardWorld.x + _camRight.x * lateral + _camUp.x * (0.006 + i * 0.004) + fwdX * (-0.01 * (i + 1)),
-      _cardWorld.y + _camRight.y * lateral + _camUp.y * (0.006 + i * 0.004) + fwdY * (-0.01 * (i + 1)),
-      _cardWorld.z + _camRight.z * lateral + _camUp.z * (0.006 + i * 0.004) + fwdZ * (-0.01 * (i + 1)),
+      _cardWorld.x + _camRight.x * dir * 0.12 + _camUp.x * (0.015 + i * 0.008) + fwdX * (-0.014 * (i + 1)),
+      _cardWorld.y + _camRight.y * dir * 0.12 + _camUp.y * (0.015 + i * 0.008) + fwdY * (-0.014 * (i + 1)),
+      _cardWorld.z + _camRight.z * dir * 0.12 + _camUp.z * (0.015 + i * 0.008) + fwdZ * (-0.014 * (i + 1)),
     );
     parent.worldToLocal(_fanLocal);
     card.position.copy(_fanLocal);
 
     parent.getWorldQuaternion(_parentQuat);
-    // Blend palm-facing hold with camera aim — enough for OTS ranks, not a
-    // full billboard that lifts the pair out of the thumbs.
     _cardWorld.set(0, 0, 0);
     card.localToWorld(_cardWorld);
     _holdMat.lookAt(_cardWorld, state.camera.position, _faceUp);
     _faceQuat.setFromRotationMatrix(_holdMat);
     _faceQuat.multiply(_holdQuat.setFromAxisAngle(_faceUp, Math.PI));
-    _holdQuat.copy(_parentQuat).slerp(_faceQuat, HOLD_FAN_BLEND);
+    _holdQuat.copy(_parentQuat).slerp(_faceQuat, 0.9);
     card.quaternion.copy(_parentQuat.invert().multiply(_holdQuat));
-    // Tip back toward the seat camera, then V-twist so both indices peek.
-    card.rotateX(HOLD_FAN_TILT);
-    card.rotateY(dir * -0.06);
-    card.rotateZ(dir * HOLD_FAN_ANGLE);
+    card.rotateZ(dir * 0.28);
   }
 }
 
