@@ -32,7 +32,7 @@ namespace CinematicPoker.Engine.Tests
                 CurrentStack = game.GetPlayer(0).Stack,
                 Difficulty = "AI NORMAL",
                 PlayMode = "CINEMATIC",
-                Backdrop = "ARCADE"
+                Backdrop = "SALOON"
             });
 
             Assert.That(csv, Does.Contain("Section,Metric,Value"));
