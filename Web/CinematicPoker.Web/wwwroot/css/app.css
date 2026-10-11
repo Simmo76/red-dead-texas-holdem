@@ -455,6 +455,49 @@ html, body {
 
 .hud-card.facedown { opacity: 0.35; }
 
+/* First-game tutorial callout: hangs under the community-cards window
+   (anchored to it, so it follows the panel at every breakpoint) with an
+   arrow pointing up at the cards. Shown once per device — see
+   MaybeShowBoardHint in Home.razor. */
+.board-hint {
+    position: absolute;
+    top: calc(100% + 11px);
+    right: 0;
+    width: max-content;
+    max-width: min(240px, 72vw);
+    padding: 9px 13px;
+    background: rgba(8, 5, 3, 0.88);
+    border: 1px solid var(--gold-dim);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.5;
+    letter-spacing: 0.4px;
+    text-align: right;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    animation: board-hint-pulse 2s ease-in-out infinite;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.board-hint-arrow {
+    position: absolute;
+    bottom: 100%;
+    right: 22px;
+    border: 7px solid transparent;
+    border-top-width: 0;
+    border-bottom-color: var(--gold-dim);
+}
+
+@keyframes board-hint-pulse {
+    0%, 100% { opacity: 0.75; }
+    50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .board-hint { animation: none; }
+}
+
 /* Result spotlight: while the win/lose banner is up, this veil darkens
    everything behind it — the 3D table cards and the board HUD — so the
    result reads first. The banner (z:12) and the .hud-bottom column with
