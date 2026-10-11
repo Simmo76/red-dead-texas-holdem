@@ -1243,8 +1243,8 @@ async function buildScene(canvas) {
   // (A pure foot-plant used to leave everyone hovering above the rail; the
   // hand plant still sets the sit height, and the floor clamp only raises.)
   // Skinned Boot meshes report bind-pose AABBs, so plant from foot/ball bones.
-  const FLOOR_SOLE_Y = 0.015; // boot leather just kissing the boards
-  const FOOT_SOLE_DROP = 0.09; // joint → sole under a cowboy boot
+  const FLOOR_SOLE_Y = 0.02; // boot leather just kissing the boards
+  const FOOT_SOLE_DROP = 0.12; // joint → sole under a cowboy boot
   const placeSeatedCharacter = (character, i, facing) => {
     character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
     scene.add(character.root);
@@ -1314,15 +1314,34 @@ async function buildScene(canvas) {
     character.root.updateMatrixWorld(true);
 
     // Hand-on-felt can drop the sit so boot soles clip the saloon boards.
-    // Raise (never lower) from the lowest foot/ball bone, not the Boots mesh
-    // AABB (skinned geometry stays in bind pose and under-reports the sink).
+    // Sample the idle across its loop — feet dip mid-clip, so a frame-0
+    // plant still left soles through the floor a moment later. Raise for the
+    // worst sole in the cycle (never lower).
     const ballL = bone(['ball_l']);
     const ballR = bone(['ball_r']);
+    const footBones = [lFoot, rFoot, ballL, ballR].filter(Boolean);
+    const sit = character.sitAction;
+    const clip = sit && sit.getClip();
+    const prevTime = sit ? sit.time : 0;
+    const samples = clip && clip.duration > 0
+      ? [0, 0.25, 0.5, 0.75, 1].map((t) => t * clip.duration * 0.999)
+      : [prevTime];
     let minSole = Infinity;
-    for (const f of [lFoot, rFoot, ballL, ballR]) {
-      if (!f) continue;
-      f.getWorldPosition(v);
-      minSole = Math.min(minSole, v.y - FOOT_SOLE_DROP);
+    for (const t of samples) {
+      if (sit) {
+        sit.time = t;
+        character.mixer.update(0);
+        character.root.updateMatrixWorld(true);
+      }
+      for (const f of footBones) {
+        f.getWorldPosition(v);
+        minSole = Math.min(minSole, v.y - FOOT_SOLE_DROP);
+      }
+    }
+    if (sit) {
+      sit.time = prevTime;
+      character.mixer.update(0);
+      character.root.updateMatrixWorld(true);
     }
     if (isFinite(minSole) && minSole < FLOOR_SOLE_Y) {
       character.root.position.y += FLOOR_SOLE_Y - minSole;
@@ -2775,7 +2794,7 @@ window.pokerScene = {
         i,
         rootY: Number(c.root.position.y.toFixed(3)),
         minJointY: Number(minJoint.toFixed(3)),
-        soleEstY: Number((minJoint - 0.09).toFixed(3)),
+        soleEstY: Number((minJoint - 0.12).toFixed(3)),
         chairY: seat.chair ? Number(seat.chair.position.y.toFixed(3)) : null,
       };
     });
