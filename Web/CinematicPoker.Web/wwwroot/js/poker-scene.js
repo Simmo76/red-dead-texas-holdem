@@ -746,24 +746,31 @@ function makeCharacter(gltf, spec, extraClips) {
   }
 
   character.setFolded = (on) => {
-    if (character.folded === on) return;
-    character.folded = on;
-    const name = on ? FOLDED_IDLE : THINKING_IDLE;
-    const clip = findMood(name) || findBody('Sit');
-    if (!clip || !sitAction || sitAction.getClip() === clip) return;
-    // A Fold / FoldShake already in flight should land on the new hold, not
-    // fade back to thinking. Retarget the restore clip but leave the gesture
-    // playing — stopping the current sit here is what left everyone standing.
-    if (character.reacting) {
-      const next = makeSitAction(clip);
-      next.time = Math.random() * clip.duration;
-      adoptSitAction(next, name);
-      return;
+    if (character.folded !== on) {
+      character.folded = on;
+      // Drop the chair as soon as they fold so the ghost isn't sat on furniture.
+      if (character.chair) character.chair.visible = !on;
+      const name = on ? FOLDED_IDLE : THINKING_IDLE;
+      const clip = findMood(name) || findBody('Sit');
+      if (clip && sitAction && sitAction.getClip() !== clip) {
+        // A Fold / FoldShake already in flight should land on the new hold, not
+        // fade back to thinking. Retarget the restore clip but leave the gesture
+        // playing — stopping the current sit here is what left everyone standing.
+        if (character.reacting) {
+          const next = makeSitAction(clip);
+          next.time = Math.random() * clip.duration;
+          adoptSitAction(next, name);
+        } else {
+          switchHomeIdle(name);
+        }
+      }
+    } else if (character.chair) {
+      character.chair.visible = !on;
     }
-    switchHomeIdle(name);
   };
   character.updateFold = (dt) => {
     const target = character.folded ? 1 : 0;
+    if (character.chair) character.chair.visible = !character.folded;
     if (character.foldW === target) return;
     character.foldW += (target - character.foldW) * Math.min(1, dt * 3.5);
     if (Math.abs(character.foldW - target) < 0.01) character.foldW = target;
@@ -998,9 +1005,9 @@ async function buildScene(canvas) {
   // ---- lighting: warm lantern pool over the felt, with a soft purple/pink
   // room wash (the old arcade magenta spill) so the saloon background reads
   // with that slight rose hue without competing with the table.
-  const ambient = new THREE.AmbientLight(0x6a4a78, 0.32);
+  const ambient = new THREE.AmbientLight(0x7a5088, 0.38);
   scene.add(ambient);
-  const hemi = new THREE.HemisphereLight(0xb878a8, 0x1a1020, 0.28);
+  const hemi = new THREE.HemisphereLight(0xc888b0, 0x1a1020, 0.34);
   scene.add(hemi);
 
   const lantern = new THREE.PointLight(0xffc477, 28, 7.0, 1.85);
@@ -1206,7 +1213,7 @@ async function buildScene(canvas) {
   // ---- seats (DMH PUB chairs + characters + cards + labels)
   // mesh_chair_02 under every cowboy; the saloon still dresses the rest of
   // the room (booths, bar stools, bottles).
-  const chairGltf = await loadGlb(loader, 'models/props/furniture/chair.glb?v=5');
+  const chairGltf = await loadGlb(loader, 'models/props/furniture/chair.glb?v=6');
   state.seats = [];
   const charPromises = [];
 
@@ -1324,7 +1331,10 @@ async function buildScene(canvas) {
       if (!character) return;
       character.variant = i;
       placeSeatedCharacter(character, i, facing);
-      if (seat.chair) alignChairToCharacter(seat.chair, character, facing, i);
+      if (seat.chair) {
+        alignChairToCharacter(seat.chair, character, facing, i);
+        character.chair = seat.chair;
+      }
       seat.char = character;
     }));
 
