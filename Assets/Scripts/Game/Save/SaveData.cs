@@ -35,6 +35,7 @@ namespace CinematicPoker.Game.Save
         public int qualityMode = 1;       // QualityMode enum index
         public int playMode = 1;          // PlayMode enum index (default Cinematic)
         public bool improveMyGame;        // coaching opt-in ("Just Play" by default)
+        public bool saveWinPhotos = true; // save a photo to the gallery on wins
         public float musicVolume = 0.35f;
         public float sfxVolume = 1f;
 
