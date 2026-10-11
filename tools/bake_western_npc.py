@@ -250,61 +250,108 @@ def assign_materials(spec: dict, prepared: dict[str, Path]) -> None:
                 o.material_slots[i].material = mat
 
 
-def import_jacob_actions() -> dict[str, bpy.types.Action]:
-    """Import Jacob into the current scene and return clean-named action copies.
+def _quat_axis_angle(axis, degrees: float):
+    from mathutils import Quaternion
+    return Quaternion(axis, degrees * 3.14159265 / 180.0)
 
-    Must run while the NPC armature is already in the scene — a factory reset
-    would drop the actions. Jacob mesh/armature objects are removed afterward.
+
+def strip_shape_keys() -> None:
+    for obj in list(bpy.data.objects):
+        if obj.type == "MESH" and obj.data.shape_keys is not None:
+            obj.shape_key_clear()
+
+
+def author_sit_pose(arm: bpy.types.Object) -> None:
+    """Pose the standing UE4 rig into a chair sit (keeps the standing bind).
+
+    Jacob's seated clips cannot be fcurve-copied onto this FBX bind — the glTF
+    Jacob skeleton has different bone axes after its own sit-as-rest bake.
+    Runtime plays the keyed Sit clip and skips Jacob-only mood takes.
     """
-    before_objs = set(bpy.data.objects)
-    before_acts = set(bpy.data.actions)
-    bpy.ops.import_scene.gltf(filepath=str(JACOB))
-    new_objs = [o for o in bpy.data.objects if o not in before_objs]
-    wanted = {"Attack", "Bet", "Check", "Crouch", "Fold", "FoldShake", "Sit", "SitCards", "Talk"}
-    found: dict[str, bpy.types.Action] = {}
-    for act in bpy.data.actions:
-        if act in before_acts:
-            continue
-        base = act.name.split("_")[0]
-        if base in wanted and base not in found:
-            found[base] = act
-    print("captured jacob actions:", sorted(found))
-    if "Sit" not in found:
-        die("Jacob Sit action not captured")
-    # Deep-copy under clean names before deleting Jacob (which may drop users).
-    copies: dict[str, bpy.types.Action] = {}
-    for name, act in found.items():
-        dup = act.copy()
-        dup.name = name
-        dup.use_fake_user = True
-        copies[name] = dup
-    for o in new_objs:
-        bpy.data.objects.remove(o, do_unlink=True)
-    # Sweep orphaned Jacob meshes/armatures/images brought in by the import.
-    for mesh in list(bpy.data.meshes):
-        if mesh.users == 0:
-            bpy.data.meshes.remove(mesh)
-    for arm_data in list(bpy.data.armatures):
-        if arm_data.users == 0:
-            bpy.data.armatures.remove(arm_data)
-    return copies
+    from mathutils import Euler
+
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode="POSE")
+    bpy.ops.pose.transforms_clear()
+    for pb in arm.pose.bones:
+        pb.rotation_mode = "QUATERNION"
+
+    # Drop hips to cushion height in armature space, then bend legs/arms.
+    pelvis = arm.pose.bones["pelvis"]
+    mat = pelvis.matrix.copy()
+    target = mat.to_translation().copy()
+    target.y = -0.02
+    target.z = 0.52
+    mat.translation = target
+    pelvis.matrix = mat
+    bpy.context.view_layer.update()
+
+    def set_euler(name, x, y, z):
+        if name not in arm.pose.bones:
+            return
+        pb = arm.pose.bones[name]
+        pb.rotation_mode = "XYZ"
+        pb.rotation_euler = Euler((
+            x * 3.14159265 / 180.0,
+            y * 3.14159265 / 180.0,
+            z * 3.14159265 / 180.0,
+        ))
+        pb.rotation_mode = "QUATERNION"
+
+    # Milder calf so feet stay near the floor (prior bake buried them).
+    pose = {
+        "thigh_l": (-50, 0, 10),
+        "thigh_r": (-50, 0, -10),
+        "calf_l": (70, 0, 0),
+        "calf_r": (70, 0, 0),
+        "foot_l": (-10, 0, 0),
+        "foot_r": (-10, 0, 0),
+        "spine_01": (8, 0, 0),
+        "spine_02": (6, 0, 0),
+        "spine_03": (4, 0, 0),
+        "clavicle_l": (0, 0, -8),
+        "clavicle_r": (0, 0, 8),
+        "upperarm_l": (45, -12, -45),
+        "upperarm_r": (45, 12, 45),
+        "lowerarm_l": (8, 0, -50),
+        "lowerarm_r": (8, 0, 50),
+        "hand_l": (12, 0, -12),
+        "hand_r": (12, 0, 12),
+    }
+    for name, xyz in pose.items():
+        set_euler(name, *xyz)
+    bpy.context.view_layer.update()
+    print(
+        "sit pose pelvis",
+        tuple(round(c, 3) for c in (arm.matrix_world @ arm.pose.bones["pelvis"].head)),
+        "head",
+        tuple(round(c, 3) for c in (arm.matrix_world @ arm.pose.bones["head"].head)),
+        "foot_l",
+        tuple(round(c, 3) for c in (arm.matrix_world @ arm.pose.bones["foot_l"].head)),
+    )
 
 
-def attach_actions(arm: bpy.types.Object, actions: dict[str, bpy.types.Action]) -> None:
+def key_sit_action(arm: bpy.types.Object) -> bpy.types.Action:
+    """Key the current pose as a looping Sit clip (standing bind unchanged)."""
     if arm.animation_data is None:
         arm.animation_data_create()
     while arm.animation_data.nla_tracks:
         arm.animation_data.nla_tracks.remove(arm.animation_data.nla_tracks[0])
-    frame = 1
-    for name in sorted(actions):
-        act = actions[name]
-        track = arm.animation_data.nla_tracks.new()
-        track.name = name
-        strip = track.strips.new(name, int(frame), act)
-        strip.action = act
-        frame = strip.frame_end + 2
-    if "Sit" in actions:
-        arm.animation_data.action = actions["Sit"]
+    act = bpy.data.actions.new(name="Sit")
+    act.use_fake_user = True
+    arm.animation_data.action = act
+    for pb in arm.pose.bones:
+        pb.rotation_mode = "QUATERNION"
+        for frame in (1, 48):
+            pb.keyframe_insert(data_path="location", frame=frame)
+            pb.keyframe_insert(data_path="rotation_quaternion", frame=frame)
+            pb.keyframe_insert(data_path="scale", frame=frame)
+    track = arm.animation_data.nla_tracks.new()
+    track.name = "Sit"
+    track.strips.new("Sit", 1, act).action = act
+    print("keyed Sit hold action")
+    return act
 
 
 def export_glb(path: Path) -> None:
@@ -347,8 +394,10 @@ def main() -> None:
     apply_object_scales(arm)
     cull_and_rename(spec)
     assign_materials(spec, prepared)
-    actions = import_jacob_actions()
-    attach_actions(arm, actions)
+    # Standing bind + authored Sit clip. Jacob clip reuse shears this skeleton.
+    strip_shape_keys()
+    author_sit_pose(arm)
+    key_sit_action(arm)
 
     # Quick height report after cull.
     mins = Vector((1e9, 1e9, 1e9))
