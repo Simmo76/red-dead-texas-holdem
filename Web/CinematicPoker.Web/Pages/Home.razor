@@ -825,7 +825,13 @@
         };
 
         try { await JS.InvokeVoidAsync("pokerScene.update", snapshot); }
-        catch (JSException) { /* scene not available; HUD still works */ }
+        catch (JSException ex)
+        {
+            // The scene self-heals on the next push, but surface the cause in
+            // the browser console instead of hiding it — a silent failure here
+            // is how seats ended up with no cards on the felt.
+            Console.Error.WriteLine($"pokerScene.update failed: {ex.Message}");
+        }
     }
 
     private void SceneEmotion(int seat, string mood, double intensity, bool speak = true)
