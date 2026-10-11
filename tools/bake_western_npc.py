@@ -1,17 +1,15 @@
-"""Bake a David Grette western NPC (Sheriff / Bandit) to a web GLB.
+"""Bake a David Grette western NPC (Sheriff / Bandit) onto Jacob's biped.
 
-Imports the owner-supplied Unity FBX, keeps one seated-table outfit, assigns
-downscaled albedo (and hair/lash alpha) maps, then **aim-copies** Jacob's
-body clips and the mighty-cat mood catalogue onto the NPC so it shares the
-table's biped constraints (metres at scale 1, seated pelvis/hand/foot
-heights, same animation names the scene plays on Jacob).
+Imports the Unity FBX outfit, aim-poses it to Jacob's seated bind, freezes the
+meshes in that shape, then **rebinds** them to Jacob's armature so the NPC
+shares Jacob's bone axes, WESTERN_SCALE seating, and the mighty-cat mood
+catalogue at runtime (same constraints as every other biped at the table).
 
 Usage:
   CHAR=sheriff blender --background --python tools/bake_western_npc.py
   CHAR=bandit  blender --background --python tools/bake_western_npc.py
 
-Source FBX trees are expected under /tmp/{sheriff,bandit}-pkg/tree/ (extracted
-from the Dropbox .unitypackage). The original packages are not committed.
+Source FBX trees are expected under /tmp/{sheriff,bandit}-pkg/tree/.
 """
 from __future__ import annotations
 
@@ -24,63 +22,12 @@ from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[1]
 JACOB = ROOT / "Web/CinematicPoker.Web/wwwroot/models/characters/western/Jacob.glb"
-MIGHTY = ROOT / "Web/CinematicPoker.Web/wwwroot/models/characters/western/mighty-cat.glb"
 OUT_DIR = ROOT / "Web/CinematicPoker.Web/wwwroot/models/characters/western"
 TEX_CACHE = Path("/tmp/western-npc-tex")
 MAX_TEX = int(os.environ.get("MAX_TEX", "1024"))
 HEAD_TEX = int(os.environ.get("HEAD_TEX", "1024"))
 
 CHAR = os.environ.get("CHAR", "sheriff").strip().lower()
-
-# Clips the table plays on every biped. Body takes live on Jacob.glb; mood
-# takes live on mighty-cat.glb (already Humanoid-retargeted onto Jacob).
-BODY_CLIPS = [
-    "Attack", "Bet", "Check", "Crouch", "Fold", "FoldShake", "Sit", "SitCards", "Talk",
-]
-MOOD_CLIPS = [
-    "IdleSitThinking01", "IdleSitArmsFolded01",
-    "IdleHoldCards01", "IdleHoldCards02", "IdleHoldCards03",
-    "IdleSit01", "IdleSit02", "IdleSit03", "IdleSit04", "IdleSit05", "IdleSit06",
-    "IdleTableObserveLeft01", "IdleTableObserveRight01",
-    "IdleTableObserveLeftRight01", "IdleTableProtectCards01",
-    "Win01", "Win02", "Win03", "Lose01", "Lose02", "Lose03", "Lose04",
-]
-
-# Facing-space aim-copy bone map (same as tools/bake_mighty_cat_humanoid.py).
-AIM_CHILD = {
-    "pelvis": "spine_01",
-    "spine_01": "spine_02",
-    "spine_02": "spine_03",
-    "spine_03": "neck_01",
-    "neck_01": "head",
-    "clavicle_l": "upperarm_l",
-    "upperarm_l": "lowerarm_l",
-    "lowerarm_l": "hand_l",
-    "hand_l": "middle_01_l",
-    "clavicle_r": "upperarm_r",
-    "upperarm_r": "lowerarm_r",
-    "lowerarm_r": "hand_r",
-    "hand_r": "middle_01_r",
-    "thigh_l": "calf_l",
-    "calf_l": "foot_l",
-    "foot_l": "ball_l",
-    "thigh_r": "calf_r",
-    "calf_r": "foot_r",
-    "foot_r": "ball_r",
-}
-for side in ("l", "r"):
-    for finger in ("index", "middle", "ring", "pinky", "thumb"):
-        AIM_CHILD[f"{finger}_01_{side}"] = f"{finger}_02_{side}"
-        if finger != "thumb":
-            AIM_CHILD[f"{finger}_02_{side}"] = f"{finger}_03_{side}"
-
-AIM_ORDER = [
-    "pelvis", "spine_01", "spine_02", "spine_03", "neck_01",
-    "clavicle_l", "upperarm_l", "lowerarm_l", "hand_l",
-    "clavicle_r", "upperarm_r", "lowerarm_r", "hand_r",
-    "thigh_l", "calf_l", "foot_l",
-    "thigh_r", "calf_r", "foot_r",
-] + [n for n in AIM_CHILD if n.split("_")[0] in ("index", "middle", "ring", "pinky", "thumb")]
 
 SPECS = {
     "sheriff": {
@@ -146,6 +93,30 @@ SPECS = {
     },
 }
 
+AIM_CHILD = {
+    "pelvis": "spine_01", "spine_01": "spine_02", "spine_02": "spine_03",
+    "spine_03": "neck_01", "neck_01": "head",
+    "clavicle_l": "upperarm_l", "upperarm_l": "lowerarm_l", "lowerarm_l": "hand_l",
+    "hand_l": "middle_01_l",
+    "clavicle_r": "upperarm_r", "upperarm_r": "lowerarm_r", "lowerarm_r": "hand_r",
+    "hand_r": "middle_01_r",
+    "thigh_l": "calf_l", "calf_l": "foot_l", "foot_l": "ball_l",
+    "thigh_r": "calf_r", "calf_r": "foot_r", "foot_r": "ball_r",
+}
+for side in ("l", "r"):
+    for finger in ("index", "middle", "ring", "pinky", "thumb"):
+        AIM_CHILD[f"{finger}_01_{side}"] = f"{finger}_02_{side}"
+        if finger != "thumb":
+            AIM_CHILD[f"{finger}_02_{side}"] = f"{finger}_03_{side}"
+
+AIM_ORDER = [
+    "pelvis", "spine_01", "spine_02", "spine_03", "neck_01",
+    "clavicle_l", "upperarm_l", "lowerarm_l", "hand_l",
+    "clavicle_r", "upperarm_r", "lowerarm_r", "hand_r",
+    "thigh_l", "calf_l", "foot_l",
+    "thigh_r", "calf_r", "foot_r",
+] + [n for n in AIM_CHILD if n.split("_")[0] in ("index", "middle", "ring", "pinky", "thumb")]
+
 
 def die(msg: str) -> None:
     print("ERROR:", msg, file=sys.stderr)
@@ -165,8 +136,6 @@ def resize_image(src: Path, dest: Path, max_edge: int, keep_alpha: bool = False)
     scale = min(1.0, max_edge / float(max(w, h)))
     if scale < 1.0:
         img = img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.Resampling.LANCZOS)
-    # Cloth albedos must stay opaque JPEG — Unity source PNGs often carry a
-    # noisy alpha that turns into glTF MASK and punches the mesh into a ghost.
     if keep_alpha:
         img = img.convert("RGBA")
         dest = dest.with_suffix(".png")
@@ -186,7 +155,6 @@ def prepare_textures(spec: dict) -> dict[str, Path]:
         if not src.exists():
             die(f"missing albedo {src}")
         edge = HEAD_TEX if "head" in mesh.lower() or mesh in ("Sheriff_Head", "Michael_head") else MAX_TEX
-        # Hair diffuse TGAs may carry real alpha; cloth/skin stay opaque JPEG.
         keep_alpha = "Hair" in mesh and mesh != "Hair_cap"
         prepared[mesh] = resize_image(src, TEX_CACHE / f"{CHAR}_{mesh}_alb", edge, keep_alpha=keep_alpha)
     for mesh, (rel, _) in spec.get("alpha", {}).items():
@@ -221,12 +189,9 @@ def make_principled(name: str, color_img: bpy.types.Image | None, alpha_img: bpy
         tex = nt.nodes.new("ShaderNodeTexImage")
         tex.image = color_img
         nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
-        if use_mask and alpha_img is None and color_img.channels == 4:
-            nt.links.new(tex.outputs["Alpha"], bsdf.inputs["Alpha"])
     if use_mask and alpha_img:
         atex = nt.nodes.new("ShaderNodeTexImage")
         atex.image = alpha_img
-        # Greyscale alpha maps: use Color.R as alpha.
         sep = nt.nodes.new("ShaderNodeSeparateColor")
         nt.links.new(atex.outputs["Color"], sep.inputs["Color"])
         nt.links.new(sep.outputs["Red"], bsdf.inputs["Alpha"])
@@ -265,6 +230,15 @@ def apply_object_scales(arm: bpy.types.Object) -> None:
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
 
 
+def force_unit_scale(arm: bpy.types.Object) -> None:
+    apply_object_scales(arm)
+    arm.scale = (1.0, 1.0, 1.0)
+    for o in bpy.data.objects:
+        if o.parent == arm:
+            o.scale = (1.0, 1.0, 1.0)
+    bpy.context.view_layer.update()
+
+
 def cull_and_rename(spec: dict) -> None:
     keep = set(spec["keep"])
     rename = dict(spec["rename"])
@@ -279,7 +253,6 @@ def cull_and_rename(spec: dict) -> None:
 
 
 def assign_materials(spec: dict, prepared: dict[str, Path]) -> None:
-    # Map by original mesh name before rename for texture lookup.
     inv_rename = {v: k for k, v in spec["rename"].items()}
     hair_color = spec.get("hair_color", (0.15, 0.1, 0.08, 1.0))
     for o in bpy.data.objects:
@@ -291,13 +264,10 @@ def assign_materials(spec: dict, prepared: dict[str, Path]) -> None:
         color_img = load_image(color_path) if color_path else None
         alpha_img = load_image(alpha_path) if alpha_path else None
         base = hair_color if "Hair" in orig else (1, 1, 1, 1)
-        # Only hair cards use alpha MASK (matches Jacob.glb). Cloth/skin opaque.
         use_mask = "Hair" in orig
         mat = make_principled(o.name, color_img, alpha_img, base_color=base, use_mask=use_mask)
         o.data.materials.clear()
         o.data.materials.append(mat)
-        # Head: keep only the primary skin slot material on every slot so we
-        # don't ship unused tongue/eye shells with missing maps as pink.
         if o.name.startswith("Head__"):
             for i in range(len(o.material_slots)):
                 o.material_slots[i].material = mat
@@ -309,38 +279,13 @@ def strip_shape_keys() -> None:
             obj.shape_key_clear()
 
 
-def force_unit_scale(arm: bpy.types.Object) -> None:
-    """Bake any residual object scale so the GLB root is metres at scale 1."""
-    apply_object_scales(arm)
-    arm.scale = (1.0, 1.0, 1.0)
-    for o in bpy.data.objects:
-        if o.parent == arm:
-            o.scale = (1.0, 1.0, 1.0)
-    bpy.context.view_layer.update()
-    print("arm scale after unitize", tuple(arm.scale))
-
-
-# ---- Jacob → NPC facing-space aim retarget (same biped constraints) ----
-
 def wpos(arm, n):
     return (arm.matrix_world @ arm.pose.bones[n].matrix).to_translation()
 
 
-def wpos_any(src, n):
-    """World position of a bone on an armature, or of a same-named empty."""
-    if getattr(src, "type", None) == "ARMATURE":
-        return wpos(src, n)
-    # src is a dict name→Object (mighty-cat empties)
-    obj = src.get(n) if isinstance(src, dict) else None
-    if obj is None:
-        from mathutils import Vector
-        return Vector((0, 0, 0))
-    return obj.matrix_world.to_translation()
-
-
-def facing_q(src):
-    from mathutils import Vector, Matrix
-    x = wpos_any(src, "clavicle_l") - wpos_any(src, "clavicle_r")
+def facing_q(arm):
+    from mathutils import Matrix
+    x = wpos(arm, "clavicle_l") - wpos(arm, "clavicle_r")
     x = x.normalized() if x.length > 1e-5 else Vector((1, 0, 0))
     z = Vector((0, 0, 1))
     y = z.cross(x)
@@ -397,22 +342,11 @@ def clear_pose(arm):
         pb.scale = (1, 1, 1)
 
 
-def src_has(src, n):
-    if getattr(src, "type", None) == "ARMATURE":
-        return n in src.pose.bones
-    return isinstance(src, dict) and n in src
-
-
 def aim_copy_frame(dst, src):
-    """Full-body aim-copy: match source limb aims + pelvis world translation.
-
-    `src` is either Jacob's armature or a dict of mighty-cat bone empties.
-    """
     clear_pose(dst)
     bpy.context.view_layer.update()
-    # Plant pelvis at the source world position (same chair height / depth).
-    if "pelvis" in dst.pose.bones and src_has(src, "pelvis"):
-        src_pelvis = wpos_any(src, "pelvis")
+    if "pelvis" in dst.pose.bones and "pelvis" in src.pose.bones:
+        src_pelvis = wpos(src, "pelvis")
         pb = dst.pose.bones["pelvis"]
         mat = pb.matrix.copy()
         mat.translation = dst.matrix_world.inverted() @ src_pelvis
@@ -426,185 +360,60 @@ def aim_copy_frame(dst, src):
         ch = AIM_CHILD.get(dn)
         if not ch or dn not in dst.pose.bones or ch not in dst.pose.bones:
             continue
-        if not src_has(src, dn) or not src_has(src, ch):
+        if dn not in src.pose.bones or ch not in src.pose.bones:
             continue
-        src_aim = wpos_any(src, ch) - wpos_any(src, dn)
+        src_aim = wpos(src, ch) - wpos(src, dn)
         if src_aim.length < 1e-6:
             continue
-        world_dir = d_face @ (s_face.conjugated() @ src_aim.normalized())
+        world_dir = (d_face @ (s_face.conjugated() @ src_aim.normalized())).normalized()
         la = bone_aim_local(dst, dn, ch)
         cur = (dst.matrix_world @ pose_arm_matrix(dst, dn, cache)).to_quaternion()
-        set_world_q(dst, dn, (cur @ la).rotation_difference(world_dir) @ cur, cache)
+        aimed = (cur @ la).rotation_difference(world_dir) @ cur
+        set_world_q(dst, dn, aimed, cache)
 
 
-def collect_actions(prefix_names):
-    """Map clean clip name → Action from recently imported glTF data."""
-    found = {}
-    for act in bpy.data.actions:
-        base = act.name.split("_")[0]
-        # mighty-cat clips are already clean names; Jacob is Name_root.001
-        for want in prefix_names:
-            if act.name == want or base == want:
-                found.setdefault(want, act)
-    return found
-
-
-def enable_empty_nla(empties: dict) -> None:
-    for obj in empties.values():
-        if not obj.animation_data:
+def freeze_posed_meshes(arm: bpy.types.Object) -> list[bpy.types.Object]:
+    """Replace each skinned mesh with its evaluated (posed) geometry, keep VGroups."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    frozen = []
+    for obj in list(bpy.data.objects):
+        if obj.type != "MESH" or obj.parent != arm:
             continue
-        obj.animation_data.use_nla = True
-        obj.animation_data.action = None
-        for track in obj.animation_data.nla_tracks:
-            track.mute = False
+        # Preserve vertex groups by name before replacing mesh data.
+        vg_names = [vg.name for vg in obj.vertex_groups]
+        eval_obj = obj.evaluated_get(dg)
+        new_me = bpy.data.meshes.new_from_object(eval_obj, preserve_all_data_layers=True, depsgraph=dg)
+        old_me = obj.data
+        # Copy vertex groups from evaluated if present; else restore empty groups.
+        obj.data = new_me
+        bpy.data.meshes.remove(old_me)
+        # Ensure every original group name exists (weights come from new_from_object when possible).
+        for name in vg_names:
+            if name not in obj.vertex_groups:
+                obj.vertex_groups.new(name=name)
+        # Drop armature modifiers; we'll rebind to Jacob next.
+        for mod in list(obj.modifiers):
+            if mod.type == "ARMATURE":
+                obj.modifiers.remove(mod)
+        obj.parent = None
+        frozen.append(obj)
+        print("froze mesh", obj.name, "vgroups", len(obj.vertex_groups))
+    return frozen
 
 
-def mute_empty_tracks_except(empties: dict, clip_name: str) -> int:
-    """Solo the NLA tracks for one mood clip across all bone empties."""
-    hit = 0
-    for obj in empties.values():
-        if not obj.animation_data:
-            continue
-        for track in obj.animation_data.nla_tracks:
-            keep = any(
-                s.action and (
-                    s.action.name == f"{clip_name}_{obj.name}"
-                    or s.action.name.startswith(f"{clip_name}_")
-                    or track.name == clip_name
-                )
-                for s in track.strips
-            )
-            # Tracks are named like IdleSit01
-            keep = keep or track.name == clip_name
-            track.mute = not keep
-            if keep:
-                hit += 1
-    return hit
-
-
-def mood_frame_range(empties: dict, clip_name: str):
-    f0, f1 = None, None
-    for obj in empties.values():
-        if not obj.animation_data:
-            continue
-        for track in obj.animation_data.nla_tracks:
-            if track.name != clip_name:
-                continue
-            for s in track.strips:
-                if s.action:
-                    a0, a1 = int(s.action.frame_range[0]), int(s.action.frame_range[1])
-                    f0 = a0 if f0 is None else min(f0, a0)
-                    f1 = a1 if f1 is None else max(f1, a1)
-    return f0, f1
-
-
-def retarget_biped_clips(dst_arm: bpy.types.Object) -> None:
-    """Bake Jacob body + mighty-cat mood clips onto the NPC via aim-copy.
-
-    Resulting GLB carries the same clip catalogue the table plays on Jacob, so
-    Sheriff/Bandit share scale, seating, and animation constraints.
-    """
-    before = set(bpy.data.objects)
-    bpy.ops.import_scene.gltf(filepath=str(JACOB))
-    jacob_objs = [o for o in bpy.data.objects if o not in before]
-    jacob = next(o for o in jacob_objs if o.type == "ARMATURE")
-    jacob.location = (0.0, 0.0, 0.0)
-    if jacob.animation_data is None:
-        jacob.animation_data_create()
-
-    body_acts = collect_actions(BODY_CLIPS)
-    print("jacob body clips", sorted(body_acts))
-    if "Sit" not in body_acts:
-        die("Jacob Sit missing")
-
-    # Mighty-cat imports as per-bone empties with NLA tracks (not one armature).
-    before_m = set(bpy.data.objects)
-    bpy.ops.import_scene.gltf(filepath=str(MIGHTY))
-    empties = {
-        o.name: o
-        for o in bpy.data.objects
-        if o not in before_m and o.type == "EMPTY" and o.name in jacob.pose.bones
-    }
-    enable_empty_nla(empties)
-    print("mighty empties", len(empties))
-
-    if dst_arm.animation_data is None:
-        dst_arm.animation_data_create()
-    while dst_arm.animation_data.nla_tracks:
-        dst_arm.animation_data.nla_tracks.remove(dst_arm.animation_data.nla_tracks[0])
-
-    scene = bpy.context.scene
-    key_bones = [n for n in AIM_ORDER if n in dst_arm.pose.bones and n in jacob.pose.bones]
-    if "head" in dst_arm.pose.bones and "head" in jacob.pose.bones:
-        key_bones.append("head")
-
-    def bake_from_source(name, src, f0, f1, step):
-        new_act = bpy.data.actions.new(name=name)
-        new_act.use_fake_user = True
-        dst_arm.animation_data.action = new_act
-        frames = list(range(f0, f1 + 1, step))
-        if frames[-1] != f1:
-            frames.append(f1)
-        print(f"  retarget {name}: {len(frames)} frames ({f0}-{f1} step {step})")
-        for i, frame in enumerate(frames):
-            scene.frame_set(frame)
-            bpy.context.view_layer.update()
-            aim_copy_frame(dst_arm, src)
-            bpy.context.view_layer.update()
-            out_f = 1 + i
-            for bname in key_bones:
-                pb = dst_arm.pose.bones[bname]
-                pb.rotation_mode = "QUATERNION"
-                pb.keyframe_insert(data_path="location", frame=out_f)
-                pb.keyframe_insert(data_path="rotation_quaternion", frame=out_f)
-                pb.keyframe_insert(data_path="scale", frame=out_f)
-        for fc in new_act.fcurves:
-            for kp in fc.keyframe_points:
-                kp.interpolation = "LINEAR"
-        track = dst_arm.animation_data.nla_tracks.new()
-        track.name = name
-        track.strips.new(name, 1, new_act).action = new_act
-
-    for name in BODY_CLIPS:
-        if name not in body_acts:
-            continue
-        src_act = body_acts[name]
-        jacob.animation_data.action = src_act
-        bake_from_source(name, jacob, int(src_act.frame_range[0]), int(src_act.frame_range[1]), 1)
-
-    for name in MOOD_CLIPS:
-        hit = mute_empty_tracks_except(empties, name)
-        f0, f1 = mood_frame_range(empties, name)
-        if not hit or f0 is None:
-            print(f"  skip mood {name}: no NLA tracks")
-            continue
-        # Cap long performance takes so the bake stays web-sized.
-        f1 = min(f1, f0 + 120)
-        bake_from_source(name, empties, f0, f1, 2)
-
-    # Preview Sit for bounds / export.
-    jacob.animation_data.action = body_acts["Sit"]
-    scene.frame_set(int(body_acts["Sit"].frame_range[0]))
-    bpy.context.view_layer.update()
-    aim_copy_frame(dst_arm, jacob)
-    bpy.context.view_layer.update()
-    dst_arm.animation_data.action = bpy.data.actions.get("Sit")
-    print(
-        "preview sit pelvis",
-        tuple(round(c, 3) for c in wpos(dst_arm, "pelvis")),
-        "head",
-        tuple(round(c, 3) for c in wpos(dst_arm, "head")),
-        "hand_l",
-        tuple(round(c, 3) for c in wpos(dst_arm, "hand_l")),
-        "foot_l",
-        tuple(round(c, 3) for c in wpos(dst_arm, "foot_l")),
-    )
-
-    for o in list(jacob_objs) + list(empties.values()):
-        try:
-            bpy.data.objects.remove(o, do_unlink=True)
-        except ReferenceError:
-            pass
+def rebind_to_jacob(meshes: list[bpy.types.Object], jacob: bpy.types.Object) -> None:
+    jacob_bones = {b.name for b in jacob.data.bones}
+    for obj in meshes:
+        obj.parent = jacob
+        obj.parent_type = "OBJECT"
+        mod = obj.modifiers.new(name="Armature", type="ARMATURE")
+        mod.object = jacob
+        mod.use_vertex_groups = True
+        # Drop weights for bones Jacob doesn't have.
+        for vg in list(obj.vertex_groups):
+            if vg.name not in jacob_bones:
+                obj.vertex_groups.remove(vg)
+        print("rebound", obj.name, "->", jacob.name, "vgroups", len(obj.vertex_groups))
 
 
 def export_glb(path: Path) -> None:
@@ -637,42 +446,89 @@ def main() -> None:
     if not JACOB.exists():
         die(f"missing Jacob {JACOB}")
 
-    print(f"=== baking {CHAR} ===")
+    print(f"=== baking {CHAR} onto Jacob biped ===")
     prepared = prepare_textures(spec)
-    print("textures prepared", len(prepared))
-
-    if not MIGHTY.exists():
-        die(f"missing mighty-cat {MIGHTY}")
 
     clear_scene()
-    arm = import_fbx(spec["fbx"])
-    arm.name = "root"
-    force_unit_scale(arm)
+    npc_arm = import_fbx(spec["fbx"])
+    npc_arm.name = "npc_root"
+    force_unit_scale(npc_arm)
     cull_and_rename(spec)
     assign_materials(spec, prepared)
     strip_shape_keys()
-    # Aim-copy Jacob body + mighty-cat mood clips so this biped shares the
-    # table's seated height, hand plant, and animation catalogue.
-    retarget_biped_clips(arm)
-    force_unit_scale(arm)
 
-    # Evaluated bounds under the preview Sit pose.
-    dg = bpy.context.evaluated_depsgraph_get()
-    mins = Vector((1e9, 1e9, 1e9))
-    maxs = Vector((-1e9, -1e9, -1e9))
-    for o in bpy.data.objects:
-        if o.type != "MESH" or o.parent != arm:
-            continue
-        eo = o.evaluated_get(dg)
-        for v in eo.bound_box:
-            w = eo.matrix_world @ Vector(v)
-            mins.x, mins.y, mins.z = min(mins.x, w.x), min(mins.y, w.y), min(mins.z, w.z)
-            maxs.x, maxs.y, maxs.z = max(maxs.x, w.x), max(maxs.y, w.y), max(maxs.z, w.z)
-    print("eval sit bounds", tuple(round(c, 3) for c in mins), tuple(round(c, 3) for c in maxs),
-          "height", round(maxs.z - mins.z, 3))
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=str(JACOB))
+    jacob_objs = [o for o in bpy.data.objects if o not in before]
+    jacob = next(o for o in jacob_objs if o.type == "ARMATURE")
+    jacob.name = "root"
+    jacob.location = (0, 0, 0)
+    # Hide Jacob's own meshes — we only want his armature + animations.
+    for o in jacob_objs:
+        if o.type == "MESH":
+            bpy.data.objects.remove(o, do_unlink=True)
+
+    # Pose NPC to Jacob's seated bind, freeze meshes, rebind to Jacob.
+    if jacob.animation_data is None:
+        jacob.animation_data_create()
+    sit = next((a for a in bpy.data.actions if a.name == "Sit" or a.name.startswith("Sit")), None)
+    if sit is None:
+        die("Jacob Sit missing")
+    # Jacob's rest is already the sit bind; clear pose to rest.
+    clear_pose(jacob)
+    bpy.context.view_layer.update()
+    aim_copy_frame(npc_arm, jacob)
+    bpy.context.view_layer.update()
+    print(
+        "npc sit pelvis", tuple(round(c, 3) for c in wpos(npc_arm, "pelvis")),
+        "head", tuple(round(c, 3) for c in wpos(npc_arm, "head")),
+        "hand_l", tuple(round(c, 3) for c in wpos(npc_arm, "hand_l")),
+        "jacob pelvis", tuple(round(c, 3) for c in wpos(jacob, "pelvis")),
+        "jacob head", tuple(round(c, 3) for c in wpos(jacob, "head")),
+        "jacob hand_l", tuple(round(c, 3) for c in wpos(jacob, "hand_l")),
+    )
+
+    meshes = freeze_posed_meshes(npc_arm)
+    if not meshes:
+        die("no meshes frozen")
+    rebind_to_jacob(meshes, jacob)
+
+    # Remove the NPC armature — Jacob is the sole biped now.
+    bpy.data.objects.remove(npc_arm, do_unlink=True)
+
+    # Keep Jacob body actions; drop junk.
+    keep = {"Attack", "Bet", "Check", "Crouch", "Fold", "FoldShake", "Sit", "SitCards", "Talk"}
+    for act in list(bpy.data.actions):
+        base = act.name.split("_")[0] if "_" in act.name else act.name
+        # Jacob exports as Sit / Sit_root etc — keep clean names and NLA on jacob.
+        if act.name not in keep and base not in keep and not act.name.startswith(tuple(keep)):
+            # Keep actions referenced by Jacob NLA strips.
+            used = False
+            if jacob.animation_data:
+                for t in jacob.animation_data.nla_tracks:
+                    for s in t.strips:
+                        if s.action == act:
+                            used = True
+            if not used:
+                try:
+                    bpy.data.actions.remove(act)
+                except RuntimeError:
+                    pass
+
+    # Ensure a Sit action is active for export bind preview.
+    sit_act = next((a for a in bpy.data.actions if a.name == "Sit"), None)
+    if sit_act and jacob.animation_data:
+        jacob.animation_data.action = sit_act
+        bpy.context.scene.frame_set(1)
+        bpy.context.view_layer.update()
+
     print("meshes", sorted(o.name for o in bpy.data.objects if o.type == "MESH"))
-    print("arm scale", tuple(arm.scale))
-
+    print("arm scale", tuple(jacob.scale))
+    print(
+        "final pelvis", tuple(round(c, 3) for c in wpos(jacob, "pelvis")),
+        "head", tuple(round(c, 3) for c in wpos(jacob, "head")),
+        "hand_l", tuple(round(c, 3) for c in wpos(jacob, "hand_l")),
+    )
     export_glb(spec["out"])
 
 
