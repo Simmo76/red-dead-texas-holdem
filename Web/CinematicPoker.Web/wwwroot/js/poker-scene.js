@@ -2105,11 +2105,10 @@ function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
     // Bone-parented bounds lag the pose; never cull held cards.
     card.frustumCulled = false;
     card.renderOrder = 2;
-    // Wide fan so both ranks/suits read from the OTS camera — left card
-    // back/left, right card forward/right with a clear index-corner peek.
-    // Local +Z faces the eyes (see syncCardHold).
-    card.position.set(dir * 0.085, 0.005 * (i + 1), 0.012 + i * 0.02);
-    card.rotation.set(faceUp ? 0 : Math.PI, dir * -0.12, dir * 0.48);
+    // Initial fan (faceHeldCardsTowardCamera overwrites with a camera-axis
+    // fan each frame so both index corners stay readable from the OTS seat).
+    card.position.set(dir * 0.11, 0.006 * (i + 1), 0.014 + i * 0.022);
+    card.rotation.set(faceUp ? 0 : Math.PI, dir * -0.14, dir * 0.55);
   }
 }
 
