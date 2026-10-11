@@ -2358,6 +2358,25 @@ window.pokerScene = {
     }));
   },
 
+  // Test/diagnostic hook: force the glow outline onto one seat (pass -1 to
+  // clear, omit to just inspect) and report the pulse state.
+  outlineDebug(seatIndex) {
+    if (typeof seatIndex === 'number') updateActorOutline(seatIndex);
+    let hullsTotal = 0, hullsVisible = 0;
+    if (state.scene) state.scene.traverse((o) => {
+      if (o.isMesh && o.material === _outlineMat) {
+        hullsTotal++;
+        if (o.visible) hullsVisible++;
+      }
+    });
+    return {
+      on: (state.seats || []).map(s => !!(s && s.char && s.char.outlineOn)),
+      hullsTotal, hullsVisible,
+      px: _outlineUniforms.uOutlinePx.value,
+      opacity: _outlineMat ? _outlineMat.opacity : -1,
+    };
+  },
+
   idleDebug() {
     return (state.seats || []).map((seat, i) => {
       const c = seat && seat.char;
