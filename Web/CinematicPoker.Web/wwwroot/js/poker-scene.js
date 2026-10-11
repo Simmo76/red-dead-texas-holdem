@@ -4,10 +4,10 @@
 // lighting. Props/textures are CC0; the saloon is a web-optimised conversion
 // of the repo owner's licensed Unity pub scene (see tools/build_saloon_backdrop.py).
 // Every seat, including the player, is a random outfit of David Grette's
-// Jacob cowboy. Check/bet/fold stay on Jacob's own clips. Active seats idle
-// on Cocomotion AS_Idle_Sit_Thinking_01; folded seats hold
-// AS_Idle_Sit_ArmsFolded_01. Win / lose stay Mighty Cat takes. All mood
-// clips are Humanoid-retargeted onto Jacob
+// Jacob cowboy. Check/bet/fold stay on Jacob's own clips. Active seats each
+// draw one of Cocomotion AS_Idle_HoldCards_01–03 ContinuousLoop; folded
+// seats hold AS_Idle_Sit_ArmsFolded_01. Win / lose stay Mighty Cat takes.
+// All mood clips are Humanoid-retargeted onto Jacob
 // (see docs/mighty-cat-poker-animation-map.md).
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
@@ -598,14 +598,23 @@ function makeCharacter(gltf, spec, extraClips) {
   const findMood = (name) => THREE.AnimationClip.findByName(moodClips, name);
   const pick = (names) => names[Math.floor(Math.random() * names.length)];
 
-  // Active seats loop sit-thinking; a fold swaps the home idle to arms-folded
-  // for the rest of the hand, then thinking returns on the next deal.
-  const THINKING_IDLE = 'IdleSitThinking01';
+  // Active seats each draw one HoldCards continuous loop for this game; a
+  // fold swaps the home idle to arms-folded for the rest of the hand, then
+  // the seat's HoldCards pick returns on the next deal.
+  const HOLD_CARDS_IDLES = ['IdleHoldCards01', 'IdleHoldCards02', 'IdleHoldCards03'];
   const FOLDED_IDLE = 'IdleSitArmsFolded01';
   const WIN_CLIPS = ['Win01', 'Win02', 'Win03'];
   const LOSE_CLIPS = ['Lose01', 'Lose02', 'Lose03', 'Lose04'];
 
-  const idleName = THINKING_IDLE;
+  const pickHoldCardsIdle = () => {
+    const available = HOLD_CARDS_IDLES.filter((n) => findMood(n));
+    if (available.length) return pick(available);
+    // Fallback if the mood GLB is an older build without HoldCards clips.
+    return findMood('IdleSitThinking01') ? 'IdleSitThinking01' : 'Sit';
+  };
+  const idleName = (spec.idleName && findMood(spec.idleName))
+    ? spec.idleName
+    : pickHoldCardsIdle();
   const sitClip = findMood(idleName) || findBody('Sit');
   const isPlayer = !!spec.cards;
   let sitAction = null;
@@ -746,27 +755,28 @@ function makeCharacter(gltf, spec, extraClips) {
   }
 
   character.setFolded = (on) => {
-    if (character.folded !== on) {
-      character.folded = on;
-      // Drop the chair as soon as they fold so the ghost isn't sat on furniture.
+    if (character.folded === on) {
+      // Keep chair visibility in sync even when fold state is unchanged.
       if (character.chair) character.chair.visible = !on;
-      const name = on ? FOLDED_IDLE : THINKING_IDLE;
-      const clip = findMood(name) || findBody('Sit');
-      if (clip && sitAction && sitAction.getClip() !== clip) {
-        // A Fold / FoldShake already in flight should land on the new hold, not
-        // fade back to thinking. Retarget the restore clip but leave the gesture
-        // playing — stopping the current sit here is what left everyone standing.
-        if (character.reacting) {
-          const next = makeSitAction(clip);
-          next.time = Math.random() * clip.duration;
-          adoptSitAction(next, name);
-        } else {
-          switchHomeIdle(name);
-        }
-      }
-    } else if (character.chair) {
-      character.chair.visible = !on;
+      return;
     }
+    character.folded = on;
+    // Drop the chair as soon as they fold so the ghost isn't sat on furniture.
+    if (character.chair) character.chair.visible = !on;
+    const name = on ? FOLDED_IDLE : character.homeIdle;
+    const clip = findMood(name) || findBody('Sit');
+    if (!clip || !sitAction || sitAction.getClip() === clip) return;
+    // A Fold / FoldShake already in flight should land on the new hold, not
+    // fade back to the card-hold idle. Retarget the restore clip but leave
+    // the gesture playing — stopping the current sit here is what left
+    // everyone standing.
+    if (character.reacting) {
+      const next = makeSitAction(clip);
+      next.time = Math.random() * clip.duration;
+      adoptSitAction(next, name);
+      return;
+    }
+    switchHomeIdle(name);
   };
   character.updateFold = (dt) => {
     const target = character.folded ? 1 : 0;
@@ -797,7 +807,7 @@ function makeCharacter(gltf, spec, extraClips) {
     }
   };
 
-  // Idle is AS_Idle_Sit_Thinking_01 until a fold; then AS_Idle_Sit_ArmsFolded_01.
+  // Idle is one of AS_Idle_HoldCards_01–03 until a fold; then AS_Idle_Sit_ArmsFolded_01.
 
   // Unused for Jacob: the sit pose is the hold. Kept so a gesture can still
   // fade a pinned pose back in if one is ever stored on the character.
@@ -849,7 +859,7 @@ function makeCharacter(gltf, spec, extraClips) {
         character.reacting = false;
         // Always snap back onto a seated loop. A faded-out sit left at
         // weight 0 drops Jacob into the standing bind (arms out).
-        const wantName = character.folded ? FOLDED_IDLE : THINKING_IDLE;
+        const wantName = character.folded ? FOLDED_IDLE : character.homeIdle;
         const want = findMood(wantName) || findBody('Sit');
         if (want && (!sitAction || sitAction.getClip() !== want)) {
           const nextSit = makeSitAction(want);
@@ -880,6 +890,7 @@ function makeCharacter(gltf, spec, extraClips) {
   // Seated emotion takes retargeted from the Mighty Cat card-game pack.
   character.variant = 0;
   character.heat = 0.25;
+  character.homeIdle = idleName;
   character.idleName = idleName;
   character._queued = null;
   character.playEmotion = (mood, intensity = 0.5) => {
@@ -1219,7 +1230,7 @@ async function buildScene(canvas) {
 
   // One rig, every outfit. A fresh draw every time the table is built.
   const westernModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=7');
+  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=8');
   // Every seat wears a hat so the seat's accent colour always has somewhere
   // to live; hatless presets borrow a hat (and the matching short hair so the
   // full hairstyle doesn't clip through the brim).
@@ -1300,6 +1311,17 @@ async function buildScene(canvas) {
     character.seatFacing = facing;
   };
 
+  // One HoldCards loop per seat for this game. Shuffle a repeating bag so
+  // neighbouring seats rarely lockstep on the same take.
+  const holdCardsDeal = Promise.all([mightyCatModel]).then(([mc]) => {
+    const names = ['IdleHoldCards01', 'IdleHoldCards02', 'IdleHoldCards03'];
+    const pool = names.filter((n) => THREE.AnimationClip.findByName(mc.animations || [], n));
+    const bag = pool.length ? pool : ['IdleSitThinking01'];
+    const deal = [];
+    while (deal.length < SEATS) deal.push(...shuffle(bag.slice()));
+    return deal.slice(0, SEATS);
+  });
+
   for (let i = 0; i < SEATS; i++) {
     const seat = { group: new THREE.Group(), cards: [], cardSig: 'none', chips: null, stackChips: null, char: null, label: null, chair: null };
     state.seats.push(seat);
@@ -1326,7 +1348,8 @@ async function buildScene(canvas) {
       look: lineup[i], cards: i === 0, scale: WESTERN_SCALE,
       hatColor: SEAT_COLORS[i % SEAT_COLORS.length]
     };
-    charPromises.push(Promise.all([westernModel, mightyCatModel]).then(([gltf, mc]) => {
+    charPromises.push(Promise.all([westernModel, mightyCatModel, holdCardsDeal]).then(([gltf, mc, deal]) => {
+      spec.idleName = deal[i];
       const character = makeCharacter(gltf, spec, mc && mc.animations);
       if (!character) return;
       character.variant = i;
@@ -2378,12 +2401,16 @@ window.pokerScene = {
       if (!c) return { i };
       const sit = c.sitAction;
       const foldedClip = c.findMood && c.findMood('IdleSitArmsFolded01');
+      const hold = ['IdleHoldCards01', 'IdleHoldCards02', 'IdleHoldCards03']
+        .filter((n) => c.findMood && c.findMood(n));
       return {
         i,
         folded: !!c.folded,
+        homeIdle: c.homeIdle,
         idleName: c.idleName,
         sitClip: sit && sit.getClip() && sit.getClip().name,
         sitW: sit ? Number(sit.getEffectiveWeight().toFixed(2)) : 0,
+        holdCards: hold,
         hasFoldedClip: !!foldedClip,
         foldedDur: foldedClip ? Number(foldedClip.duration.toFixed(2)) : 0,
         reacting: !!c.reacting,

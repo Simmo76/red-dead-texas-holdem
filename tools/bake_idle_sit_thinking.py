@@ -362,8 +362,12 @@ def bake_thinking():
         jacob.pose.bones[name].rotation_quaternion = mid[name]
         jacob.pose.bones[name].location = sit_local[name][0]
     bpy.context.view_layer.update()
-    os.makedirs(PREVIEW, exist_ok=True)
-    render_preview(jacob, os.path.join(PREVIEW, f"{CLIP}.png"))
+    if os.environ.get("THINKING_SKIP_PREVIEW", "").strip() not in ("1", "true", "yes"):
+        try:
+            os.makedirs(PREVIEW, exist_ok=True)
+            render_preview(jacob, os.path.join(PREVIEW, f"{CLIP}.png"))
+        except Exception as exc:
+            print(f"preview skipped: {exc}", flush=True)
 
     for obj in list(bpy.data.objects):
         if obj.type != "ARMATURE":
