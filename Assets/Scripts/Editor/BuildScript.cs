@@ -46,6 +46,9 @@ namespace CinematicPoker.Editor
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64 | AndroidArchitecture.ARMv7;
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel23;
+            // WinPhotoCapture gallery saves: API 23-28 need WRITE_EXTERNAL_STORAGE
+            // in the manifest (requested at runtime); API 29+ ignores it.
+            PlayerSettings.Android.forceSDCardPermission = true;
             EditorUserBuildSettings.buildAppBundle = false; // APK, not AAB
 
             string output = Environment.GetEnvironmentVariable("BUILD_OUTPUT");
