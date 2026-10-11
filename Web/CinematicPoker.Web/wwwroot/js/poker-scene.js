@@ -406,12 +406,12 @@ function updateButtonChips(dealerSeat, sbSeat, bbSeat) {
 // opacity and colour fade between a dim ember and a bright gold flare,
 // all driven by one shared pulse in the render loop.
 const OUTLINE_PX_MIN = 2.0;       // thinnest the outline gets, CSS pixels
-const OUTLINE_PX_MAX = 5.5;       // thickest, at the peak of the throb
-const OUTLINE_OPACITY_MIN = 0.35; // faded trough of the glow
-const OUTLINE_OPACITY_MAX = 1.0;  // full-strength peak
-const OUTLINE_PULSE_HZ = 1.1;     // throb speed, cycles per second
+const OUTLINE_PX_MAX = 3.8;       // thickest, at the peak of the throb
+const OUTLINE_OPACITY_MIN = 0.3;  // faded trough of the glow
+const OUTLINE_OPACITY_MAX = 0.8;  // soft peak so the glow stays subtle
+const OUTLINE_PULSE_HZ = 0.55;    // throb speed, cycles per second
 const _outlineColorDim = new THREE.Color(0xcf9230);
-const _outlineColorHot = new THREE.Color(0xffe08a);
+const _outlineColorHot = new THREE.Color(0xffd87a);
 const _outlineUniforms = {
   uOutlinePx: { value: OUTLINE_PX_MIN },
   uOutlineViewH: { value: 720 }, // canvas CSS height, refreshed on resize
