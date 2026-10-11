@@ -147,10 +147,9 @@ const CHAIR_SCALE = 1.0;
 // Cushion centroid at scale 1 (see tools bake of mesh_chair_02).
 const _CHAIR_SEAT_XZ = new THREE.Vector3(0.001, 0, 0.021);
 const _CHAIR_SEAT_Y = 0.479;
-// Mesh open-side faces +Z after bake; Three.js object forward is -Z, and the
-// previous seats were 180° off — yaw the chair so the backrest sits behind
-// the cowboy (away from the table).
-const CHAIR_YAW_OFFSET = Math.PI;
+// Mesh open-side faces +Z / backrest -Z after bake. With rotation.y = facing
+// (toward the table), local -Z lands behind the sitter — no extra 180° yaw.
+const CHAIR_YAW_OFFSET = 0;
 const _chairSeatOff = new THREE.Vector3();
 const _chairAnchor = new THREE.Vector3();
 const _toTable = new THREE.Vector3();
@@ -1209,7 +1208,7 @@ async function buildScene(canvas) {
   // ---- seats (DMH PUB chairs + characters + cards + labels)
   // mesh_chair_02 under every cowboy; the saloon still dresses the rest of
   // the room (booths, bar stools, bottles).
-  const chairGltf = await loadGlb(loader, 'models/props/furniture/chair.glb?v=4');
+  const chairGltf = await loadGlb(loader, 'models/props/furniture/chair.glb?v=5');
   state.seats = [];
   const charPromises = [];
 
