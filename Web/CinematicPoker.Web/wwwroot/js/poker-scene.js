@@ -201,9 +201,22 @@ function alignChairToCharacter(chair, character, facing, seatIndex) {
 
 // ------------------------------------------------------------------ cards
 
+// Card quads are dealt and cleared constantly (every street redraws the
+// board, every hand redraws the seats), so the plane geometry is shared per
+// size and the per-card materials are disposed on clear — without this every
+// deal leaked GPU buffers until long mobile sessions degraded and crashed.
+const _cardGeos = new Map();
+function cardGeometry(w) {
+  let geo = _cardGeos.get(w);
+  if (!geo) {
+    geo = new THREE.PlaneGeometry(w, w * 190 / 140);
+    _cardGeos.set(w, geo);
+  }
+  return geo;
+}
+
 function makeCard(path, w = 0.18, unlit = false) {
-  const h = w * 190 / 140;
-  const geo = new THREE.PlaneGeometry(w, h);
+  const geo = cardGeometry(w);
   const mat = unlit
     ? new THREE.MeshBasicMaterial({ map: texture(path), side: THREE.DoubleSide })
     : new THREE.MeshStandardMaterial({
@@ -286,6 +299,24 @@ function drawLabel(label, seat) {
 
 const CHIP_COLORS = [0xb0483c, 0x3b6ea5, 0x3f7d4e, 0x2b2b2b, 0xc9a13d];
 
+// Bet and pot stacks are torn down and rebuilt on every chip movement, so
+// all chips share one cylinder and one material per colour — building fresh
+// GPU resources per chip leaked them on every bet of every hand.
+let _chipGeo = null;
+const _chipMats = new Map();
+function chipGeometry() {
+  if (!_chipGeo) _chipGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.012, 20);
+  return _chipGeo;
+}
+function chipMaterial(color) {
+  let mat = _chipMats.get(color);
+  if (!mat) {
+    mat = new THREE.MeshStandardMaterial({ color, roughness: 0.55 });
+    _chipMats.set(color, mat);
+  }
+  return mat;
+}
+
 function makeChipStacks(amount, spread = 0.05) {
   const group = new THREE.Group();
   if (amount <= 0) return group;
@@ -294,11 +325,7 @@ function makeChipStacks(amount, spread = 0.05) {
   for (let i = 0; i < chips; i++) {
     const stack = Math.floor(i / perStack);
     const level = i % perStack;
-    const geo = new THREE.CylinderGeometry(0.045, 0.045, 0.012, 20);
-    const mat = new THREE.MeshStandardMaterial({
-      color: CHIP_COLORS[(i + stack) % CHIP_COLORS.length], roughness: 0.55
-    });
-    const chip = new THREE.Mesh(geo, mat);
+    const chip = new THREE.Mesh(chipGeometry(), chipMaterial(CHIP_COLORS[(i + stack) % CHIP_COLORS.length]));
     chip.castShadow = true;
     chip.position.set(stack * spread * 1.9 - spread, 0.007 + level * 0.0125, (stack % 2) * spread * 0.8);
     chip.rotation.y = Math.random() * Math.PI;
@@ -429,22 +456,35 @@ function outlineMaterial() {
   _outlineMat.onBeforeCompile = (shader) => {
     shader.uniforms.uOutlinePx = _outlineUniforms.uOutlinePx;
     shader.uniforms.uOutlineViewH = _outlineUniforms.uOutlineViewH;
-    // Inflate after skinning so the hull follows the posed surface normals
-    // (bind-space offset before skinning intersects the body and reads as
-    // dark z-fighting patches on the shirt). World units per screen pixel at
-    // view depth z is 2z / (P[1][1] * viewportHeight); dividing by the
-    // model's uniform scale converts that back to object space, where
-    // `transformed` lives.
+    // Inflate after skinning, along the SKINNED normal. On skinned meshes the
+    // basic material computes `objectNormal` (run through the bone matrices in
+    // <skinnormal_vertex>); the raw `normal` attribute is the bind-pose
+    // direction, and offsetting a posed body along bind-pose normals shoots
+    // thin gold fins off the arms and hands as the idle animation moves
+    // (worst on the HoldCards pose, where the fins slice across the hole
+    // cards). World units per screen pixel at view depth z is
+    // 2z / (P[1][1] * viewportHeight); dividing by the model's uniform scale
+    // converts that back to object space, where `transformed` lives. Zero
+    // normals are skipped: normalize() on them yields NaN vertices, which
+    // rasterise as giant garbage triangles on mobile GPUs.
     shader.vertexShader = 'uniform float uOutlinePx;\n'
       + 'uniform float uOutlineViewH;\n'
       + shader.vertexShader.replace(
         '#include <skinning_vertex>',
         `#include <skinning_vertex>
 \t{
-\t\tfloat outlineViewZ = max( -( modelViewMatrix * vec4( transformed, 1.0 ) ).z, 0.0 );
-\t\tfloat outlineWorldPerPx = 2.0 * outlineViewZ / ( projectionMatrix[1][1] * uOutlineViewH );
-\t\tfloat outlineModelScale = length( modelViewMatrix[0].xyz );
-\t\ttransformed += normalize( normal ) * ( uOutlinePx * outlineWorldPerPx / outlineModelScale );
+\t\t#if defined( USE_SKINNING ) || defined( USE_ENVMAP )
+\t\t\tvec3 outlineDir = objectNormal;
+\t\t#else
+\t\t\tvec3 outlineDir = vec3( normal );
+\t\t#endif
+\t\tfloat outlineDirLen = length( outlineDir );
+\t\tif ( outlineDirLen > 1e-5 ) {
+\t\t\tfloat outlineViewZ = max( -( modelViewMatrix * vec4( transformed, 1.0 ) ).z, 0.0 );
+\t\t\tfloat outlineWorldPerPx = 2.0 * outlineViewZ / ( projectionMatrix[1][1] * uOutlineViewH );
+\t\t\tfloat outlineModelScale = length( modelViewMatrix[0].xyz );
+\t\t\ttransformed += ( outlineDir / outlineDirLen ) * ( uOutlinePx * outlineWorldPerPx / outlineModelScale );
+\t\t}
 \t}`);
   };
   return _outlineMat;
@@ -956,7 +996,12 @@ function makeCharacter(gltf, spec, extraClips) {
 // ------------------------------------------------------------------ scene build
 
 async function buildScene(canvas) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+  // No preserveDrawingBuffer: nothing in the web app reads the canvas back
+  // (the win-photo feature is Unity-only), and preserving the buffer forces
+  // mobile browsers to copy the full antialiased backbuffer every frame —
+  // on iOS Safari that extra GPU memory/bandwidth is a known trigger for
+  // "page hung and was reloaded" WebGL kills.
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -2021,6 +2066,11 @@ function clearGroupChildren(list, parent) {
   for (const m of list) {
     if (m.parent) m.parent.remove(m);
     else if (parent) parent.remove(m);
+    // Each card owns its material (hole cards tweak depthTest per mesh);
+    // release the GPU program/uniform copies. The geometry is shared via
+    // cardGeometry() and the map texture lives in the shared cache, so
+    // neither is disposed here.
+    if (m.material && m.material.dispose) m.material.dispose();
   }
   list.length = 0;
 }
