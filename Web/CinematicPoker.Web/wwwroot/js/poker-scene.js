@@ -1016,9 +1016,9 @@ async function buildScene(canvas) {
   // ---- lighting: warm lantern pool over the felt, with a strong purple/pink
   // room wash (the old arcade magenta spill) so the saloon bar and booths
   // read with a clear rose hue without competing with the table lantern.
-  const ambient = new THREE.AmbientLight(0x9a58a8, 0.48);
+  const ambient = new THREE.AmbientLight(0xb860b8, 0.58);
   scene.add(ambient);
-  const hemi = new THREE.HemisphereLight(0xe090c8, 0x1a0c22, 0.42);
+  const hemi = new THREE.HemisphereLight(0xff88d0, 0x1a0a24, 0.52);
   scene.add(hemi);
 
   const lantern = new THREE.PointLight(0xffc477, 28, 7.0, 1.85);
@@ -1039,11 +1039,11 @@ async function buildScene(canvas) {
   scene.add(keyLight, keyLight.target);
 
   // Cool rose fills for the room — louder pink so the bar reads magenta.
-  const fill = new THREE.PointLight(0xf0a0d8, 1.35, 9, 2);
+  const fill = new THREE.PointLight(0xff88d8, 1.8, 10, 2);
   fill.position.set(3.2, 2.0, 2.6);
   scene.add(fill);
 
-  const backFill = new THREE.PointLight(0xf078e0, 1.7, 10, 2);
+  const backFill = new THREE.PointLight(0xff58e0, 2.4, 11, 2);
   backFill.position.set(-2.4, 2.2, -3.6);
   scene.add(backFill);
 
@@ -1083,9 +1083,9 @@ async function buildScene(canvas) {
     saloon.rotation.y = Math.PI; // bar across the table from the player seat
     // After the 180° yaw, +Z on the saloon moves the bar toward the table.
     saloon.position.z = SALOON_BAR_NUDGE_Z;
-    // Mild magenta multiply so the bar wood/walls pick up the pink wash even
+    // Magenta multiply so the bar wood/walls pick up the pink wash even
     // under the warm table lantern (textures alone stayed too brown).
-    const saloonTint = new THREE.Color(0xffd0f0);
+    const saloonTint = new THREE.Color(0xff9adf);
     saloon.traverse((m) => {
       if (!m.isMesh) return;
       m.castShadow = false;
@@ -1114,16 +1114,16 @@ async function buildScene(canvas) {
       }
     });
     env.add(saloon);
-    // Purple/pink hanging-lamp pools — stronger on the bar face so the
-    // backdrop reads magenta, still under the table lantern. They live in
-    // the env group and switch off with the saloon backdrop.
+    // Purple/pink hanging-lamp pools — hot on the bar face so the backdrop
+    // reads magenta, still under the table lantern. They live in the env
+    // group and switch off with the saloon backdrop.
     const lampSpecs = [
-      [0xff78d0, 9, 12, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],   // bar face
-      [0xe868c8, 5.5, 10, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]], // left booths
-      [0xe868c8, 5.5, 10, [6.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // right booths
-      [0xd878e0, 6, 11, [0.0, 3.4, 3.5 + SALOON_BAR_NUDGE_Z]],    // behind player
-      [0xc858d0, 4, 9, [-7.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]],  // far left corner
-      [0xc858d0, 4, 9, [8.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]]    // far right corner
+      [0xff40c8, 14, 14, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],  // bar face
+      [0xff48d0, 8, 11, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // left booths
+      [0xff48d0, 8, 11, [6.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],   // right booths
+      [0xe858e8, 8, 12, [0.0, 3.4, 3.5 + SALOON_BAR_NUDGE_Z]],   // behind player
+      [0xd040d8, 5.5, 10, [-7.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]], // far left corner
+      [0xd040d8, 5.5, 10, [8.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]]  // far right corner
     ];
     for (const [color, intensity, dist, pos] of lampSpecs) {
       const lamp = new THREE.PointLight(color, intensity, dist, 1.8);
@@ -1136,8 +1136,8 @@ async function buildScene(canvas) {
   });
 
   // Soft violet key through the windows (also the celestial key for the
-  // other switchable backdrops) — a notch stronger so walls pick up pink.
-  const moon = new THREE.DirectionalLight(0xd890e8, 0.42);
+  // other switchable backdrops) — stronger so walls pick up pink.
+  const moon = new THREE.DirectionalLight(0xe878f0, 0.55);
   moon.position.set(-8, 18, -6);
   scene.add(moon);
 
@@ -1147,7 +1147,7 @@ async function buildScene(canvas) {
   // over the felt stays constant so the game always reads the same.
   // bg doubles as the fog colour so distant geometry melts into the sky.
   const ENVS = [
-    { name: 'SALOON', bg: 0x100818, fog: [6, 22], amb: [0x9a58a8, 0.48], hemi: [0xe090c8, 0x1a0c22, 0.42], dir: [0xd890e8, 0.42, [-8, 18, -6]], fill: [0xf0a0d8, 1.35], back: [0xf078e0, 1.7], build: null },
+    { name: 'SALOON', bg: 0x140820, fog: [6, 22], amb: [0xb860b8, 0.58], hemi: [0xff88d0, 0x1a0a24, 0.52], dir: [0xe878f0, 0.55, [-8, 18, -6]], fill: [0xff88d8, 1.8], back: [0xff58e0, 2.4], build: null },
     { name: 'BEACH', bg: 0x2f9ed3, fog: [30, 130], amb: [0xbfd8e8, 0.65], hemi: [0xcfe8ff, 0x8a7a5a, 0.55], dir: [0xfff2d8, 1.7, [18, 30, 12]], fill: [0xbfe8ff, 1.2], back: [0xffe8c8, 1.2], build: buildBeach },
     { name: 'DESERT', bg: 0xe8b878, fog: [25, 110], amb: [0xd8b890, 0.85], hemi: [0xf0d0a8, 0x9a6a3a, 0.7], dir: [0xffd8a0, 2.4, [-20, 18, 8]], fill: [0xffc890, 1.2], back: [0xff9860, 1.8], build: buildDesert },
     { name: 'SHED', bg: 0x0d0906, fog: [8, 26], amb: [0x584838, 0.35], hemi: [0x4a3828, 0x140c06, 0.35], dir: [0xc8a878, 0.15, [-6, 12, 6]], fill: [0xffb868, 1.2], back: [0x684828, 1.0], build: buildShed },
@@ -1242,7 +1242,9 @@ async function buildScene(canvas) {
   // hands on the felt, then lift any boot soles that sank through the floor.
   // (A pure foot-plant used to leave everyone hovering above the rail; the
   // hand plant still sets the sit height, and the floor clamp only raises.)
-  const FLOOR_SOLE_Y = 0.02; // keep boot leather just kissing the boards
+  // Skinned Boot meshes report bind-pose AABBs, so plant from foot/ball bones.
+  const FLOOR_SOLE_Y = 0.015; // boot leather just kissing the boards
+  const FOOT_SOLE_DROP = 0.09; // joint → sole under a cowboy boot
   const placeSeatedCharacter = (character, i, facing) => {
     character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
     scene.add(character.root);
@@ -1312,21 +1314,15 @@ async function buildScene(canvas) {
     character.root.updateMatrixWorld(true);
 
     // Hand-on-felt can drop the sit so boot soles clip the saloon boards.
-    // Raise (never lower) until the lowest boot mesh clears the floor.
-    const bootBox = new THREE.Box3();
+    // Raise (never lower) from the lowest foot/ball bone, not the Boots mesh
+    // AABB (skinned geometry stays in bind pose and under-reports the sink).
+    const ballL = bone(['ball_l']);
+    const ballR = bone(['ball_r']);
     let minSole = Infinity;
-    character.root.traverse((o) => {
-      if (!o.isMesh || !/boot/i.test(o.name || '')) return;
-      bootBox.setFromObject(o);
-      if (Number.isFinite(bootBox.min.y)) minSole = Math.min(minSole, bootBox.min.y);
-    });
-    if (!isFinite(minSole)) {
-      // Fall back to ankle bones plus a small sole drop below the joint.
-      for (const f of [lFoot, rFoot]) {
-        if (!f) continue;
-        f.getWorldPosition(v);
-        minSole = Math.min(minSole, v.y - 0.045);
-      }
+    for (const f of [lFoot, rFoot, ballL, ballR]) {
+      if (!f) continue;
+      f.getWorldPosition(v);
+      minSole = Math.min(minSole, v.y - FOOT_SOLE_DROP);
     }
     if (isFinite(minSole) && minSole < FLOOR_SOLE_Y) {
       character.root.position.y += FLOOR_SOLE_Y - minSole;
