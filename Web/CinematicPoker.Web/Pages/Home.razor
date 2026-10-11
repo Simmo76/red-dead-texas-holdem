@@ -111,6 +111,17 @@
                     }
                 </div>
             }
+            @* First-game-only tutorial callout (see MaybeShowBoardHint).
+               It lives inside the panel so it follows the cards at every
+               breakpoint, and a tap on it bubbles into ToggleHudBoard —
+               doing exactly what it teaches, which also dismisses it. *@
+            @if (_boardHintVisible && _introStarted && !_hudBoardExpanded)
+            {
+                <div class="board-hint" role="note">
+                    <span class="board-hint-arrow" aria-hidden="true"></span>
+                    TAP the community cards to see a close-up comparison
+                </div>
+            }
         </div>
     }
 
@@ -732,6 +743,46 @@
         }
         await Task.Delay(IntroFadeMs);
         _introStarted = true;
+        await MaybeShowBoardHint();
+    }
+
+    // ------------------------------------- first-game community-cards hint
+
+    // The very first time someone plays on this device, a small callout
+    // under the community-cards window teaches the close-up comparison tap.
+    // It goes away when the player tries it (ToggleHudBoard), when they tap
+    // the callout itself (the tap bubbles into the same toggle), or after a
+    // generous read timeout — and once dismissed it never comes back.
+    private bool _boardHintVisible;
+    private const int BoardHintTimeoutMs = 20000;
+
+    private async Task MaybeShowBoardHint()
+    {
+        bool seen = true;
+        try { seen = await JS.InvokeAsync<bool>("pokerProfile.boardHintSeen"); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+        if (seen) return;
+
+        _boardHintVisible = true;
+        StateHasChanged();
+        _ = AutoDismissBoardHint();
+    }
+
+    private async Task AutoDismissBoardHint()
+    {
+        await Task.Delay(BoardHintTimeoutMs);
+        if (_boardHintVisible) await DismissBoardHint();
+    }
+
+    private async Task DismissBoardHint()
+    {
+        if (!_boardHintVisible) return;
+        _boardHintVisible = false;
+        try { await JS.InvokeVoidAsync("pokerProfile.markBoardHintSeen"); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+        StateHasChanged();
     }
 
     // ------------------------------------------------------------- 3D scene
@@ -1239,6 +1290,7 @@
     private async Task ToggleHudBoard()
     {
         _hudBoardExpanded = !_hudBoardExpanded;
+        await DismissBoardHint(); // the player found the close-up — lesson over
         if (!_sceneReady) return;
         try { await JS.InvokeVoidAsync("pokerScene.resetCamera"); }
         catch (JSException) { /* scene not available; HUD still works */ }
