@@ -2095,12 +2095,13 @@ function syncCardHold(character) {
   hold.quaternion.copy(_parentQuat.invert().multiply(_faceQuat));
 }
 
-// Narrow V-fan for a two-card HoldCards grip (bottoms pinched at the thumbs,
-// tops spread so both index corners read). Values are hold-local / post-aim.
-const HOLD_FAN_ANGLE = 0.40;   // ±Z twist (~23°) → narrow V
-const HOLD_FAN_BASE_X = 0.022; // small L/R shift; front card right, back left
-const HOLD_FAN_TILT = -0.45;   // tip tops back toward the OTS camera (~26°)
-const HOLD_FAN_BLEND = 0.62;   // palm aim ↔ camera aim (stay cradled, stay readable)
+// V-fan for a two-card HoldCards grip (bottoms nearer the thumbs, tops spread
+// so both index corners read from the OTS seat). Tuned against seat-camera
+// captures: too-narrow values collapse into a stacked peek.
+const HOLD_FAN_ANGLE = 0.55;   // ±Z twist (~31°) → readable V
+const HOLD_FAN_BASE_X = 0.045; // L/R shift so centres clear each other on screen
+const HOLD_FAN_TILT = -0.40;   // tip tops back toward the OTS camera (~23°)
+const HOLD_FAN_BLEND = 0.88;   // prefer camera aim so ranks stay flat-on
 
 function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
   if (!hold) return;
