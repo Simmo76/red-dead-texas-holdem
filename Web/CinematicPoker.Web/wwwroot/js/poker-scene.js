@@ -1083,6 +1083,9 @@ async function buildScene(canvas) {
     saloon.rotation.y = Math.PI; // bar across the table from the player seat
     // After the 180° yaw, +Z on the saloon moves the bar toward the table.
     saloon.position.z = SALOON_BAR_NUDGE_Z;
+    // Mild magenta multiply so the bar wood/walls pick up the pink wash even
+    // under the warm table lantern (textures alone stayed too brown).
+    const saloonTint = new THREE.Color(0xffd0f0);
     saloon.traverse((m) => {
       if (!m.isMesh) return;
       m.castShadow = false;
@@ -1094,6 +1097,7 @@ async function buildScene(canvas) {
           mat.map.colorSpace = THREE.SRGBColorSpace;
           mat.map.needsUpdate = true;
         }
+        if (mat.color) mat.color.multiply(saloonTint);
         if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness ?? 0, 0.15);
         if (mat.roughness !== undefined) mat.roughness = Math.max(mat.roughness ?? 0.8, 0.75);
         // Glassware / bottles: keep a little translucency without sorting pain.
