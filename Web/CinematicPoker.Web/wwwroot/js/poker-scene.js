@@ -2759,6 +2759,28 @@ window.pokerScene = {
     });
   },
 
+  // QA: lowest foot/ball joint and chair Y after the floor plant.
+  seatPlantDebug() {
+    const v = new THREE.Vector3();
+    return (state.seats || []).map((seat, i) => {
+      const c = seat && seat.char;
+      if (!c) return { i };
+      let minJoint = Infinity;
+      c.root.traverse((o) => {
+        if (!o.isBone || !/^(foot|ball)_[lr]$/.test(o.name)) return;
+        o.getWorldPosition(v);
+        minJoint = Math.min(minJoint, v.y);
+      });
+      return {
+        i,
+        rootY: Number(c.root.position.y.toFixed(3)),
+        minJointY: Number(minJoint.toFixed(3)),
+        soleEstY: Number((minJoint - 0.09).toFixed(3)),
+        chairY: seat.chair ? Number(seat.chair.position.y.toFixed(3)) : null,
+      };
+    });
+  },
+
   // Opening cinematic disabled: stay on the normal seat view. Returns 0 so
   // callers know not to wait or play intro audio.
   playIntro() {
