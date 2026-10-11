@@ -1250,8 +1250,8 @@ async function buildScene(canvas) {
   // Jacob outfits for every seat, plus Sheriff and Bandit as NPC-only draws.
   // A fresh cast every time the table is built.
   const jacobModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const sheriffModel = loadGlb(loader, 'models/characters/western/Sheriff.glb?v=1');
-  const banditModel = loadGlb(loader, 'models/characters/western/Bandit.glb?v=1');
+  const sheriffModel = loadGlb(loader, 'models/characters/western/Sheriff.glb?v=2');
+  const banditModel = loadGlb(loader, 'models/characters/western/Bandit.glb?v=2');
   const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=9');
   // Every Jacob look wears a hat so the seat's accent colour always has
   // somewhere to live; hatless presets borrow a hat (and the matching short
@@ -1260,12 +1260,14 @@ async function buildScene(canvas) {
   const withHat = (look, i) => (look.hat ? look : { ...look, hat: 1 + (i % 2), hair: 'cut' });
   const jacobPool = shuffle(WESTERN_LOOKS.map((look, i) => ({ kind: 'jacob', look: withHat(look, i) })));
   const playerPick = jacobPool[0];
-  // NPCs draw from the remaining Jacob outfits plus Sheriff and Bandit.
+  // Every table seats Sheriff and Bandit among the five NPCs (random chairs),
+  // with the other three NPC chairs filled from remaining Jacob outfits.
+  const npcJacob = jacobPool.slice(1, 1 + (SEATS - 1 - 2));
   const npcPool = shuffle([
-    ...jacobPool.slice(1),
+    ...npcJacob,
     { kind: 'sheriff', look: null },
     { kind: 'bandit', look: null },
-  ]).slice(0, SEATS - 1);
+  ]);
   const lineup = [playerPick, ...npcPool];
 
   // Position a seated character at seat i: face the table and plant the

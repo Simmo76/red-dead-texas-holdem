@@ -103,21 +103,19 @@ def clear_scene() -> None:
     bpy.ops.wm.read_factory_settings(use_empty=True)
 
 
-def resize_image(src: Path, dest: Path, max_edge: int, force_rgba: bool = False) -> Path:
+def resize_image(src: Path, dest: Path, max_edge: int, keep_alpha: bool = False) -> Path:
     from PIL import Image
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     img = Image.open(src)
-    if force_rgba:
-        img = img.convert("RGBA")
-    else:
-        img = img.convert("RGBA" if "A" in img.getbands() else "RGB")
     w, h = img.size
     scale = min(1.0, max_edge / float(max(w, h)))
     if scale < 1.0:
         img = img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.Resampling.LANCZOS)
-    # Prefer JPEG for opaque RGB; PNG for alpha.
-    if img.mode == "RGBA" and any(a < 250 for a in img.getchannel("A").getdata()):
+    # Cloth albedos must stay opaque JPEG — Unity source PNGs often carry a
+    # noisy alpha that turns into glTF MASK and punches the mesh into a ghost.
+    if keep_alpha:
+        img = img.convert("RGBA")
         dest = dest.with_suffix(".png")
         img.save(dest, optimize=True)
     else:
@@ -135,13 +133,16 @@ def prepare_textures(spec: dict) -> dict[str, Path]:
         if not src.exists():
             die(f"missing albedo {src}")
         edge = HEAD_TEX if "head" in mesh.lower() or mesh in ("Sheriff_Head", "Michael_head") else MAX_TEX
-        prepared[mesh] = resize_image(src, TEX_CACHE / f"{CHAR}_{mesh}_alb", edge)
+        # Hair diffuse TGAs may carry real alpha; cloth/skin stay opaque JPEG.
+        keep_alpha = "Hair" in mesh and mesh != "Hair_cap"
+        prepared[mesh] = resize_image(src, TEX_CACHE / f"{CHAR}_{mesh}_alb", edge, keep_alpha=keep_alpha)
     for mesh, (rel, _) in spec.get("alpha", {}).items():
         src = tex_root / rel
         if not src.exists():
             print("WARN: missing alpha", src)
             continue
-        prepared[f"{mesh}__alpha"] = resize_image(src, TEX_CACHE / f"{CHAR}_{mesh}_a", MAX_TEX, force_rgba=True)
+        prepared[f"{mesh}__alpha"] = resize_image(
+            src, TEX_CACHE / f"{CHAR}_{mesh}_a", MAX_TEX, keep_alpha=True)
     return prepared
 
 
@@ -152,7 +153,7 @@ def load_image(path: Path) -> bpy.types.Image:
 
 
 def make_principled(name: str, color_img: bpy.types.Image | None, alpha_img: bpy.types.Image | None,
-                    base_color=(1, 1, 1, 1), mask: bool = False) -> bpy.types.Material:
+                    base_color=(1, 1, 1, 1), use_mask: bool = False) -> bpy.types.Material:
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
@@ -167,25 +168,22 @@ def make_principled(name: str, color_img: bpy.types.Image | None, alpha_img: bpy
         tex = nt.nodes.new("ShaderNodeTexImage")
         tex.image = color_img
         nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
-        if alpha_img is None and color_img.channels == 4:
+        if use_mask and alpha_img is None and color_img.channels == 4:
             nt.links.new(tex.outputs["Alpha"], bsdf.inputs["Alpha"])
-            mat.blend_method = "CLIP"
-            mat.alpha_threshold = 0.35
-            mat.use_backface_culling = False
-    if alpha_img:
+    if use_mask and alpha_img:
         atex = nt.nodes.new("ShaderNodeTexImage")
         atex.image = alpha_img
         # Greyscale alpha maps: use Color.R as alpha.
         sep = nt.nodes.new("ShaderNodeSeparateColor")
         nt.links.new(atex.outputs["Color"], sep.inputs["Color"])
         nt.links.new(sep.outputs["Red"], bsdf.inputs["Alpha"])
+    if use_mask:
         mat.blend_method = "CLIP"
         mat.alpha_threshold = 0.35
         mat.use_backface_culling = False
-    if mask and not alpha_img and not color_img:
-        mat.blend_method = "CLIP"
-        mat.alpha_threshold = 0.35
-    mat.use_backface_culling = False
+    else:
+        mat.blend_method = "OPAQUE"
+        mat.use_backface_culling = False
     return mat
 
 
@@ -240,13 +238,14 @@ def assign_materials(spec: dict, prepared: dict[str, Path]) -> None:
         color_img = load_image(color_path) if color_path else None
         alpha_img = load_image(alpha_path) if alpha_path else None
         base = hair_color if "Hair" in orig else (1, 1, 1, 1)
-        mat = make_principled(o.name, color_img, alpha_img, base_color=base)
+        # Only hair cards use alpha MASK (matches Jacob.glb). Cloth/skin opaque.
+        use_mask = "Hair" in orig
+        mat = make_principled(o.name, color_img, alpha_img, base_color=base, use_mask=use_mask)
         o.data.materials.clear()
         o.data.materials.append(mat)
         # Head: keep only the primary skin slot material on every slot so we
         # don't ship unused tongue/eye shells with missing maps as pink.
         if o.name.startswith("Head__"):
-            # Drop tiny non-skin child materials by collapsing to one albedo.
             for i in range(len(o.material_slots)):
                 o.material_slots[i].material = mat
 
