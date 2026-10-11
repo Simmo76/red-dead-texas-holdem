@@ -1118,18 +1118,24 @@ async function buildScene(canvas) {
     // reads magenta, still under the table lantern. They live in the env
     // group and switch off with the saloon backdrop.
     const lampSpecs = [
-      [0xff40c8, 14, 14, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],  // bar face
-      [0xff48d0, 8, 11, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // left booths
-      [0xff48d0, 8, 11, [6.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],   // right booths
-      [0xe858e8, 8, 12, [0.0, 3.4, 3.5 + SALOON_BAR_NUDGE_Z]],   // behind player
-      [0xd040d8, 5.5, 10, [-7.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]], // far left corner
-      [0xd040d8, 5.5, 10, [8.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]]  // far right corner
+      [0xff40c8, 18, 16, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],  // bar face
+      [0xff48d0, 10, 12, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]], // left booths
+      [0xff48d0, 10, 12, [6.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // right booths
+      [0xe858e8, 9, 12, [0.0, 3.4, 3.5 + SALOON_BAR_NUDGE_Z]],   // behind player
+      [0xd040d8, 6.5, 10, [-7.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]], // far left corner
+      [0xd040d8, 6.5, 10, [8.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]]  // far right corner
     ];
     for (const [color, intensity, dist, pos] of lampSpecs) {
       const lamp = new THREE.PointLight(color, intensity, dist, 1.8);
       lamp.position.set(pos[0], pos[1], pos[2]);
       env.add(lamp);
     }
+    // Extra low magenta wash aimed at the bar wood so it doesn't stay brown
+    // under the warm table lantern spill.
+    const barWash = new THREE.SpotLight(0xff50d0, 22, 14, Math.PI / 3.2, 0.55, 1.4);
+    barWash.position.set(0, 4.2, -4.2 + SALOON_BAR_NUDGE_Z);
+    barWash.target.position.set(0, 1.2, -6.8 + SALOON_BAR_NUDGE_Z);
+    env.add(barWash, barWash.target);
     scene.add(env);
     state.envGroups[0] = env;
     env.visible = state.envIndex === 0;
@@ -1246,8 +1252,10 @@ async function buildScene(canvas) {
   // Skinned Boot meshes report bind-pose AABBs, so plant from foot/ball bones.
   // soleTargetY is the saloon board top (raycast), not world y=0 — tile tops
   // sit a few centimetres above the mesh's lowest vertex.
-  const FOOT_SOLE_DROP = 0.12; // joint → sole under a cowboy boot
-  const SOLE_CLEARANCE = 0.02; // keep leather just kissing the boards
+  // Jacob's cowboy boots hang well below the ball/foot joints; 12 cm still
+  // left half a boot in the boards, so keep a deeper sole drop.
+  const FOOT_SOLE_DROP = 0.22; // joint → sole under a cowboy boot
+  const SOLE_CLEARANCE = 0.03; // keep leather just kissing the boards
   const placeSeatedCharacter = (character, i, facing, soleTargetY = 0) => {
     character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
     scene.add(character.root);
@@ -1377,12 +1385,15 @@ async function buildScene(canvas) {
     return deal;
   });
 
-  // Raycast the saloon boards under the table pocket — tile tops are above
-  // the backdrop's y=0 skirt, which is why a world-zero plant still sank boots.
+  // Raycast the saloon boards under the table pocket — tile tops can sit
+  // above the backdrop's y=0 skirt. Fall back to the env AABB min when the
+  // meshopt scene doesn't produce ray hits.
   const probeSaloonFloorY = () => {
     const env = state.saloonEnv;
     if (!env) return 0;
+    env.updateMatrixWorld(true);
     const raycaster = new THREE.Raycaster();
+    raycaster.far = 20;
     const origin = new THREE.Vector3(0, 4, 0);
     const down = new THREE.Vector3(0, -1, 0);
     let floorY = 0;
@@ -1399,7 +1410,9 @@ async function buildScene(canvas) {
       floorY += hit.point.y;
       hits++;
     }
-    return hits ? floorY / hits : 0;
+    if (hits) return floorY / hits;
+    const box = new THREE.Box3().setFromObject(env);
+    return Number.isFinite(box.min.y) ? box.min.y : 0;
   };
 
   for (let i = 0; i < SEATS; i++) {
@@ -2844,7 +2857,7 @@ window.pokerScene = {
         floorY: Number(floorY.toFixed(3)),
         rootY: Number(c.root.position.y.toFixed(3)),
         minJointY: Number(minJoint.toFixed(3)),
-        soleEstY: Number((minJoint - 0.12).toFixed(3)),
+        soleEstY: Number((minJoint - 0.22).toFixed(3)),
         chairY: seat.chair ? Number(seat.chair.position.y.toFixed(3)) : null,
       };
     });
