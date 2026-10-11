@@ -2123,10 +2123,12 @@ function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
 function faceHeldCardsTowardCamera(cards) {
   if (!state.camera || !cards.length) return;
   state.camera.updateMatrixWorld(true);
-  // Reuse _holdPos as the camera forward for a shallow depth stagger.
-  state.camera.getWorldDirection(_holdPos);
+  const camFwd = _holdPos;
+  state.camera.getWorldDirection(camFwd);
   _camRight.setFromMatrixColumn(state.camera.matrixWorld, 0).normalize();
   _camUp.setFromMatrixColumn(state.camera.matrixWorld, 1).normalize();
+  // Keep a dedicated forward copy — camFwd/_holdPos is also a syncCardHold temp.
+  const fwdX = camFwd.x, fwdY = camFwd.y, fwdZ = camFwd.z;
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
     const parent = card.parent;
@@ -2134,23 +2136,26 @@ function faceHeldCardsTowardCamera(cards) {
     const dir = i === 0 ? -1 : 1;
     parent.updateWorldMatrix(true, false);
     parent.getWorldPosition(_cardWorld);
-    // Screen-space fan from the palm centre: left/right across the view,
-    // slight vertical split, tiny depth so faces don't z-fight.
-    _fanLocal.copy(_cardWorld)
-      .addScaledVector(_camRight, dir * 0.075)
-      .addScaledVector(_camUp, 0.012 + dir * 0.018)
-      .addScaledVector(_holdPos, -0.01 * (i + 1));
+    // Aggressive screen fan: ~11cm centre split so both index corners read
+    // from the OTS seat (card width is ~14.5cm).
+    _fanLocal.set(
+      _cardWorld.x + _camRight.x * dir * 0.11 + _camUp.x * (0.01 + dir * 0.025) + fwdX * (-0.012 * (i + 1)),
+      _cardWorld.y + _camRight.y * dir * 0.11 + _camUp.y * (0.01 + dir * 0.025) + fwdY * (-0.012 * (i + 1)),
+      _cardWorld.z + _camRight.z * dir * 0.11 + _camUp.z * (0.01 + dir * 0.025) + fwdZ * (-0.012 * (i + 1)),
+    );
     parent.worldToLocal(_fanLocal);
     card.position.copy(_fanLocal);
 
     parent.getWorldQuaternion(_parentQuat);
-    card.getWorldPosition(_cardWorld);
+    // Face the camera from the new centre, then twist into a readable fan.
+    _cardWorld.set(0, 0, 0);
+    card.localToWorld(_cardWorld);
     _holdMat.lookAt(_cardWorld, state.camera.position, _faceUp);
     _faceQuat.setFromRotationMatrix(_holdMat);
     _faceQuat.multiply(_holdQuat.setFromAxisAngle(_faceUp, Math.PI));
-    _holdQuat.copy(_parentQuat).slerp(_faceQuat, 0.78);
+    _holdQuat.copy(_parentQuat).slerp(_faceQuat, 0.85);
     card.quaternion.copy(_parentQuat.invert().multiply(_holdQuat));
-    card.rotateZ(dir * 0.45);
+    card.rotateZ(dir * 0.55);
   }
 }
 
@@ -2615,6 +2620,22 @@ window.pokerScene = {
         hasFoldedClip: !!foldedClip,
         foldedDur: foldedClip ? Number(foldedClip.duration.toFixed(2)) : 0,
         reacting: !!c.reacting,
+      };
+    });
+  },
+
+  // Local/world pose of the player's held hole cards (fan tuning).
+  holeDebug() {
+    const tmp = new THREE.Vector3();
+    return (state.holeCards || []).map((card, i) => {
+      card.updateWorldMatrix(true, false);
+      card.getWorldPosition(tmp);
+      return {
+        i,
+        parent: card.parent && card.parent.name,
+        local: [+card.position.x.toFixed(3), +card.position.y.toFixed(3), +card.position.z.toFixed(3)],
+        world: [+tmp.x.toFixed(3), +tmp.y.toFixed(3), +tmp.z.toFixed(3)],
+        rotZ: +card.rotation.z.toFixed(3),
       };
     });
   },
