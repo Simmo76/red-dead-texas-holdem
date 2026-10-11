@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using CinematicPoker.Engine.Poker;
 using CinematicPoker.Game.Presentation;
+using CinematicPoker.Game.Save;
 using UnityEngine;
 
 namespace CinematicPoker.Game.Mobile
@@ -22,6 +23,26 @@ namespace CinematicPoker.Game.Mobile
         private PokerTableController _controller;
         private int _lastCapturedHand = -1;
         private bool _captureQueued;
+        private bool _captureEnabled = true;
+
+        /// <summary>
+        /// Player preference (the "Win photos" toggle in the HUD): master
+        /// switch over both capture triggers, persisted in the save file.
+        /// </summary>
+        public bool CaptureEnabled
+        {
+            get => _captureEnabled;
+            set
+            {
+                if (_captureEnabled == value) return;
+                _captureEnabled = value;
+                SaveData data = SaveSystem.Load();
+                data.saveWinPhotos = value;
+                SaveSystem.Save(data);
+            }
+        }
+
+        private void Awake() => _captureEnabled = SaveSystem.Load().saveWinPhotos;
 
         private void Start()
         {
@@ -84,7 +105,7 @@ namespace CinematicPoker.Game.Mobile
         {
             // A table win fires PotAwarded and SessionFinished in the same
             // frame; one screenshot covers both.
-            if (_captureQueued || !isActiveAndEnabled) return;
+            if (!_captureEnabled || _captureQueued || !isActiveAndEnabled) return;
             _captureQueued = true;
             StartCoroutine(CaptureAtEndOfFrame(label));
         }

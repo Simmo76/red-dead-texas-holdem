@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CinematicPoker.Engine.Poker;
+using CinematicPoker.Game.Mobile;
 using CinematicPoker.Game.Presentation;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -15,7 +16,8 @@ namespace CinematicPoker.Game.Prototype
     /// (no prefabs or serialized scene references). Contextual Fold / Check /
     /// Call / Bet / Raise / All-In buttons straight from the engine's
     /// LegalActions, a raise slider with 1/2 Pot / Pot / All-In shortcuts,
-    /// an action log, Quick/Cinematic toggle, and a new-session button.
+    /// an action log, Quick/Cinematic toggle, a win-photos preference toggle
+    /// and a new-session button.
     /// </summary>
     public sealed class PrototypeHUD : MonoBehaviour
     {
@@ -27,6 +29,8 @@ namespace CinematicPoker.Game.Prototype
         private Text _statusText;
         private Text _logText;
         private Text _modeButtonLabel;
+        private Text _winPhotosLabel;
+        private WinPhotoCapture _winPhotos;
         private GameObject _actionBar;
         private GameObject _sessionOverPanel;
         private Text _sessionOverText;
@@ -45,6 +49,7 @@ namespace CinematicPoker.Game.Prototype
         {
             _scene = scene;
             _controller = controller;
+            _winPhotos = controller.GetComponent<WinPhotoCapture>();
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             EnsureEventSystem();
@@ -275,10 +280,15 @@ namespace CinematicPoker.Game.Prototype
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(1f, 1f);
             rt.anchoredPosition = new Vector2(-20f, -15f);
-            rt.sizeDelta = new Vector2(360f, 46f);
+            rt.sizeDelta = new Vector2(620f, 46f);
 
             CreateButton(rt, "MODE: CINEMATIC", ref x, 240f, 8f, new Color(0.25f, 0.25f, 0.3f),
                 ToggleMode, out _modeButtonLabel, 46f);
+            if (_winPhotos != null)
+            {
+                CreateButton(rt, WinPhotosLabelText(), ref x, 230f, 8f, new Color(0.25f, 0.25f, 0.3f),
+                    ToggleWinPhotos, out _winPhotosLabel, 46f);
+            }
             CreateButton(rt, "RESTART", ref x, 110f, 8f, new Color(0.35f, 0.25f, 0.25f),
                 () => _scene.StartNewSession(), out _, 46f);
         }
@@ -306,6 +316,15 @@ namespace CinematicPoker.Game.Prototype
             _controller.Mode = _controller.Mode == PlayMode.Quick ? PlayMode.Cinematic : PlayMode.Quick;
             _modeButtonLabel.text = _controller.Mode == PlayMode.Quick ? "MODE: QUICK" : "MODE: CINEMATIC";
         }
+
+        private void ToggleWinPhotos()
+        {
+            _winPhotos.CaptureEnabled = !_winPhotos.CaptureEnabled;
+            _winPhotosLabel.text = WinPhotosLabelText();
+        }
+
+        private string WinPhotosLabelText() =>
+            _winPhotos.CaptureEnabled ? "WIN PHOTOS: ON" : "WIN PHOTOS: OFF";
 
         // ------------------------------------------------------- uGUI helpers
 
