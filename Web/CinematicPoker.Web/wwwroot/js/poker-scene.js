@@ -2023,10 +2023,11 @@ function ensureCardHold(character) {
   character.headBone = head;
   const hold = new THREE.Group();
   hold.name = 'CardHold';
-  // Parent to the character root and re-seat in the palms every frame so the
-  // pair stays between both hands as HoldCards moves the wrists (a fixed
-  // left-hand local offset drifted outside the grip on several takes).
-  character.root.add(hold);
+  // Parent to hand_l so the helper rides the wrist; syncCardHold then
+  // rewrites its local pose each frame to the mid-palm point between both
+  // hands (a fixed left-only offset drifted outside the grip on several takes).
+  if (handL) handL.add(hold);
+  else character.root.add(hold);
   character.cardHold = hold;
   syncCardHold(character);
   return hold;
@@ -2037,37 +2038,39 @@ function ensureCardHold(character) {
 const _palmL = new THREE.Vector3();
 const _palmR = new THREE.Vector3();
 const _headPos = new THREE.Vector3();
-const _holdScale = new THREE.Vector3(1, 1, 1);
+const _headFallback = new THREE.Vector3(0, 0.35, 0);
 function syncCardHold(character) {
   const hold = character && character.cardHold;
-  if (!hold || !character.handL) return;
+  const parent = hold && hold.parent;
+  if (!hold || !character.handL || !parent) return;
   character.handL.getWorldPosition(_palmL);
   if (character.midL) {
     character.midL.getWorldPosition(_holdPos);
-    _palmL.lerp(_holdPos, 0.4);
+    _palmL.lerp(_holdPos, 0.45);
   }
   if (character.handR) {
     character.handR.getWorldPosition(_palmR);
     if (character.midR) {
       character.midR.getWorldPosition(_holdPos);
-      _palmR.lerp(_holdPos, 0.4);
+      _palmR.lerp(_holdPos, 0.45);
     }
-    _palmL.lerp(_palmR, 0.5);
+    // Bias slightly toward the left palm (typical cradle) while still
+    // tracking the right hand's support.
+    _palmL.lerp(_palmR, 0.4);
   }
   if (character.headBone) character.headBone.getWorldPosition(_headPos);
-  else _headPos.copy(_palmL).add(new THREE.Vector3(0, 0.35, 0));
-  // Nudge slightly toward the head so cards sit in the grip, not under the
-  // palms / into the felt.
-  _palmL.lerp(_headPos, 0.08);
+  else _headPos.copy(_palmL).add(_headFallback);
+  // Small nudge toward the eyes so the pair clears the palm skin.
+  _palmL.lerp(_headPos, 0.05);
   _holdMat.lookAt(_palmL, _headPos, _faceUp);
   _faceQuat.setFromRotationMatrix(_holdMat);
   // lookAt aims -Z at the head; PlaneGeometry faces +Z — flip so the card
   // face (or back) looks toward the eyes.
   _faceQuat.multiply(_holdQuat.setFromAxisAngle(_faceUp, Math.PI));
-  hold.parent.updateWorldMatrix(true, false);
-  hold.parent.worldToLocal(_palmL);
+  parent.updateWorldMatrix(true, false);
+  parent.worldToLocal(_palmL);
   hold.position.copy(_palmL);
-  hold.parent.getWorldQuaternion(_parentQuat);
+  parent.getWorldQuaternion(_parentQuat);
   hold.quaternion.copy(_parentQuat.invert().multiply(_faceQuat));
 }
 
@@ -2088,18 +2091,22 @@ function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
 
 // Player pair: keep faces readable from the over-the-shoulder camera while
 // the cards still ride the animated palm (local position stays parented).
+// Blend the palm-facing hold with a camera aim so the pair stays in the grip
+// instead of full-billboarding out in front of the chest.
 function faceHeldCardsTowardCamera(cards) {
   if (!state.camera || !cards.length) return;
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
     if (!card.parent) continue;
     card.getWorldPosition(_cardWorld);
+    // Start from the helper's palm-facing orientation, then ease toward the
+    // camera so ranks stay readable from the seat without leaving the hands.
+    card.parent.getWorldQuaternion(_parentQuat);
     _holdMat.lookAt(_cardWorld, state.camera.position, _faceUp);
     _faceQuat.setFromRotationMatrix(_holdMat);
-    // lookAt aims -Z at the target; PlaneGeometry faces +Z, so flip.
     _faceQuat.multiply(_holdQuat.setFromAxisAngle(_faceUp, Math.PI));
-    card.parent.getWorldQuaternion(_parentQuat);
-    card.quaternion.copy(_parentQuat.invert().multiply(_faceQuat));
+    _holdQuat.copy(_parentQuat).slerp(_faceQuat, 0.72);
+    card.quaternion.copy(_parentQuat.invert().multiply(_holdQuat));
     const dir = i === 0 ? -1 : 1;
     card.rotateZ(dir * 0.13);
   }
