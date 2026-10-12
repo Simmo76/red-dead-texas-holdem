@@ -822,6 +822,23 @@
                     await Task.Delay(250);
                 }
             }
+            if (_sceneReady)
+            {
+                // Ultra-lite graphics boots open on the SHED backdrop, not the
+                // SALOON the label defaults to — sync the label and music bed
+                // with what the scene actually chose.
+                try
+                {
+                    string backdrop = await JS.InvokeAsync<string>("pokerScene.backdropName");
+                    if (backdrop != _backdropName)
+                    {
+                        _backdropName = backdrop;
+                        await JS.InvokeVoidAsync("pokerAudio.setScene", _backdropName);
+                        StateHasChanged();
+                    }
+                }
+                catch (JSException) { }
+            }
         }
         if (_sceneReady) await PushSceneState();
         // One-shot: fly to the winner's cards after the snapshot has put them
