@@ -4,12 +4,20 @@ Keeps the native FBX skin (no Jacob rebind — that exploded neck/hair verts
 under mood clips). Authors a clean Sit hold at Jacob's seated bone heights,
 unit-scales to metres, and exports opaque cloth + hair-cap alpha.
 
-Runtime uses Sit (not mighty-cat mood) for these NPCs; placeSeatedCharacter
-+ WESTERN_SCALE enforce table biped placement.
+IMPORTANT: this bake leaves the skeleton on Blender's FBX bone frames, which
+do NOT match Jacob's GLB bone axes (the authored Sit reads as a scarecrow
+and Jacob/mighty-cat clips shear the rig). After baking, always run
+
+  node tools/retarget_western_biped.mjs
+
+which re-frames the exported skeleton onto Jacob's bone axes and replaces
+the authored clips with Jacob's real body clips, so the shared mighty-cat
+mood catalogue drives these NPCs at runtime like any Jacob outfit.
 
 Usage:
   CHAR=sheriff blender --background --python tools/bake_western_npc.py
   CHAR=bandit  blender --background --python tools/bake_western_npc.py
+  node tools/retarget_western_biped.mjs
 """
 from __future__ import annotations
 
