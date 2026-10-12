@@ -35,19 +35,46 @@ import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
 //   tier 1  no antialiasing, no shadows, reduced render resolution
 //   tier 2  tier 1 + no saloon backdrop GLB (procedural shed set instead)
 //           + all-Jacob cast (skips the Sheriff/Bandit models entirely)
+//
+// The penalty is not forever: after enough consecutive clean visits at a
+// reduced tier the next boot tries one tier higher again. A device that was
+// penalised by a one-off (OS reboot, power loss, a crash in a different tab
+// of the same process) climbs back to full quality; a device that genuinely
+// can't afford it crashes the probe and drops straight back down, and each
+// failed probe doubles the clean visits required before the next attempt.
 const GFX_TIER_KEY = 'cinematic-poker-gfx-tier';
 const GFX_BOOT_KEY = 'cinematic-poker-boot-pending';
+const GFX_CLEAN_KEY = 'cinematic-poker-gfx-clean-streak';
+const GFX_PROBE_KEY = 'cinematic-poker-gfx-probe-visits';
 const GFX_MAX_TIER = 2;
+const GFX_PROBE_BASE = 3;  // clean visits before the first retry of a higher tier
+const GFX_PROBE_MAX = 24;  // cap, so even repeat offenders get a rare retry
+
+function readStoredInt(key, fallback) {
+  try {
+    const v = parseInt(localStorage.getItem(key), 10);
+    return Number.isFinite(v) ? v : fallback;
+  } catch (e) { return fallback; }
+}
+
+function writeStoredInt(key, value) {
+  try { localStorage.setItem(key, String(value)); } catch (e) { }
+}
 
 function readGfxTier() {
-  try {
-    const t = parseInt(localStorage.getItem(GFX_TIER_KEY), 10);
-    return Number.isFinite(t) ? Math.max(0, Math.min(GFX_MAX_TIER, t)) : 0;
-  } catch (e) { return 0; }
+  return Math.max(0, Math.min(GFX_MAX_TIER, readStoredInt(GFX_TIER_KEY, 0)));
 }
 
 function writeGfxTier(tier) {
-  try { localStorage.setItem(GFX_TIER_KEY, String(tier)); } catch (e) { }
+  writeStoredInt(GFX_TIER_KEY, tier);
+}
+
+// A crash (detected boot flag, or a scene build that threw) resets the clean
+// streak and doubles the clean visits required before the next probe up.
+function noteGfxCrash() {
+  writeStoredInt(GFX_CLEAN_KEY, 0);
+  writeStoredInt(GFX_PROBE_KEY, Math.min(GFX_PROBE_MAX,
+    Math.max(GFX_PROBE_BASE, readStoredInt(GFX_PROBE_KEY, GFX_PROBE_BASE) * 2)));
 }
 
 function setBootFlag(on) {
@@ -57,14 +84,64 @@ function setBootFlag(on) {
   } catch (e) { }
 }
 
+// The boot flag lives in localStorage, which every tab of the site shares —
+// so "flag still set at load" can also mean "the game is already open in
+// another tab", not "the last visit crashed". Every live instance answers a
+// probe on this channel; when a freshly-penalised boot hears an answer, it
+// rolls the penalty back for the next visit (this boot stays on the safe
+// tier — the correction applies on the next load).
+let gfxSiblingAlive = null; // rollback callback, armed while a verdict is pending
+let gfxChannel = null;
+try {
+  gfxChannel = new BroadcastChannel('cinematic-poker-gfx');
+  gfxChannel.onmessage = (ev) => {
+    if (ev.data === 'gfx-probe') {
+      try { gfxChannel.postMessage('gfx-alive'); } catch (e) { }
+    } else if (ev.data === 'gfx-alive' && gfxSiblingAlive) {
+      gfxSiblingAlive();
+      gfxSiblingAlive = null;
+    }
+  };
+} catch (e) { }
+
 const GFX_TIER = (function () {
   let tier = readGfxTier();
   let diedLastTime = false;
   try { diedLastTime = localStorage.getItem(GFX_BOOT_KEY) === '1'; } catch (e) { }
-  if (diedLastTime && tier < GFX_MAX_TIER) {
-    tier += 1;
-    writeGfxTier(tier);
+  if (diedLastTime) {
+    // Penalise first (if this boot dies too, the penalty must stand), then
+    // ask other tabs whether the flag simply belongs to a live sibling.
+    const saved = {
+      tier,
+      clean: readStoredInt(GFX_CLEAN_KEY, 0),
+      probe: readStoredInt(GFX_PROBE_KEY, GFX_PROBE_BASE)
+    };
+    if (tier < GFX_MAX_TIER) {
+      tier += 1;
+      writeGfxTier(tier);
+    }
+    noteGfxCrash();
     console.warn(`poker-scene: previous visit ended abnormally — dropping to graphics tier ${tier}`);
+    if (gfxChannel) {
+      gfxSiblingAlive = () => {
+        writeGfxTier(saved.tier);
+        writeStoredInt(GFX_CLEAN_KEY, saved.clean);
+        writeStoredInt(GFX_PROBE_KEY, saved.probe);
+        console.warn('poker-scene: the boot flag belongs to another live tab — tier penalty rolled back for the next visit');
+      };
+      try { gfxChannel.postMessage('gfx-probe'); } catch (e) { }
+      setTimeout(() => { gfxSiblingAlive = null; }, 3000);
+    }
+  } else if (tier > 0) {
+    const clean = readStoredInt(GFX_CLEAN_KEY, 0) + 1;
+    if (clean >= readStoredInt(GFX_PROBE_KEY, GFX_PROBE_BASE)) {
+      tier -= 1;
+      writeGfxTier(tier);
+      writeStoredInt(GFX_CLEAN_KEY, 0);
+      console.warn(`poker-scene: ${clean} clean visits in a row — trying graphics tier ${tier} again`);
+    } else {
+      writeStoredInt(GFX_CLEAN_KEY, clean);
+    }
   }
   setBootFlag(true);
   return tier;
@@ -1222,62 +1299,76 @@ async function buildScene(canvas) {
   const SALOON_BAR_NUDGE_Z = 2.4; // metres toward the bar (player forward)
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
-  // Ultra-lite boots skip the 5 MB saloon GLB entirely and open on the
-  // procedural shed set instead (built from primitives, costs almost nothing).
-  const backdropPromise = GFX_ULTRA_LITE ? Promise.resolve() : loadGlb(loader, 'models/env/backdrop.glb?v=2').then((gltf) => {
-    if (!gltf) return;
-    const env = new THREE.Group();
-    const saloon = gltf.scene;
-    saloon.rotation.y = Math.PI; // bar across the table from the player seat
-    // After the 180° yaw, +Z on the saloon moves the bar toward the table.
-    saloon.position.z = SALOON_BAR_NUDGE_Z;
-    saloon.traverse((m) => {
-      if (!m.isMesh) return;
-      m.castShadow = false;
-      m.receiveShadow = false;
-      const mats = Array.isArray(m.material) ? m.material : [m.material];
-      for (const mat of mats) {
-        if (!mat) continue;
-        if (mat.map) {
-          mat.map.colorSpace = THREE.SRGBColorSpace;
-          mat.map.needsUpdate = true;
-        }
-        if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness ?? 0, 0.15);
-        if (mat.roughness !== undefined) mat.roughness = Math.max(mat.roughness ?? 0.8, 0.75);
-        // Glassware / bottles: keep a little translucency without sorting pain.
-        if (mat.transparent || (mat.opacity !== undefined && mat.opacity < 0.99)) {
-          mat.transparent = true;
-          mat.opacity = Math.min(mat.opacity ?? 0.55, 0.55);
-          mat.depthWrite = false;
-        }
-        // Dim baked emissives so neon/lamp glow on the set doesn't outshine
-        // the table lantern.
-        if (mat.emissiveIntensity !== undefined) {
-          mat.emissiveIntensity *= 0.55;
-        }
+  // Ultra-lite boots don't fetch the 5 MB saloon GLB up front (they open on
+  // the procedural shed set instead), but SALOON stays in the backdrop
+  // rotation: picking it loads the GLB on demand. A failed fetch no longer
+  // costs the bar for the whole session either — selecting SALOON retries,
+  // and a transient blip self-heals while the player is looking at the room.
+  let saloonLoad = null;
+  let saloonRetries = 0;
+  const loadSaloon = () => {
+    if (state.envGroups[0] || saloonLoad) return saloonLoad;
+    saloonLoad = loadGlb(loader, 'models/env/backdrop.glb?v=2').then((gltf) => {
+      if (!gltf) {
+        saloonLoad = null; // let a later selection retry
+        if (saloonRetries++ < 3 && state.envIndex === 0) setTimeout(loadSaloon, 5000);
+        return;
       }
+      const env = new THREE.Group();
+      const saloon = gltf.scene;
+      saloon.rotation.y = Math.PI; // bar across the table from the player seat
+      // After the 180° yaw, +Z on the saloon moves the bar toward the table.
+      saloon.position.z = SALOON_BAR_NUDGE_Z;
+      saloon.traverse((m) => {
+        if (!m.isMesh) return;
+        m.castShadow = false;
+        m.receiveShadow = false;
+        const mats = Array.isArray(m.material) ? m.material : [m.material];
+        for (const mat of mats) {
+          if (!mat) continue;
+          if (mat.map) {
+            mat.map.colorSpace = THREE.SRGBColorSpace;
+            mat.map.needsUpdate = true;
+          }
+          if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness ?? 0, 0.15);
+          if (mat.roughness !== undefined) mat.roughness = Math.max(mat.roughness ?? 0.8, 0.75);
+          // Glassware / bottles: keep a little translucency without sorting pain.
+          if (mat.transparent || (mat.opacity !== undefined && mat.opacity < 0.99)) {
+            mat.transparent = true;
+            mat.opacity = Math.min(mat.opacity ?? 0.55, 0.55);
+            mat.depthWrite = false;
+          }
+          // Dim baked emissives so neon/lamp glow on the set doesn't outshine
+          // the table lantern.
+          if (mat.emissiveIntensity !== undefined) {
+            mat.emissiveIntensity *= 0.55;
+          }
+        }
+      });
+      env.add(saloon);
+      // Soft purple/pink hanging-lamp pools — dimmer than the table lantern so
+      // the bar and booths read as background with the original rose wash.
+      // They live in the env group and switch off with the saloon backdrop.
+      const lampSpecs = [
+        [0xe8a8d0, 5, 10, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],   // bar face
+        [0xd090c8, 3.5, 9, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // left booths
+        [0xd090c8, 3.5, 9, [6.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],   // right booths
+        [0xc8a0d8, 4, 10, [0.0, 3.4, 3.5 + SALOON_BAR_NUDGE_Z]],    // behind player
+        [0xb878c8, 2.5, 8, [-7.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]],  // far left corner
+        [0xb878c8, 2.5, 8, [8.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]]    // far right corner
+      ];
+      for (const [color, intensity, dist, pos] of lampSpecs) {
+        const lamp = new THREE.PointLight(color, intensity, dist, 1.8);
+        lamp.position.set(pos[0], pos[1], pos[2]);
+        env.add(lamp);
+      }
+      scene.add(env);
+      state.envGroups[0] = env;
+      env.visible = state.envIndex === 0;
     });
-    env.add(saloon);
-    // Soft purple/pink hanging-lamp pools — dimmer than the table lantern so
-    // the bar and booths read as background with the original rose wash.
-    // They live in the env group and switch off with the saloon backdrop.
-    const lampSpecs = [
-      [0xe8a8d0, 5, 10, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],   // bar face
-      [0xd090c8, 3.5, 9, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // left booths
-      [0xd090c8, 3.5, 9, [6.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],   // right booths
-      [0xc8a0d8, 4, 10, [0.0, 3.4, 3.5 + SALOON_BAR_NUDGE_Z]],    // behind player
-      [0xb878c8, 2.5, 8, [-7.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]],  // far left corner
-      [0xb878c8, 2.5, 8, [8.0, 2.8, -7.0 + SALOON_BAR_NUDGE_Z]]    // far right corner
-    ];
-    for (const [color, intensity, dist, pos] of lampSpecs) {
-      const lamp = new THREE.PointLight(color, intensity, dist, 1.8);
-      lamp.position.set(pos[0], pos[1], pos[2]);
-      env.add(lamp);
-    }
-    scene.add(env);
-    state.envGroups[0] = env;
-    env.visible = state.envIndex === 0;
-  });
+    return saloonLoad;
+  };
+  const backdropPromise = GFX_ULTRA_LITE ? Promise.resolve() : loadSaloon();
 
   // Soft violet key through the windows (also the celestial key for the
   // other switchable backdrops) — held back so the room stays moody.
@@ -1299,12 +1390,14 @@ async function buildScene(canvas) {
     { name: 'CLUB', bg: 0x070310, fog: [10, 40], amb: [0x382848, 0.4], hemi: [0x582878, 0x080410, 0.35], dir: [0x8858c8, 0.25, [-14, 26, 10]], fill: [0x00e8ff, 6], back: [0xff28c8, 7], build: buildClub },
   ];
   state.envNames = ENVS.map(e => e.name);
-  // Without the saloon GLB, backdrop 0 would be an empty black room.
+  // Ultra-lite boots open on the cheap procedural shed rather than paying for
+  // the saloon GLB up front; picking SALOON later streams it in on demand.
   const defaultEnv = GFX_ULTRA_LITE ? 3 : 0; // SHED on ultra-lite boots
   state.defaultEnv = defaultEnv;
   state.setEnvironment = function (i) {
     const def = ENVS[i];
     state.envIndex = i;
+    if (i === 0 && !state.envGroups[0]) loadSaloon(); // fills in once fetched
     if (!state.envGroups[i] && def.build) {
       state.envGroups[i] = def.build();
       scene.add(state.envGroups[i]);
@@ -3007,6 +3100,15 @@ window.pokerScene = {
     return state.envNames[next];
   },
 
+  // The backdrop the table opens on (ultra-lite boots open on SHED, not the
+  // SALOON the HUD label defaults to). During the intro sweep this reports
+  // the backdrop the camera will settle into, not the one it is flying over.
+  backdropName() {
+    if (!state.ready || !state.envNames.length) return 'SALOON';
+    const i = (state.intro && state.intro.active) ? (state.defaultEnv || 0) : state.envIndex;
+    return state.envNames[i] || 'SALOON';
+  },
+
   async init(canvasId) {
     if (state.ready) return true;
     if (state.buildFailed) return false;
@@ -3021,6 +3123,7 @@ window.pokerScene = {
         console.error('poker-scene: scene build failed', err);
         // Remember a lighter tier for the next visit; this one plays 2D-only.
         writeGfxTier(Math.min(GFX_MAX_TIER, GFX_TIER + 1));
+        noteGfxCrash();
         state.buildFailed = true;
         return false;
       });
