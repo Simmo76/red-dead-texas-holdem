@@ -3127,6 +3127,15 @@ window.pokerScene = {
     return state.envNames[next];
   },
 
+  // Boot progress for the title card: the HUD holds its loading notice up
+  // until every scene resource (saloon backdrop included) is in memory, and
+  // gives up waiting only on a permanent build failure (HUD-only fallback).
+  status() {
+    if (state.ready) return 'ready';
+    if (state.buildFailed) return 'failed';
+    return 'loading';
+  },
+
   // The backdrop the table opens on (ultra-lite boots open on SHED, not the
   // SALOON the HUD label defaults to). During the intro sweep this reports
   // the backdrop the camera will settle into, not the one it is flying over.

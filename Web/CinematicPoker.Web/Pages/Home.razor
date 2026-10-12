@@ -31,6 +31,13 @@
                     <button class="act call big" disabled="@(!CanConfirmName)" @onclick="ConfirmName">SIT DOWN</button>
                 </div>
             }
+            else if (_sceneLoading)
+            {
+                @* Play was tapped but the scene (saloon backdrop included) is
+                   still downloading — say so instead of silently sitting on
+                   the splash or, worse, revealing a background-less table. *@
+                <div class="intro-loading" aria-live="polite">SETTING THE TABLE</div>
+            }
             else
             {
                 @* Title art + TAP TO PLAY live in the splash image; keep a
@@ -722,12 +729,41 @@
         return name.Length > 0 ? name : allowEmpty ? "" : "Player";
     }
 
+    private bool _sceneLoading;
+
     private async Task BeginPlay()
     {
         if (_introRequested) return;
         _introRequested = true; // the tap doubles as the audio-unlock gesture
-        // If the scene is still loading, keep the title card up until it's in.
-        for (int i = 0; i < 24 && !_sceneReady; i++) await Task.Delay(250);
+        // Hold the title card up — with a visible loading notice — until the
+        // whole scene (table, characters AND the saloon backdrop) is in
+        // memory. The old 6-second cap dropped slow connections onto a table
+        // whose background hadn't arrived yet. Stop waiting only if the scene
+        // reports it cannot build at all (the HUD-only table still plays),
+        // with a generous ceiling as a final safety net.
+        if (!_sceneReady)
+        {
+            _sceneLoading = true;
+            StateHasChanged();
+            for (int i = 0; i < 480 && !_sceneReady; i++)
+            {
+                try
+                {
+                    // Same shared build as OnAfterRenderAsync's retries;
+                    // driving it from here too covers boots where that loop
+                    // exhausted its attempts while the scene module itself
+                    // was still downloading.
+                    _sceneReady = await JS.InvokeAsync<bool>("pokerScene.init", "poker-canvas");
+                    if (!_sceneReady &&
+                        await JS.InvokeAsync<string>("pokerScene.status") == "failed")
+                        break;
+                }
+                catch (JSException) { /* scene module still downloading */ }
+                if (!_sceneReady) await Task.Delay(250);
+            }
+            _sceneLoading = false;
+            if (_sceneReady) await SyncBackdropLabel();
+        }
         // Reveal the table first, then let the title card fade out over it.
         _introFading = true;
         StateHasChanged();
@@ -822,23 +858,7 @@
                     await Task.Delay(250);
                 }
             }
-            if (_sceneReady)
-            {
-                // Ultra-lite graphics boots open on the SHED backdrop, not the
-                // SALOON the label defaults to — sync the label and music bed
-                // with what the scene actually chose.
-                try
-                {
-                    string backdrop = await JS.InvokeAsync<string>("pokerScene.backdropName");
-                    if (backdrop != _backdropName)
-                    {
-                        _backdropName = backdrop;
-                        await JS.InvokeVoidAsync("pokerAudio.setScene", _backdropName);
-                        StateHasChanged();
-                    }
-                }
-                catch (JSException) { }
-            }
+            if (_sceneReady) await SyncBackdropLabel();
         }
         if (_sceneReady) await PushSceneState();
         // One-shot: fly to the winner's cards after the snapshot has put them
@@ -2020,6 +2040,24 @@
     // -------------------------------------------------------------- backdrop
 
     private string _backdropName = "SALOON";
+
+    // Ultra-lite graphics boots open on the SHED backdrop, not the SALOON the
+    // label defaults to — sync the label and music bed with what the scene
+    // actually chose.
+    private async Task SyncBackdropLabel()
+    {
+        try
+        {
+            string backdrop = await JS.InvokeAsync<string>("pokerScene.backdropName");
+            if (backdrop != _backdropName)
+            {
+                _backdropName = backdrop;
+                await JS.InvokeVoidAsync("pokerAudio.setScene", _backdropName);
+                StateHasChanged();
+            }
+        }
+        catch (JSException) { }
+    }
 
     private async Task CycleBackdrop()
     {
