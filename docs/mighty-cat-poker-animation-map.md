@@ -11,7 +11,7 @@ Jacob keeps his own `Check` / `Bet` / `Fold` / `FoldShake` clips. The **player**
 | Player idle | random `IdleHoldCards01–03` (`AS_Idle_HoldCards_01–03_ContinuousLoop`) while in the hand |
 | NPC idle | random `IdleSit01–06` / `IdleTableObserveLeft01` / `IdleTableObserveRight01` / `IdleTableObserveLeftRight01` / `IdleTableProtectCards01` |
 | Folded hold | `IdleSitArmsFolded01` (`AS_Idle_Sit_ArmsFolded_01`) for the rest of the hand |
-| Check / bet / call / raise / all-in | Jacob `Check` / `Bet` |
+| Check / bet / call / raise / all-in | NPCs: Jacob `Check` / `Bet`. Player: none — he stays in his HoldCards idle (chip toss still flies) |
 | Fold | Jacob `Fold` / `FoldShake` (player), then the arms-folded hold |
 | Win | random `Win01–03` (Player01 Win 01–03) |
 | Lose | random `Lose01–04` (Player01 Lose 01–02, Player02 Lose 01–02) |
