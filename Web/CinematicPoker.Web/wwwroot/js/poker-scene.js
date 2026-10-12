@@ -519,12 +519,28 @@ const _outlineUniforms = {
   uOutlinePx: { value: OUTLINE_PX_MIN },
   uOutlineViewH: { value: 720 }, // canvas CSS height, refreshed on resize
 };
+
+// The player's hole cards render depthTest:false on top of the whole frame,
+// so the hull can't be depth-tested against them — and the hull is drawn in
+// the transparent pass, *after* the opaque-queue cards, so without help the
+// glow blends right over the pair in his hands. The cards stamp this value
+// into the stencil buffer wherever they draw (updateHole) and the hull is
+// stencil-rejected on those pixels, so the outline stops at the card edges.
+const HELD_CARD_STENCIL_REF = 1;
+
 let _outlineMat = null;
 function outlineMaterial() {
   if (_outlineMat) return _outlineMat;
   _outlineMat = new THREE.MeshBasicMaterial({
     color: 0xffc14d, side: THREE.BackSide, toneMapped: false,
     transparent: true, opacity: OUTLINE_OPACITY_MAX, depthWrite: false,
+    // Discard hull pixels the held hole cards have claimed (stencilWrite is
+    // what enables the stencil *test* in three.js; all ops stay Keep and the
+    // write mask is 0, so the hull itself never alters the buffer).
+    stencilWrite: true,
+    stencilWriteMask: 0,
+    stencilFunc: THREE.NotEqualStencilFunc,
+    stencilRef: HELD_CARD_STENCIL_REF,
   });
   _outlineMat.onBeforeCompile = (shader) => {
     shader.uniforms.uOutlinePx = _outlineUniforms.uOutlinePx;
@@ -1080,7 +1096,11 @@ async function buildScene(canvas) {
   // "page hung and was reloaded" WebGL kills.
   // Lite tiers also skip MSAA: a multisampled backbuffer is the single
   // biggest fixed GPU allocation the app makes.
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !GFX_LITE });
+  // stencil: the player's held hole cards stamp a stencil mask so the gold
+  // actor outline can never draw over them (see outlineMaterial / updateHole).
+  // Cost is nil: GPUs back depth24 with a packed depth24/stencil8 surface,
+  // so requesting the stencil bits allocates no extra memory.
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !GFX_LITE, stencil: true });
   renderer.setPixelRatio(cappedPixelRatio(canvas));
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -2383,6 +2403,13 @@ function updateHole(paths) {
     card.material.depthTest = false;
     card.material.depthWrite = false;
     card.renderOrder = 20 + i;
+    // Stamp the stencil mask the actor-outline hull tests against: the hull
+    // renders in the later transparent pass with no usable depth to reject
+    // it, so without this mask the gold glow blends over the pair in hand.
+    card.material.stencilWrite = true;
+    card.material.stencilRef = HELD_CARD_STENCIL_REF;
+    card.material.stencilFunc = THREE.AlwaysStencilFunc;
+    card.material.stencilZPass = THREE.ReplaceStencilOp;
     state.holeCards.push(card);
   }
   layoutHoleCards();
