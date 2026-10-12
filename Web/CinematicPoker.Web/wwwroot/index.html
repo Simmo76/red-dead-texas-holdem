@@ -50,11 +50,34 @@
         }
     }
     </script>
+    <script>
+        // The 3D table loads through the import map above, which iOS Safari
+        // only understands from 16.4 (and other browsers of the same era).
+        // Older devices would get a working HUD over a silent black void —
+        // reported back to us as "it just crashes". Tell them what to do
+        // instead.
+        (function () {
+            if (window.HTMLScriptElement && HTMLScriptElement.supports
+                && HTMLScriptElement.supports('importmap')) return;
+            document.addEventListener('DOMContentLoaded', function () {
+                var note = document.createElement('div');
+                note.setAttribute('role', 'alert');
+                note.style.cssText = 'position:fixed;inset:0;z-index:1000;display:flex;'
+                    + 'flex-direction:column;align-items:center;justify-content:center;'
+                    + 'gap:12px;padding:24px;text-align:center;background:#0b0d12;'
+                    + 'color:#e8dcc8;font-family:Georgia,serif;';
+                note.innerHTML = '<div style="font-size:1.6em;letter-spacing:0.08em;">DEAD MAN\'S HAND</div>'
+                    + '<div style="max-width:30em;opacity:0.85;">This saloon needs a newer browser than this device has. '
+                    + 'Update your phone\'s software (iPhone: iOS 16.4 or later), then come back and deal in.</div>';
+                document.body.appendChild(note);
+            });
+        })();
+    </script>
     <!-- Bump ?v= on scene/audio changes so phones don't serve a stale cache. -->
     <script src="js/poker-profile.js?v=1"></script>
     <script src="js/poker-audio.js?v=10"></script>
     <script src="js/poker-export.js?v=2"></script>
-    <script type="module" src="js/poker-scene.js?v=90"></script>
+    <script type="module" src="js/poker-scene.js?v=91"></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 

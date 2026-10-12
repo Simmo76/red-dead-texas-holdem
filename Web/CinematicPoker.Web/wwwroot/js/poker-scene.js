@@ -17,6 +17,78 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
 
+// ---------------------------------------------------------- graphics safe mode
+//
+// Lower-memory iPhones can't always afford the full table (MSAA backbuffer,
+// soft shadows, the saloon GLB and three character models on top of the
+// Blazor WASM runtime). When iOS runs out it kills the whole page ("A problem
+// repeatedly occurred"), auto-reloads it, and the reload dies the same way —
+// an endless crash loop, while newer phones play the same build fine.
+//
+// No browser API announces "you are about to be killed", so survival is
+// detected instead: a boot flag is written while the tab is alive and in the
+// foreground, and cleared whenever the page hides or closes normally. If the
+// flag is still set when the module loads again, the previous visit died
+// unexpectedly, and this boot drops one quality tier (remembered on the
+// device):
+//   tier 0  full quality (default)
+//   tier 1  no antialiasing, no shadows, reduced render resolution
+//   tier 2  tier 1 + no saloon backdrop GLB (procedural shed set instead)
+//           + all-Jacob cast (skips the Sheriff/Bandit models entirely)
+const GFX_TIER_KEY = 'cinematic-poker-gfx-tier';
+const GFX_BOOT_KEY = 'cinematic-poker-boot-pending';
+const GFX_MAX_TIER = 2;
+
+function readGfxTier() {
+  try {
+    const t = parseInt(localStorage.getItem(GFX_TIER_KEY), 10);
+    return Number.isFinite(t) ? Math.max(0, Math.min(GFX_MAX_TIER, t)) : 0;
+  } catch (e) { return 0; }
+}
+
+function writeGfxTier(tier) {
+  try { localStorage.setItem(GFX_TIER_KEY, String(tier)); } catch (e) { }
+}
+
+function setBootFlag(on) {
+  try {
+    if (on) localStorage.setItem(GFX_BOOT_KEY, '1');
+    else localStorage.removeItem(GFX_BOOT_KEY);
+  } catch (e) { }
+}
+
+const GFX_TIER = (function () {
+  let tier = readGfxTier();
+  let diedLastTime = false;
+  try { diedLastTime = localStorage.getItem(GFX_BOOT_KEY) === '1'; } catch (e) { }
+  if (diedLastTime && tier < GFX_MAX_TIER) {
+    tier += 1;
+    writeGfxTier(tier);
+    console.warn(`poker-scene: previous visit ended abnormally — dropping to graphics tier ${tier}`);
+  }
+  setBootFlag(true);
+  return tier;
+})();
+
+// A hidden tab that iOS silently evicts is NOT a crash, so the flag only
+// stands while the page is front-and-centre. pagehide covers closing and
+// navigating away.
+document.addEventListener('visibilitychange', () => setBootFlag(!document.hidden));
+window.addEventListener('pagehide', () => setBootFlag(false));
+
+const GFX_LITE = GFX_TIER >= 1;       // no MSAA / shadows, smaller backbuffer
+const GFX_ULTRA_LITE = GFX_TIER >= 2; // + skip saloon GLB and Sheriff/Bandit
+
+// Backbuffer budget (rendered pixels). MSAA multiplies the real cost, so the
+// lite tiers keep well under what a struggling GPU can page in.
+function cappedPixelRatio(canvas) {
+  const dpr = Math.min(window.devicePixelRatio || 1, GFX_LITE ? 1.5 : 2);
+  const w = canvas.clientWidth || 1;
+  const h = canvas.clientHeight || 1;
+  const budget = GFX_ULTRA_LITE ? 1.2e6 : GFX_LITE ? 1.8e6 : 3.4e6;
+  return Math.max(1, Math.min(dpr, Math.sqrt(budget / (w * h))));
+}
+
 const SEATS = 6;               // seat 0 = the player (camera)
 const TABLE_TOP = 0.78;        // table surface height (m)
 const TABLE_RADIUS = 1.12;
@@ -90,7 +162,8 @@ const _introLook = new THREE.Vector3(0, 0.95, 0);
 
 function endIntro() {
   if (state.intro) state.intro.active = false;
-  if (state.setEnvironment) state.setEnvironment(0); // settle into SALOON
+  // Settle into SALOON (or the shed on ultra-lite boots, which skip the GLB).
+  if (state.setEnvironment) state.setEnvironment(state.defaultEnv || 0);
 }
 
 const state = {
@@ -118,7 +191,7 @@ function texture(path) {
   if (!tex) {
     tex = new THREE.TextureLoader().load(path);
     tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 4;
+    tex.anisotropy = GFX_LITE ? 1 : 4;
     state.textures.set(path, tex);
   }
   return tex;
@@ -1005,13 +1078,30 @@ async function buildScene(canvas) {
   // mobile browsers to copy the full antialiased backbuffer every frame —
   // on iOS Safari that extra GPU memory/bandwidth is a known trigger for
   // "page hung and was reloaded" WebGL kills.
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  // Lite tiers also skip MSAA: a multisampled backbuffer is the single
+  // biggest fixed GPU allocation the app makes.
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !GFX_LITE });
+  renderer.setPixelRatio(cappedPixelRatio(canvas));
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = !GFX_LITE;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  // If the GPU evicts the context mid-game the table would freeze solid.
+  // Reload once (per tab session) into the next tier down instead; the
+  // boot-flag accounting above treats it like the crash it nearly was.
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    console.warn('poker-scene: WebGL context lost');
+    writeGfxTier(Math.min(GFX_MAX_TIER, GFX_TIER + 1));
+    let alreadyReloaded = false;
+    try {
+      alreadyReloaded = sessionStorage.getItem('cinematic-poker-ctx-reload') === '1';
+      sessionStorage.setItem('cinematic-poker-ctx-reload', '1');
+    } catch (err) { }
+    if (!alreadyReloaded) location.reload();
+  }, false);
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a120c);
@@ -1132,7 +1222,9 @@ async function buildScene(canvas) {
   const SALOON_BAR_NUDGE_Z = 2.4; // metres toward the bar (player forward)
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
-  const backdropPromise = loadGlb(loader, 'models/env/backdrop.glb?v=2').then((gltf) => {
+  // Ultra-lite boots skip the 5 MB saloon GLB entirely and open on the
+  // procedural shed set instead (built from primitives, costs almost nothing).
+  const backdropPromise = GFX_ULTRA_LITE ? Promise.resolve() : loadGlb(loader, 'models/env/backdrop.glb?v=2').then((gltf) => {
     if (!gltf) return;
     const env = new THREE.Group();
     const saloon = gltf.scene;
@@ -1207,6 +1299,9 @@ async function buildScene(canvas) {
     { name: 'CLUB', bg: 0x070310, fog: [10, 40], amb: [0x382848, 0.4], hemi: [0x582878, 0x080410, 0.35], dir: [0x8858c8, 0.25, [-14, 26, 10]], fill: [0x00e8ff, 6], back: [0xff28c8, 7], build: buildClub },
   ];
   state.envNames = ENVS.map(e => e.name);
+  // Without the saloon GLB, backdrop 0 would be an empty black room.
+  const defaultEnv = GFX_ULTRA_LITE ? 3 : 0; // SHED on ultra-lite boots
+  state.defaultEnv = defaultEnv;
   state.setEnvironment = function (i) {
     const def = ENVS[i];
     state.envIndex = i;
@@ -1228,7 +1323,7 @@ async function buildScene(canvas) {
     fill.color.setHex(def.fill[0]); fill.intensity = def.fill[1];
     backFill.color.setHex(def.back[0]); backFill.intensity = def.back[1];
   };
-  state.setEnvironment(0);
+  state.setEnvironment(defaultEnv);
 
   // The backdrop doesn't receive shadows (perf), so a shadow catcher under
   // the table keeps the players and chairs grounded on the saloon floor.
@@ -1284,8 +1379,10 @@ async function buildScene(canvas) {
   // Jacob outfits for every seat, plus Sheriff and Bandit as NPC-only draws.
   // A fresh cast every time the table is built.
   const jacobModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  const sheriffModel = loadGlb(loader, 'models/characters/western/Sheriff.glb?v=10');
-  const banditModel = loadGlb(loader, 'models/characters/western/Bandit.glb?v=10');
+  // Ultra-lite boots seat Jacob outfits everywhere: Sheriff + Bandit are
+  // ~13 MB of extra meshopt GLB a memory-starved device never downloads.
+  const sheriffModel = GFX_ULTRA_LITE ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Sheriff.glb?v=10');
+  const banditModel = GFX_ULTRA_LITE ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Bandit.glb?v=10');
   const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=9');
   // Every Jacob look wears a hat so the seat's accent colour always has
   // somewhere to live; hatless presets borrow a hat (and the matching short
@@ -1296,12 +1393,13 @@ async function buildScene(canvas) {
   const playerPick = jacobPool[0];
   // Every table seats Sheriff and Bandit among the five NPCs (random chairs),
   // with the other three NPC chairs filled from remaining Jacob outfits.
-  const npcJacob = jacobPool.slice(1, 1 + (SEATS - 1 - 2));
-  const npcPool = shuffle([
-    ...npcJacob,
+  // Ultra-lite: all five NPC chairs are Jacob outfits (their GLBs never load).
+  const specialNpcs = GFX_ULTRA_LITE ? [] : [
     { kind: 'sheriff', look: null },
     { kind: 'bandit', look: null },
-  ]);
+  ];
+  const npcJacob = jacobPool.slice(1, 1 + (SEATS - 1 - specialNpcs.length));
+  const npcPool = shuffle([...npcJacob, ...specialNpcs]);
   const lineup = [playerPick, ...npcPool];
 
   // Position a seated character at seat i: face the table and plant the
@@ -2056,6 +2154,8 @@ function resizeIfNeeded(canvas, renderer, camera) {
   lastW = w; lastH = h;
   if (w === 0 || h === 0) return;
   _outlineUniforms.uOutlineViewH.value = h;
+  // The pixel-ratio budget depends on the canvas area (rotation swaps it).
+  renderer.setPixelRatio(cappedPixelRatio(canvas));
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   state.baseFov = 60;
@@ -2684,6 +2784,12 @@ function buildClub() {
 window.pokerScene = {
   get loaded() { return state.ready; },
 
+  // Diagnostics: which graphics tier this device booted into (see the
+  // graphics safe mode block at the top of this file).
+  gfxDebug() {
+    return { tier: GFX_TIER, lite: GFX_LITE, ultraLite: GFX_ULTRA_LITE, buildFailed: !!state.buildFailed };
+  },
+
   // Test/diagnostic hook: what each seat's spot on the felt currently shows.
   cardsDebug() {
     return (state.seats || []).map((seat, i) => ({
@@ -2903,9 +3009,23 @@ window.pokerScene = {
 
   async init(canvasId) {
     if (state.ready) return true;
+    if (state.buildFailed) return false;
     const canvas = document.getElementById(canvasId);
     if (!canvas) return false;
-    await buildScene(canvas);
+    // The Blazor side retries init until it reports ready; share one build
+    // so those retries can never construct a second renderer/scene (each
+    // abandoned attempt would leak GPU memory on exactly the devices that
+    // are already struggling).
+    if (!state.building) {
+      state.building = buildScene(canvas).then(() => true).catch((err) => {
+        console.error('poker-scene: scene build failed', err);
+        // Remember a lighter tier for the next visit; this one plays 2D-only.
+        writeGfxTier(Math.min(GFX_MAX_TIER, GFX_TIER + 1));
+        state.buildFailed = true;
+        return false;
+      });
+    }
+    if (!await state.building) return false;
     state.ready = true;
     if (state.pendingUpdate) { this.update(state.pendingUpdate); state.pendingUpdate = null; }
     return true;
