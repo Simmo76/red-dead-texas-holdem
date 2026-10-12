@@ -3163,7 +3163,14 @@ window.pokerScene = {
     // Snapshot can mark folded before this gesture fires; still play Fold /
     // FoldShake so the arms-folded hold is the settle, not the only beat.
     if (seat.char.folded && kind !== 'fold') return;
-    const play = (name, seconds, timeScale = 1) => seat.char.playOnce(name, seconds, timeScale);
+    // The player holds his cards in the same HoldCards idle for the whole
+    // hand: no check/bet body gestures on seat 0. Only a fold breaks the
+    // loop (then the win/lose takes once the hand is decided). Chip tosses
+    // still fly so his bets stay readable.
+    const gestureAllowed = seatIndex !== 0 || kind === 'fold';
+    const play = (name, seconds, timeScale = 1) => {
+      if (gestureAllowed) seat.char.playOnce(name, seconds, timeScale);
+    };
     if (kind === 'check') {
       play('Check', 1.7);
     } else     if (kind === 'call') {

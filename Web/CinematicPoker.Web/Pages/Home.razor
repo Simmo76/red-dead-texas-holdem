@@ -940,8 +940,9 @@
                 ai.OnHandCompleted(kv.Value, bb, biggest);
     }
 
-    // Unlike reactions, action gestures also play on the player's own body
-    // (visible from the over-the-shoulder camera).
+    // Action gestures play on NPC bodies. The player's body only gestures on
+    // a fold — otherwise the scene keeps him in his card-holding idle until
+    // the hand is decided (win/lose takes come via SceneEmotion/celebrate).
     private void SceneAction(int seat, string kind)
     {
         if (!_sceneReady) return;
