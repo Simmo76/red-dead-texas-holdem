@@ -1185,20 +1185,46 @@ async function buildScene(canvas) {
   renderer.shadowMap.enabled = !GFX_LITE;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-  // If the GPU evicts the context mid-game the table would freeze solid.
-  // Reload once (per tab session) into the next tier down instead; the
-  // boot-flag accounting above treats it like the crash it nearly was.
-  canvas.addEventListener('webglcontextlost', (e) => {
-    e.preventDefault();
-    console.warn('poker-scene: WebGL context lost');
+  // If the GPU evicts the context mid-game the table would freeze solid —
+  // but eviction is not always a crash. iOS routinely discards the WebGL
+  // context of a hidden tab (app switch, screen lock, answering a text) and
+  // restores it when the player returns; penalising those made the saloon
+  // vanish for players who merely left and came back ("I saw the background
+  // and then it disappeared"). So give the browser a chance to restore
+  // first — three.js re-uploads everything on its own once the context is
+  // back. Only a loss that stays unrestored in the foreground is treated
+  // like the crash it nearly was: remember a lighter tier and reload once
+  // (per tab session).
+  let ctxLost = false;
+  const ctxCrash = () => {
+    if (!ctxLost) return;        // restored while we waited
+    if (document.hidden) return; // hidden eviction: restore comes on return
+    console.warn('poker-scene: WebGL context not restored — dropping a tier and reloading');
     writeGfxTier(Math.min(GFX_MAX_TIER, GFX_TIER + 1));
+    noteGfxCrash();
     let alreadyReloaded = false;
     try {
       alreadyReloaded = sessionStorage.getItem('cinematic-poker-ctx-reload') === '1';
       sessionStorage.setItem('cinematic-poker-ctx-reload', '1');
     } catch (err) { }
     if (!alreadyReloaded) location.reload();
+  };
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault(); // required for the browser to attempt a restore
+    ctxLost = true;
+    console.warn('poker-scene: WebGL context lost — waiting for restore');
+    if (!document.hidden) setTimeout(ctxCrash, 4000);
   }, false);
+  canvas.addEventListener('webglcontextrestored', () => {
+    ctxLost = false;
+    console.warn('poker-scene: WebGL context restored — resuming');
+  }, false);
+  // A context dropped while the tab was hidden gets its restore grace when
+  // the player returns; if nothing arrives the reload path still rescues
+  // the frozen table.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && ctxLost) setTimeout(ctxCrash, 4000);
+  });
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a120c);
@@ -3125,6 +3151,15 @@ window.pokerScene = {
     const next = (state.envIndex + 1) % state.envNames.length;
     state.setEnvironment(next);
     return state.envNames[next];
+  },
+
+  // Boot progress for the title card: the HUD holds its loading notice up
+  // until every scene resource (saloon backdrop included) is in memory, and
+  // gives up waiting only on a permanent build failure (HUD-only fallback).
+  status() {
+    if (state.ready) return 'ready';
+    if (state.buildFailed) return 'failed';
+    return 'loading';
   },
 
   // The backdrop the table opens on (ultra-lite boots open on SHED, not the
