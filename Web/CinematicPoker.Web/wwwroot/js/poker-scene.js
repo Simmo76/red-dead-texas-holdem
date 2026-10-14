@@ -1,8 +1,7 @@
-// Over-the-shoulder poker scene (Three.js) set in the Dead Man's Hand saloon,
-// with five extra switchable backdrops (beach, desert, shed, space station,
-// dance club) built procedurally from primitives, each with its own mood
-// lighting. Props/textures are CC0; the saloon is a web-optimised conversion
-// of the repo owner's licensed Unity pub scene (see tools/build_saloon_backdrop.py).
+// Over-the-shoulder poker scene (Three.js) set in the Dead Man's Hand saloon.
+// Props/textures are CC0; the saloon is a web-optimised conversion of the
+// repo owner's licensed Unity pub scene (see tools/build_saloon_backdrop.py).
+// Extra switchable backdrops are intentionally disabled for now — saloon only.
 // The player is always a random outfit of David Grette's Jacob cowboy.
 // NPC seats draw from Jacob outfits plus the Sheriff and Bandit characters
 // from the same Western series (baked web GLBs; see tools/bake_western_npc.py).
@@ -33,8 +32,8 @@ import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
 // device):
 //   tier 0  full quality (default)
 //   tier 1  no antialiasing, no shadows, reduced render resolution
-//   tier 2  tier 1 + no saloon backdrop GLB (procedural shed set instead)
-//           + all-Jacob cast (skips the Sheriff/Bandit models entirely)
+//   tier 2  tier 1 + all-Jacob cast (skips the Sheriff/Bandit models)
+//           — the saloon GLB still loads; alternate backdrops are disabled
 //
 // The penalty is not forever: after enough consecutive clean visits at a
 // reduced tier the next boot tries one tier higher again. A device that was
@@ -154,7 +153,7 @@ document.addEventListener('visibilitychange', () => setBootFlag(!document.hidden
 window.addEventListener('pagehide', () => setBootFlag(false));
 
 const GFX_LITE = GFX_TIER >= 1;       // no MSAA / shadows, smaller backbuffer
-const GFX_ULTRA_LITE = GFX_TIER >= 2; // + skip saloon GLB and Sheriff/Bandit
+const GFX_ULTRA_LITE = GFX_TIER >= 2; // + skip Sheriff/Bandit (saloon still loads)
 
 // Backbuffer budget (rendered pixels). MSAA multiplies the real cost, so the
 // lite tiers keep well under what a struggling GPU can page in.
@@ -231,16 +230,14 @@ function shuffle(list) {
 // helper on hand_l so HoldCards reads as holding/looking at the pair; NPC
 // hole cards stay face-down on the felt.
 
-// Opening cinematic: seconds per backdrop sweep (desert, then club). The
-// matching audio parts are sequenced by pokerAudio.playIntro on the same
+// Opening cinematic: seconds per aerial sweep over the saloon (two passes).
+// Matching audio parts are sequenced by pokerAudio.playIntro on the same
 // timings.
 const INTRO_PART = 8;
 const _introLook = new THREE.Vector3(0, 0.95, 0);
 
 function endIntro() {
   if (state.intro) state.intro.active = false;
-  // Settle into SALOON (or the shed on ultra-lite boots, which skip the GLB).
-  if (state.setEnvironment) state.setEnvironment(state.defaultEnv || 0);
 }
 
 const state = {
@@ -254,11 +251,8 @@ const state = {
   potChips: null,
   cardHold: null,       // community card being press-and-held (expands 2x)
   fx: [],               // live celebration particle systems
-  envGroups: [],        // switchable backdrop groups, index matches ENVS
-  envIndex: 0,
+  saloon: null,         // saloon backdrop group (only environment)
   eyeHeight: EYE_HEIGHT,
-  envNames: [],
-  setEnvironment: null,
   lastJson: '',
   lastActorSeat: -2
 };
@@ -668,8 +662,41 @@ function updateActorOutline(seatIndex) {
 
 // ------------------------------------------------------------------ characters
 
+// Refcount: several GLBs load in parallel at boot; only the outermost
+// suppress/restore pair may put createImageBitmap back.
+let _bitmapSuppressDepth = 0;
+let _bitmapSaved = undefined;
+
+function suppressImageBitmap() {
+  if (_bitmapSuppressDepth === 0) {
+    _bitmapSaved = globalThis.createImageBitmap;
+    try { globalThis.createImageBitmap = undefined; } catch (e) { /* ignore */ }
+  }
+  _bitmapSuppressDepth++;
+}
+
+function restoreImageBitmap() {
+  _bitmapSuppressDepth = Math.max(0, _bitmapSuppressDepth - 1);
+  if (_bitmapSuppressDepth === 0) {
+    try { globalThis.createImageBitmap = _bitmapSaved; } catch (e) { /* ignore */ }
+  }
+}
+
 function loadGlb(loader, url) {
-  return new Promise((resolve) => loader.load(url, resolve, undefined, (err) => {
+  // Force the GLTF parser onto TextureLoader (HTMLImageElement) instead of
+  // ImageBitmapLoader. ImageBitmap uploads free their CPU-side image after the
+  // first upload on Chrome; when the GPU quietly evicts textures (Settings
+  // overlay, memory pressure), a re-upload finds null image data and
+  // MeshStandard materials fall back to clay-brown base colour (THREE warns:
+  // "Texture marked for update but no image data found"). HTML images stay
+  // decodable.
+  // GLTFParser picks the loader with `typeof createImageBitmap === 'undefined'`.
+  suppressImageBitmap();
+  return new Promise((resolve) => loader.load(url, (gltf) => {
+    restoreImageBitmap();
+    resolve(gltf);
+  }, undefined, (err) => {
+    restoreImageBitmap();
     console.warn('poker-scene: failed to load', url, err);
     resolve(null);
   }));
@@ -1217,7 +1244,12 @@ async function buildScene(canvas) {
   }, false);
   canvas.addEventListener('webglcontextrestored', () => {
     ctxLost = false;
-    console.warn('poker-scene: WebGL context restored — resuming');
+    console.warn('poker-scene: WebGL context restored — re-uploading textures');
+    // three.js re-creates GPU resources on its own, but custom-cloned
+    // character materials and the shared TextureLoader cache sometimes
+    // keep a stale upload flag after an eviction — force a fresh upload
+    // so cowboys don't stay clay-brown and the saloon doesn't stay black.
+    healSceneTextures();
   }, false);
   // A context dropped while the tab was hidden gets its restore grace when
   // the player returns; if nothing arrives the reload path still rescues
@@ -1342,22 +1374,35 @@ async function buildScene(canvas) {
   // the origin and cleared of furniture. Rotate 180° so the bar sits across
   // the table in the player's forward view, then nudge the room so the
   // table/characters sit a little closer to the bar.
+  // This is the only environment — alternate backdrops are disabled for now.
   const SALOON_BAR_NUDGE_Z = 2.4; // metres toward the bar (player forward)
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
-  // Ultra-lite boots don't fetch the 5 MB saloon GLB up front (they open on
-  // the procedural shed set instead), but SALOON stays in the backdrop
-  // rotation: picking it loads the GLB on demand. A failed fetch no longer
-  // costs the bar for the whole session either — selecting SALOON retries,
-  // and a transient blip self-heals while the player is looking at the room.
+
+  // Saloon mood: warm lantern over the felt + rose room wash. bg doubles as
+  // the fog colour so distant geometry melts into the dark.
+  scene.background.setHex(0x0a0610);
+  scene.fog.color.setHex(0x0a0610);
+  scene.fog.near = 6;
+  scene.fog.far = 22;
+  ambient.color.setHex(0x6a4a78); ambient.intensity = 0.32;
+  hemi.color.setHex(0xb878a8); hemi.groundColor.setHex(0x1a1020); hemi.intensity = 0.28;
+  fill.color.setHex(0xd8a0c8); fill.intensity = 0.85;
+  backFill.color.setHex(0xe08ad8); backFill.intensity = 1.1;
+
+  // Soft violet key through the windows — held back so the room stays moody.
+  const moon = new THREE.DirectionalLight(0xc8a0e0, 0.32);
+  moon.position.set(-8, 18, -6);
+  scene.add(moon);
+
   let saloonLoad = null;
   let saloonRetries = 0;
   const loadSaloon = () => {
-    if (state.envGroups[0] || saloonLoad) return saloonLoad;
+    if (state.saloon || saloonLoad) return saloonLoad;
     saloonLoad = loadGlb(loader, 'models/env/backdrop.glb?v=2').then((gltf) => {
       if (!gltf) {
-        saloonLoad = null; // let a later selection retry
-        if (saloonRetries++ < 3 && state.envIndex === 0) setTimeout(loadSaloon, 5000);
+        saloonLoad = null; // let a later retry pick it up
+        if (saloonRetries++ < 3) setTimeout(loadSaloon, 5000);
         return;
       }
       const env = new THREE.Group();
@@ -1374,7 +1419,8 @@ async function buildScene(canvas) {
           if (!mat) continue;
           if (mat.map) {
             mat.map.colorSpace = THREE.SRGBColorSpace;
-            mat.map.needsUpdate = true;
+            // Only dirty maps that still have CPU pixels (see textureHasImageData).
+            if (textureHasImageData(mat.map)) mat.map.needsUpdate = true;
           }
           if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness ?? 0, 0.15);
           if (mat.roughness !== undefined) mat.roughness = Math.max(mat.roughness ?? 0.8, 0.75);
@@ -1394,7 +1440,6 @@ async function buildScene(canvas) {
       env.add(saloon);
       // Soft purple/pink hanging-lamp pools — dimmer than the table lantern so
       // the bar and booths read as background with the original rose wash.
-      // They live in the env group and switch off with the saloon backdrop.
       const lampSpecs = [
         [0xe8a8d0, 5, 10, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],   // bar face
         [0xd090c8, 3.5, 9, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // left booths
@@ -1409,60 +1454,15 @@ async function buildScene(canvas) {
         env.add(lamp);
       }
       scene.add(env);
-      state.envGroups[0] = env;
-      env.visible = state.envIndex === 0;
+      state.saloon = env;
+      if (state.ready) healSceneTextures();
     });
     return saloonLoad;
   };
-  const backdropPromise = GFX_ULTRA_LITE ? Promise.resolve() : loadSaloon();
-
-  // Soft violet key through the windows (also the celestial key for the
-  // other switchable backdrops) — held back so the room stays moody.
-  const moon = new THREE.DirectionalLight(0xc8a0e0, 0.32);
-  moon.position.set(-8, 18, -6);
-  scene.add(moon);
-
-  // ---- switchable backdrops: the saloon GLB plus five procedural sets that
-  // are built lazily on first visit. Each entry retunes the mood lighting
-  // (ambient / hemisphere / celestial / fills) while the warm lantern pool
-  // over the felt stays constant so the game always reads the same.
-  // bg doubles as the fog colour so distant geometry melts into the sky.
-  const ENVS = [
-    { name: 'SALOON', bg: 0x0a0610, fog: [6, 22], amb: [0x6a4a78, 0.32], hemi: [0xb878a8, 0x1a1020, 0.28], dir: [0xc8a0e0, 0.32, [-8, 18, -6]], fill: [0xd8a0c8, 0.85], back: [0xe08ad8, 1.1], build: null },
-    { name: 'BEACH', bg: 0x2f9ed3, fog: [30, 130], amb: [0xbfd8e8, 0.65], hemi: [0xcfe8ff, 0x8a7a5a, 0.55], dir: [0xfff2d8, 1.7, [18, 30, 12]], fill: [0xbfe8ff, 1.2], back: [0xffe8c8, 1.2], build: buildBeach },
-    { name: 'DESERT', bg: 0xe8b878, fog: [25, 110], amb: [0xd8b890, 0.85], hemi: [0xf0d0a8, 0x9a6a3a, 0.7], dir: [0xffd8a0, 2.4, [-20, 18, 8]], fill: [0xffc890, 1.2], back: [0xff9860, 1.8], build: buildDesert },
-    { name: 'SHED', bg: 0x0d0906, fog: [8, 26], amb: [0x584838, 0.35], hemi: [0x4a3828, 0x140c06, 0.35], dir: [0xc8a878, 0.15, [-6, 12, 6]], fill: [0xffb868, 1.2], back: [0x684828, 1.0], build: buildShed },
-    { name: 'STATION', bg: 0x02030a, fog: [20, 80], amb: [0x88a0c0, 0.7], hemi: [0xa8c8e8, 0x182028, 0.6], dir: [0xcfe0ff, 1.2, [8, 24, -14]], fill: [0x78c8ff, 2.5], back: [0x4868d8, 2.5], build: buildStation },
-    { name: 'CLUB', bg: 0x070310, fog: [10, 40], amb: [0x382848, 0.4], hemi: [0x582878, 0x080410, 0.35], dir: [0x8858c8, 0.25, [-14, 26, 10]], fill: [0x00e8ff, 6], back: [0xff28c8, 7], build: buildClub },
-  ];
-  state.envNames = ENVS.map(e => e.name);
-  // Ultra-lite boots open on the cheap procedural shed rather than paying for
-  // the saloon GLB up front; picking SALOON later streams it in on demand.
-  const defaultEnv = GFX_ULTRA_LITE ? 3 : 0; // SHED on ultra-lite boots
-  state.defaultEnv = defaultEnv;
-  state.setEnvironment = function (i) {
-    const def = ENVS[i];
-    state.envIndex = i;
-    if (i === 0 && !state.envGroups[0]) loadSaloon(); // fills in once fetched
-    if (!state.envGroups[i] && def.build) {
-      state.envGroups[i] = def.build();
-      scene.add(state.envGroups[i]);
-    }
-    for (let k = 0; k < ENVS.length; k++) {
-      if (state.envGroups[k]) state.envGroups[k].visible = (k === i);
-    }
-    scene.background.setHex(def.bg);
-    scene.fog.color.setHex(def.bg);
-    scene.fog.near = def.fog[0];
-    scene.fog.far = def.fog[1];
-    ambient.color.setHex(def.amb[0]); ambient.intensity = def.amb[1];
-    hemi.color.setHex(def.hemi[0]); hemi.groundColor.setHex(def.hemi[1]); hemi.intensity = def.hemi[2];
-    moon.color.setHex(def.dir[0]); moon.intensity = def.dir[1];
-    moon.position.set(def.dir[2][0], def.dir[2][1], def.dir[2][2]);
-    fill.color.setHex(def.fill[0]); fill.intensity = def.fill[1];
-    backFill.color.setHex(def.back[0]); backFill.intensity = def.back[1];
-  };
-  state.setEnvironment(defaultEnv);
+  // Always load the saloon (even on ultra-lite — that's the only room now).
+  // A failed fetch retries a few times so a flaky network doesn't leave a
+  // permanent black void behind the table.
+  const backdropPromise = loadSaloon();
 
   // The backdrop doesn't receive shadows (perf), so a shadow catcher under
   // the table keeps the players and chairs grounded on the saloon floor.
@@ -1743,18 +1743,15 @@ async function buildScene(canvas) {
     view.offPitch += (view.targetOffPitch - view.offPitch) * ease;
     view.distScale += (view.targetDistScale - view.distScale) * ease;
     if (state.intro.active) {
-      // Opening cinematic: two slow aerial sweeps (desert, then a hard cut
-      // to the club) before the camera settles into the normal seat view.
-      // Wall-clock, not frame-time: the audio parts run on wall-clock too,
-      // so picture and sound stay locked even when frames stutter.
+      // Opening cinematic: two slow aerial sweeps over the saloon before
+      // the camera settles into the normal seat view. Wall-clock, not
+      // frame-time: the audio parts run on wall-clock too, so picture and
+      // sound stay locked even when frames stutter.
       const it = (performance.now() - state.intro.start) / 1000;
       if (it >= INTRO_PART * 2) {
         endIntro();
       } else {
-        if (it >= INTRO_PART && state.intro.phase === 0) {
-          state.intro.phase = 1;
-          state.setEnvironment(5); // CLUB
-        }
+        if (it >= INTRO_PART && state.intro.phase === 0) state.intro.phase = 1;
         const phase = state.intro.phase;
         const k = (it - phase * INTRO_PART) / INTRO_PART; // 0..1 in segment
         const s = k * k * (3 - 2 * k);                   // smoothstep drift
@@ -2734,195 +2731,51 @@ function updatePot(pot) {
   state.scene.add(state.potChips);
 }
 
-// -------------------------------------------------------- procedural backdrops
-// Five simple low-poly sets built from primitives (nothing loaded, nothing
-// copied) that swap in behind the constant table + lantern pool. Each is
-// only constructed the first time the player cycles to it.
-
-function envMat(color, opts) {
-  return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 1 }, opts));
-}
-
-function envGround(color, r) {
-  const m = new THREE.Mesh(new THREE.CircleGeometry(r || 60, 48), envMat(color));
-  m.rotation.x = -Math.PI / 2;
-  m.position.y = -0.01;
-  m.receiveShadow = true;
-  return m;
-}
-
-// Unlit marker (sun, glow strips): ignores fog so it stays vivid at distance.
-function envGlow(geo, color) {
-  return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, fog: false }));
-}
-
-function buildBeach() {
-  const g = new THREE.Group();
-  // A small sand island under the table, surrounded by water out to the
-  // panorama wall. Sand kept below full white under the noon sun.
-  g.add(envGround(0xd9c8a4, 8.2));
-  const sea = new THREE.Mesh(
-    new THREE.RingGeometry(8, 41, 48),
-    envMat(0x3fa3c8, { roughness: 0.35, metalness: 0.1 }));
-  sea.rotation.x = -Math.PI / 2;
-  sea.position.y = -0.06;
-  g.add(sea);
-  // The repo owner's beach picture wrapped around the inside of a tall
-  // cylinder as the sky/horizon; mirrored repeat hides the wrap seams.
-  const panoTex = texture('img/env/beach-pano.jpg');
-  panoTex.wrapS = THREE.MirroredRepeatWrapping;
-  panoTex.repeat.set(6, 1);
-  const pano = new THREE.Mesh(
-    new THREE.CylinderGeometry(40, 40, 30, 48, 1, true),
-    new THREE.MeshBasicMaterial({ map: panoTex, side: THREE.BackSide, fog: false }));
-  // Centre the photo's sea horizon at camera eye height so it reads level;
-  // the below-ground half is hidden by the sand/sea planes.
-  pano.position.y = 2.0;
-  g.add(pano);
-  return g;
-}
-
-function buildDesert() {
-  const g = new THREE.Group();
-  g.add(envGround(0xd9a45b));
-  // half-buried dune mounds on the horizon
-  for (let d = 0; d < 7; d++) {
-    const a = d * (Math.PI * 2 / 7) + 1.1;
-    const dune = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), envMat(d % 2 ? 0xd9a45b : 0xcf9950));
-    dune.scale.set(9 + d, 1.4 + (d % 3) * 0.5, 5.5);
-    dune.position.set(Math.cos(a) * (20 + (d % 3) * 6), -0.35, Math.sin(a) * (20 + (d % 3) * 6));
-    dune.rotation.y = a;
-    g.add(dune);
+// -------------------------------------------------------- texture heal
+// True when the texture still has CPU-side pixels we can re-upload. Closed
+// ImageBitmaps and not-yet-loaded TextureLoader results must NOT be marked
+// needsUpdate — three.js then warns "no image data found" and leaves the
+// GPU slot empty (clay characters / black saloon).
+function textureHasImageData(tex) {
+  if (!tex || !tex.isTexture) return false;
+  const img = tex.image;
+  if (!img) return false;
+  if (typeof ImageBitmap !== 'undefined' && img instanceof ImageBitmap) {
+    return img.width > 0 && img.height > 0;
   }
-  const cactusMat = envMat(0x4a7a3a);
-  for (let c = 0; c < 4; c++) {
-    const a = c * (Math.PI * 2 / 4) + 0.7;
-    const r = 6.5 + (c % 2) * 2.5;
-    const cactus = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 1.7, 8), cactusMat);
-    body.position.y = 0.85;
-    cactus.add(body);
-    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.7, 8), cactusMat);
-    arm.position.set(0.3, 1.1, 0);
-    arm.rotation.z = -0.5;
-    cactus.add(arm);
-    cactus.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
-    g.add(cactus);
-  }
-  for (let k = 0; k < 5; k++) {
-    const a = k * (Math.PI * 2 / 5) + 2.0;
-    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4 + (k % 3) * 0.3), envMat(0x8a705a, { flatShading: true }));
-    rock.position.set(Math.cos(a) * (9 + k), 0.2, Math.sin(a) * (9 + k));
-    g.add(rock);
-  }
-  // low evening sun sitting on the horizon
-  g.add((() => { const s = envGlow(new THREE.SphereGeometry(2.6, 16, 12), 0xffd890); s.position.set(-42, 10, 14); return s; })());
-  return g;
+  if (typeof img.complete === 'boolean' && !img.complete) return false;
+  if (typeof img.width === 'number' && img.width === 0) return false;
+  return true;
 }
 
-function buildShed() {
-  const g = new THREE.Group();
-  // one boxy timber room; BackSide so we see it from within
-  const room = new THREE.Mesh(
-    new THREE.BoxGeometry(13, 4.2, 13),
-    envMat(0x54402a, { side: THREE.BackSide }));
-  room.position.y = 2.08;
-  g.add(room);
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(9.5, 4), envMat(0x3d2c1a));
-  floor.rotation.x = -Math.PI / 2;
-  floor.rotation.z = Math.PI / 4;
-  floor.position.y = -0.005;
-  floor.receiveShadow = true;
-  g.add(floor);
-  const crateMat = envMat(0x6a4a2a);
-  const crates = [[4.6, 0.45, 3.4, 0.9], [5.0, 0.35, -2.8, 0.7], [-4.4, 0.4, -3.9, 0.8], [-5.1, 0.3, 2.6, 0.6]];
-  for (const [x, y, z, s] of crates) {
-    const crate = new THREE.Mesh(new THREE.BoxGeometry(s, s, s), crateMat);
-    crate.position.set(x, y, z);
-    crate.rotation.y = x + z;
-    g.add(crate);
-  }
-  // bare hanging bulb by the lantern light source
-  const bulb = envGlow(new THREE.SphereGeometry(0.06, 10, 8), 0xffd9a0);
-  bulb.position.set(0, 2.35, 0);
-  g.add(bulb);
-  const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1.8, 4), envMat(0x181008));
-  cord.position.set(0, 3.28, 0);
-  g.add(cord);
-  return g;
-}
-
-function buildStation() {
-  const g = new THREE.Group();
-  const floor = new THREE.Mesh(
-    new THREE.CircleGeometry(8, 32),
-    envMat(0x303844, { metalness: 0.7, roughness: 0.35 }));
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -0.005;
-  floor.receiveShadow = true;
-  g.add(floor);
-  const wall = new THREE.Mesh(
-    new THREE.CylinderGeometry(8, 8, 4.4, 32, 1, true),
-    envMat(0x4a5666, { metalness: 0.25, roughness: 0.55, side: THREE.BackSide }));
-  wall.position.y = 2.2;
-  g.add(wall);
-  // glowing observation window strip looking out into space, kept low enough
-  // to read behind the far players from the home camera's downward pitch
-  const band = new THREE.Mesh(
-    new THREE.CylinderGeometry(7.92, 7.92, 0.9, 32, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0x9fd8ff, fog: false, side: THREE.BackSide }));
-  band.position.y = 1.5;
-  g.add(band);
-  // open ceiling: a dome of stars overhead
-  const starGeo = new THREE.BufferGeometry();
-  const pts = [];
-  for (let s = 0; s < 700; s++) {
-    const r = 30 + Math.random() * 50;
-    const th = Math.random() * Math.PI * 2;
-    const ph = Math.random() * Math.PI * 0.45; // upper dome only
-    pts.push(r * Math.sin(ph) * Math.cos(th), r * Math.cos(ph) + 3, r * Math.sin(ph) * Math.sin(th));
-  }
-  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-  g.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.3, fog: false })));
-  return g;
-}
-
-function buildClub() {
-  const g = new THREE.Group();
-  const floor = new THREE.Mesh(
-    new THREE.CircleGeometry(7, 32),
-    envMat(0x16121e, { metalness: 0.55, roughness: 0.25 }));
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -0.005;
-  floor.receiveShadow = true;
-  g.add(floor);
-  const wall = new THREE.Mesh(
-    new THREE.CylinderGeometry(7, 7, 4.4, 24, 1, true),
-    envMat(0x241a30, { side: THREE.BackSide }));
-  wall.position.y = 2.2;
-  g.add(wall);
-  const ceiling = new THREE.Mesh(new THREE.CircleGeometry(7, 32), envMat(0x0e0a14, { side: THREE.DoubleSide }));
-  ceiling.rotation.x = Math.PI / 2;
-  ceiling.position.y = 4.4;
-  g.add(ceiling);
-  // neon glow rings around the walls
-  const rings = [[0xff30c0, 1.1], [0x30e0ff, 2.3], [0x8040ff, 3.3]];
-  for (const [color, y] of rings) {
-    const ring = new THREE.Mesh(
-      new THREE.CylinderGeometry(6.94, 6.94, 0.1, 24, 1, true),
-      new THREE.MeshBasicMaterial({ color, fog: false, side: THREE.BackSide }));
-    ring.position.y = y;
-    g.add(ring);
-  }
-  const ball = new THREE.Mesh(
-    new THREE.SphereGeometry(0.45, 20, 14),
-    envMat(0xc8c8d8, { metalness: 1, roughness: 0.08, flatShading: true }));
-  ball.position.y = 3.5;
-  g.add(ball);
-  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.45, 6), envMat(0x181018));
-  rod.position.y = 4.18;
-  g.add(rod);
-  return g;
+// Re-upload every albedo/PBR map that still has image data. Used after a
+// WebGL context restore and when Settings closes — phones sometimes evict
+// textures without a full context-loss event while a full-screen overlay
+// covers the canvas, leaving MeshStandardMaterials on their base colour.
+function healSceneTextures() {
+  const mark = (tex) => {
+    if (textureHasImageData(tex)) tex.needsUpdate = true;
+  };
+  for (const tex of state.textures.values()) mark(tex);
+  if (!state.scene) return;
+  state.scene.traverse((o) => {
+    if (!o.isMesh || !o.material) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) {
+      if (!m) continue;
+      mark(m.map);
+      mark(m.normalMap);
+      mark(m.roughnessMap);
+      mark(m.metalnessMap);
+      mark(m.aoMap);
+      mark(m.emissiveMap);
+      mark(m.bumpMap);
+      mark(m.displacementMap);
+      mark(m.alphaMap);
+      mark(m.envMap);
+      mark(m.lightMap);
+    }
+  });
 }
 
 // ------------------------------------------------------------------ public API
@@ -3072,6 +2925,35 @@ window.pokerScene = {
   // Diagnostics hook: exposes internal scene state for headless testing.
   debugState() { return state; },
 
+  // Texture / saloon health for the regression harness.
+  textureAudit() {
+    const audit = {
+      backdrop: 'SALOON',
+      saloonLoaded: !!state.saloon,
+      stdWithMap: 0,
+      stdNoMap: 0,
+      basicWithMap: 0,
+      geometries: state.renderer ? state.renderer.info.memory.geometries : 0,
+      textures: state.renderer ? state.renderer.info.memory.textures : 0,
+    };
+    if (state.scene) {
+      state.scene.traverse((o) => {
+        if (!o.isMesh || !o.material) return;
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (const m of mats) {
+          if (!m) continue;
+          if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) {
+            if (m.map) audit.stdWithMap++;
+            else audit.stdNoMap++;
+          } else if (m.isMeshBasicMaterial && m.map) {
+            audit.basicWithMap++;
+          }
+        }
+      });
+    }
+    return audit;
+  },
+
   // Opening cinematic disabled: stay on the normal seat view. Returns 0 so
   // callers know not to wait or play intro audio.
   playIntro() {
@@ -3144,31 +3026,40 @@ window.pokerScene = {
     if (state.zoom.kind === 'bet') state.zoom.active = false;
   },
 
-  // Cycle to the next backdrop set; returns the new backdrop name for the
-  // topbar button label.
+  // Backdrops other than the saloon are disabled; kept as a no-op so any
+  // stale HUD wiring that still calls it does not throw.
   cycleBackdrop() {
-    if (!state.ready || !state.setEnvironment) return 'SALOON';
-    const next = (state.envIndex + 1) % state.envNames.length;
-    state.setEnvironment(next);
-    return state.envNames[next];
+    return 'SALOON';
+  },
+
+  // Re-upload scene textures after the Settings overlay closes (or after a
+  // save). A full-screen overlay covering the WebGL canvas on phones can
+  // silently evict GPU textures without firing webglcontextlost — leaving
+  // characters clay-brown and the saloon black until maps are marked dirty.
+  healGraphics() {
+    if (!state.ready) return;
+    if (!state.saloon) {
+      // Saloon fetch failed earlier — try again now that the player is back.
+      // loadSaloon is closed over buildScene; re-init is not available here,
+      // so just heal whatever is present and let the next full reload recover.
+      healSceneTextures();
+      return;
+    }
+    healSceneTextures();
   },
 
   // Boot progress for the title card: the HUD holds its loading notice up
-  // until every scene resource (saloon backdrop included) is in memory, and
-  // gives up waiting only on a permanent build failure (HUD-only fallback).
+  // until every scene resource (saloon included) is in memory, and gives up
+  // waiting only on a permanent build failure (HUD-only fallback).
   status() {
     if (state.ready) return 'ready';
     if (state.buildFailed) return 'failed';
     return 'loading';
   },
 
-  // The backdrop the table opens on (ultra-lite boots open on SHED, not the
-  // SALOON the HUD label defaults to). During the intro sweep this reports
-  // the backdrop the camera will settle into, not the one it is flying over.
+  // Only the saloon is available.
   backdropName() {
-    if (!state.ready || !state.envNames.length) return 'SALOON';
-    const i = (state.intro && state.intro.active) ? (state.defaultEnv || 0) : state.envIndex;
-    return state.envNames[i] || 'SALOON';
+    return 'SALOON';
   },
 
   async init(canvasId) {

@@ -75,13 +75,7 @@ window.pokerAudio = (function () {
         playBuffer('audio/' + name + '.mp3', 0.55, 0.92 + Math.random() * 0.16);
     }
 
-    // Background music follows the backdrop: tropical on the beach, western
-    // in the desert, disco in the club, the saloon loop everywhere else.
-    const MUSIC_BY_SCENE = {
-        BEACH: 'audio/music-beach.mp3',
-        DESERT: 'audio/music-desert.mp3',
-        CLUB: 'audio/music-club.mp3'
-    };
+    // Saloon-only for now — alternate backdrop beds stay unused.
     let musicUrl = 'audio/saloon-music.mp3?v=2';
 
     // Intro movie audio: the two owner-supplied parts played back to back
@@ -301,10 +295,9 @@ window.pokerAudio = (function () {
             stopIntroAudio();
             startMusic();
         },
-        // Switch the music bed to match the current backdrop. Called from a
-        // click handler, so play() is allowed even before other audio ran.
-        setScene: function (name) {
-            const url = MUSIC_BY_SCENE[name] || 'audio/saloon-music.mp3?v=2';
+        // Kept for HUD boot sync; only the saloon bed plays for now.
+        setScene: function (/* name */) {
+            const url = 'audio/saloon-music.mp3?v=2';
             if (url === musicUrl) return;
             musicUrl = url;
             const wasPlaying = music && !music.paused;

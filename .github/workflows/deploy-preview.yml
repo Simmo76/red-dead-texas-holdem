@@ -61,11 +61,15 @@ jobs:
           mkdir -p site
           cp -r publish-main/wwwroot/. site/
           sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/\" />|" site/index.html
+          printf '{"version":"%s","built":"%s"}\n' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            > site/version.json
           cp site/index.html site/404.html
 
           mkdir -p "site/preview/${BRANCH_SLUG}"
           cp -r publish-preview/wwwroot/. "site/preview/${BRANCH_SLUG}/"
           sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/preview/${BRANCH_SLUG}/\" />|" "site/preview/${BRANCH_SLUG}/index.html"
+          printf '{"version":"%s","built":"%s","preview":"%s"}\n' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$BRANCH_SLUG" \
+            > "site/preview/${BRANCH_SLUG}/version.json"
 
           touch site/.nojekyll
           echo "Preview will be served at: https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${REPO_NAME}/preview/${BRANCH_SLUG}/" >> "$GITHUB_STEP_SUMMARY"
