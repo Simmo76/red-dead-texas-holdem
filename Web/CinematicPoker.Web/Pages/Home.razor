@@ -24,11 +24,13 @@
                 <div class="name-prompt" @onclick:stopPropagation="true">
                     <div class="intro-title">WHAT DO THEY <span>CALL YOU</span></div>
                     <p class="name-blurb">We’ll remember it on this device so you only enter it once.</p>
-                    <input class="name-input" type="text" maxlength="16"
-                           autocapitalize="words" autocomplete="nickname" autocorrect="off" spellcheck="false"
-                           placeholder="Your name" @bind="_nameDraft" @bind:event="oninput"
-                           @onkeydown="OnNameKeyDown" />
-                    <button class="act call big" disabled="@(!CanConfirmName)" @onclick="ConfirmName">SIT DOWN</button>
+                    <div class="name-entry-row">
+                        <input class="name-input" type="text" maxlength="16"
+                               autocapitalize="words" autocomplete="nickname" autocorrect="off" spellcheck="false"
+                               placeholder="Your name" @bind="_nameDraft" @bind:event="oninput"
+                               @onkeydown="OnNameKeyDown" />
+                        <button class="act call big" disabled="@(!CanConfirmName)" @onclick="ConfirmName">SIT DOWN</button>
+                    </div>
                 </div>
             }
             else if (_sceneLoading)
