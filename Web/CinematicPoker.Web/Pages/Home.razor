@@ -1828,16 +1828,20 @@
                     award.Payouts.TryGetValue(0, out paid);
                 _bannerAmount = _playerWonPot && paid > 0 ? paid : award.Amount;
                 string winners = string.Join(" & ", award.WinnerSeats.Select(s => s == 0 ? "You" : NameOf(s)));
+                // Main and side pots are awarded independently. A player can
+                // therefore win a side pot with two pair while another player
+                // wins the main pot with a straight; show that context here.
+                string potDescription = award.PotIndex == 0 ? "" : " a side pot";
                 if (_playerWonPot)
                 {
                     _banner = award.WinningHand.HasValue
-                        ? $"YOU WON with {Pretty(award.WinningHand.Value.Category)}"
+                        ? $"YOU WON{potDescription} with {Pretty(award.WinningHand.Value.Category)}"
                         : "YOU WON — everyone folded";
                 }
                 else
                 {
                     _banner = award.WinningHand.HasValue
-                        ? $"{winners} win{(award.WinnerSeats.Count == 1 ? "s" : "")} with {Pretty(award.WinningHand.Value.Category)}"
+                        ? $"{winners} win{(award.WinnerSeats.Count == 1 ? "s" : "")}{potDescription} with {Pretty(award.WinningHand.Value.Category)}"
                         : $"{winners} take{(award.WinnerSeats.Count == 1 ? "s" : "")} the pot";
                 }
                 _statusLine = _bannerAmount.HasValue
