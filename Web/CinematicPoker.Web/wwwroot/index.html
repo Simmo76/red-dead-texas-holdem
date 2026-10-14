@@ -6,6 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#0b0d12" />
     <meta name="robots" content="noindex, nofollow" />
+    <!-- Desktop shortcuts / Home Screen apps otherwise keep a week-old
+         index.html (and its pinned ?v= script URLs) — ask browsers not to. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <!-- iOS: run fullscreen when added to the Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -21,6 +26,41 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Rye&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="css/app.css?v=25" />
+    <script>
+        // Desktop / Home Screen installs cache index.html hard. Each deploy
+        // writes version.json with the git SHA; if that changes, drop Cache
+        // Storage and reload once so the new ?v= pins actually load.
+        (function () {
+            var KEY = 'dmh-deploy-version';
+            var FLAG = 'dmh-deploy-reload';
+            fetch('version.json', { cache: 'no-store' }).then(function (r) {
+                if (!r.ok) return null;
+                return r.json();
+            }).then(function (body) {
+                if (!body || !body.version) return;
+                var next = String(body.version);
+                var prev = null;
+                try { prev = localStorage.getItem(KEY); } catch (e) { }
+                if (prev && prev !== next) {
+                    try { localStorage.setItem(KEY, next); } catch (e) { }
+                    var already = false;
+                    try { already = sessionStorage.getItem(FLAG) === next; } catch (e) { }
+                    if (already) return;
+                    try { sessionStorage.setItem(FLAG, next); } catch (e) { }
+                    var reload = function () { location.reload(); };
+                    if (window.caches && caches.keys) {
+                        caches.keys().then(function (keys) {
+                            return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+                        }).then(reload, reload);
+                    } else {
+                        reload();
+                    }
+                    return;
+                }
+                try { localStorage.setItem(KEY, next); } catch (e) { }
+            }).catch(function () { /* offline / first paint — play with whatever we have */ });
+        })();
+    </script>
 </head>
 
 <body>
@@ -75,9 +115,9 @@
     </script>
     <!-- Bump ?v= on scene/audio changes so phones don't serve a stale cache. -->
     <script src="js/poker-profile.js?v=1"></script>
-    <script src="js/poker-audio.js?v=10"></script>
+    <script src="js/poker-audio.js?v=11"></script>
     <script src="js/poker-export.js?v=2"></script>
-    <script type="module" src="js/poker-scene.js?v=91"></script>
+    <script type="module" src="js/poker-scene.js?v=94"></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 

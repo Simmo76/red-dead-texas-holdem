@@ -38,6 +38,10 @@ jobs:
         run: |
           REPO_NAME="${GITHUB_REPOSITORY#*/}"
           sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/\" />|" publish/wwwroot/index.html
+          # Desktop shortcuts cache index.html for days; version.json is
+          # fetched with cache: 'no-store' so a new SHA forces one reload.
+          printf '{"version":"%s","built":"%s"}\n' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            > publish/wwwroot/version.json
           touch publish/wwwroot/.nojekyll
           cp publish/wwwroot/index.html publish/wwwroot/404.html
 

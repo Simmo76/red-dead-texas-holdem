@@ -331,10 +331,6 @@
 
                 <div class="settings-rows">
                     <div class="settings-row">
-                        <span class="settings-label">BACKDROP</span>
-                        <button class="chip-btn" @onclick="CycleBackdrop">@_backdropName</button>
-                    </div>
-                    <div class="settings-row">
                         <span class="settings-label">SOUND</span>
                         <button class="chip-btn @(_muted ? "" : "active")" @onclick="ToggleMute">
                             @(_muted ? "SOUND OFF" : "SOUND ON")
@@ -1484,7 +1480,17 @@
 
     private void OpenHandRankings() => _handRankingsOpen = true;
 
-    private void CloseHandRankings() => _handRankingsOpen = false;
+    private async Task CloseHandRankings()
+    {
+        _handRankingsOpen = false;
+        // Same canvas-cover texture eviction risk as Settings (and the chart
+        // itself is a large decode) — refresh GPU maps when the overlay lifts.
+        if (_sceneReady)
+        {
+            try { await JS.InvokeVoidAsync("pokerScene.healGraphics"); }
+            catch (JSException) { }
+        }
+    }
 
     // ------------------------------------------------------------- settings
 
@@ -1501,10 +1507,19 @@
         _settingsOpen = true;
     }
 
-    private void CloseSettings()
+    private async Task CloseSettings()
     {
         _settingsOpen = false;
         _settingsNameNote = "";
+        // Settings covers the WebGL canvas full-screen; on phones that can
+        // quietly drop GPU textures without a context-loss event. Re-upload
+        // maps (and finish a pending SALOON load) so the bar and cowboys
+        // are intact when the overlay lifts.
+        if (_sceneReady)
+        {
+            try { await JS.InvokeVoidAsync("pokerScene.healGraphics"); }
+            catch (JSException) { }
+        }
     }
 
     private async Task OnSettingsNameKeyDown(KeyboardEventArgs e)
@@ -1522,7 +1537,12 @@
         _settingsNameDraft = _playerName;
         await PersistPlayerName(_playerName);
         _settingsNameNote = $"Saved — the table knows you as {_playerName}.";
-        if (_sceneReady) await PushSceneState(); // refresh the 3D nameplate now
+        if (_sceneReady)
+        {
+            await PushSceneState(); // refresh the 3D nameplate now
+            try { await JS.InvokeVoidAsync("pokerScene.healGraphics"); }
+            catch (JSException) { }
+        }
     }
 
     private void ExportFromSettings()
@@ -1560,7 +1580,7 @@
             CurrentStack = currentStack,
             Difficulty = DifficultyNames[_difficulty],
             PlayMode = _quickMode ? "QUICK PLAY" : "CINEMATIC",
-            Backdrop = _backdropName
+            Backdrop = BackdropName
         });
     }
 
@@ -2042,32 +2062,14 @@
     }
 
     // -------------------------------------------------------------- backdrop
+    // Only the saloon is available for now — no alternate sets to cycle.
 
-    private string _backdropName = "SALOON";
+    private const string BackdropName = "SALOON";
 
-    // Ultra-lite graphics boots open on the SHED backdrop, not the SALOON the
-    // label defaults to — sync the label and music bed with what the scene
-    // actually chose.
     private async Task SyncBackdropLabel()
     {
-        try
-        {
-            string backdrop = await JS.InvokeAsync<string>("pokerScene.backdropName");
-            if (backdrop != _backdropName)
-            {
-                _backdropName = backdrop;
-                await JS.InvokeVoidAsync("pokerAudio.setScene", _backdropName);
-                StateHasChanged();
-            }
-        }
+        try { await JS.InvokeVoidAsync("pokerAudio.setScene", BackdropName); }
         catch (JSException) { }
-    }
-
-    private async Task CycleBackdrop()
-    {
-        _backdropName = await JS.InvokeAsync<string>("pokerScene.cycleBackdrop");
-        // Each backdrop brings its own music bed (beach/western/disco/saloon).
-        await JS.InvokeVoidAsync("pokerAudio.setScene", _backdropName);
     }
 
     // -------------------------------------------------------------- sounds
