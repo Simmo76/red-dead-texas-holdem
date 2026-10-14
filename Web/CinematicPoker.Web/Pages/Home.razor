@@ -240,8 +240,12 @@
         else if (_awaitingHuman && _legal != null && _showSlider)
         {
             <div class="slider-panel">
-                <input type="range" min="@_legal.MinBetOrRaiseTo" max="@_legal.MaxBetOrRaiseTo" step="5"
-                       value="@_sliderValue" @oninput="OnSliderInput" />
+                @* The thumb travels through a normalized scale. The displayed
+                   amount is mapped logarithmically so small bets get much more
+                   of the slider than they would on a linear $20-$4,000 range. *@
+                <input type="range" min="0" max="@BetSliderSteps" step="1"
+                       value="@_sliderPosition" aria-label="Bet amount"
+                       aria-valuetext="$@_sliderValue" @oninput="OnSliderInput" />
                 <div class="slider-row">
                     <span class="slider-amount">$@_sliderValue</span>
                     <button class="act small" @onclick="() => SetSlider(PotNow / 2)">½ POT</button>
@@ -522,6 +526,7 @@
     private bool _awaitingHuman;
     private bool _showSlider;
     private long _sliderValue;
+    private int _sliderPosition;
     private bool _quickMode;
     private bool _sessionOver;
     private bool _humanLost;
@@ -1216,6 +1221,7 @@
             {
                 _legal = _game.GetLegalActions();
                 _sliderValue = _legal.MinBetOrRaiseTo;
+                _sliderPosition = BetAmountToSliderPosition(_sliderValue);
                 _showSlider = false;
                 _advice = null;           // computed on demand when the button is tapped
                 _adviceCollapsed = true;  // every turn starts as just the button
@@ -1266,20 +1272,78 @@
     {
         _showSlider = true;
         _sliderValue = _legal.MinBetOrRaiseTo;
+        _sliderPosition = BetAmountToSliderPosition(_sliderValue);
         await PushBetPreview();
     }
 
     private async Task OnSliderInput(ChangeEventArgs e)
     {
-        if (long.TryParse(e.Value?.ToString(), out long v))
-            _sliderValue = Math.Clamp(v, _legal.MinBetOrRaiseTo, _legal.MaxBetOrRaiseTo);
+        if (int.TryParse(e.Value?.ToString(), out int position))
+        {
+            _sliderPosition = Math.Clamp(position, 0, BetSliderSteps);
+            _sliderValue = SliderPositionToBetAmount(_sliderPosition);
+        }
         await PushBetPreview();
     }
 
     private async Task SetSlider(long amount)
     {
         _sliderValue = Math.Clamp(amount, _legal.MinBetOrRaiseTo, _legal.MaxBetOrRaiseTo);
+        _sliderPosition = BetAmountToSliderPosition(_sliderValue);
         await PushBetPreview();
+    }
+
+    // Keep the slider position independent from the money amount. A
+    // logarithmic scale makes $20-$100 easy to select even when the all-in
+    // amount is several thousand dollars, while still allowing the full
+    // range to be reached precisely at either end.
+    private const int BetSliderSteps = 1000;
+
+    private long SliderPositionToBetAmount(int position)
+    {
+        if (_legal == null) return 0;
+
+        long min = _legal.MinBetOrRaiseTo;
+        long max = _legal.MaxBetOrRaiseTo;
+        if (max <= min) return min;
+
+        double t = Math.Clamp(position, 0, BetSliderSteps) / (double)BetSliderSteps;
+        double amount;
+        if (min > 0)
+        {
+            amount = min * Math.Exp(Math.Log((double)max / min) * t);
+        }
+        else
+        {
+            // Logarithms cannot represent a zero lower bound. A power curve
+            // gives the same low-end precision for that uncommon case.
+            amount = min + (max - min) * Math.Pow(t, 2.2);
+        }
+
+        long snapped = (long)Math.Round(amount / 5.0) * 5;
+        return Math.Clamp(snapped, min, max);
+    }
+
+    private int BetAmountToSliderPosition(long amount)
+    {
+        if (_legal == null) return 0;
+
+        long min = _legal.MinBetOrRaiseTo;
+        long max = _legal.MaxBetOrRaiseTo;
+        if (max <= min) return 0;
+
+        amount = Math.Clamp(amount, min, max);
+        double t;
+        if (min > 0)
+        {
+            t = Math.Log((double)amount / min) / Math.Log((double)max / min);
+        }
+        else
+        {
+            t = Math.Pow((double)(amount - min) / (max - min), 1.0 / 2.2);
+        }
+
+        return (int)Math.Round(Math.Clamp(t, 0, 1) * BetSliderSteps);
     }
 
     private async Task CloseSlider()
