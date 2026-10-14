@@ -291,6 +291,24 @@ html, body {
 
 .name-input::placeholder { color: var(--text-dim); opacity: 0.7; }
 
+.name-entry-row {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    width: min(480px, 92vw);
+}
+
+.name-entry-row .name-input {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+}
+
+.name-entry-row .act {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
 @keyframes intro-pulse {
     0%, 100% { opacity: 0.4; }
     50% { opacity: 1; }
@@ -1287,6 +1305,8 @@ html, body {
     .act { padding: 12px 14px; font-size: 13px; letter-spacing: 1px; flex: 0 1 auto; }
     .actionbar { gap: 8px; }
     .actionbar-left, .actionbar-right { gap: 8px; }
+    .name-entry-row { gap: 8px; }
+    .name-entry-row .act.big { padding: 12px 14px; font-size: 13px; }
     .slider-row { flex-wrap: wrap; }
 }
 
