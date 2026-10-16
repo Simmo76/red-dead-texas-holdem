@@ -3152,16 +3152,24 @@ window.pokerScene = {
     for (const data of seats) {
       const seat = state.seats[data.seat];
       if (!seat) continue;
+      // `active` is derived from the C# round seat lookup. During a hand
+      // transition that lookup can briefly be absent, but absence is not a
+      // fold. Never let an inconsistent { active:false, folded:false,
+      // out:false } row tear down a live seat's cards/chips or trigger a
+      // visual reset; only explicit fold/elimination is allowed to do that.
+      const visualData = (!data.active && !data.folded && !data.out && seat.char)
+        ? { ...data, active: true }
+        : data;
       const prevData = prev ? (prev.seats || []).find(s => s.seat === data.seat) : null;
       // Compare against what is actually on the felt (seat.cardSig), not the
       // previous snapshot: self-healing if an earlier update was ever missed.
-      const expectedCardSig = seatCardSig(data.seat, data);
-      const expectedCardCount = seatCardCount(data.seat, data);
+      const expectedCardSig = seatCardSig(data.seat, visualData);
+      const expectedCardCount = seatCardCount(data.seat, visualData);
       const cardsPresent = seat.cards.length === expectedCardCount
         && seat.cards.every(card => card.parent);
       if (seat.cardSig !== expectedCardSig
           || !cardsPresent) {
-        updateSeatCards(seat, data.seat, data);
+        updateSeatCards(seat, data.seat, visualData);
       }
       // Reconcile against the objects actually attached to the scene, not
       // only against the previous JSON snapshot. A missed render/update can
@@ -3169,16 +3177,17 @@ window.pokerScene = {
       // has not changed since the last snapshot.
       const chipsPresent = seat.chips && seat.chips.parent === state.scene
         && seat.chips.children.length > 0;
-      if (!prevData || prevData.bet !== data.bet
-          || seat.chipAmount !== (data.bet || 0) || (!!data.bet && !chipsPresent)) {
-        updateSeatChips(seat, data.seat, data.bet);
+      if (!prevData || prevData.bet !== visualData.bet
+          || seat.chipAmount !== (visualData.bet || 0)
+          || (!!visualData.bet && !chipsPresent)) {
+        updateSeatChips(seat, data.seat, visualData.bet);
       }
       const stackPresent = seat.stackChips && seat.stackChips.parent === state.scene
         && seat.stackChips.children.length > 0;
-      if (!prevData || prevData.stack !== data.stack || prevData.out !== data.out
-          || seat.stackAmount !== (data.stack || 0)
-          || (!!data.stack && !data.out && !stackPresent)) {
-        updateStackChips(seat, data.seat, data);
+      if (!prevData || prevData.stack !== visualData.stack || prevData.out !== data.out
+          || seat.stackAmount !== (visualData.stack || 0)
+          || (!!visualData.stack && !data.out && !stackPresent)) {
+        updateStackChips(seat, data.seat, visualData);
       }
       // Folded players (the human included) sit out the rest of the hand as
       // grey ghosts with arms folded; the flag clears when the next hand
