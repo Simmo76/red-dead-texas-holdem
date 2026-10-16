@@ -540,6 +540,7 @@
     private string _banner;
     private long? _bannerAmount;
     private bool _playerWonPot;
+    private readonly List<PotAwarded> _awardsThisHand = new();
     private int _pendingFocusSeat = -1;
     private readonly List<ShowdownRow> _showdownView = new();
     private string _statusLine = "";
@@ -1807,6 +1808,7 @@
                 _revealed.Clear();
                 _shownBoard.Clear();
                 _showdownView.Clear();
+                _awardsThisHand.Clear();
                 _showdownHandCount = 0;
                 _banner = null;
                 _bannerAmount = null;
@@ -1858,6 +1860,7 @@
 
             case PotAwarded award:
             {
+                _awardsThisHand.Add(award);
                 double potHeat = PotHeat(award.Amount);
                 // Body takes on every winner/loser; only one NPC speaks so the
                 // table doesn't stack the same sayings on top of each other.
@@ -1906,33 +1909,8 @@
                     foreach (int seatIdx in award.WinnerSeats)
                         RememberShownHand(seatIdx, HoleCardsOf(seatIdx), winner: true);
                 }
-                _playerWonPot = award.WinnerSeats.Contains(0);
-                if (!_playerWonPot)
+                if (!award.WinnerSeats.Contains(0))
                     _pendingFocusSeat = FirstOpponentRevealSeat(award.WinnerSeats);
-                long paid = 0;
-                if (award.Payouts != null)
-                    award.Payouts.TryGetValue(0, out paid);
-                _bannerAmount = _playerWonPot && paid > 0 ? paid : award.Amount;
-                string winners = string.Join(" & ", award.WinnerSeats.Select(s => s == 0 ? "You" : NameOf(s)));
-                // Main and side pots are awarded independently. A player can
-                // therefore win a side pot with two pair while another player
-                // wins the main pot with a straight; show that context here.
-                string potDescription = award.PotIndex == 0 ? "" : " a side pot";
-                if (_playerWonPot)
-                {
-                    _banner = award.WinningHand.HasValue
-                        ? $"YOU WON{potDescription} with {Pretty(award.WinningHand.Value.Category)}"
-                        : "YOU WON — everyone folded";
-                }
-                else
-                {
-                    _banner = award.WinningHand.HasValue
-                        ? $"{winners} win{(award.WinnerSeats.Count == 1 ? "s" : "")}{potDescription} with {Pretty(award.WinningHand.Value.Category)}"
-                        : $"{winners} take{(award.WinnerSeats.Count == 1 ? "s" : "")} the pot";
-                }
-                _statusLine = _bannerAmount.HasValue
-                    ? $"{_banner}  ·  ${_bannerAmount.Value}"
-                    : _banner;
                 break;
             }
 
@@ -1952,6 +1930,7 @@
                         break;
                     case HandCompleted completed:
                         RememberHand(completed);
+                        PresentHandResult(completed);
                         _handHasCompleted = true;
                         break;
                 }
@@ -1960,6 +1939,53 @@
     }
 
     // ------------------------------------------------------------------ helpers
+
+    private void PresentHandResult(HandCompleted completed)
+    {
+        long stackChange = completed.StackChanges != null
+            && completed.StackChanges.TryGetValue(0, out long change)
+            ? change
+            : 0;
+        _playerWonPot = stackChange > 0;
+
+        PotAwarded mainAward = _awardsThisHand.FirstOrDefault(a => a.PotIndex == 0)
+            ?? _awardsThisHand.LastOrDefault();
+        HandValue? winningHand = mainAward?.WinningHand;
+        var winners = _awardsThisHand
+            .SelectMany(a => a.WinnerSeats ?? Array.Empty<int>())
+            .Distinct()
+            .ToList();
+        string winnerNames = string.Join(" & ", winners.Select(s => s == 0 ? "You" : NameOf(s)));
+        long humanPayout = _awardsThisHand
+            .Where(a => a.Payouts != null)
+            .Sum(a => a.Payouts.TryGetValue(0, out long paid) ? paid : 0);
+        long totalAwarded = _awardsThisHand.Sum(a => a.Amount);
+
+        _bannerAmount = _playerWonPot && humanPayout > 0
+            ? humanPayout
+            : totalAwarded > 0 ? totalAwarded : null;
+
+        if (_playerWonPot)
+        {
+            _banner = winningHand.HasValue
+                ? $"YOU WON with {Pretty(winningHand.Value.Category)}"
+                : "YOU WON — everyone folded";
+        }
+        else if (stackChange == 0)
+        {
+            _banner = "POT SPLIT";
+        }
+        else
+        {
+            _banner = winningHand.HasValue
+                ? $"{winnerNames} win{(winners.Count == 1 ? "s" : "")} with {Pretty(winningHand.Value.Category)}"
+                : $"{winnerNames} take{(winners.Count == 1 ? "s" : "")} the pot";
+        }
+
+        _statusLine = _bannerAmount.HasValue
+            ? $"{_banner}  ·  ${_bannerAmount.Value}"
+            : _banner;
+    }
 
     private string NameOf(int seat) => _game.GetPlayer(seat).Name;
 
