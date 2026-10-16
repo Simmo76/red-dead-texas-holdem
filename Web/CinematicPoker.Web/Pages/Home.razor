@@ -911,7 +911,14 @@
                 folded,
                 @out = eliminated,
                 actor = acting,
-                active = s != null && !folded && !eliminated,
+                // A render can briefly observe the round while its seat
+                // collection is being replaced (new hand / continued game).
+                // Missing seat state is not the same thing as folding: keep
+                // the player active unless the engine explicitly says they
+                // folded or were eliminated. Otherwise the WebGL reconciler
+                // clears their cards and chips for one snapshot, and that
+                // stale empty state can look like a random table animation.
+                active = Round != null && !folded && !eliminated,
                 heat = SeatHeat(p.Seat),
                 dealer = Round != null && p.Seat == Round.DealerSeat,
                 sb = Round != null && p.Seat == Round.SmallBlindSeat,

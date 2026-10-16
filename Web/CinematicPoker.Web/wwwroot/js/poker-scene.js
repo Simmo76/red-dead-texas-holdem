@@ -1005,19 +1005,20 @@ function makeCharacter(gltf, spec, extraClips) {
     character.folded = on;
     // Drop the chair as soon as they fold so the ghost isn't sat on furniture.
     if (character.chair) character.chair.visible = !on;
+    if (!on) {
+      // Folded is a per-hand flag. When it clears, this is the start of a
+      // new hand, not an in-hand un-fold. Cancel any old fold/win/lose take
+      // before restoring the seated idle; otherwise its delayed restore can
+      // keep driving the new hand's body while cards and chips are being
+      // rebuilt.
+      gestureGen++;
+      character.reacting = false;
+      character._queued = null;
+      hardSit();
+    }
     const name = on ? FOLDED_IDLE : character.homeIdle;
     const clip = findMood(name) || findBody('Sit');
     if (!clip || !sitAction || sitAction.getClip() === clip) return;
-    // A Fold / FoldShake already in flight should land on the new hold, not
-    // fade back to the card-hold idle. Retarget the restore clip but leave
-    // the gesture playing — stopping the current sit here is what left
-    // everyone standing.
-    if (character.reacting) {
-      const next = makeSitAction(clip);
-      next.time = Math.random() * clip.duration;
-      adoptSitAction(next, name);
-      return;
-    }
     switchHomeIdle(name);
   };
   character.updateFold = (dt) => {
