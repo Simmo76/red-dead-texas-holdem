@@ -655,7 +655,15 @@
 
     private async Task StartIntro()
     {
-        if (!_settingsLoaded || _namePromptOpen) return;
+        if (_namePromptOpen) return;
+        // The first tap can arrive before the asynchronous profile read has
+        // completed. Do not silently discard it; finish loading the profile
+        // and continue the same tap through the normal name/play flow.
+        if (!_settingsLoaded)
+        {
+            _playerName = await ReadCachedPlayerNameAsync();
+            _settingsLoaded = true;
+        }
         if (string.IsNullOrEmpty(_playerName))
         {
             _namePromptOpen = true;
@@ -911,7 +919,14 @@
                 folded,
                 @out = eliminated,
                 actor = acting,
-                active = s != null && !folded && !eliminated,
+                // A render can briefly observe the round while its seat
+                // collection is being replaced (new hand / continued game).
+                // Missing seat state is not the same thing as folding: keep
+                // the player active unless the engine explicitly says they
+                // folded or were eliminated. Otherwise the WebGL reconciler
+                // clears their cards and chips for one snapshot, and that
+                // stale empty state can look like a random table animation.
+                active = Round != null && !folded && !eliminated,
                 heat = SeatHeat(p.Seat),
                 dealer = Round != null && p.Seat == Round.DealerSeat,
                 sb = Round != null && p.Seat == Round.SmallBlindSeat,

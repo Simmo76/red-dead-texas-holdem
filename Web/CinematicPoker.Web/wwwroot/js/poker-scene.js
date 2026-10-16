@@ -1005,19 +1005,20 @@ function makeCharacter(gltf, spec, extraClips) {
     character.folded = on;
     // Drop the chair as soon as they fold so the ghost isn't sat on furniture.
     if (character.chair) character.chair.visible = !on;
+    if (!on) {
+      // Folded is a per-hand flag. When it clears, this is the start of a
+      // new hand, not an in-hand un-fold. Cancel any old fold/win/lose take
+      // before restoring the seated idle; otherwise its delayed restore can
+      // keep driving the new hand's body while cards and chips are being
+      // rebuilt.
+      gestureGen++;
+      character.reacting = false;
+      character._queued = null;
+      hardSit();
+    }
     const name = on ? FOLDED_IDLE : character.homeIdle;
     const clip = findMood(name) || findBody('Sit');
     if (!clip || !sitAction || sitAction.getClip() === clip) return;
-    // A Fold / FoldShake already in flight should land on the new hold, not
-    // fade back to the card-hold idle. Retarget the restore clip but leave
-    // the gesture playing — stopping the current sit here is what left
-    // everyone standing.
-    if (character.reacting) {
-      const next = makeSitAction(clip);
-      next.time = Math.random() * clip.duration;
-      adoptSitAction(next, name);
-      return;
-    }
     switchHomeIdle(name);
   };
   character.updateFold = (dt) => {
@@ -1127,6 +1128,20 @@ function makeCharacter(gltf, spec, extraClips) {
     character._queued = null;
     gestureGen++; // cancel any pending gesture restores
     hardSit();
+  };
+
+  // Elimination is different from folding: the seat is gone from the game,
+  // so it must not keep accepting talk/reaction requests while its normal
+  // idle animation makes it look like an active player.
+  character.setOut = (on) => {
+    if (on) {
+      character.dead = true;
+      character.reacting = false;
+      character._queued = null;
+      gestureGen++;
+    } else if (character.dead) {
+      character.revive();
+    }
   };
 
   // Seated emotion takes retargeted from the Mighty Cat card-game pack.
@@ -3151,16 +3166,24 @@ window.pokerScene = {
     for (const data of seats) {
       const seat = state.seats[data.seat];
       if (!seat) continue;
+      // `active` is derived from the C# round seat lookup. During a hand
+      // transition that lookup can briefly be absent, but absence is not a
+      // fold. Never let an inconsistent { active:false, folded:false,
+      // out:false } row tear down a live seat's cards/chips or trigger a
+      // visual reset; only explicit fold/elimination is allowed to do that.
+      const visualData = (!data.active && !data.folded && !data.out && seat.char)
+        ? { ...data, active: true }
+        : data;
       const prevData = prev ? (prev.seats || []).find(s => s.seat === data.seat) : null;
       // Compare against what is actually on the felt (seat.cardSig), not the
       // previous snapshot: self-healing if an earlier update was ever missed.
-      const expectedCardSig = seatCardSig(data.seat, data);
-      const expectedCardCount = seatCardCount(data.seat, data);
+      const expectedCardSig = seatCardSig(data.seat, visualData);
+      const expectedCardCount = seatCardCount(data.seat, visualData);
       const cardsPresent = seat.cards.length === expectedCardCount
         && seat.cards.every(card => card.parent);
       if (seat.cardSig !== expectedCardSig
           || !cardsPresent) {
-        updateSeatCards(seat, data.seat, data);
+        updateSeatCards(seat, data.seat, visualData);
       }
       // Reconcile against the objects actually attached to the scene, not
       // only against the previous JSON snapshot. A missed render/update can
@@ -3168,23 +3191,27 @@ window.pokerScene = {
       // has not changed since the last snapshot.
       const chipsPresent = seat.chips && seat.chips.parent === state.scene
         && seat.chips.children.length > 0;
-      if (!prevData || prevData.bet !== data.bet
-          || seat.chipAmount !== (data.bet || 0) || (!!data.bet && !chipsPresent)) {
-        updateSeatChips(seat, data.seat, data.bet);
+      if (!prevData || prevData.bet !== visualData.bet
+          || seat.chipAmount !== (visualData.bet || 0)
+          || (!!visualData.bet && !chipsPresent)) {
+        updateSeatChips(seat, data.seat, visualData.bet);
       }
       const stackPresent = seat.stackChips && seat.stackChips.parent === state.scene
         && seat.stackChips.children.length > 0;
-      if (!prevData || prevData.stack !== data.stack || prevData.out !== data.out
-          || seat.stackAmount !== (data.stack || 0)
-          || (!!data.stack && !data.out && !stackPresent)) {
-        updateStackChips(seat, data.seat, data);
+      if (!prevData || prevData.stack !== visualData.stack || prevData.out !== data.out
+          || seat.stackAmount !== (visualData.stack || 0)
+          || (!!visualData.stack && !data.out && !stackPresent)) {
+        updateStackChips(seat, data.seat, visualData);
       }
       // Folded players (the human included) sit out the rest of the hand as
       // grey ghosts with arms folded; the flag clears when the next hand
       // deals, so colour and the thinking idle come back on their own.
       // Chairs leave with the fold so the ghost floats free of furniture.
       const foldedOut = (!!data.folded || !!data.out);
-      if (seat.char) seat.char.setFolded(!!data.folded && !data.out);
+      if (seat.char) {
+        seat.char.setOut(!!data.out);
+        seat.char.setFolded(foldedOut);
+      }
       if (seat.chair) seat.chair.visible = !foldedOut;
       if (seat.char && typeof data.heat === 'number') seat.char.heat = data.heat;
       if (seat.char && data.out) {
