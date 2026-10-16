@@ -885,12 +885,17 @@
     {
         if (_game == null) return;
 
+        // Capture the actor once for the whole snapshot. Reading CurrentSeat
+        // independently while building each row made the scene's actor flag
+        // vulnerable to a turn transition between rows, leaving the outline
+        // and the HUD name briefly pointing at different seats.
+        int actorSeat = _game.CurrentSeat;
         var seats = _game.Players.Select(p =>
         {
             SeatState s = SeatOf(p.Seat);
             bool folded = s != null && s.Folded;
             bool eliminated = ShownOut(p.Seat);
-            bool acting = _game.CurrentSeat == p.Seat;
+            bool acting = actorSeat == p.Seat;
             string status =
                 folded ? "folded"
                 : s != null && s.AllIn ? "ALL-IN"
@@ -921,6 +926,7 @@
         var snapshot = new
         {
             pot = Round?.PotTotal ?? 0,
+            actorSeat,
             board = _shownBoard.Select(CardImage).ToArray(),
             // Folding mucks your cards: they leave your hand immediately.
             hole = SeatOf(0) is { Folded: true }

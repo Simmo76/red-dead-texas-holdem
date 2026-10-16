@@ -3118,10 +3118,13 @@ window.pokerScene = {
     if (!prev || prev.pot !== snapshot.pot) updatePot(snapshot.pot);
 
     const seats = snapshot.seats || [];
-    // The glowing outline tracks whoever currently has to act (including
-    // the player).
-    const actor = seats.find(s => s.actor);
-    const actorSeat = actor ? actor.seat : -1;
+    // The C# snapshot captures the actor once before serializing the rows.
+    // Use that explicit identity instead of rediscovering it from row flags:
+    // a turn transition during a render must never make the outline drift
+    // away from the name shown for the same snapshot.
+    const actorSeat = Number.isInteger(snapshot.actorSeat)
+      ? snapshot.actorSeat
+      : ((seats.find(s => s.actor) || {}).seat ?? -1);
     if (actorSeat !== state.lastActorSeat) {
       state.lastActorSeat = actorSeat;
       for (const data of seats) {
