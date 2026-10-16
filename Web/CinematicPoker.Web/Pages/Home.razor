@@ -519,6 +519,7 @@
     // showdown. This matters for an immediate all-in, where the engine can
     // reveal more than two hands or award a fold-win without a showdown.
     private bool _victoryPlayedThisHand;
+    private bool _playerLossPlayedThisHand;
 
     // The engine resolves a hand synchronously (a call on the turn can deal
     // the river, reveal hands and award the pot in one burst), so its events
@@ -1813,6 +1814,7 @@
                 _showdownView.Clear();
                 _awardsThisHand.Clear();
                 _victoryPlayedThisHand = false;
+                _playerLossPlayedThisHand = false;
                 _banner = null;
                 _bannerAmount = null;
                 _playerWonPot = false;
@@ -1948,6 +1950,8 @@
             ? change
             : 0;
         _playerWonPot = stackChange > 0;
+        if (stackChange < 0)
+            PlayPlayerLoss();
 
         PotAwarded mainAward = _awardsThisHand.FirstOrDefault(a => a.PotIndex == 0)
             ?? _awardsThisHand.LastOrDefault();
@@ -2077,6 +2081,14 @@
         if (_muted || _victoryPlayedThisHand) return;
         _victoryPlayedThisHand = true;
         try { _ = JS.InvokeVoidAsync("pokerAudio.victory"); }
+        catch (JSException) { }
+    }
+
+    private void PlayPlayerLoss()
+    {
+        if (_muted || _playerLossPlayedThisHand) return;
+        _playerLossPlayedThisHand = true;
+        try { _ = JS.InvokeVoidAsync("pokerAudio.playerLoss"); }
         catch (JSException) { }
     }
 

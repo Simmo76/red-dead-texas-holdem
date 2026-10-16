@@ -2,8 +2,8 @@
 // (bundled Wikimedia Commons saloon music + OpenGameArt CC0 beach/western/disco beds),
 // owner-supplied outlaw table voice packs (win / fold-or-lose / random banter),
 // and a short dealer call for the player's winning hand (B. Patrick pack).
-// Everything is MP3 (iOS Safari cannot decode Ogg Vorbis) and short
-// clips play through WebAudio: once the context is unlocked by the first tap,
+// Short clips are MP3 or PCM WAV (both are supported by iOS Safari) and
+// play through WebAudio: once the context is unlocked by the first tap,
 // timer-driven sounds (NPC chatter, opponent actions) keep
 // working on iOS, where HTMLAudio.play() outside a user gesture is rejected.
 // Failures (autoplay policy before first gesture, missing files) are silent
@@ -26,6 +26,7 @@ window.pokerAudio = (function () {
     let dealerSrc = null;
     let dealerPlaying = false;
     let victoryPending = false;
+    let playerLossPending = false;
 
     // Owner-supplied outlaw VO pools (renamed from the Dropbox zip).
     const WIN_CLIPS = 15;
@@ -40,12 +41,18 @@ window.pokerAudio = (function () {
         return ctx;
     }
 
-    function flushPendingVictory() {
-        if (!victoryPending || muted) return;
+    function flushPendingResultAudio() {
+        if (muted || (!victoryPending && !playerLossPending)) return;
         const c = ensureCtx();
         if (!c || c.state !== 'running') return;
-        victoryPending = false;
-        playBuffer('audio/victory.mp3', 0.75, 1);
+        if (victoryPending) {
+            victoryPending = false;
+            playBuffer('audio/victory.mp3', 0.75, 1);
+        }
+        if (playerLossPending) {
+            playerLossPending = false;
+            playBuffer('audio/player-loss.wav', 0.75, 1);
+        }
     }
 
     function loadBuffer(url) {
@@ -190,9 +197,9 @@ window.pokerAudio = (function () {
         const c = ensureCtx();
         if (c && c.state === 'suspended') {
             const p = c.resume();
-            if (p) p.then(flushPendingVictory).catch(function () { });
+            if (p) p.then(flushPendingResultAudio).catch(function () { });
         }
-        flushPendingVictory();
+        flushPendingResultAudio();
         startMusic();
     });
 
@@ -363,11 +370,23 @@ window.pokerAudio = (function () {
             }
             playBuffer('audio/victory.mp3', 0.75, 1);
         },
+        playerLoss: function () {
+            if (muted) return;
+            const c = ensureCtx();
+            if (!c || c.state !== 'running') {
+                playerLossPending = true;
+                return;
+            }
+            playBuffer('audio/player-loss.wav', 0.75, 1);
+        },
         setAlive: function (seats) { aliveSeats = seats || []; },
         setAwaitingHuman: function (on) { awaitingHuman = !!on; },
         setMuted: function (m) {
             muted = m;
-            if (m) victoryPending = false;
+            if (m) {
+                victoryPending = false;
+                playerLossPending = false;
+            }
             if (m) stopMusic();
             else if (!m) startMusic();
             if (m && voiceSrc) { try { voiceSrc.stop(); } catch (e) { } voiceSrc = null; voicePlaying = false; }
