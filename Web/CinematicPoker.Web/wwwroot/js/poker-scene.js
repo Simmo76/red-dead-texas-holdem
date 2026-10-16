@@ -1130,6 +1130,20 @@ function makeCharacter(gltf, spec, extraClips) {
     hardSit();
   };
 
+  // Elimination is different from folding: the seat is gone from the game,
+  // so it must not keep accepting talk/reaction requests while its normal
+  // idle animation makes it look like an active player.
+  character.setOut = (on) => {
+    if (on) {
+      character.dead = true;
+      character.reacting = false;
+      character._queued = null;
+      gestureGen++;
+    } else if (character.dead) {
+      character.revive();
+    }
+  };
+
   // Seated emotion takes retargeted from the Mighty Cat card-game pack.
   character.variant = 0;
   character.heat = 0.25;
@@ -3194,7 +3208,10 @@ window.pokerScene = {
       // deals, so colour and the thinking idle come back on their own.
       // Chairs leave with the fold so the ghost floats free of furniture.
       const foldedOut = (!!data.folded || !!data.out);
-      if (seat.char) seat.char.setFolded(!!data.folded && !data.out);
+      if (seat.char) {
+        seat.char.setOut(!!data.out);
+        seat.char.setFolded(foldedOut);
+      }
       if (seat.chair) seat.chair.visible = !foldedOut;
       if (seat.char && typeof data.heat === 'number') seat.char.heat = data.heat;
       if (seat.char && data.out) {

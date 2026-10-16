@@ -655,7 +655,15 @@
 
     private async Task StartIntro()
     {
-        if (!_settingsLoaded || _namePromptOpen) return;
+        if (_namePromptOpen) return;
+        // The first tap can arrive before the asynchronous profile read has
+        // completed. Do not silently discard it; finish loading the profile
+        // and continue the same tap through the normal name/play flow.
+        if (!_settingsLoaded)
+        {
+            _playerName = await ReadCachedPlayerNameAsync();
+            _settingsLoaded = true;
+        }
         if (string.IsNullOrEmpty(_playerName))
         {
             _namePromptOpen = true;
