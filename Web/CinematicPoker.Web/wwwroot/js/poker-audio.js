@@ -25,6 +25,7 @@ window.pokerAudio = (function () {
     let awaitingHuman = false;
     let dealerSrc = null;
     let dealerPlaying = false;
+    let victoryPending = false;
 
     // Owner-supplied outlaw VO pools (renamed from the Dropbox zip).
     const WIN_CLIPS = 15;
@@ -37,6 +38,14 @@ window.pokerAudio = (function () {
             if (ctx.state === 'suspended') { const p = ctx.resume(); if (p) p.catch(function () { }); }
         } catch (e) { }
         return ctx;
+    }
+
+    function flushPendingVictory() {
+        if (!victoryPending || muted) return;
+        const c = ensureCtx();
+        if (!c || c.state !== 'running') return;
+        victoryPending = false;
+        playBuffer('audio/victory.mp3', 0.75, 1);
     }
 
     function loadBuffer(url) {
@@ -181,8 +190,9 @@ window.pokerAudio = (function () {
         const c = ensureCtx();
         if (c && c.state === 'suspended') {
             const p = c.resume();
-            if (p) p.catch(function () { });
+            if (p) p.then(flushPendingVictory).catch(function () { });
         }
+        flushPendingVictory();
         startMusic();
     });
 
@@ -339,15 +349,25 @@ window.pokerAudio = (function () {
         setScene: function (/* name */) {
             // The saloon is the only available backdrop.
         },
-        // Short fanfare when a heads-up showdown crowns its winner (steady
-        // pitch: unlike SFX, a detuned jingle is instantly noticeable).
+        // Short fanfare when the player wins a pot (steady pitch: unlike SFX,
+        // a detuned jingle is instantly noticeable).
         victory: function () {
-            if (!muted) playBuffer('audio/victory.mp3', 0.75, 1);
+            if (muted) return;
+            const c = ensureCtx();
+            // A result can be raised by Blazor just as the browser is
+            // completing the resume initiated by the all-in tap. Keep the
+            // one-shot pending instead of silently dropping the win cue.
+            if (!c || c.state !== 'running') {
+                victoryPending = true;
+                return;
+            }
+            playBuffer('audio/victory.mp3', 0.75, 1);
         },
         setAlive: function (seats) { aliveSeats = seats || []; },
         setAwaitingHuman: function (on) { awaitingHuman = !!on; },
         setMuted: function (m) {
             muted = m;
+            if (m) victoryPending = false;
             if (m) stopMusic();
             else if (!m) startMusic();
             if (m && voiceSrc) { try { voiceSrc.stop(); } catch (e) { } voiceSrc = null; voicePlaying = false; }
