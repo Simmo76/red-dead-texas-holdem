@@ -1882,10 +1882,13 @@
                     }
                 }
                 // A heads-up showdown (exactly two hands compared) gets a
-                // victory fanfare for whoever comes out on top.
+                // result sound for whoever comes out on top.
                 if (_showdownHandCount == 2 && !_muted)
                 {
-                    _ = JS.InvokeVoidAsync("pokerAudio.victory");
+                    _ = JS.InvokeVoidAsync(
+                        award.WinnerSeats.Contains(0)
+                            ? "pokerAudio.victory"
+                            : "pokerAudio.defeat");
                     _showdownHandCount = 0; // once per showdown (side pots re-award)
                 }
                 // The player's own win gets the full show: fireworks + sparklers,
