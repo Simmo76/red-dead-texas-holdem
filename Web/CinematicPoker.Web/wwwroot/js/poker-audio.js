@@ -13,6 +13,7 @@ window.pokerAudio = (function () {
     const buffers = {};       // url -> Promise<AudioBuffer>
     let muted = false;
     let music = null;
+    let ambience = null;
     let musicTimer = null;
     let voiceSrc = null;      // one table voice at a time so lines don't overlap
     let voicePlaying = false;
@@ -84,6 +85,7 @@ window.pokerAudio = (function () {
         'audio/saloon/wireless-rag.mp3',
         'audio/saloon/bachelors-button.mp3'
     ];
+    const AMBIENCE_URL = 'audio/saloon-bar-ambience.mp3';
     let recentMusic = [];
 
     function pickMusic() {
@@ -141,6 +143,13 @@ window.pokerAudio = (function () {
     function startMusic() {
         if (muted || introPlaying || musicTimer) return;
         try {
+            if (!ambience) {
+                ambience = new Audio(AMBIENCE_URL);
+                ambience.loop = true;
+                ambience.volume = 0.08;
+                const ambiencePlay = ambience.play();
+                if (ambiencePlay) ambiencePlay.catch(function () { });
+            }
             if (!music) {
                 music = new Audio(pickMusic());
                 music.volume = 0.12;
@@ -163,6 +172,7 @@ window.pokerAudio = (function () {
             musicTimer = null;
         }
         if (music) { try { music.pause(); } catch (e) { } music = null; }
+        if (ambience) { try { ambience.pause(); } catch (e) { } ambience = null; }
     }
 
     // Browsers block audio until the first user gesture, so (re)try on taps.
