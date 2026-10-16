@@ -13,6 +13,7 @@ window.pokerAudio = (function () {
     const buffers = {};       // url -> Promise<AudioBuffer>
     let muted = false;
     let music = null;
+    let musicTimer = null;
     let voiceSrc = null;      // one table voice at a time so lines don't overlap
     let voicePlaying = false;
     let lastVoiceAt = 0;
@@ -75,9 +76,28 @@ window.pokerAudio = (function () {
         playBuffer('audio/' + name + '.mp3', 0.55, 0.92 + Math.random() * 0.16);
     }
 
-    // Saloon bed supplied as a Wikimedia Commons Ogg and re-encoded to MP3
-    // for iOS Safari compatibility.
-    const musicUrl = 'audio/saloon/top-liner-rag.mp3';
+    // Wikimedia Commons ragtime recordings, re-encoded to MP3 for iOS Safari.
+    // Shuffle without repeats, then leave a five-second pause between beds.
+    const MUSIC_TRACKS = [
+        'audio/saloon/top-liner-rag.mp3',
+        'audio/saloon/black-and-white-rag.mp3',
+        'audio/saloon/wireless-rag.mp3',
+        'audio/saloon/bachelors-button.mp3'
+    ];
+    let recentMusic = [];
+
+    function pickMusic() {
+        let candidates = MUSIC_TRACKS.filter(function (url) {
+            return recentMusic.indexOf(url) === -1;
+        });
+        if (!candidates.length) {
+            recentMusic = [];
+            candidates = MUSIC_TRACKS.slice();
+        }
+        const url = candidates[Math.floor(Math.random() * candidates.length)];
+        recentMusic.push(url);
+        return url;
+    }
 
     // Intro movie audio: the two owner-supplied parts played back to back
     // (desert sweep, then club sweep), each faded in and out. Regular music
@@ -119,12 +139,18 @@ window.pokerAudio = (function () {
     }
 
     function startMusic() {
-        if (muted || introPlaying) return;
+        if (muted || introPlaying || musicTimer) return;
         try {
             if (!music) {
-                music = new Audio(musicUrl);
-                music.loop = true;
+                music = new Audio(pickMusic());
                 music.volume = 0.12;
+                music.addEventListener('ended', function () {
+                    music = null;
+                    musicTimer = setTimeout(function () {
+                        musicTimer = null;
+                        startMusic();
+                    }, 5000);
+                });
             }
             const p = music.play();
             if (p) p.catch(function () { });
@@ -132,6 +158,10 @@ window.pokerAudio = (function () {
     }
 
     function stopMusic() {
+        if (musicTimer) {
+            clearTimeout(musicTimer);
+            musicTimer = null;
+        }
         if (music) { try { music.pause(); } catch (e) { } music = null; }
     }
 
