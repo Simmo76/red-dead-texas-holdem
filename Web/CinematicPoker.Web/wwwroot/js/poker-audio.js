@@ -2,8 +2,8 @@
 // (bundled Wikimedia Commons saloon music + OpenGameArt CC0 beach/western/disco beds),
 // owner-supplied outlaw table voice packs (win / fold-or-lose / random banter),
 // and a short dealer call for the player's winning hand (B. Patrick pack).
-// Everything is MP3 (iOS Safari cannot decode Ogg Vorbis) and short
-// clips play through WebAudio: once the context is unlocked by the first tap,
+// Short clips are MP3 or PCM WAV (both are supported by iOS Safari) and
+// play through WebAudio: once the context is unlocked by the first tap,
 // timer-driven sounds (NPC chatter, opponent actions) keep
 // working on iOS, where HTMLAudio.play() outside a user gesture is rejected.
 // Failures (autoplay policy before first gesture, missing files) are silent
@@ -25,6 +25,8 @@ window.pokerAudio = (function () {
     let awaitingHuman = false;
     let dealerSrc = null;
     let dealerPlaying = false;
+    let victoryPending = false;
+    let playerLossPending = false;
 
     // Owner-supplied outlaw VO pools (renamed from the Dropbox zip).
     const WIN_CLIPS = 15;
@@ -37,6 +39,20 @@ window.pokerAudio = (function () {
             if (ctx.state === 'suspended') { const p = ctx.resume(); if (p) p.catch(function () { }); }
         } catch (e) { }
         return ctx;
+    }
+
+    function flushPendingResultAudio() {
+        if (muted || (!victoryPending && !playerLossPending)) return;
+        const c = ensureCtx();
+        if (!c || c.state !== 'running') return;
+        if (victoryPending) {
+            victoryPending = false;
+            playBuffer('audio/victory.mp3', 0.75, 1);
+        }
+        if (playerLossPending) {
+            playerLossPending = false;
+            playBuffer('audio/player-loss.wav', 0.75, 1);
+        }
     }
 
     function loadBuffer(url) {
@@ -181,8 +197,9 @@ window.pokerAudio = (function () {
         const c = ensureCtx();
         if (c && c.state === 'suspended') {
             const p = c.resume();
-            if (p) p.catch(function () { });
+            if (p) p.then(flushPendingResultAudio).catch(function () { });
         }
+        flushPendingResultAudio();
         startMusic();
     });
 
@@ -339,22 +356,37 @@ window.pokerAudio = (function () {
         setScene: function (/* name */) {
             // The saloon is the only available backdrop.
         },
-        // Short fanfare when a heads-up showdown crowns its winner (steady
-        // pitch: unlike SFX, a detuned jingle is instantly noticeable).
+        // Short fanfare when the player wins a pot (steady pitch: unlike SFX,
+        // a detuned jingle is instantly noticeable).
         victory: function () {
-            if (!muted) playBuffer('audio/victory.mp3', 0.75, 1);
+            if (muted) return;
+            const c = ensureCtx();
+            // A result can be raised by Blazor just as the browser is
+            // completing the resume initiated by the all-in tap. Keep the
+            // one-shot pending instead of silently dropping the win cue.
+            if (!c || c.state !== 'running') {
+                victoryPending = true;
+                return;
+            }
+            playBuffer('audio/victory.mp3', 0.75, 1);
         },
-        // Reuse the existing outlaw lose voice pack for the player's
-        // losing result. The regular voice() path intentionally excludes
-        // seat 0, so result audio needs its own entry point.
-        defeat: function () {
-            if (muted || !ensureCtx() || ctx.state !== 'running') return;
-            playBuffer(poolUrl('lose', pickClip('lose')), 0.95, 1);
+        playerLoss: function () {
+            if (muted) return;
+            const c = ensureCtx();
+            if (!c || c.state !== 'running') {
+                playerLossPending = true;
+                return;
+            }
+            playBuffer('audio/player-loss.wav', 0.75, 1);
         },
         setAlive: function (seats) { aliveSeats = seats || []; },
         setAwaitingHuman: function (on) { awaitingHuman = !!on; },
         setMuted: function (m) {
             muted = m;
+            if (m) {
+                victoryPending = false;
+                playerLossPending = false;
+            }
             if (m) stopMusic();
             else if (!m) startMusic();
             if (m && voiceSrc) { try { voiceSrc.stop(); } catch (e) { } voiceSrc = null; voicePlaying = false; }

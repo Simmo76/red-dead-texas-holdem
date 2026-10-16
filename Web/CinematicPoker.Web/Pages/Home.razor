@@ -515,7 +515,11 @@
     private HandSequenceLog _handLog = new();
     private readonly Random _rng = new();
     private readonly Dictionary<int, IReadOnlyList<Card>> _revealed = new();
-    private int _showdownHandCount; // hands compared at the current showdown
+    // Result audio belongs to the hand outcome, not to the shape of the
+    // showdown. This matters for an immediate all-in, where the engine can
+    // reveal more than two hands or award a fold-win without a showdown.
+    private bool _victoryPlayedThisHand;
+    private bool _playerLossPlayedThisHand;
 
     // The engine resolves a hand synchronously (a call on the turn can deal
     // the river, reveal hands and award the pot in one burst), so its events
@@ -1809,7 +1813,8 @@
                 _shownBoard.Clear();
                 _showdownView.Clear();
                 _awardsThisHand.Clear();
-                _showdownHandCount = 0;
+                _victoryPlayedThisHand = false;
+                _playerLossPlayedThisHand = false;
                 _banner = null;
                 _bannerAmount = null;
                 _playerWonPot = false;
@@ -1837,7 +1842,6 @@
                 break;
 
             case ShowdownStarted showdown:
-                _showdownHandCount = showdown.RevealedHands.Count;
                 _statusLine = "Showdown — read their cards";
                 _showdownView.Clear();
                 foreach (var kv in showdown.RevealedHands.OrderBy(h => h.Key))
@@ -1881,21 +1885,17 @@
                         if (speak) spoken = true;
                     }
                 }
-                // A heads-up showdown (exactly two hands compared) gets a
-                // result sound for whoever comes out on top.
-                if (_showdownHandCount == 2 && !_muted)
-                {
-                    _ = JS.InvokeVoidAsync(
-                        award.WinnerSeats.Contains(0)
-                            ? "pokerAudio.victory"
-                            : "pokerAudio.defeat");
-                    _showdownHandCount = 0; // once per showdown (side pots re-award)
-                }
                 // The player's own win gets the full show: fireworks + sparklers,
                 // and the dealer names the winning hand (full house, straight, …).
                 // Stay on the table camera so opponent hole cards remain in view.
                 if (award.WinnerSeats.Contains(0))
                 {
+                    // Play once for any player win, including multiway/all-in
+                    // pots and wins by fold. Previously this was gated on
+                    // exactly two revealed hands, which silently omitted the
+                    // first-hand all-in path when the engine revealed more
+                    // than two players (and all fold-wins).
+                    PlayVictory();
                     if (_sceneReady)
                         _ = JS.InvokeVoidAsync("pokerScene.celebrate");
                     if (award.WinningHand.HasValue)
@@ -1950,6 +1950,8 @@
             ? change
             : 0;
         _playerWonPot = stackChange > 0;
+        if (stackChange < 0)
+            PlayPlayerLoss();
 
         PotAwarded mainAward = _awardsThisHand.FirstOrDefault(a => a.PotIndex == 0)
             ?? _awardsThisHand.LastOrDefault();
@@ -2071,6 +2073,22 @@
     {
         if (_muted || string.IsNullOrEmpty(clip)) return;
         try { _ = JS.InvokeVoidAsync("pokerAudio.dealer", clip); }
+        catch (JSException) { }
+    }
+
+    private void PlayVictory()
+    {
+        if (_muted || _victoryPlayedThisHand) return;
+        _victoryPlayedThisHand = true;
+        try { _ = JS.InvokeVoidAsync("pokerAudio.victory"); }
+        catch (JSException) { }
+    }
+
+    private void PlayPlayerLoss()
+    {
+        if (_muted || _playerLossPlayedThisHand) return;
+        _playerLossPlayedThisHand = true;
+        try { _ = JS.InvokeVoidAsync("pokerAudio.playerLoss"); }
         catch (JSException) { }
     }
 
