@@ -1637,7 +1637,11 @@ async function buildScene(canvas) {
   });
 
   for (let i = 0; i < SEATS; i++) {
-    const seat = { group: new THREE.Group(), cards: [], cardSig: 'none', chips: null, stackChips: null, char: null, label: null, chair: null };
+    const seat = {
+      group: new THREE.Group(), cards: [], cardSig: 'none',
+      chips: null, chipAmount: 0, stackChips: null, stackAmount: 0,
+      char: null, label: null, chair: null
+    };
     state.seats.push(seat);
     scene.add(seat.group);
 
@@ -2633,6 +2637,11 @@ function seatCardSig(i, data) {
   return data.active ? 'backs' : 'none';
 }
 
+function seatCardCount(i, data) {
+  if (i === 0 || (!data.active && !(data.reveal && data.reveal.length))) return 0;
+  return data.reveal && data.reveal.length ? Math.min(2, data.reveal.length) : 2;
+}
+
 function updateSeatCards(seat, i, data) {
   clearGroupChildren(seat.cards, state.scene);
   // Record 'none' while the felt really is empty; the real signature is
@@ -2705,21 +2714,25 @@ function seatCardZoom(seatIndex) {
 // table reads like a live cash game rather than a bare felt.
 function updateStackChips(seat, i, data) {
   if (seat.stackChips) { state.scene.remove(seat.stackChips); seat.stackChips = null; }
+  seat.stackAmount = 0;
   if (data.out || !data.stack || data.stack <= 0) return;
   const pos = seatPos(i, TABLE_RADIUS - 0.16);
   seat.stackChips = makeChipStacks(data.stack, 0.045);
   seat.stackChips.position.set(pos.x, TABLE_TOP, pos.z);
   seat.stackChips.rotation.y = seatAngle(i) + Math.PI / 2; // spread along the rail
   state.scene.add(seat.stackChips);
+  seat.stackAmount = data.stack;
 }
 
 function updateSeatChips(seat, i, bet) {
   if (seat.chips) { state.scene.remove(seat.chips); seat.chips = null; }
+  seat.chipAmount = 0;
   if (!bet || bet <= 0) return;
   const pos = seatPos(i, TABLE_RADIUS - 0.62);
   seat.chips = makeChipStacks(bet);
   seat.chips.position.set(pos.x, TABLE_TOP, pos.z);
   state.scene.add(seat.chips);
+  seat.chipAmount = bet;
 }
 
 function updatePot(pot) {
@@ -3136,11 +3149,29 @@ window.pokerScene = {
       const prevData = prev ? (prev.seats || []).find(s => s.seat === data.seat) : null;
       // Compare against what is actually on the felt (seat.cardSig), not the
       // previous snapshot: self-healing if an earlier update was ever missed.
-      if (seat.cardSig !== seatCardSig(data.seat, data)) {
+      const expectedCardSig = seatCardSig(data.seat, data);
+      const expectedCardCount = seatCardCount(data.seat, data);
+      const cardsPresent = seat.cards.length === expectedCardCount
+        && seat.cards.every(card => card.parent);
+      if (seat.cardSig !== expectedCardSig
+          || !cardsPresent) {
         updateSeatCards(seat, data.seat, data);
       }
-      if (!prevData || prevData.bet !== data.bet) updateSeatChips(seat, data.seat, data.bet);
-      if (!prevData || prevData.stack !== data.stack || prevData.out !== data.out) {
+      // Reconcile against the objects actually attached to the scene, not
+      // only against the previous JSON snapshot. A missed render/update can
+      // otherwise leave a live seat empty forever when its bet or stack value
+      // has not changed since the last snapshot.
+      const chipsPresent = seat.chips && seat.chips.parent === state.scene
+        && seat.chips.children.length > 0;
+      if (!prevData || prevData.bet !== data.bet
+          || seat.chipAmount !== (data.bet || 0) || (!!data.bet && !chipsPresent)) {
+        updateSeatChips(seat, data.seat, data.bet);
+      }
+      const stackPresent = seat.stackChips && seat.stackChips.parent === state.scene
+        && seat.stackChips.children.length > 0;
+      if (!prevData || prevData.stack !== data.stack || prevData.out !== data.out
+          || seat.stackAmount !== (data.stack || 0)
+          || (!!data.stack && !data.out && !stackPresent)) {
         updateStackChips(seat, data.seat, data);
       }
       // Folded players (the human included) sit out the rest of the hand as
