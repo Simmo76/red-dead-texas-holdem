@@ -344,6 +344,13 @@ window.pokerAudio = (function () {
         victory: function () {
             if (!muted) playBuffer('audio/victory.mp3', 0.75, 1);
         },
+        // Reuse the existing outlaw lose voice pack for the player's
+        // losing result. The regular voice() path intentionally excludes
+        // seat 0, so result audio needs its own entry point.
+        defeat: function () {
+            if (muted || !ensureCtx() || ctx.state !== 'running') return;
+            playBuffer(poolUrl('lose', pickClip('lose')), 0.95, 1);
+        },
         setAlive: function (seats) { aliveSeats = seats || []; },
         setAwaitingHuman: function (on) { awaitingHuman = !!on; },
         setMuted: function (m) {
