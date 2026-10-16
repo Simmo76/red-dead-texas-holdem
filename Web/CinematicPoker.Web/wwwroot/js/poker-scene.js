@@ -3103,10 +3103,12 @@ window.pokerScene = {
   update(snapshot) {
     if (!state.ready) { state.pendingUpdate = snapshot; return; }
     const json = JSON.stringify(snapshot);
-    if (json === state.lastJson) return;
-
     const prev = state.lastJson ? JSON.parse(state.lastJson) : null;
 
+    // Do not return early when the snapshot is unchanged. Card and chip
+    // meshes can be detached by a transient render/context interruption
+    // without changing the game data; the seat reconciliation below is
+    // intentionally self-healing and must still get a chance to run.
     if (!prev || JSON.stringify(prev.board) !== JSON.stringify(snapshot.board)) {
       updateBoard(snapshot.board || []);
     }
