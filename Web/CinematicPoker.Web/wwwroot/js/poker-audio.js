@@ -1,5 +1,5 @@
 // Sound effects (Kenney CC0 casino pack), per-backdrop background music
-// (owner-supplied saloon loop + OpenGameArt CC0 beach/western/disco beds),
+// (bundled Wikimedia Commons saloon music + OpenGameArt CC0 beach/western/disco beds),
 // owner-supplied outlaw table voice packs (win / fold-or-lose / random banter),
 // and a short dealer call for the player's winning hand (B. Patrick pack).
 // Everything is MP3 (iOS Safari cannot decode Ogg Vorbis) and short
@@ -13,6 +13,8 @@ window.pokerAudio = (function () {
     const buffers = {};       // url -> Promise<AudioBuffer>
     let muted = false;
     let music = null;
+    let ambience = null;
+    let musicTimer = null;
     let voiceSrc = null;      // one table voice at a time so lines don't overlap
     let voicePlaying = false;
     let lastVoiceAt = 0;
@@ -75,8 +77,29 @@ window.pokerAudio = (function () {
         playBuffer('audio/' + name + '.mp3', 0.55, 0.92 + Math.random() * 0.16);
     }
 
-    // Saloon-only for now — alternate backdrop beds stay unused.
-    let musicUrl = 'audio/saloon-music.mp3?v=2';
+    // Wikimedia Commons ragtime recordings, re-encoded to MP3 for iOS Safari.
+    // Shuffle without repeats, then leave a five-second pause between beds.
+    const MUSIC_TRACKS = [
+        'audio/saloon/top-liner-rag.mp3',
+        'audio/saloon/black-and-white-rag.mp3',
+        'audio/saloon/wireless-rag.mp3',
+        'audio/saloon/bachelors-button.mp3'
+    ];
+    const AMBIENCE_URL = 'audio/saloon-bar-ambience.mp3';
+    let recentMusic = [];
+
+    function pickMusic() {
+        let candidates = MUSIC_TRACKS.filter(function (url) {
+            return recentMusic.indexOf(url) === -1;
+        });
+        if (!candidates.length) {
+            recentMusic = [];
+            candidates = MUSIC_TRACKS.slice();
+        }
+        const url = candidates[Math.floor(Math.random() * candidates.length)];
+        recentMusic.push(url);
+        return url;
+    }
 
     // Intro movie audio: the two owner-supplied parts played back to back
     // (desert sweep, then club sweep), each faded in and out. Regular music
@@ -118,21 +141,38 @@ window.pokerAudio = (function () {
     }
 
     function startMusic() {
-        if (muted || introPlaying) return;
+        if (muted || introPlaying || musicTimer) return;
         try {
-            if (music && music._url !== musicUrl) {
-                music.pause();
-                music = null;
+            if (!ambience) {
+                ambience = new Audio(AMBIENCE_URL);
+                ambience.loop = true;
+                ambience.volume = 0.08;
+                const ambiencePlay = ambience.play();
+                if (ambiencePlay) ambiencePlay.catch(function () { });
             }
             if (!music) {
-                music = new Audio(musicUrl);
-                music._url = musicUrl;
-                music.loop = true;
+                music = new Audio(pickMusic());
                 music.volume = 0.12;
+                music.addEventListener('ended', function () {
+                    music = null;
+                    musicTimer = setTimeout(function () {
+                        musicTimer = null;
+                        startMusic();
+                    }, 5000);
+                });
             }
             const p = music.play();
             if (p) p.catch(function () { });
         } catch (e) { }
+    }
+
+    function stopMusic() {
+        if (musicTimer) {
+            clearTimeout(musicTimer);
+            musicTimer = null;
+        }
+        if (music) { try { music.pause(); } catch (e) { } music = null; }
+        if (ambience) { try { ambience.pause(); } catch (e) { } ambience = null; }
     }
 
     // Browsers block audio until the first user gesture, so (re)try on taps.
@@ -286,7 +326,7 @@ window.pokerAudio = (function () {
         playIntro: function () {
             stopIntroAudio();
             introPlaying = true;
-            if (music) { music.pause(); music = null; }
+            stopMusic();
             playIntroPart(0);
         },
         // Skip (or finish): drop the intro audio and hand over to the
@@ -297,12 +337,7 @@ window.pokerAudio = (function () {
         },
         // Kept for HUD boot sync; only the saloon bed plays for now.
         setScene: function (/* name */) {
-            const url = 'audio/saloon-music.mp3?v=2';
-            if (url === musicUrl) return;
-            musicUrl = url;
-            const wasPlaying = music && !music.paused;
-            if (music) { music.pause(); music = null; }
-            if (wasPlaying) startMusic();
+            // The saloon is the only available backdrop.
         },
         // Short fanfare when a heads-up showdown crowns its winner (steady
         // pitch: unlike SFX, a detuned jingle is instantly noticeable).
@@ -313,7 +348,8 @@ window.pokerAudio = (function () {
         setAwaitingHuman: function (on) { awaitingHuman = !!on; },
         setMuted: function (m) {
             muted = m;
-            if (music) { if (m) music.pause(); else startMusic(); }
+            if (m) stopMusic();
+            else if (!m) startMusic();
             if (m && voiceSrc) { try { voiceSrc.stop(); } catch (e) { } voiceSrc = null; voicePlaying = false; }
             if (m && dealerSrc) {
                 try { dealerSrc.onended = null; dealerSrc.stop(); } catch (e) { }
