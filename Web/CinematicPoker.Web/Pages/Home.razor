@@ -1877,7 +1877,10 @@
                 bool spoken = false;
                 foreach (int seatIdx in award.WinnerSeats)
                 {
-                    bool speak = !spoken && seatIdx != 0;
+                    // Opponent win lines can be addressed to the player
+                    // ("you win"), so keep them silent when the player lost.
+                    // The opponent still gets the full visual win reaction.
+                    bool speak = !spoken && seatIdx != 0 && award.WinnerSeats.Contains(0);
                     SceneEmotion(seatIdx, "win", potHeat, speak);
                     if (speak) spoken = true;
                 }
