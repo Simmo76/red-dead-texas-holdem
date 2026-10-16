@@ -1,5 +1,5 @@
 // Sound effects (Kenney CC0 casino pack), per-backdrop background music
-// (YouTube-embedded saloon playlist + OpenGameArt CC0 beach/western/disco beds),
+// (bundled Wikimedia Commons saloon music + OpenGameArt CC0 beach/western/disco beds),
 // owner-supplied outlaw table voice packs (win / fold-or-lose / random banter),
 // and a short dealer call for the player's winning hand (B. Patrick pack).
 // Everything is MP3 (iOS Safari cannot decode Ogg Vorbis) and short
@@ -75,29 +75,9 @@ window.pokerAudio = (function () {
         playBuffer('audio/' + name + '.mp3', 0.55, 0.92 + Math.random() * 0.16);
     }
 
-    // Saloon-only for now. These are embedded rather than downloaded into
-    // the repository: the playlist owner controls the recordings and YouTube
-    // remains responsible for delivery/licensing. Pick without repeats for
-    // the current page session.
-    const SALOON_TRACKS = [
-        '1v61HYaLh0c', 'txv1Lz43KR8', 'Mwxlk_Pg9pM', 'dBAEyU3zMF8',
-        'e6N9PpAqJGI', 'uSqmJIGpXqk', 'TWSQ1Wh8ogQ', 'fL3EhaZwDNY',
-        'k0r-A-asO_k', '_4-pwb99mMU', 'I5U8z90EhHU', 'xXBXJVQjb6I'
-    ];
-    let recentMusic = [];
-
-    function pickMusic() {
-        let candidates = SALOON_TRACKS.filter(function (url) {
-            return recentMusic.indexOf(url) === -1;
-        });
-        if (!candidates.length) {
-            recentMusic = [];
-            candidates = SALOON_TRACKS.slice();
-        }
-        const id = candidates[Math.floor(Math.random() * candidates.length)];
-        recentMusic.push(id);
-        return id;
-    }
+    // Saloon bed supplied as a Wikimedia Commons Ogg and re-encoded to MP3
+    // for iOS Safari compatibility.
+    const musicUrl = 'audio/saloon/top-liner-rag.mp3';
 
     // Intro movie audio: the two owner-supplied parts played back to back
     // (desert sweep, then club sweep), each faded in and out. Regular music
@@ -142,19 +122,17 @@ window.pokerAudio = (function () {
         if (muted || introPlaying) return;
         try {
             if (!music) {
-                const id = pickMusic();
-                music = document.createElement('iframe');
-                music.title = 'Saloon music';
-                music.allow = 'autoplay';
-                music.setAttribute('aria-hidden', 'true');
-                music.style.cssText =
-                    'position:fixed;width:1px;height:1px;left:-10px;top:-10px;'
-                    + 'border:0;opacity:0;pointer-events:none;';
-                music.src = 'https://www.youtube-nocookie.com/embed/' + id
-                    + '?autoplay=1&controls=0&disablekb=1&playsinline=1&rel=0';
-                document.body.appendChild(music);
+                music = new Audio(musicUrl);
+                music.loop = true;
+                music.volume = 0.12;
             }
+            const p = music.play();
+            if (p) p.catch(function () { });
         } catch (e) { }
+    }
+
+    function stopMusic() {
+        if (music) { try { music.pause(); } catch (e) { } music = null; }
     }
 
     // Browsers block audio until the first user gesture, so (re)try on taps.
@@ -308,7 +286,7 @@ window.pokerAudio = (function () {
         playIntro: function () {
             stopIntroAudio();
             introPlaying = true;
-            if (music) { music.remove(); music = null; }
+            stopMusic();
             playIntroPart(0);
         },
         // Skip (or finish): drop the intro audio and hand over to the
@@ -319,7 +297,7 @@ window.pokerAudio = (function () {
         },
         // Kept for HUD boot sync; only the saloon bed plays for now.
         setScene: function (/* name */) {
-            // The saloon playlist is the only available backdrop.
+            // The saloon is the only available backdrop.
         },
         // Short fanfare when a heads-up showdown crowns its winner (steady
         // pitch: unlike SFX, a detuned jingle is instantly noticeable).
@@ -330,7 +308,7 @@ window.pokerAudio = (function () {
         setAwaitingHuman: function (on) { awaitingHuman = !!on; },
         setMuted: function (m) {
             muted = m;
-            if (m && music) { music.remove(); music = null; }
+            if (m) stopMusic();
             else if (!m) startMusic();
             if (m && voiceSrc) { try { voiceSrc.stop(); } catch (e) { } voiceSrc = null; voicePlaying = false; }
             if (m && dealerSrc) {
