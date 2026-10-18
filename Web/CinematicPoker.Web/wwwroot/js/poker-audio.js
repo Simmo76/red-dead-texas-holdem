@@ -223,7 +223,7 @@ window.pokerAudio = (function () {
         }
         const target = event.target;
         const buttonEl = target && target.closest
-            ? target.closest('button, [role="button"], .hud-board, .ai-advice') : null;
+            ? target.closest('button, [role="button"], .hud-board') : null;
         const playButton = buttonEl
             && !(buttonEl.tagName === 'BUTTON' && buttonEl.disabled);
         flushPendingResultAudio();
