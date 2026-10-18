@@ -1,6 +1,7 @@
 // Sound effects (Kenney CC0 casino pack), per-backdrop background music
 // (bundled Wikimedia Commons saloon music + OpenGameArt CC0 beach/western/disco beds),
 // owner-supplied outlaw table voice packs (win / fold-or-lose / random banter),
+// and owner-supplied Street Fighter announcer one-liners,
 // and a short dealer call for the player's winning hand (B. Patrick pack).
 // Short clips are MP3 or PCM WAV (both are supported by iOS Safari) and
 // play through WebAudio: once the context is unlocked by the first tap,
@@ -32,6 +33,10 @@ window.pokerAudio = (function () {
     const WIN_CLIPS = 15;
     const LOSE_CLIPS = 14;
     const RANDOM_CLIPS = 22;
+    const STREET_VOICE_CLIPS = Array.from({ length: 16 }, function (_, i) {
+        const n = i + 1 < 10 ? '0' + (i + 1) : String(i + 1);
+        return 'audio/street/voices/street-voice-' + n + '.wav';
+    });
 
     function ensureCtx() {
         try {
@@ -254,6 +259,7 @@ window.pokerAudio = (function () {
     }
 
     function poolUrl(kind, index) {
+        if (sceneName === 'street') return STREET_VOICE_CLIPS[index - 1];
         const n = index < 10 ? '0' + index : String(index);
         if (kind === 'win') return 'audio/voices/win/win-' + n + '.mp3';
         if (kind === 'lose' || kind === 'fold') return 'audio/voices/lose/lose-' + n + '.mp3';
@@ -261,6 +267,7 @@ window.pokerAudio = (function () {
     }
 
     function poolSize(kind) {
+        if (sceneName === 'street') return STREET_VOICE_CLIPS.length;
         if (kind === 'win') return WIN_CLIPS;
         if (kind === 'lose' || kind === 'fold') return LOSE_CLIPS;
         return RANDOM_CLIPS;
@@ -301,7 +308,7 @@ window.pokerAudio = (function () {
 
     // kind: 'idle' | 'win' | 'lose' | 'fold'
     // Seat is only used so idle banter can trigger a matching talk gesture.
-    // James (seat 0) never uses the outlaw pack — that's NPC table talk.
+    // James (seat 0) never uses the table voice pack — that's NPC table talk.
     function voice(seat, kind) {
         if (muted || dealerPlaying || voicePlaying) return;
         if (!ensureCtx() || ctx.state !== 'running') return;
