@@ -352,6 +352,13 @@
                         <span class="settings-label">DIFFICULTY</span>
                         <button class="chip-btn" @onclick="CycleDifficulty">@DifficultyNames[_difficulty]</button>
                     </div>
+                    <div class="settings-row">
+                        <label class="settings-label" for="settings-scene">SCENE</label>
+                        <select id="settings-scene" class="chip-btn settings-select" @onchange="OnTableSceneChanged">
+                            <option value="saloon" selected="@(_tableScene == "saloon")">SALOON</option>
+                            <option value="street" selected="@(_tableScene == "street")">STREET FIGHTER</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="overlay-actions">
@@ -2199,12 +2206,29 @@
     }
 
     // -------------------------------------------------------------- backdrop
-    // Only the saloon is available for now — no alternate sets to cycle.
+    // Visual scene is a settings choice (saloon by default, or the arcade
+    // ring). Music stays on the saloon bed either way.
 
     private const string BackdropName = "SALOON";
+    private string _tableScene = "saloon";
+
+    private async Task OnTableSceneChanged(ChangeEventArgs e)
+    {
+        var next = e.Value?.ToString() == "street" ? "street" : "saloon";
+        if (next == _tableScene) return;
+        _tableScene = next;
+        try { await JS.InvokeVoidAsync("pokerScene.setTableScene", next); }
+        catch (JSException) { }
+    }
 
     private async Task SyncBackdropLabel()
     {
+        try
+        {
+            var sceneId = await JS.InvokeAsync<string>("pokerScene.tableScene");
+            if (sceneId == "street" || sceneId == "saloon") _tableScene = sceneId;
+        }
+        catch (JSException) { }
         try { await JS.InvokeVoidAsync("pokerAudio.setScene", BackdropName); }
         catch (JSException) { }
     }

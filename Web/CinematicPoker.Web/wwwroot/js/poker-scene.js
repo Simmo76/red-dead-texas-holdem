@@ -1,7 +1,8 @@
 // Over-the-shoulder poker scene (Three.js) set in the Dead Man's Hand saloon.
 // Props/textures are CC0; the saloon is a web-optimised conversion of the
 // repo owner's licensed Unity pub scene (see tools/build_saloon_backdrop.py).
-// Extra switchable backdrops are intentionally disabled for now — saloon only.
+// The settings panel can swap in the arcade boxing ring and its fighters.
+// That swap changes meshes only: the poker clips and the saloon music stay.
 // The player is always a random outfit of David Grette's Jacob cowboy.
 // NPC seats draw from Jacob outfits plus the Sheriff and Bandit characters
 // from the same Western series (baked web GLBs; see tools/bake_western_npc.py).
@@ -179,6 +180,44 @@ const HAND_RADIUS = TABLE_RADIUS - 0.08;
 // Jacob is exported in metres. This scale matches his seated height (boots to
 // the top of the hat) to the build the table and camera were framed for.
 const WESTERN_SCALE = 1.098;
+// Fighters are exported in metres (standing height ~1.8). The seat placer
+// drops the posed hands onto the felt, same as the cowboys.
+const FIGHTER_SCALE = 1;
+// The featured ring's ropes sit about 1.9 m from centre in the exported GLB,
+// almost on top of the 1.74 m seat circle, so they cut through shoulders.
+// Scale the whole venue so the ropes land near 4.2 m and the stands read
+// as a room around the ring instead of a wall just behind the posts.
+const STREET_ARENA_SCALE = 2.2;
+// The ring canvas is a flat face at this height in the exported GLB. Scale
+// is about the origin, so that face would land near the felt (~0.80 m).
+// The table stand's foot sits on y=0; drop the backdrop by the scaled canvas
+// height so the canvas floor meets that foot.
+const STREET_CANVAS_Y = 0.3637;
+const FIGHTER_URLS = [
+  'models/characters/street/Fighter1.glb?v=3',
+  'models/characters/street/Fighter1-variation.glb?v=3',
+  'models/characters/street/Fighter2.glb?v=3',
+  'models/characters/street/Fighter2-variation.glb?v=3',
+];
+const TABLE_SCENE_KEY = 'cinematic-poker-table-scene';
+
+function readTableScene() {
+  try {
+    return localStorage.getItem(TABLE_SCENE_KEY) === 'street' ? 'street' : 'saloon';
+  } catch (e) {
+    return 'saloon';
+  }
+}
+
+function writeTableScene(id) {
+  const next = id === 'street' ? 'street' : 'saloon';
+  try { localStorage.setItem(TABLE_SCENE_KEY, next); } catch (e) { }
+  return next;
+}
+
+// Chosen once per page load. Changing it in settings reloads so the table
+// rebuilds around the new meshes; a missing key stays on the saloon cast.
+const TABLE_SCENE = readTableScene();
 
 // Outfit and head presets from the Cowboy 1 pack (SK_Jacob). Each game deals
 // six distinct looks, one per seat, including the player. `shirt` / `shirtOpt`
@@ -251,7 +290,8 @@ const state = {
   potChips: null,
   cardHold: null,       // community card being press-and-held (expands 2x)
   fx: [],               // live celebration particle systems
-  saloon: null,         // saloon backdrop group (only environment)
+  saloon: null,         // backdrop group (saloon or boxing arena)
+  tableScene: TABLE_SCENE,
   eyeHeight: EYE_HEIGHT,
   lastJson: '',
   lastActorSeat: -2
@@ -1398,8 +1438,8 @@ async function buildScene(canvas) {
   // the fog colour so distant geometry melts into the dark.
   scene.background.setHex(0x0a0610);
   scene.fog.color.setHex(0x0a0610);
-  scene.fog.near = 6;
-  scene.fog.far = 22;
+  scene.fog.near = TABLE_SCENE === 'street' ? 12 : 6;
+  scene.fog.far = TABLE_SCENE === 'street' ? 46 : 22;
   ambient.color.setHex(0x6a4a78); ambient.intensity = 0.32;
   hemi.color.setHex(0xb878a8); hemi.groundColor.setHex(0x1a1020); hemi.intensity = 0.28;
   fill.color.setHex(0xd8a0c8); fill.intensity = 0.85;
@@ -1414,7 +1454,10 @@ async function buildScene(canvas) {
   let saloonRetries = 0;
   const loadSaloon = () => {
     if (state.saloon || saloonLoad) return saloonLoad;
-    saloonLoad = loadGlb(loader, 'models/env/backdrop.glb?v=2').then((gltf) => {
+    const backdropUrl = TABLE_SCENE === 'street'
+      ? 'models/env/street-arena.glb?v=2'
+      : 'models/env/backdrop.glb?v=2';
+    saloonLoad = loadGlb(loader, backdropUrl).then((gltf) => {
       if (!gltf) {
         saloonLoad = null; // let a later retry pick it up
         if (saloonRetries++ < 3) setTimeout(loadSaloon, 5000);
@@ -1422,9 +1465,17 @@ async function buildScene(canvas) {
       }
       const env = new THREE.Group();
       const saloon = gltf.scene;
-      saloon.rotation.y = Math.PI; // bar across the table from the player seat
-      // After the 180° yaw, +Z on the saloon moves the bar toward the table.
-      saloon.position.z = SALOON_BAR_NUDGE_Z;
+      if (TABLE_SCENE === 'street') {
+        // Arena export already puts the featured ring on the origin and the
+        // stands on glTF -Z, across the table from the player seat.
+        saloon.rotation.y = 0;
+        saloon.position.set(0, -STREET_CANVAS_Y * STREET_ARENA_SCALE, 0);
+        saloon.scale.setScalar(STREET_ARENA_SCALE);
+      } else {
+        saloon.rotation.y = Math.PI; // bar across the table from the player seat
+        // After the 180° yaw, +Z on the saloon moves the bar toward the table.
+        saloon.position.z = SALOON_BAR_NUDGE_Z;
+      }
       saloon.traverse((m) => {
         if (!m.isMesh) return;
         m.castShadow = false;
@@ -1453,9 +1504,14 @@ async function buildScene(canvas) {
         }
       });
       env.add(saloon);
-      // Soft purple/pink hanging-lamp pools — dimmer than the table lantern so
-      // the bar and booths read as background with the original rose wash.
-      const lampSpecs = [
+      // Soft hanging-lamp pools so the room reads behind the table lantern.
+      // The arena keeps the same rose wash as the saloon; only the mesh changes.
+      const lampSpecs = TABLE_SCENE === 'street' ? [
+        [0xf0d8c0, 18, 34, [0.0, 9.0, -4.0]],
+        [0xe0b0d0, 12, 30, [-12.0, 8.0, -10.0]],
+        [0xe0b0d0, 12, 30, [12.0, 8.0, -10.0]],
+        [0xc8b0e0, 10, 28, [0.0, 7.5, 8.0]]
+      ] : [
         [0xe8a8d0, 5, 10, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],   // bar face
         [0xd090c8, 3.5, 9, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // left booths
         [0xd090c8, 3.5, 9, [6.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],   // right booths
@@ -1530,14 +1586,16 @@ async function buildScene(canvas) {
   state.seats = [];
   const charPromises = [];
 
-  // Jacob outfits for every seat, plus Sheriff and Bandit as NPC-only draws.
-  // A fresh cast every time the table is built.
-  const jacobModel = loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
-  // Ultra-lite boots seat Jacob outfits everywhere: Sheriff + Bandit are
-  // ~13 MB of extra meshopt GLB a memory-starved device never downloads.
-  const sheriffModel = GFX_ULTRA_LITE ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Sheriff.glb?v=10');
-  const banditModel = GFX_ULTRA_LITE ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Bandit.glb?v=10');
-  const mightyCatModel = loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=9');
+  // Saloon: Jacob outfits for every seat, plus Sheriff and Bandit as NPC draws.
+  // Street: the four arcade fighters, with the same poker clips baked on.
+  // Ultra-lite skips the extra bodies (Sheriff/Bandit, or the two variations).
+  const streetScene = TABLE_SCENE === 'street';
+  const jacobModel = streetScene ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
+  const sheriffModel = (streetScene || GFX_ULTRA_LITE) ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Sheriff.glb?v=10');
+  const banditModel = (streetScene || GFX_ULTRA_LITE) ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Bandit.glb?v=10');
+  const mightyCatModel = streetScene ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=9');
+  const fighterUrls = GFX_ULTRA_LITE ? FIGHTER_URLS.slice(0, 2) : FIGHTER_URLS;
+  const fighterModels = streetScene ? fighterUrls.map((url) => loadGlb(loader, url)) : [];
   // Every Jacob look wears a hat so the seat's accent colour always has
   // somewhere to live; hatless presets borrow a hat (and the matching short
   // hair so the full hairstyle doesn't clip through the brim). Sheriff and
@@ -1554,7 +1612,13 @@ async function buildScene(canvas) {
   ];
   const npcJacob = jacobPool.slice(1, 1 + (SEATS - 1 - specialNpcs.length));
   const npcPool = shuffle([...npcJacob, ...specialNpcs]);
-  const lineup = [playerPick, ...npcPool];
+  const fighterOrder = [];
+  while (streetScene && fighterOrder.length < SEATS) {
+    fighterOrder.push(...shuffle(fighterUrls.map((_, i) => i)));
+  }
+  const lineup = streetScene
+    ? fighterOrder.slice(0, SEATS).map((model) => ({ kind: 'fighter', look: null, model }))
+    : [playerPick, ...npcPool];
 
   // Position a seated character at seat i: face the table and plant the
   // idle's hands on the felt. The thinking clip holds the palms at lap
@@ -1632,8 +1696,8 @@ async function buildScene(canvas) {
 
   // Player: one HoldCards loop. NPCs: shuffled bag of table sit/observe
   // idles so neighbouring seats rarely lockstep on the same take.
-  const idleDeal = Promise.all([mightyCatModel]).then(([mc]) => {
-    const anims = mc.animations || [];
+  const idleDeal = Promise.all([mightyCatModel, ...fighterModels]).then(([mc, fighter0]) => {
+    const anims = (streetScene ? fighter0 : mc)?.animations || [];
     const holdPool = ['IdleHoldCards01', 'IdleHoldCards02', 'IdleHoldCards03']
       .filter((n) => THREE.AnimationClip.findByName(anims, n));
     const npcPool = [
@@ -1679,17 +1743,29 @@ async function buildScene(canvas) {
     // player's name in the same colour).
     const pick = lineup[i];
     const spec = {
-      look: pick.look, cards: i === 0, scale: WESTERN_SCALE,
+      look: pick.look, cards: i === 0,
+      scale: pick.kind === 'fighter' ? FIGHTER_SCALE : WESTERN_SCALE,
       hatColor: SEAT_COLORS[i % SEAT_COLORS.length]
     };
     charPromises.push(Promise.all([
-      jacobModel, sheriffModel, banditModel, mightyCatModel, idleDeal
-    ]).then(([jacob, sheriff, bandit, mc, deal]) => {
+      jacobModel, sheriffModel, banditModel, mightyCatModel, idleDeal,
+      ...(streetScene ? fighterModels : [])
+    ]).then((loaded) => {
+      const jacob = loaded[0];
+      const sheriff = loaded[1];
+      const bandit = loaded[2];
+      const mc = loaded[3];
+      const deal = loaded[4];
+      const fighters = loaded.slice(5);
       spec.idleName = deal[i];
       const gltf = pick.kind === 'sheriff' ? sheriff
         : pick.kind === 'bandit' ? bandit
+        : pick.kind === 'fighter' ? fighters[pick.model]
         : jacob;
-      const character = makeCharacter(gltf, spec, mc && mc.animations);
+      // Fighters carry the retargeted poker catalogue on their own bones.
+      // Cowboys keep playing the shared mighty-cat clips.
+      const clips = pick.kind === 'fighter' ? (gltf && gltf.animations) : (mc && mc.animations);
+      const character = makeCharacter(gltf, spec, clips);
       if (!character) return;
       character.variant = i;
       character.kind = pick.kind;
@@ -2956,7 +3032,7 @@ window.pokerScene = {
   // Texture / saloon health for the regression harness.
   textureAudit() {
     const audit = {
-      backdrop: 'SALOON',
+      backdrop: TABLE_SCENE === 'street' ? 'STREET FIGHTER' : 'SALOON',
       saloonLoaded: !!state.saloon,
       stdWithMap: 0,
       stdNoMap: 0,
@@ -3085,9 +3161,24 @@ window.pokerScene = {
     return 'loading';
   },
 
-  // Only the saloon is available.
+  // Saloon is the default. "street" is the arcade ring and fighters.
   backdropName() {
-    return 'SALOON';
+    return TABLE_SCENE === 'street' ? 'STREET FIGHTER' : 'SALOON';
+  },
+
+  tableScene() {
+    return TABLE_SCENE;
+  },
+
+  // Persist the choice and reload. The poker clips and music do not change;
+  // the next boot only swaps the backdrop and character meshes. The saloon
+  // stays the default when nothing has been saved.
+  setTableScene(id) {
+    const next = id === 'street' ? 'street' : 'saloon';
+    if (next === TABLE_SCENE) return next;
+    writeTableScene(next);
+    location.reload();
+    return next;
   },
 
   async init(canvasId) {
