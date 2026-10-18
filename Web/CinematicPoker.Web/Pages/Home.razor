@@ -2225,7 +2225,7 @@
 
     // -------------------------------------------------------------- backdrop
     // Visual scene is a settings choice (saloon by default, or the arcade
-    // ring). Music stays on the saloon bed either way.
+    // ring). Audio follows the selected backdrop.
 
     private const string BackdropName = "SALOON";
     private string _tableScene = "saloon";
@@ -2247,7 +2247,7 @@
             if (sceneId == "street" || sceneId == "saloon") _tableScene = sceneId;
         }
         catch (JSException) { }
-        try { await JS.InvokeVoidAsync("pokerAudio.setScene", BackdropName); }
+        try { await JS.InvokeVoidAsync("pokerAudio.setScene", _tableScene); }
         catch (JSException) { }
     }
 

@@ -17,6 +17,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  pull-requests: write
 
 # Shares the group with deploy-web.yml: one Pages deployment at a time.
 concurrency:
@@ -79,47 +80,12 @@ jobs:
         with:
           path: site
 
-  # The github-pages environment rejects branches that aren't in its
-  # deployment-branch policy, which fails the whole check. Look the policy up
-  # first so a not-yet-allowed branch SKIPS the deploy instead of going red.
-  gate:
-    name: Check Pages deployment branch policy
-    runs-on: ubuntu-latest
-    outputs:
-      allowed: ${{ steps.check.outputs.allowed }}
-    steps:
-      - name: Match branch against github-pages environment policy
-        id: check
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if ! POLICIES=$(gh api "repos/${GITHUB_REPOSITORY}/environments/github-pages/deployment-branch-policies" --jq '.branch_policies[].name'); then
-            echo "Could not read branch policies; attempting the deploy anyway."
-            echo "allowed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          ALLOWED=false
-          while IFS= read -r pattern; do
-            [ -z "$pattern" ] && continue
-            # shellcheck disable=SC2254  # unquoted on purpose: glob match
-            case "$GITHUB_REF_NAME" in
-              $pattern) ALLOWED=true ;;
-            esac
-          done <<< "$POLICIES"
-          echo "allowed=$ALLOWED" >> "$GITHUB_OUTPUT"
-          if [ "$ALLOWED" = "false" ]; then
-            MSG="Preview deploy skipped: branch '$GITHUB_REF_NAME' is not allowed by the github-pages environment. Add a 'cursor/*' deployment branch pattern under Settings -> Environments -> github-pages to enable branch previews."
-            echo "::notice::$MSG"
-            echo "$MSG" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
   deploy:
     name: Deploy to GitHub Pages
-    needs: [build, gate]
-    if: needs.gate.outputs.allowed == 'true'
+    needs: build
     runs-on: ubuntu-latest
     environment:
-      name: github-pages
+      name: github-pages-preview
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Configure Pages
@@ -130,3 +96,45 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Publish preview link to the pull request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- branch-preview-url -->';
+            const slug = context.ref.replace('refs/heads/', '').replaceAll('/', '-');
+            const previewUrl = `https://${context.repo.owner.toLowerCase()}.github.io/${context.repo.repo}/preview/${slug}/`;
+            const body = `${marker}\nPreview: [Open the branch build](${previewUrl})`;
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha
+            });
+            const pr = prs.find((item) => item.state === 'open');
+            if (!pr) {
+              core.info('No open pull request is associated with this commit.');
+              return;
+            }
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number
+            });
+            const existing = comments.find((comment) =>
+              comment.user?.type === 'Bot' && comment.body?.includes(marker)
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body
+              });
+            }

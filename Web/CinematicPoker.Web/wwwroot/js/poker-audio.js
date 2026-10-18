@@ -95,22 +95,29 @@ window.pokerAudio = (function () {
 
     // Wikimedia Commons ragtime recordings, re-encoded to MP3 for iOS Safari.
     // Shuffle without repeats, then leave a five-second pause between beds.
-    const MUSIC_TRACKS = [
+    const SALOON_MUSIC_TRACKS = [
         'audio/saloon/top-liner-rag.mp3',
         'audio/saloon/black-and-white-rag.mp3',
         'audio/saloon/wireless-rag.mp3',
         'audio/saloon/bachelors-button.mp3'
     ];
-    const AMBIENCE_URL = 'audio/saloon-bar-ambience.mp3';
+    const STREET_MUSIC_TRACKS = [
+        'audio/street/urban-battle-bpm135.mp3',
+        'audio/street/fight-looped.wav'
+    ];
+    const SALOON_AMBIENCE_URL = 'audio/saloon-bar-ambience.mp3';
+    const STREET_AMBIENCE_URL = 'audio/street/crowd-shouting.ogg';
+    let sceneName = 'saloon';
     let recentMusic = [];
 
     function pickMusic() {
-        let candidates = MUSIC_TRACKS.filter(function (url) {
+        const tracks = sceneName === 'street' ? STREET_MUSIC_TRACKS : SALOON_MUSIC_TRACKS;
+        let candidates = tracks.filter(function (url) {
             return recentMusic.indexOf(url) === -1;
         });
         if (!candidates.length) {
             recentMusic = [];
-            candidates = MUSIC_TRACKS.slice();
+            candidates = tracks.slice();
         }
         const url = candidates[Math.floor(Math.random() * candidates.length)];
         recentMusic.push(url);
@@ -160,7 +167,8 @@ window.pokerAudio = (function () {
         if (muted || introPlaying || musicTimer) return;
         try {
             if (!ambience) {
-                ambience = new Audio(AMBIENCE_URL);
+                const ambienceUrl = sceneName === 'street' ? STREET_AMBIENCE_URL : SALOON_AMBIENCE_URL;
+                ambience = new Audio(ambienceUrl);
                 ambience.loop = true;
                 ambience.volume = 0.08;
                 const ambiencePlay = ambience.play();
@@ -352,9 +360,16 @@ window.pokerAudio = (function () {
             stopIntroAudio();
             startMusic();
         },
-        // Kept for HUD boot sync; only the saloon bed plays for now.
-        setScene: function (/* name */) {
-            // The saloon is the only available backdrop.
+        // Keep the audio bed in sync with the selected 3D backdrop. The
+        // Blazor HUD calls this after reading the persisted scene choice.
+        setScene: function (name) {
+            const next = String(name || '').toLowerCase().indexOf('street') !== -1
+                ? 'street' : 'saloon';
+            if (next === sceneName) return;
+            sceneName = next;
+            recentMusic = [];
+            stopMusic();
+            startMusic();
         },
         // Short fanfare when the player wins a pot (steady pitch: unlike SFX,
         // a detuned jingle is instantly noticeable).
