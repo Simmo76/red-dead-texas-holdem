@@ -104,7 +104,7 @@ window.pokerAudio = (function () {
     // buttons rendered by Blazor.
     function button() {
         if (muted) return;
-        playBuffer(BUTTON_SOUND_URL, 0.8, 1);
+        playBuffer(BUTTON_SOUND_URL, 1.6, 1);
     }
 
     // Wikimedia Commons ragtime recordings, re-encoded to MP3 for iOS Safari.
@@ -222,8 +222,10 @@ window.pokerAudio = (function () {
             if (p) p.then(flushPendingResultAudio).catch(function () { });
         }
         const target = event.target;
-        const buttonEl = target && target.closest ? target.closest('button') : null;
-        const playButton = buttonEl && !buttonEl.disabled;
+        const buttonEl = target && target.closest
+            ? target.closest('button, [role="button"], .hud-board, .ai-advice') : null;
+        const playButton = buttonEl
+            && !(buttonEl.tagName === 'BUTTON' && buttonEl.disabled);
         flushPendingResultAudio();
         startMusic();
         if (playButton) {
