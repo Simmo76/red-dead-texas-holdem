@@ -183,6 +183,11 @@ const WESTERN_SCALE = 1.098;
 // Fighters are exported in metres (standing height ~1.8). The seat placer
 // drops the posed hands onto the felt, same as the cowboys.
 const FIGHTER_SCALE = 1;
+// The featured ring's ropes sit about 1.9 m from centre in the exported GLB,
+// almost on top of the 1.74 m seat circle, so they cut through shoulders.
+// Scale the whole venue so the ropes land near 4.2 m and the stands read
+// as a room around the ring instead of a wall just behind the posts.
+const STREET_ARENA_SCALE = 2.2;
 const FIGHTER_URLS = [
   'models/characters/street/Fighter1.glb?v=2',
   'models/characters/street/Fighter1-variation.glb?v=2',
@@ -1428,8 +1433,8 @@ async function buildScene(canvas) {
   // the fog colour so distant geometry melts into the dark.
   scene.background.setHex(0x0a0610);
   scene.fog.color.setHex(0x0a0610);
-  scene.fog.near = 6;
-  scene.fog.far = 22;
+  scene.fog.near = TABLE_SCENE === 'street' ? 12 : 6;
+  scene.fog.far = TABLE_SCENE === 'street' ? 46 : 22;
   ambient.color.setHex(0x6a4a78); ambient.intensity = 0.32;
   hemi.color.setHex(0xb878a8); hemi.groundColor.setHex(0x1a1020); hemi.intensity = 0.28;
   fill.color.setHex(0xd8a0c8); fill.intensity = 0.85;
@@ -1460,6 +1465,7 @@ async function buildScene(canvas) {
         // stands on glTF -Z, across the table from the player seat.
         saloon.rotation.y = 0;
         saloon.position.set(0, 0, 0);
+        saloon.scale.setScalar(STREET_ARENA_SCALE);
       } else {
         saloon.rotation.y = Math.PI; // bar across the table from the player seat
         // After the 180° yaw, +Z on the saloon moves the bar toward the table.
@@ -1496,10 +1502,10 @@ async function buildScene(canvas) {
       // Soft hanging-lamp pools so the room reads behind the table lantern.
       // The arena keeps the same rose wash as the saloon; only the mesh changes.
       const lampSpecs = TABLE_SCENE === 'street' ? [
-        [0xf0d8c0, 8, 16, [0.0, 6.5, -1.5]],
-        [0xe0b0d0, 5, 14, [-6.0, 5.5, -4.0]],
-        [0xe0b0d0, 5, 14, [6.0, 5.5, -4.0]],
-        [0xc8b0e0, 4, 12, [0.0, 5.0, 4.0]]
+        [0xf0d8c0, 18, 34, [0.0, 9.0, -4.0]],
+        [0xe0b0d0, 12, 30, [-12.0, 8.0, -10.0]],
+        [0xe0b0d0, 12, 30, [12.0, 8.0, -10.0]],
+        [0xc8b0e0, 10, 28, [0.0, 7.5, 8.0]]
       ] : [
         [0xe8a8d0, 5, 10, [0.0, 3.2, -6.5 + SALOON_BAR_NUDGE_Z]],   // bar face
         [0xd090c8, 3.5, 9, [-5.5, 3.0, -2.0 + SALOON_BAR_NUDGE_Z]],  // left booths
