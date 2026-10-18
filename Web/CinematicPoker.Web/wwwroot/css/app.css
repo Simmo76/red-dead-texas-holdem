@@ -1178,6 +1178,21 @@ html, body {
 
 .settings-row .chip-btn { min-width: 150px; }
 
+.settings-select {
+    min-width: 168px;
+    color: var(--gold);
+    text-align: center;
+    text-align-last: center;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--gold-dim) 50%),
+        linear-gradient(135deg, var(--gold-dim) 50%, transparent 50%);
+    background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 28px;
+}
+
 .settings-label {
     font-size: 12px;
     letter-spacing: 2px;
