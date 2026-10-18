@@ -1466,6 +1466,7 @@
 
     private void ToggleAdvice()
     {
+        _ = JS.InvokeVoidAsync("pokerAudio.button");
         if (!_adviceCollapsed)
         {
             _adviceCollapsed = true;
