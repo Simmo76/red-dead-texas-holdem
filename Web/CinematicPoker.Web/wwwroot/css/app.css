@@ -1000,11 +1000,16 @@ html, body {
     transform: translateX(-50%) rotate(45deg);
 }
 
-.slider-control input[type="range"]:hover + .slider-tooltip,
-.slider-control input[type="range"]:focus + .slider-tooltip,
-.slider-control input[type="range"]:active + .slider-tooltip {
+.slider-tooltip.visible {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+}
+
+@media (hover: hover) {
+    .slider-control input[type="range"]:hover + .slider-tooltip {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
 }
 
 .slider-control input[type="range"]::-webkit-slider-runnable-track {

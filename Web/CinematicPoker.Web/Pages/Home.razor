@@ -248,8 +248,12 @@
                 <div class="slider-control">
                     <input type="range" min="0" max="@BetSliderSteps" step="1"
                            value="@_sliderPosition" aria-label="Bet amount"
-                           aria-valuetext="$@_sliderValue" @oninput="OnSliderInput" />
-                    <span class="slider-tooltip" role="tooltip"
+                           aria-valuetext="$@_sliderValue"
+                           @oninput="OnSliderInput"
+                           @onpointerdown="BeginSliderInteraction"
+                           @onpointerup="EndSliderInteraction"
+                           @onpointercancel="EndSliderInteraction" />
+                    <span class="slider-tooltip @(_sliderInteracting ? "visible" : "")" role="tooltip"
                           style="left: @SliderPercent%;">$@_sliderValue</span>
                 </div>
                 <div class="slider-row">
@@ -544,6 +548,7 @@
     private bool _showSlider;
     private long _sliderValue;
     private int _sliderPosition;
+    private bool _sliderInteracting;
     private bool _quickMode;
     private bool _sessionOver;
     private bool _humanLost;
@@ -1324,6 +1329,10 @@
         }
         await PushBetPreview();
     }
+
+    private void BeginSliderInteraction() => _sliderInteracting = true;
+
+    private void EndSliderInteraction() => _sliderInteracting = false;
 
     private async Task SetSlider(long amount)
     {
