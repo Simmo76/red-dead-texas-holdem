@@ -631,6 +631,32 @@ html, body {
 
 .banner-win .banner-amount { color: #ffe9a8; }
 
+/* Shown only after the player takes a pot or the table. Hidden while the
+   shot is captured so the button itself stays out of the photo. */
+.victory-shot {
+    pointer-events: auto;
+    white-space: nowrap;
+    margin-top: 10px;
+    background: linear-gradient(#c4963a, #6e4e16);
+    color: #fff8e8;
+    border-color: #e6c36a;
+}
+
+.shot-busy .victory-shot {
+    visibility: hidden;
+}
+
+.victory-shot-status {
+    margin-top: 6px;
+    font-size: 12px;
+    letter-spacing: 0.4px;
+    color: #ffe9a8;
+}
+
+.overlay-box .victory-shot-status {
+    margin-top: -12px;
+}
+
 .hud-winner {
     align-items: center;
     gap: 5px;
