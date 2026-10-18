@@ -51,7 +51,7 @@ window.pokerAudio = (function () {
         }
         if (playerLossPending) {
             playerLossPending = false;
-            playBuffer('audio/player-loss.wav', 0.75, 1);
+            playBuffer('audio/player-loss.wav', 2.25, 1);
         }
     }
 
@@ -377,7 +377,7 @@ window.pokerAudio = (function () {
                 playerLossPending = true;
                 return;
             }
-            playBuffer('audio/player-loss.wav', 0.75, 1);
+            playBuffer('audio/player-loss.wav', 2.25, 1);
         },
         setAlive: function (seats) { aliveSeats = seats || []; },
         setAwaitingHuman: function (on) { awaitingHuman = !!on; },
