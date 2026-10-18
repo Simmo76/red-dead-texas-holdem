@@ -245,9 +245,17 @@
                 @* The thumb travels through a normalized scale. The displayed
                    amount is mapped logarithmically so small bets get much more
                    of the slider than they would on a linear $20-$4,000 range. *@
-                <input type="range" min="0" max="@BetSliderSteps" step="1"
-                       value="@_sliderPosition" aria-label="Bet amount"
-                       aria-valuetext="$@_sliderValue" @oninput="OnSliderInput" />
+                <div class="slider-control">
+                    <input type="range" min="0" max="@BetSliderSteps" step="1"
+                           value="@_sliderPosition" aria-label="Bet amount"
+                           aria-valuetext="$@_sliderValue"
+                           @oninput="OnSliderInput"
+                           @onpointerdown="BeginSliderInteraction"
+                           @onpointerup="EndSliderInteraction"
+                           @onpointercancel="EndSliderInteraction" />
+                    <span class="slider-tooltip @(_sliderInteracting ? "visible" : "")" role="tooltip"
+                          style="left: @SliderPercent%;">$@_sliderValue</span>
+                </div>
                 <div class="slider-row">
                     <span class="slider-amount">$@_sliderValue</span>
                     <button class="act small" @onclick="() => SetSlider(PotNow / 2)">½ POT</button>
@@ -540,6 +548,7 @@
     private bool _showSlider;
     private long _sliderValue;
     private int _sliderPosition;
+    private bool _sliderInteracting;
     private bool _quickMode;
     private bool _sessionOver;
     private bool _humanLost;
@@ -1321,6 +1330,10 @@
         await PushBetPreview();
     }
 
+    private void BeginSliderInteraction() => _sliderInteracting = true;
+
+    private void EndSliderInteraction() => _sliderInteracting = false;
+
     private async Task SetSlider(long amount)
     {
         _sliderValue = Math.Clamp(amount, _legal.MinBetOrRaiseTo, _legal.MaxBetOrRaiseTo);
@@ -1333,6 +1346,11 @@
     // amount is several thousand dollars, while still allowing the full
     // range to be reached precisely at either end.
     private const int BetSliderSteps = 1000;
+
+    // Keep the live tooltip centred over the thumb as the normalized slider
+    // position changes. The range input re-renders on every pointer movement.
+    private int SliderPercent => (int)Math.Round(
+        Math.Clamp(_sliderPosition, 0, BetSliderSteps) / (double)BetSliderSteps * 100);
 
     private long SliderPositionToBetAmount(int position)
     {
