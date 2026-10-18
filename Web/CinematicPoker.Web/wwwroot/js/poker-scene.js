@@ -194,10 +194,10 @@ const STREET_ARENA_SCALE = 2.2;
 // height so the canvas floor meets that foot.
 const STREET_CANVAS_Y = 0.3637;
 const FIGHTER_URLS = [
-  'models/characters/street/Fighter1.glb?v=2',
-  'models/characters/street/Fighter1-variation.glb?v=2',
-  'models/characters/street/Fighter2.glb?v=2',
-  'models/characters/street/Fighter2-variation.glb?v=2',
+  'models/characters/street/Fighter1.glb?v=3',
+  'models/characters/street/Fighter1-variation.glb?v=3',
+  'models/characters/street/Fighter2.glb?v=3',
+  'models/characters/street/Fighter2-variation.glb?v=3',
 ];
 const TABLE_SCENE_KEY = 'cinematic-poker-table-scene';
 

@@ -328,10 +328,6 @@ def set_world_q(arm, name, world_q, cache):
     cache.pop(name, None)
 
 
-def bone_aim_local(arm, name, child):
-    return (arm.data.bones[name].matrix_local.inverted() @ arm.data.bones[child].head_local).normalized()
-
-
 def reset_pose(arm):
     for pb in arm.pose.bones:
         pb.rotation_mode = "QUATERNION"
@@ -340,35 +336,187 @@ def reset_pose(arm):
         pb.scale = (1, 1, 1)
 
 
-def apply_frame(src, tgt, t_face, aim_local):
+class ArmView:
+    """Same wpos/wq/has surface as the clip sources, for the target armature."""
+
+    def __init__(self, arm):
+        self.arm = arm
+
+    def has(self, name):
+        return name in self.arm.pose.bones
+
+    def wpos(self, name):
+        return (self.arm.matrix_world @ self.arm.pose.bones[name].matrix).to_translation()
+
+    def wq(self, name):
+        return (self.arm.matrix_world @ self.arm.pose.bones[name].matrix).to_quaternion()
+
+
+def _cols(x, y, z):
+    m = Matrix.Identity(3)
+    m[0][0], m[1][0], m[2][0] = x
+    m[0][1], m[1][1], m[2][1] = y
+    m[0][2], m[1][2], m[2][2] = z
+    return m
+
+
+def orient_quat(local_a, local_b, world_a, world_b):
+    """Quaternion mapping two local axes onto two world directions.
+
+    Both pairs are orthonormalised into a right-handed basis, so a rig whose
+    bone axes don't match the poker skeleton still carries the mesh the same
+    way (face forward, knee forward) instead of copying the raw bone roll.
+    """
+    a = local_a.normalized()
+    b = local_b - a * local_b.dot(a)
+    if b.length < 1e-5 or world_a.length < 1e-6:
+        return None
+    b.normalize()
+    c = a.cross(b).normalized()
+    wa = world_a.normalized()
+    wb = world_b - wa * world_b.dot(wa)
+    if wb.length < 1e-5:
+        return None
+    wb.normalize()
+    wc = wa.cross(wb).normalized()
+    return (_cols(wa, wb, wc) @ _cols(a, b, c).inverted()).to_quaternion()
+
+
+def capture_rest(src, face):
+    """Per-bone directions that pointed along character-forward / up at rest.
+
+    `aim` is the rest direction toward the child, in bone-local space. `pole`
+    is the part of character-forward perpendicular to that aim, so it records
+    the twist (which way the knee, sole, or palm faced).
+    """
+    forward = face @ Vector((0, 1, 0))
+    up = Vector((0, 0, 1))
+    names = set(CHILD) | set(CHILD.values()) | {"pelvis", "head"}
+    out = {}
+    for name in names:
+        if not src.has(name):
+            continue
+        q = src.wq(name)
+        fwd_l = q.inverted() @ forward
+        up_l = q.inverted() @ up
+        rec = {"fwd": fwd_l, "up": up_l}
+        child = CHILD.get(name)
+        if child and src.has(child):
+            aim_w = src.wpos(child) - src.wpos(name)
+            if aim_w.length > 1e-6:
+                aim_l = (q.inverted() @ aim_w).normalized()
+                pole = fwd_l - aim_l * fwd_l.dot(aim_l)
+                if pole.length < 0.25:
+                    pole = up_l - aim_l * up_l.dot(aim_l)
+                if pole.length > 1e-4:
+                    rec["aim"] = aim_l
+                    rec["pole"] = pole.normalized()
+        out[name] = rec
+    return out
+
+
+def _in_target_space(vec, s_face, t_face):
+    return t_face @ (s_face.inverted() @ vec)
+
+
+# Bones whose mood-file roll does not match this mesh. The limb direction still
+# comes from the poker clip; the twist is taken from the fighter mesh so the
+# kneecap stays forward and the sole stays down.
+MESH_POLE_WORLD = {
+    "thigh_l": "forward",
+    "thigh_r": "forward",
+    "calf_l": "forward",
+    "calf_r": "forward",
+    "foot_l": "down",
+    "foot_r": "down",
+}
+
+
+def capture_mesh_hints(arm, mesh):
+    """Bone-local direction toward the kneecap or the sole, from the bind mesh."""
+    groups = {g.name: g.index for g in mesh.vertex_groups}
+    hints = {}
+    for name, mode in MESH_POLE_WORLD.items():
+        idx = groups.get(name)
+        if idx is None or name not in arm.pose.bones:
+            continue
+        pts = []
+        for vert in mesh.data.vertices:
+            weight = next((g.weight for g in vert.groups if g.group == idx), 0.0)
+            if weight > 0.4:
+                pts.append(mesh.matrix_world @ vert.co)
+        if len(pts) < 8:
+            continue
+        bone_m = arm.matrix_world @ arm.pose.bones[name].matrix
+        bone_q = bone_m.to_quaternion()
+        bone_p = bone_m.to_translation()
+        if mode == "down":
+            pts.sort(key=lambda p: p.z)
+        else:
+            pts.sort(key=lambda p: -p.y)
+        sample = pts[:max(8, len(pts) // 5)]
+        avg = sum(sample, Vector((0.0, 0.0, 0.0))) / len(sample)
+        local = bone_q.inverted() @ (avg - bone_p)
+        if local.length > 1e-4:
+            hints[name] = local.normalized()
+    return hints
+
+
+def apply_frame(src, tgt, t_face, src_rest, tgt_rest, mesh_hints=None):
     reset_pose(tgt)
     s_face = facing_q(src)
     cache = {}
-    # Pelvis and head travel as orientations in the shared facing frame so
-    # the sit lean and the look-at survive a different bind.
-    for name in ("pelvis", "head"):
-        if not src.has(name) or name not in tgt.pose.bones:
-            continue
-        rel = s_face.inverted() @ src.wq(name)
-        set_world_q(tgt, name, t_face @ rel, cache)
+
+    def put_orientation(name):
+        if name not in src_rest or name not in tgt_rest or not src.has(name):
+            return
+        if name not in tgt.pose.bones:
+            return
+        s_q = src.wq(name)
+        world_fwd = _in_target_space(s_q @ src_rest[name]["fwd"], s_face, t_face)
+        world_up = _in_target_space(s_q @ src_rest[name]["up"], s_face, t_face)
+        q = orient_quat(tgt_rest[name]["fwd"], tgt_rest[name]["up"], world_fwd, world_up)
+        if q is not None:
+            set_world_q(tgt, name, q, cache)
+
+    # Hips first, in mesh space. Copying the poker bone quaternion straight
+    # across yaws this skeleton about 90° because its pelvis axes differ.
+    put_orientation("pelvis")
     for name in AIM_ORDER:
         child = CHILD.get(name)
         if not child or name not in tgt.pose.bones or child not in tgt.pose.bones:
             continue
-        if name not in aim_local or not src.has(name) or not src.has(child):
+        if not src.has(name) or not src.has(child):
             continue
         src_aim = src.wpos(child) - src.wpos(name)
         if src_aim.length < 1e-6:
             continue
-        world_dir = t_face @ (s_face.inverted() @ src_aim.normalized())
-        la = aim_local[name]
-        cur = (tgt.matrix_world @ pose_arm_matrix(tgt, name, cache)).to_quaternion()
-        set_world_q(tgt, name, (cur @ la).rotation_difference(world_dir) @ cur, cache)
+        world_dir = _in_target_space(src_aim.normalized(), s_face, t_face)
+        s_rec = src_rest.get(name) or {}
+        t_rec = tgt_rest.get(name) or {}
+        q = None
+        hint = (mesh_hints or {}).get(name)
+        if hint is not None and "aim" in t_rec:
+            kind = MESH_POLE_WORLD.get(name)
+            world_pole = Vector((0.0, 0.0, -1.0)) if kind == "down" else (t_face @ Vector((0.0, 1.0, 0.0)))
+            q = orient_quat(t_rec["aim"], hint, world_dir, world_pole)
+        elif "pole" in s_rec and "aim" in t_rec and "pole" in t_rec:
+            world_pole = _in_target_space(src.wq(name) @ s_rec["pole"], s_face, t_face)
+            q = orient_quat(t_rec["aim"], t_rec["pole"], world_dir, world_pole)
+        if q is None:
+            la = t_rec.get("aim")
+            if la is None:
+                continue
+            cur = (tgt.matrix_world @ pose_arm_matrix(tgt, name, cache)).to_quaternion()
+            q = (cur @ la).rotation_difference(world_dir) @ cur
+        set_world_q(tgt, name, q, cache)
+    # Head after the neck. Posing it earlier leaves the look stuck to the
+    # rest neck, so the face yaws off to the side once the neck aims.
+    put_orientation("head")
     rots = {}
     for pb in tgt.pose.bones:
         if pb.rotation_mode != "QUATERNION":
             continue
-        # Only store bones we actually posed (non-identity) plus the mapped set.
         rots[pb.name] = pb.rotation_quaternion.copy()
     return rots
 
@@ -421,10 +569,21 @@ def bake_character(fbx_path, out_path):
     reset_pose(arm)
     bpy.context.view_layer.update()
     t_face = facing_q(arm)
-    aim_local = {}
-    for name, child in CHILD.items():
-        if name in arm.data.bones and child in arm.data.bones:
-            aim_local[name] = bone_aim_local(arm, name, child)
+    tgt_rest = capture_rest(ArmView(arm), t_face)
+    mesh_hints = capture_mesh_hints(arm, mesh)
+
+    # Rest axes are the mesh bind. Capture them with no clip posed, then the
+    # frame loop assigns actions on top.
+    if jacob.arm.animation_data:
+        jacob.arm.animation_data.action = None
+    reset_pose(jacob.arm)
+    for obj in mood.objs.values():
+        if obj.animation_data:
+            obj.animation_data.action = None
+    bpy.context.view_layer.update()
+    jacob_rest = capture_rest(jacob, facing_q(jacob))
+    mood_rest = capture_rest(mood, facing_q(mood))
+    rest_for = {id(jacob): jacob_rest, id(mood): mood_rest}
 
     mapped = [n for n in (["pelvis", "head"] + AIM_ORDER) if n in arm.pose.bones]
     scene = bpy.context.scene
@@ -446,7 +605,7 @@ def bake_character(fbx_path, out_path):
         for frame in frames:
             scene.frame_set(frame)
             bpy.context.view_layer.update()
-            rots = apply_frame(src, arm, t_face, aim_local)
+            rots = apply_frame(src, arm, t_face, rest_for[id(src)], tgt_rest, mesh_hints)
             for n in mapped:
                 tracks[n].append(rots.get(n, Quaternion((1, 0, 0, 0))))
         action = write_action(clean, frames, tracks)
