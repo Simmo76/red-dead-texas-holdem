@@ -188,6 +188,11 @@ const FIGHTER_SCALE = 1;
 // Scale the whole venue so the ropes land near 4.2 m and the stands read
 // as a room around the ring instead of a wall just behind the posts.
 const STREET_ARENA_SCALE = 2.2;
+// The ring canvas is a flat face at this height in the exported GLB. Scale
+// is about the origin, so that face would land near the felt (~0.80 m).
+// The table stand's foot sits on y=0; drop the backdrop by the scaled canvas
+// height so the canvas floor meets that foot.
+const STREET_CANVAS_Y = 0.3637;
 const FIGHTER_URLS = [
   'models/characters/street/Fighter1.glb?v=2',
   'models/characters/street/Fighter1-variation.glb?v=2',
@@ -1464,7 +1469,7 @@ async function buildScene(canvas) {
         // Arena export already puts the featured ring on the origin and the
         // stands on glTF -Z, across the table from the player seat.
         saloon.rotation.y = 0;
-        saloon.position.set(0, 0, 0);
+        saloon.position.set(0, -STREET_CANVAS_Y * STREET_ARENA_SCALE, 0);
         saloon.scale.setScalar(STREET_ARENA_SCALE);
       } else {
         saloon.rotation.y = Math.PI; // bar across the table from the player seat
