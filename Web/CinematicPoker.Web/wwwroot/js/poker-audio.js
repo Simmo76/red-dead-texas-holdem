@@ -98,6 +98,28 @@ window.pokerAudio = (function () {
         playBuffer('audio/' + name + '.mp3', 0.55, 0.92 + Math.random() * 0.16);
     }
 
+    // A tiny synthesized UI tick avoids adding another downloaded asset and
+    // works for every enabled button, including buttons rendered by Blazor.
+    function button() {
+        if (muted) return;
+        const c = ensureCtx();
+        if (!c || c.state !== 'running') return;
+        try {
+            const osc = c.createOscillator();
+            const gain = c.createGain();
+            const now = c.currentTime;
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(520, now);
+            osc.frequency.exponentialRampToValueAtTime(260, now + 0.055);
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(0.045, now + 0.004);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+            osc.connect(gain).connect(c.destination);
+            osc.start(now);
+            osc.stop(now + 0.065);
+        } catch (e) { }
+    }
+
     // Wikimedia Commons ragtime recordings, re-encoded to MP3 for iOS Safari.
     // Shuffle without repeats, then leave a five-second pause between beds.
     const SALOON_MUSIC_TRACKS = [
@@ -206,7 +228,7 @@ window.pokerAudio = (function () {
 
     // Browsers block audio until the first user gesture, so (re)try on taps.
     // The same tap unlocks the WebAudio context used for SFX and voices.
-    document.addEventListener('pointerdown', function () {
+    document.addEventListener('pointerdown', function (event) {
         const c = ensureCtx();
         if (c && c.state === 'suspended') {
             const p = c.resume();
@@ -214,6 +236,9 @@ window.pokerAudio = (function () {
         }
         flushPendingResultAudio();
         startMusic();
+        const target = event.target;
+        const buttonEl = target && target.closest ? target.closest('button') : null;
+        if (buttonEl && !buttonEl.disabled) button();
     });
 
     // One dealer call — used for the player's winning-hand category at pot award.
@@ -349,6 +374,7 @@ window.pokerAudio = (function () {
 
     return {
         play: play,
+        button: button,
         voice: voice,
         dealer: dealer,
         // Start the intro movie audio (called on the same tap that starts
