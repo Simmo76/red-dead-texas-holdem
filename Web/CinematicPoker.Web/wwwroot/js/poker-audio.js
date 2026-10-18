@@ -98,26 +98,13 @@ window.pokerAudio = (function () {
         playBuffer('audio/' + name + '.mp3', 0.55, 0.92 + Math.random() * 0.16);
     }
 
-    // A tiny synthesized UI tick avoids adding another downloaded asset and
-    // works for every enabled button, including buttons rendered by Blazor.
+    const BUTTON_SOUND_URL = 'audio/ui-click.wav';
+
+    // Use the supplied click recording for every enabled button, including
+    // buttons rendered by Blazor.
     function button() {
         if (muted) return;
-        const c = ensureCtx();
-        if (!c || c.state !== 'running') return;
-        try {
-            const osc = c.createOscillator();
-            const gain = c.createGain();
-            const now = c.currentTime;
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(520, now);
-            osc.frequency.exponentialRampToValueAtTime(260, now + 0.055);
-            gain.gain.setValueAtTime(0.0001, now);
-            gain.gain.exponentialRampToValueAtTime(0.045, now + 0.004);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
-            osc.connect(gain).connect(c.destination);
-            osc.start(now);
-            osc.stop(now + 0.065);
-        } catch (e) { }
+        playBuffer(BUTTON_SOUND_URL, 0.8, 1);
     }
 
     // Wikimedia Commons ragtime recordings, re-encoded to MP3 for iOS Safari.
@@ -234,11 +221,19 @@ window.pokerAudio = (function () {
             const p = c.resume();
             if (p) p.then(flushPendingResultAudio).catch(function () { });
         }
-        flushPendingResultAudio();
-        startMusic();
         const target = event.target;
         const buttonEl = target && target.closest ? target.closest('button') : null;
-        if (buttonEl && !buttonEl.disabled) button();
+        const playButton = buttonEl && !buttonEl.disabled;
+        flushPendingResultAudio();
+        startMusic();
+        if (playButton) {
+            if (c && c.state === 'suspended') {
+                const p = c.resume();
+                if (p) p.then(function () { button(); }).catch(function () { });
+            } else {
+                button();
+            }
+        }
     });
 
     // One dealer call — used for the player's winning-hand category at pot award.
