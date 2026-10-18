@@ -379,6 +379,7 @@ namespace CinematicPoker.Game.Prototype
                 case HandStarted started:
                     ResetTableVisuals();
                     PlaceDealerButton(started.DealerSeat);
+                    _hud.SetVictoryShotVisible(false);
                     _hud.AddLog($"— Hand {started.HandNumber} —");
                     break;
 
@@ -407,8 +408,13 @@ namespace CinematicPoker.Game.Prototype
                     break;
 
                 case PotAwarded award:
+                    bool humanWonPot = false;
                     foreach (int winnerSeat in award.WinnerSeats)
-                        if (winnerSeat > 0) _characters[winnerSeat]?.React(true);
+                    {
+                        if (winnerSeat == 0) humanWonPot = true;
+                        else _characters[winnerSeat]?.React(true);
+                    }
+                    if (humanWonPot) _hud.SetVictoryShotVisible(true);
                     _hud.AddLog(Describe(award));
                     break;
 
@@ -479,6 +485,7 @@ namespace CinematicPoker.Game.Prototype
             if (Controller.Game.HasHumanWon)
             {
                 _hud.ShowSessionOver("James takes the table!");
+                _hud.SetVictoryShotVisible(true);
                 return;
             }
 

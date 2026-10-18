@@ -101,6 +101,18 @@ namespace CinematicPoker.Game.Mobile
             QueueCapture("table-win");
         }
 
+        /// <summary>
+        /// The "Victory Screen-Shot!" button. Takes one photo of the current
+        /// frame and saves it to the photo library, even when automatic win
+        /// photos are switched off.
+        /// </summary>
+        public void CaptureVictory()
+        {
+            if (_captureQueued || !isActiveAndEnabled) return;
+            _captureQueued = true;
+            StartCoroutine(CaptureAtEndOfFrame("victory"));
+        }
+
         private void QueueCapture(string label)
         {
             // A table win fires PotAwarded and SessionFinished in the same

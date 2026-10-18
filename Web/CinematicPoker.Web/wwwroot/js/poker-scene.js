@@ -1248,11 +1248,11 @@ function makeCharacter(gltf, spec, extraClips) {
 // ------------------------------------------------------------------ scene build
 
 async function buildScene(canvas) {
-  // No preserveDrawingBuffer: nothing in the web app reads the canvas back
-  // (the win-photo feature is Unity-only), and preserving the buffer forces
-  // mobile browsers to copy the full antialiased backbuffer every frame —
-  // on iOS Safari that extra GPU memory/bandwidth is a known trigger for
-  // "page hung and was reloaded" WebGL kills.
+  // No preserveDrawingBuffer. The victory screenshot reads the canvas with
+  // toDataURL in the same turn as render(), which still sees the drawing
+  // buffer. Preserving it every frame forces mobile browsers to copy the
+  // full antialiased backbuffer — on iOS Safari that extra GPU memory is a
+  // known trigger for "page hung and was reloaded" WebGL kills.
   // Lite tiers also skip MSAA: a multisampled backbuffer is the single
   // biggest fixed GPU allocation the app makes.
   // stencil: the player's held hole cards stamp a stencil mask so the gold
@@ -3375,6 +3375,17 @@ window.pokerScene = {
       }
       if (window.pokerAudio) window.pokerAudio.voice(seatIndex, 'fold');
     }
+  },
+
+  // Draw one frame now so a screenshot can read the canvas in this same
+  // turn. preserveDrawingBuffer stays off; the pixels are only valid until
+  // the browser composites, which is after this call returns to Blazor.
+  renderNow() {
+    if (!state.renderer || !state.scene || !state.camera) return false;
+    const canvas = state.renderer.domElement;
+    resizeIfNeeded(canvas, state.renderer, state.camera);
+    state.renderer.render(state.scene, state.camera);
+    return true;
   },
 
   // Fireworks and sparklers when the player takes a pot. Stay on the

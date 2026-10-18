@@ -10,7 +10,7 @@
 @* Tapping anywhere outside the enlarged card close-up contracts it back
    to its corner size; the close-up itself stops propagation so its own
    tap still toggles (see ToggleHudBoard). *@
-<div class="game3d @(_hudBoardExpanded ? "board-expanded" : "")"
+<div class="game3d @(_hudBoardExpanded ? "board-expanded" : "") @(_shotBusy ? "shot-busy" : "")"
      @onclick="CollapseHudBoard">
 
     <canvas id="poker-canvas"></canvas>
@@ -156,6 +156,17 @@
                 </div>
             }
             <div class="banner-line">@_banner</div>
+            @if (_playerWonPot)
+            {
+                <button type="button" class="act victory-shot" disabled="@_shotBusy"
+                        @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true">
+                    Victory Screen-Shot!
+                </button>
+                @if (!string.IsNullOrEmpty(_shotStatus))
+                {
+                    <div class="victory-shot-status">@_shotStatus</div>
+                }
+            }
         </div>
     }
 
@@ -307,6 +318,17 @@
                 <div class="overlay-actions">
                     @if (_humanLost || _humanWon)
                     {
+                        @if (_humanWon)
+                        {
+                            <button type="button" class="act victory-shot" disabled="@_shotBusy"
+                                    @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true">
+                                Victory Screen-Shot!
+                            </button>
+                            @if (!string.IsNullOrEmpty(_shotStatus))
+                            {
+                                <div class="victory-shot-status">@_shotStatus</div>
+                            }
+                        }
                         <button class="act call big restart-btn" @onclick="ContinueGame">CONTINUE GAME</button>
                         <div class="overlay-blurb">@ContinueGameBlurb</div>
                         <button class="act allin big restart-btn" @onclick="StartSession">RESTART</button>
@@ -560,6 +582,8 @@
     private string _banner;
     private long? _bannerAmount;
     private bool _playerWonPot;
+    private bool _shotBusy;
+    private string _shotStatus;
     private readonly List<PotAwarded> _awardsThisHand = new();
     private int _pendingFocusSeat = -1;
     private readonly List<ShowdownRow> _showdownView = new();
@@ -1055,6 +1079,8 @@
         _banner = null;
         _bannerAmount = null;
         _playerWonPot = false;
+        _shotBusy = false;
+        _shotStatus = null;
         _pendingFocusSeat = -1;
         _sessionOver = false;
         _humanLost = false;
@@ -1127,6 +1153,8 @@
         _banner = null;
         _bannerAmount = null;
         _playerWonPot = false;
+        _shotBusy = false;
+        _shotStatus = null;
         _pendingFocusSeat = -1;
         _showdownView.Clear();
         _statusLine = "Dealing…";
@@ -1865,6 +1893,8 @@
                 _banner = null;
                 _bannerAmount = null;
                 _playerWonPot = false;
+                _shotBusy = false;
+                _shotStatus = null;
                 _pendingFocusSeat = -1;
                 _handHasCompleted = false;
                 if (_sceneReady)
@@ -2124,6 +2154,36 @@
         if (_muted || string.IsNullOrEmpty(clip)) return;
         try { _ = JS.InvokeVoidAsync("pokerAudio.dealer", clip); }
         catch (JSException) { }
+    }
+
+    private async Task TakeVictoryScreenshot()
+    {
+        if (_shotBusy) return;
+        _shotBusy = true;
+        _shotStatus = null;
+        try
+        {
+            string result = await JS.InvokeAsync<string>("pokerShot.save");
+            _shotStatus = result switch
+            {
+                "shared" => "Saved to Photos",
+                "downloaded" => "Screenshot saved",
+                "aborted" => null,
+                _ => "Couldn't save the screenshot"
+            };
+        }
+        catch (JSException)
+        {
+            _shotStatus = "Couldn't save the screenshot";
+        }
+        catch (InvalidOperationException)
+        {
+            _shotStatus = "Couldn't save the screenshot";
+        }
+        finally
+        {
+            _shotBusy = false;
+        }
     }
 
     private void PlayVictory()

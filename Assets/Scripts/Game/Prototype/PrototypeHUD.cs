@@ -31,6 +31,10 @@ namespace CinematicPoker.Game.Prototype
         private Text _modeButtonLabel;
         private Text _winPhotosLabel;
         private WinPhotoCapture _winPhotos;
+        private Button _victoryShotButton;
+        private Text _victoryShotLabel;
+        private int _victoryToken;
+        private bool _shotInProgress;
         private GameObject _actionBar;
         private GameObject _sessionOverPanel;
         private Text _sessionOverText;
@@ -59,6 +63,7 @@ namespace CinematicPoker.Game.Prototype
             BuildSliderPanel();
             BuildTopButtons();
             BuildSessionOverPanel();
+            BuildVictoryShotButton();
 
             _controller.HumanTurnStarted += ShowActions;
             HideActions();
@@ -77,6 +82,7 @@ namespace CinematicPoker.Game.Prototype
             _logLines.Clear();
             if (_logText != null) _logText.text = "";
             _sessionOverPanel.SetActive(false);
+            SetVictoryShotVisible(false);
             HideActions();
         }
 
@@ -102,6 +108,26 @@ namespace CinematicPoker.Game.Prototype
         public void HideSessionOver()
         {
             _sessionOverPanel.SetActive(false);
+            SetVictoryShotVisible(false);
+        }
+
+        /// <summary>
+        /// Shows or hides "Victory Screen-Shot!". A show waits one frame so
+        /// an automatic end-of-frame win photo does not include the button.
+        /// </summary>
+        public void SetVictoryShotVisible(bool visible)
+        {
+            _victoryToken++;
+            if (_victoryShotButton == null) return;
+            if (!visible)
+            {
+                _shotInProgress = false;
+                _victoryShotButton.gameObject.SetActive(false);
+                return;
+            }
+
+            int token = _victoryToken;
+            StartCoroutine(ShowVictoryNextFrame(token));
         }
 
         // ---------------------------------------------------------- actions
@@ -309,6 +335,53 @@ namespace CinematicPoker.Game.Prototype
                 new Color(0.55f, 0.18f, 0.2f), () => _scene.StartNewSession(), out _, 56f);
 
             _sessionOverPanel.SetActive(false);
+        }
+
+        private void BuildVictoryShotButton()
+        {
+            var row = new GameObject("VictoryShot", typeof(RectTransform));
+            var rt = (RectTransform)row.transform;
+            rt.SetParent(_root, false);
+            rt.anchorMin = new Vector2(0.5f, 0f);
+            rt.anchorMax = new Vector2(0.5f, 0f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = new Vector2(0f, 130f);
+            rt.sizeDelta = new Vector2(460f, 64f);
+
+            float x = 0f;
+            _victoryShotButton = CreateButton(rt, "Victory Screen-Shot!", ref x, 460f, 0f,
+                new Color(0.55f, 0.4f, 0.12f), OnVictoryShot, out _victoryShotLabel, 64f);
+            _victoryShotButton.gameObject.SetActive(false);
+        }
+
+        private void OnVictoryShot()
+        {
+            if (_winPhotos == null || _shotInProgress) return;
+            _shotInProgress = true;
+            _victoryShotButton.gameObject.SetActive(false);
+            _winPhotos.CaptureVictory();
+            StartCoroutine(RestoreVictoryButton(_victoryToken));
+        }
+
+        private System.Collections.IEnumerator ShowVictoryNextFrame(int token)
+        {
+            yield return null;
+            if (token != _victoryToken || _victoryShotButton == null) yield break;
+            _victoryShotLabel.text = "Victory Screen-Shot!";
+            _victoryShotButton.gameObject.SetActive(true);
+            _victoryShotButton.transform.parent.SetAsLastSibling();
+        }
+
+        private System.Collections.IEnumerator RestoreVictoryButton(int token)
+        {
+            // CaptureVictory also waits for end of frame and was started
+            // first, so the photo is taken while this button is hidden.
+            yield return new WaitForEndOfFrame();
+            _shotInProgress = false;
+            if (token != _victoryToken || _victoryShotButton == null) yield break;
+            _victoryShotLabel.text = "Saved to Photos";
+            _victoryShotButton.gameObject.SetActive(true);
+            _victoryShotButton.transform.parent.SetAsLastSibling();
         }
 
         private void ToggleMode()
