@@ -624,6 +624,9 @@ const OUTLINE_PX_MAX = 3.8;       // thickest, at the peak of the throb
 const OUTLINE_OPACITY_MIN = 0.3;  // faded trough of the glow
 const OUTLINE_OPACITY_MAX = 0.8;  // soft peak so the glow stays subtle
 const OUTLINE_PULSE_HZ = 0.55;    // throb speed, cycles per second
+// Hero body alpha while the camera is behind him and he hides his hole cards.
+// Strong enough that the pair stays readable, still clearly a person.
+const HERO_SEE_OPACITY = 0.35;
 const _outlineColorDim = new THREE.Color(0xcf9230);
 const _outlineColorHot = new THREE.Color(0xffd87a);
 const _outlineUniforms = {
@@ -631,12 +634,12 @@ const _outlineUniforms = {
   uOutlineViewH: { value: 720 }, // canvas CSS height, refreshed on resize
 };
 
-// The player's hole cards render depthTest:false on top of the whole frame,
-// so the hull can't be depth-tested against them — and the hull is drawn in
-// the transparent pass, *after* the opaque-queue cards, so without help the
-// glow blends right over the pair in his hands. The cards stamp this value
-// into the stencil buffer wherever they draw (updateHole) and the hull is
-// stencil-rejected on those pixels, so the outline stops at the card edges.
+// The player's hole cards are drawn in the opaque queue, before the
+// see-through body. The hull is in the transparent pass with no usable depth
+// against those cards, so without help the glow blends over the pair in his
+// hands. The cards stamp this value into the stencil buffer wherever they
+// draw (updateHole) and the hull is stencil-rejected on those pixels, so the
+// outline stops at the card edges.
 const HELD_CARD_STENCIL_REF = 1;
 
 let _outlineMat = null;
@@ -909,6 +912,10 @@ function makeCharacter(gltf, spec, extraClips) {
     root, mixer, sitAction, findBody, findMood,
     dead: false, reacting: false, isPlayer, armPose: null, armW: 1,
     outlineOn: false, folded: false, foldW: 0, idleName,
+    // 0..1 fade used when the camera is behind the hero and his body hides
+    // the hole cards. Separate from foldW so he stays in colour (no grey-out)
+    // and keeps his chair.
+    seeTarget: 0, seeW: 0, occluders: [],
   };
 
   const adoptSitAction = (next, name) => {
@@ -972,6 +979,11 @@ function makeCharacter(gltf, spec, extraClips) {
   // their shadow dropped so the ghost look reads. The flag simply mirrors the
   // engine's per-hand folded state, so everyone returns to full colour when
   // the next hand starts.
+  //
+  // The hero also borrows this peel, without the grey, when the camera sits
+  // behind him and his body blocks the hole cards (see heldCardOcclusion).
+  // Those cards are drawn in the opaque queue first, so the shell blends over
+  // them and the pair stays readable through his back and arms.
   //
   // Plain alpha on a multi-part character shows its own insides (the far
   // side of the head, the eyes from behind) — the x-ray look. Fix: order-
@@ -1063,12 +1075,27 @@ function makeCharacter(gltf, spec, extraClips) {
   };
   character.updateFold = (dt) => {
     const target = character.folded ? 1 : 0;
+    const seeTarget = character.seeTarget || 0;
     if (character.chair) character.chair.visible = !character.folded;
-    if (character.foldW === target) return;
-    character.foldW += (target - character.foldW) * Math.min(1, dt * 3.5);
-    if (Math.abs(character.foldW - target) < 0.01) character.foldW = target;
+    const foldSettled = character.foldW === target;
+    const seeSettled = character.seeW === seeTarget;
+    if (foldSettled && seeSettled) return;
+    if (!foldSettled) {
+      character.foldW += (target - character.foldW) * Math.min(1, dt * 3.5);
+      if (Math.abs(character.foldW - target) < 0.01) character.foldW = target;
+    }
+    if (!seeSettled) {
+      // Faster than the fold fade so the pair is readable as soon as the
+      // body swings in front of it.
+      character.seeW += (seeTarget - character.seeW) * Math.min(1, dt * 8);
+      if (Math.abs(character.seeW - seeTarget) < 0.01) character.seeW = seeTarget;
+    }
     const w = character.foldW;
-    const ghost = w > 0.001;
+    const see = character.seeW;
+    const ghost = w > 0.001 || see > 0.001;
+    // Fold keeps the old muted ghost (45% fade). See-through is stronger
+    // (body alpha 0.35) and stays in colour so the cards read through him.
+    const fade = Math.min(0.82, Math.max(w * 0.45, see * (1 - HERO_SEE_OPACITY)));
     for (const m of bodyMats) {
       const wantTransparent = ghost || m.userData.keepTransparent;
       if (m.transparent !== wantTransparent) { m.transparent = wantTransparent; m.needsUpdate = true; }
@@ -1079,7 +1106,7 @@ function makeCharacter(gltf, spec, extraClips) {
       m.side = ghost ? THREE.FrontSide : m.userData.origSide;
       m.forceSinglePass = ghost;
       const base = m.userData.baseOpacity ?? 1;
-      m.opacity = base * (1 - w * 0.45);
+      m.opacity = base * (1 - fade);
       m.userData.foldGrey = w;
       if (m.userData.foldShader) m.userData.foldShader.uniforms.uGrey.value = w;
     }
@@ -1241,6 +1268,32 @@ function makeCharacter(gltf, spec, extraClips) {
     if (character.dead || character.reacting || !sitAction) return;
     if (!sitAction.isRunning() || sitAction.getEffectiveWeight() < 0.2) hardSit();
   };
+
+  // Spheres on the hero's torso and arms. heldCardOcclusion treats a hole-card
+  // sample as blocked when the camera ray passes through one of these.
+  if (isPlayer) {
+    const specs = [
+      { names: ['hips', 'pelvis'], radius: 0.16 },
+      { names: ['spine_01'], radius: 0.18 },
+      { names: ['spine_02'], radius: 0.22 },
+      { names: ['spine_03'], radius: 0.22 },
+      { names: ['neck_01', 'neck'], radius: 0.09 },
+      { names: ['head', 'Head'], radius: 0.16, lift: 0.06 },
+      { names: ['clavicle_l'], radius: 0.1 },
+      { names: ['clavicle_r'], radius: 0.1 },
+      { names: ['upperarm_l'], radius: 0.11 },
+      { names: ['upperarm_r'], radius: 0.11 },
+      { names: ['lowerarm_l'], radius: 0.08 },
+      { names: ['lowerarm_r'], radius: 0.08 },
+    ];
+    for (const spec of specs) {
+      let bone = null;
+      root.traverse((o) => {
+        if (!bone && o.isBone && spec.names.includes(o.name)) bone = o;
+      });
+      if (bone) character.occluders.push({ bone, radius: spec.radius, lift: spec.lift || 0 });
+    }
+  }
 
   return character;
 }
@@ -1825,9 +1878,9 @@ async function buildScene(canvas) {
       if (seat.char.tickFidget) seat.char.tickFidget(t);
       if (seat.char.ensureSit) seat.char.ensureSit();
       seat.char.applyArmPose(dt);
-      seat.char.updateFold(dt);
       // Player only: re-seat CardHold between the palms so hole cards track
-      // HoldCards wrist motion.
+      // HoldCards wrist motion. Done before the see-through test so the
+      // pair's world position matches the pose the camera is about to draw.
       if (seat.char.isPlayer && seat.char.cardHold) syncCardHold(seat.char);
     }
 
@@ -1910,6 +1963,12 @@ async function buildScene(canvas) {
 
     updateFx(dt);
     positionHandCards();
+    // Camera and the held fan are in their final pose for this frame. Fade
+    // the hero only once that test can see whether his body covers the pair.
+    for (const seat of state.seats) if (seat.char) {
+      if (seat.char.isPlayer) seat.char.seeTarget = heldCardOcclusion(seat.char);
+      seat.char.updateFold(dt);
+    }
     resizeIfNeeded(canvas, renderer, camera);
     renderer.render(scene, camera);
   });
@@ -2538,7 +2597,9 @@ function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
     card.scale.setScalar(1);
     // Bone-parented bounds lag the pose; never cull held cards.
     card.frustumCulled = false;
-    card.renderOrder = 2 + i;
+    // Opaque queue, before the hero's see-through depth peel (renderOrder 1),
+    // so the pair is already in the colour buffer when his shell blends.
+    card.renderOrder = 0;
     // Seed pose; faceHeldCardsTowardCamera overwrites each frame.
     card.rotation.set(faceUp ? HOLD_FAN_TILT : Math.PI + HOLD_FAN_TILT, 0, theta);
     pinCardBottomLeft(card, HOLD_PIVOT_X, HOLD_PIVOT_Y, HOLD_PIVOT_Z + i * 0.014);
@@ -2573,7 +2634,7 @@ function faceHeldCardsTowardCamera(cards) {
     card.rotateZ(theta);
     // Shared bottom-left pivot; slight Z lift so the front card sits on top.
     pinCardBottomLeft(card, HOLD_PIVOT_X, HOLD_PIVOT_Y, HOLD_PIVOT_Z + i * 0.014);
-    card.renderOrder = 2 + i;
+    card.renderOrder = 0;
   }
 }
 
@@ -2603,17 +2664,96 @@ function updateBoard(paths) {
   }
 }
 
+// True when a world-space sphere sits on the open segment from A to B
+// (not on the endpoints — the camera and the card itself are not occluders).
+function segmentHitsSphere(ax, ay, az, bx, by, bz, cx, cy, cz, radius) {
+  const abx = bx - ax, aby = by - ay, abz = bz - az;
+  const ab2 = abx * abx + aby * aby + abz * abz;
+  if (ab2 < 1e-8) return false;
+  let t = ((cx - ax) * abx + (cy - ay) * aby + (cz - az) * abz) / ab2;
+  if (t < 0.04 || t > 0.96) return false;
+  const dx = ax + abx * t - cx;
+  const dy = ay + aby * t - cy;
+  const dz = az + abz * t - cz;
+  return dx * dx + dy * dy + dz * dz <= radius * radius;
+}
+
+const _occCam = new THREE.Vector3();
+const _occFwd = new THREE.Vector3();
+const _occSample = new THREE.Vector3();
+const _occBone = new THREE.Vector3();
+
+// 0..1: how much of the hero's held pair is hidden by his own body from
+// the current camera. 0 when the camera is in front of him, when the pair
+// is laid on the felt, or when nothing is dealt. The seated over-the-shoulder
+// view is the case that returns 1 — the back and arms sit on those rays.
+function heldCardOcclusion(character) {
+  if (!character || !state.camera || !state.holeCards.length) return 0;
+  if (state.holeFlat) return 0;
+  if (state.zoom.active && state.zoom.kind === 'board') return 0;
+  const cards = [];
+  for (const card of state.holeCards) {
+    if (card.visible && card.parent) cards.push(card);
+  }
+  if (!cards.length) return 0;
+
+  const occluders = character.occluders || [];
+  const anchor = occluders.length ? occluders[0].bone : character.root;
+  anchor.getWorldPosition(_occCam);
+  // Seat faces the table origin. Flatten so a high camera still counts as
+  // behind him rather than "above".
+  _occFwd.set(-_occCam.x, 0, -_occCam.z);
+  if (_occFwd.lengthSq() < 1e-6) _occFwd.set(0, 0, -1);
+  else _occFwd.normalize();
+  _occSample.copy(state.camera.position).sub(_occCam);
+  _occSample.y = 0;
+  const camLen = _occSample.length();
+  // Positive dot: camera is on the table side of his chest.
+  if (camLen > 1e-4 && _occSample.dot(_occFwd) > 0.15 * camLen) return 0;
+  if (!occluders.length) return 1;
+
+  const cam = state.camera.position;
+  let blocked = 0;
+  let samples = 0;
+  for (const card of cards) {
+    const halfW = (card.geometry?.parameters?.width || 0.145) * 0.5;
+    const halfH = (card.geometry?.parameters?.height || 0.197) * 0.5;
+    for (const [sx, sy] of [[0, 0], [-1, -1], [1, -1], [1, 1], [-1, 1], [-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      _occSample.set(sx * halfW, sy * halfH, 0);
+      card.localToWorld(_occSample);
+      samples++;
+      for (const occ of occluders) {
+        occ.bone.getWorldPosition(_occBone);
+        if (occ.lift) _occBone.y += occ.lift;
+        if (segmentHitsSphere(
+          cam.x, cam.y, cam.z,
+          _occSample.x, _occSample.y, _occSample.z,
+          _occBone.x, _occBone.y, _occBone.z,
+          occ.radius
+        )) {
+          blocked++;
+          break;
+        }
+      }
+    }
+  }
+  if (!samples) return 0;
+  const frac = blocked / samples;
+  if (frac < 0.08) return 0;
+  return THREE.MathUtils.clamp(frac / 0.4, 0, 1);
+}
+
 function updateHole(paths) {
   clearGroupChildren(state.holeCards, state.scene);
   for (let i = 0; i < paths.length; i++) {
     const card = makeCard(paths[i], 0.145, true);
-    // The player's own pair must always read over everything else in the
-    // scene (his body, the rail, chip stacks), so skip the depth test and
-    // draw the cards after the rest of the frame. renderOrder climbs with i
-    // so the second card of the fan still overlaps the first correctly.
-    card.material.depthTest = false;
-    card.material.depthWrite = false;
-    card.renderOrder = 20 + i;
+    // Real depth, drawn with the rest of the opaque scene. When the hero's
+    // body covers the pair, he fades (heldCardOcclusion) and these cards —
+    // already in the colour buffer — show through that shell. A small Z
+    // lift in the fan keeps the front card in front of the back one.
+    card.material.depthTest = true;
+    card.material.depthWrite = true;
+    card.renderOrder = 0;
     // Stamp the stencil mask the actor-outline hull tests against: the hull
     // renders in the later transparent pass with no usable depth to reject
     // it, so without this mask the gold glow blends over the pair in hand.
