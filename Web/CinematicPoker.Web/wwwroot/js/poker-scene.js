@@ -635,11 +635,11 @@ const _outlineUniforms = {
 };
 
 // The player's hole cards are drawn in the opaque queue, before the
-// see-through body. The hull is in the transparent pass with no usable depth
-// against those cards, so without help the glow blends over the pair in his
-// hands. The cards stamp this value into the stencil buffer wherever they
-// draw (updateHole) and the hull is stencil-rejected on those pixels, so the
-// outline stops at the card edges.
+// see-through body. They stamp this value wherever they draw (updateHole).
+// The actor-outline hull and, while he is see-through, his own body both
+// stencil-reject those pixels. The hull would otherwise glow across the pair,
+// and the faded hands would blend on top of the faces (the fingers sit
+// closer to the camera than the card plane).
 const HELD_CARD_STENCIL_REF = 1;
 
 let _outlineMat = null;
@@ -1096,6 +1096,11 @@ function makeCharacter(gltf, spec, extraClips) {
     // Fold keeps the old muted ghost (45% fade). See-through is stronger
     // (body alpha 0.35) and stays in colour so the cards read through him.
     const fade = Math.min(0.82, Math.max(w * 0.45, see * (1 - HERO_SEE_OPACITY)));
+    // See-through only. The faded mesh is drawn after the cards, and the
+    // grip sits on the camera side of the card plane, so without this mask
+    // the thumb and fingers blend over the pips. The pair already claimed
+    // those pixels in the stencil buffer.
+    const maskHeldCards = character.isPlayer && see > 0.001;
     for (const m of bodyMats) {
       const wantTransparent = ghost || m.userData.keepTransparent;
       if (m.transparent !== wantTransparent) { m.transparent = wantTransparent; m.needsUpdate = true; }
@@ -1109,6 +1114,20 @@ function makeCharacter(gltf, spec, extraClips) {
       m.opacity = base * (1 - fade);
       m.userData.foldGrey = w;
       if (m.userData.foldShader) m.userData.foldShader.uniforms.uGrey.value = w;
+      if (maskHeldCards) {
+        m.stencilWrite = true;
+        m.stencilWriteMask = 0;
+        m.stencilFunc = THREE.NotEqualStencilFunc;
+        m.stencilRef = HELD_CARD_STENCIL_REF;
+        m.stencilFail = THREE.KeepStencilOp;
+        m.stencilZFail = THREE.KeepStencilOp;
+        m.stencilZPass = THREE.KeepStencilOp;
+      } else if (m.stencilWrite) {
+        m.stencilWrite = false;
+        m.stencilWriteMask = 0xff;
+        m.stencilFunc = THREE.AlwaysStencilFunc;
+        m.stencilRef = 0;
+      }
     }
     for (const p of ghostParts) {
       p.depthMesh.visible = ghost;
