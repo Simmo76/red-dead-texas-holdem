@@ -634,13 +634,35 @@ const _outlineUniforms = {
   uOutlineViewH: { value: 720 }, // canvas CSS height, refreshed on resize
 };
 
-// The player's hole cards are drawn in the opaque queue, before the
-// see-through body. They stamp this value wherever they draw (updateHole).
-// The actor-outline hull and, while he is see-through, his own body both
-// stencil-reject those pixels. The hull would otherwise glow across the pair,
-// and the faded hands would blend on top of the faces (the fingers sit
-// closer to the camera than the card plane).
+// The player's hole cards are drawn in the opaque queue before his body.
+// They stamp this value wherever they draw (updateHole). The actor-outline
+// hull and the hero himself both stencil-reject those pixels. The hull would
+// otherwise glow across the pair, and his fingers — which the HoldCards pose
+// pushes through the card plane, worst on the single-mesh fighters — would
+// paint over the faces from any angle, including when he is fully solid.
 const HELD_CARD_STENCIL_REF = 1;
+const HELD_CARD_RENDER_ORDER = -1;
+
+function setHeldCardMask(material, on) {
+  if (!material) return;
+  if (on) {
+    if (material.userData.heldCardMask) return;
+    material.stencilWrite = true;
+    material.stencilWriteMask = 0;
+    material.stencilFunc = THREE.NotEqualStencilFunc;
+    material.stencilRef = HELD_CARD_STENCIL_REF;
+    material.stencilFail = THREE.KeepStencilOp;
+    material.stencilZFail = THREE.KeepStencilOp;
+    material.stencilZPass = THREE.KeepStencilOp;
+    material.userData.heldCardMask = true;
+  } else if (material.userData.heldCardMask) {
+    material.stencilWrite = false;
+    material.stencilWriteMask = 0xff;
+    material.stencilFunc = THREE.AlwaysStencilFunc;
+    material.stencilRef = 0;
+    material.userData.heldCardMask = false;
+  }
+}
 
 let _outlineMat = null;
 function outlineMaterial() {
@@ -916,6 +938,7 @@ function makeCharacter(gltf, spec, extraClips) {
     // the hole cards. Separate from foldW so he stays in colour (no grey-out)
     // and keeps his chair.
     seeTarget: 0, seeW: 0, occluders: [],
+    maskHeldCards: false, _maskHeld: false,
   };
 
   const adoptSitAction = (next, name) => {
@@ -1079,7 +1102,9 @@ function makeCharacter(gltf, spec, extraClips) {
     if (character.chair) character.chair.visible = !character.folded;
     const foldSettled = character.foldW === target;
     const seeSettled = character.seeW === seeTarget;
-    if (foldSettled && seeSettled) return;
+    const maskHeldCards = character.isPlayer && !!character.maskHeldCards;
+    const maskSettled = character._maskHeld === maskHeldCards;
+    if (foldSettled && seeSettled && maskSettled) return;
     if (!foldSettled) {
       character.foldW += (target - character.foldW) * Math.min(1, dt * 3.5);
       if (Math.abs(character.foldW - target) < 0.01) character.foldW = target;
@@ -1096,11 +1121,7 @@ function makeCharacter(gltf, spec, extraClips) {
     // Fold keeps the old muted ghost (45% fade). See-through is stronger
     // (body alpha 0.35) and stays in colour so the cards read through him.
     const fade = Math.min(0.82, Math.max(w * 0.45, see * (1 - HERO_SEE_OPACITY)));
-    // See-through only. The faded mesh is drawn after the cards, and the
-    // grip sits on the camera side of the card plane, so without this mask
-    // the thumb and fingers blend over the pips. The pair already claimed
-    // those pixels in the stencil buffer.
-    const maskHeldCards = character.isPlayer && see > 0.001;
+    character._maskHeld = maskHeldCards;
     for (const m of bodyMats) {
       const wantTransparent = ghost || m.userData.keepTransparent;
       if (m.transparent !== wantTransparent) { m.transparent = wantTransparent; m.needsUpdate = true; }
@@ -1114,22 +1135,13 @@ function makeCharacter(gltf, spec, extraClips) {
       m.opacity = base * (1 - fade);
       m.userData.foldGrey = w;
       if (m.userData.foldShader) m.userData.foldShader.uniforms.uGrey.value = w;
-      if (maskHeldCards) {
-        m.stencilWrite = true;
-        m.stencilWriteMask = 0;
-        m.stencilFunc = THREE.NotEqualStencilFunc;
-        m.stencilRef = HELD_CARD_STENCIL_REF;
-        m.stencilFail = THREE.KeepStencilOp;
-        m.stencilZFail = THREE.KeepStencilOp;
-        m.stencilZPass = THREE.KeepStencilOp;
-      } else if (m.stencilWrite) {
-        m.stencilWrite = false;
-        m.stencilWriteMask = 0xff;
-        m.stencilFunc = THREE.AlwaysStencilFunc;
-        m.stencilRef = 0;
-      }
+      // Always, not only while faded. From the side he is solid, and the
+      // fighter's fingertips still sit closer than the card plane.
+      setHeldCardMask(m, maskHeldCards);
     }
     for (const p of ghostParts) {
+      const depthMats = Array.isArray(p.depthMesh.material) ? p.depthMesh.material : [p.depthMesh.material];
+      for (const m of depthMats) setHeldCardMask(m, maskHeldCards);
       p.depthMesh.visible = ghost;
       p.src.renderOrder = ghost ? 2 : 0;
       p.src.castShadow = w < 0.5;
@@ -1985,7 +1997,10 @@ async function buildScene(canvas) {
     // Camera and the held fan are in their final pose for this frame. Fade
     // the hero only once that test can see whether his body covers the pair.
     for (const seat of state.seats) if (seat.char) {
-      if (seat.char.isPlayer) seat.char.seeTarget = heldCardOcclusion(seat.char);
+      if (seat.char.isPlayer) {
+        seat.char.seeTarget = heldCardOcclusion(seat.char);
+        seat.char.maskHeldCards = heroHoleCardsInHand();
+      }
       seat.char.updateFold(dt);
     }
     resizeIfNeeded(canvas, renderer, camera);
@@ -2616,9 +2631,9 @@ function layoutCardsInHold(hold, cards, { faceUp = false } = {}) {
     card.scale.setScalar(1);
     // Bone-parented bounds lag the pose; never cull held cards.
     card.frustumCulled = false;
-    // Opaque queue, before the hero's see-through depth peel (renderOrder 1),
-    // so the pair is already in the colour buffer when his shell blends.
-    card.renderOrder = 0;
+    // Opaque queue, before the hero (0) and his see-through peel (1), so the
+    // stencil mask is in place before his fingers can cover the faces.
+    card.renderOrder = HELD_CARD_RENDER_ORDER;
     // Seed pose; faceHeldCardsTowardCamera overwrites each frame.
     card.rotation.set(faceUp ? HOLD_FAN_TILT : Math.PI + HOLD_FAN_TILT, 0, theta);
     pinCardBottomLeft(card, HOLD_PIVOT_X, HOLD_PIVOT_Y, HOLD_PIVOT_Z + i * 0.014);
@@ -2653,7 +2668,7 @@ function faceHeldCardsTowardCamera(cards) {
     card.rotateZ(theta);
     // Shared bottom-left pivot; slight Z lift so the front card sits on top.
     pinCardBottomLeft(card, HOLD_PIVOT_X, HOLD_PIVOT_Y, HOLD_PIVOT_Z + i * 0.014);
-    card.renderOrder = 0;
+    card.renderOrder = HELD_CARD_RENDER_ORDER;
   }
 }
 
@@ -2762,6 +2777,17 @@ function heldCardOcclusion(character) {
   return THREE.MathUtils.clamp(frac / 0.4, 0, 1);
 }
 
+// True while the hero's pair is in his hands (not laid on the felt, not hidden
+// for an opponent close-up). His mesh must stay off those pixels at every
+// camera angle, including the side views where he is fully solid.
+function heroHoleCardsInHand() {
+  if (state.holeFlat || !state.holeCards || !state.holeCards.length) return false;
+  for (const card of state.holeCards) {
+    if (card.visible && card.parent && card.parent.name === 'CardHold') return true;
+  }
+  return false;
+}
+
 function updateHole(paths) {
   clearGroupChildren(state.holeCards, state.scene);
   for (let i = 0; i < paths.length; i++) {
@@ -2772,7 +2798,9 @@ function updateHole(paths) {
     // lift in the fan keeps the front card in front of the back one.
     card.material.depthTest = true;
     card.material.depthWrite = true;
-    card.renderOrder = 0;
+    // Before the hero (renderOrder 0) and his see-through peel (1), so the
+    // stencil mask is down before either of them can cover the faces.
+    card.renderOrder = HELD_CARD_RENDER_ORDER;
     // Stamp the stencil mask the actor-outline hull tests against: the hull
     // renders in the later transparent pass with no usable depth to reject
     // it, so without this mask the gold glow blends over the pair in hand.
