@@ -228,26 +228,8 @@
                         <span class="ai-stat">POT ODDS <b>@_advice.PotOddsPercent%</b></span>
                     }
                     <span class="ai-stat">VS <b>@_advice.Opponents</b></span>
-                    <span class="ai-stat">STREET <b>@_advice.Street</b></span>
                 </div>
-                <div class="ai-advice-scroll">
-                    <div class="ai-advice-section">
-                        <div class="ai-advice-label">TABLE NOW</div>
-                        <div class="ai-advice-copy">@_advice.Situation</div>
-                    </div>
-                    <div class="ai-advice-section">
-                        <div class="ai-advice-label">WHAT THEY HAVE SHOWN</div>
-                        <div class="ai-advice-copy">@_advice.ActionRead</div>
-                    </div>
-                    <div class="ai-advice-section">
-                        <div class="ai-advice-label">ASSUMPTIONS</div>
-                        <div class="ai-advice-copy">@_advice.Assumptions</div>
-                    </div>
-                    <div class="ai-advice-section">
-                        <div class="ai-advice-label">WHY THIS ACTION</div>
-                        <div class="ai-advice-copy">@_advice.Rationale</div>
-                    </div>
-                </div>
+                <div class="ai-advice-why">@_advice.Rationale</div>
                 <div class="ai-advice-sig">— Maximilian, card counter</div>
             }
         </div>
@@ -634,7 +616,6 @@
     private readonly List<PotAwarded> _awardsThisHand = new();
     private int _pendingFocusSeat = -1;
     private readonly List<ShowdownRow> _showdownView = new();
-    private readonly List<AdviceAction> _adviceActions = new();
     private string _statusLine = "";
     private int _loopToken;
 
@@ -645,14 +626,6 @@
         public IReadOnlyList<Card> Cards;
         public string HandName;
         public bool Winner;
-    }
-
-    private sealed class AdviceAction
-    {
-        public int Seat;
-        public string Kind;
-        public long Amount;
-        public int BoardCards;
     }
 
     private PokerRound Round => _game?.CurrentRound;
@@ -1676,10 +1649,6 @@
         public int WinPercent;
         public int? PotOddsPercent;
         public string Opponents;
-        public string Street;
-        public string Situation;
-        public string ActionRead;
-        public string Assumptions;
         public string Rationale;
     }
 
@@ -1698,11 +1667,7 @@
             var advice = new MaxAdvice
             {
                 WinPercent = (int)Math.Round(equity * 100),
-                Opponents = opponents == 1 ? "1 PLAYER" : $"{opponents} PLAYERS",
-                Street = PrettyStreet(ctx.Street),
-                Situation = DescribeSituation(ctx),
-                ActionRead = DescribeActionRead(ctx),
-                Assumptions = DescribeAssumptions(ctx)
+                Opponents = opponents == 1 ? "1 PLAYER" : $"{opponents} PLAYERS"
             };
 
             if (ctx.ToCall <= 0)
@@ -1719,72 +1684,6 @@
         {
             return null;
         }
-    }
-
-    private static string PrettyStreet(HandPhase phase) => phase switch
-    {
-        HandPhase.Preflop => "PREFLOP",
-        HandPhase.Flop => "FLOP",
-        HandPhase.Turn => "TURN",
-        HandPhase.River => "RIVER",
-        _ => phase.ToString().ToUpperInvariant()
-    };
-
-    private string DescribeSituation(DecisionContext ctx)
-    {
-        string price = ctx.ToCall > 0
-            ? $"${ctx.ToCall} to call"
-            : "nothing to call";
-        string position = ctx.PlayersBehind == 0
-            ? "last to act"
-            : $"{ctx.PlayersBehind} player{(ctx.PlayersBehind == 1 ? "" : "s")} behind";
-        return $"${ctx.Pot} in the pot; {price}; ${ctx.Stack} behind. " +
-               $"Current bet is ${ctx.CurrentBet}, and you are {position}.";
-    }
-
-    private string DescribeActionRead(DecisionContext ctx)
-    {
-        int cards = _shownBoard.Count;
-        var actions = _adviceActions.Where(a => a.BoardCards == cards).ToList();
-        var earlier = _adviceActions.Where(a => a.BoardCards < cards).ToList();
-        if (actions.Count == 0)
-        {
-            string prior = earlier.Count == 0
-                ? ""
-                : $" Earlier streets included {earlier.Count(a => a.Kind is "raised" or "bet" or "all-in")} aggressive move(s), so that history still matters.";
-            return "No one has made a voluntary move on this street yet; the read is based mostly on the cards and position." + prior;
-        }
-
-        string recent = string.Join(", ", actions.TakeLast(4).Select(a =>
-        {
-            string name = a.Seat == 0 ? "you" : NameOf(a.Seat);
-            string amount = a.Amount > 0 ? $" to ${a.Amount}" : "";
-            return $"{name} {a.Kind}{amount}";
-        }));
-        int raises = actions.Count(a => a.Kind is "raised" or "bet" or "all-in");
-        int folds = actions.Count(a => a.Kind == "folded");
-        int earlierAggression = earlier.Count(a => a.Kind is "raised" or "bet" or "all-in");
-        string pressure = raises > 0
-            ? $"{raises} aggressive action{(raises == 1 ? "" : "s")} put pressure into the street"
-            : "no bet or raise has been recorded on this street";
-        return $"{recent}. That means {pressure}" +
-               (folds > 0 ? $" and {folds} player{(folds == 1 ? "" : "s")} already folded." : ".") +
-               (earlierAggression > 0
-                   ? $" There were also {earlierAggression} aggressive move{(earlierAggression == 1 ? "" : "s")} earlier."
-                   : "") +
-               " The latest action carries the most weight.";
-    }
-
-    private string DescribeAssumptions(DecisionContext ctx)
-    {
-        string range = _adviceActions.Any(a => a.BoardCards == _shownBoard.Count
-                                               && (a.Kind is "raised" or "bet" or "all-in"))
-            ? "A raise or all-in narrows the likely opposing range toward stronger hands."
-            : "With no aggression on this street, opposing ranges stay wider.";
-        return $"Equity is estimated against {ctx.OpponentsInHand} remaining opponent" +
-               (ctx.OpponentsInHand == 1 ? "" : "s") +
-               " using unseen cards; folded players are removed. " + range +
-               " The decision is recalculated from this exact point, not from the start of the hand.";
     }
 
     // Nothing to call: bet for value past the Professional's threshold,
@@ -2126,7 +2025,6 @@
                 _revealed.Clear();
                 _shownBoard.Clear();
                 _showdownView.Clear();
-                _adviceActions.Clear();
                 _awardsThisHand.Clear();
                 _victoryPlayedThisHand = false;
                 _playerLossPlayedThisHand = false;
@@ -2167,12 +2065,10 @@
                 break;
 
             case PlayerChecked checkedEvt:
-                RecordAdviceAction(checkedEvt.Seat, "checked");
                 SceneAction(checkedEvt.Seat, "check");
                 break;
 
             case PlayerFolded foldedEvt:
-                RecordAdviceAction(foldedEvt.Seat, "folded");
                 SceneAction(foldedEvt.Seat, "fold");
                 // Letting a big pot go stings. The fold plays first; the
                 // disappointment follows when that gesture lets go.
@@ -2243,21 +2139,13 @@
                 // Chip-toss gesture whenever someone puts chips in the middle.
                 switch (evt)
                 {
-                    case PlayerCalled pc:
-                        RecordAdviceAction(pc.Seat, "called", pc.AddedAmount);
-                        SceneAction(pc.Seat, "call");
-                        break;
-                    case BetPlaced bp:
-                        RecordAdviceAction(bp.Seat, "bet", bp.ToAmount);
-                        SceneAction(bp.Seat, "bet");
-                        break;
+                    case PlayerCalled pc: SceneAction(pc.Seat, "call"); break;
+                    case BetPlaced bp: SceneAction(bp.Seat, "bet"); break;
                     case PlayerRaised pr:
-                        RecordAdviceAction(pr.Seat, "raised", pr.ToAmount);
                         SceneAction(pr.Seat, "raise");
                         NudgeWaiting(pr.Seat, 0.5);
                         break;
                     case PlayerAllIn pa:
-                        RecordAdviceAction(pa.Seat, "all-in", pa.ToAmount);
                         SceneAction(pa.Seat, "allin");
                         NudgeWaiting(pa.Seat, 0.85);
                         break;
@@ -2270,15 +2158,6 @@
                 break;
         }
     }
-
-    private void RecordAdviceAction(int seat, string kind, long amount = 0) =>
-        _adviceActions.Add(new AdviceAction
-        {
-            Seat = seat,
-            Kind = kind,
-            Amount = amount,
-            BoardCards = _shownBoard.Count
-        });
 
     // ------------------------------------------------------------------ helpers
 

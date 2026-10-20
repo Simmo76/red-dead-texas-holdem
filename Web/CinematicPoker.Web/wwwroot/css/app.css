@@ -894,7 +894,7 @@ html, body {
    button; tapping it reveals the advice, tapping again collapses it back
    to the button. */
 .ai-advice {
-    width: min(360px, 43vw);
+    width: 302px;
     padding: 12px 17px 11px;
     background: rgba(12, 10, 8, 0.9);
     border: 1px solid var(--gold-dim);
@@ -949,35 +949,6 @@ html, body {
     color: var(--text);
 }
 
-.ai-advice-scroll {
-    max-height: min(34vh, 245px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding-right: 7px;
-    scrollbar-color: var(--gold-dim) rgba(0, 0, 0, 0.28);
-    scrollbar-width: thin;
-}
-
-.ai-advice-section {
-    margin-top: 9px;
-    padding-top: 8px;
-    border-top: 1px solid rgba(216, 178, 92, 0.18);
-}
-
-.ai-advice-label {
-    color: var(--gold);
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    font-weight: bold;
-}
-
-.ai-advice-copy {
-    margin-top: 3px;
-    font-size: 13px;
-    line-height: 1.4;
-    color: var(--text);
-}
-
 .ai-advice-sig {
     margin-top: 6px;
     font-size: 12px;
@@ -985,16 +956,6 @@ html, body {
     letter-spacing: 0.5px;
     color: var(--text-dim);
     text-align: right;
-}
-
-@media (max-width: 640px) {
-    .ai-advice {
-        width: min(360px, calc(100vw - 34px));
-    }
-
-    .ai-advice-scroll {
-        max-height: 30vh;
-    }
 }
 
 @keyframes fadein-plain {
