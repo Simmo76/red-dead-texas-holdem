@@ -65,8 +65,10 @@ namespace CinematicPoker.Game.Save
     public sealed class SessionSnapshot
     {
         public string environmentId;
+        public string playerName;
         public int handNumber;
         public int dealerSeat;
+        public int playMode;
         public long smallBlind;
         public long bigBlind;
         public List<SeatSnapshot> seats = new List<SeatSnapshot>();
@@ -77,6 +79,7 @@ namespace CinematicPoker.Game.Save
     {
         public int seat;
         public string npcId; // empty = human
+        public string displayName;
         public long stack;
         public bool eliminated;
         public float tilt;
