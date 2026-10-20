@@ -161,6 +161,27 @@ namespace CinematicPoker.Engine.Poker
         public PokerPlayer CurrentPlayer =>
             CurrentSeat >= 0 ? GetPlayer(CurrentSeat) : null;
 
+        /// <summary>
+        /// Restores the session-level progress from a persisted safe point.
+        /// The round is intentionally left waiting: snapshots are written
+        /// between hands (or roll back an interrupted hand to its last safe
+        /// stacks), so no partially dealt cards can be resumed as truth.
+        /// </summary>
+        public void RestoreProgress(int handNumber, int dealerSeat)
+        {
+            if (Phase == GamePhase.HandInProgress)
+                throw new InvalidOperationException("Cannot restore progress during a hand.");
+            if (handNumber < 0)
+                throw new ArgumentOutOfRangeException(nameof(handNumber));
+            if (dealerSeat < -1 || (dealerSeat >= 0 && !_players.Any(p => p.Seat == dealerSeat)))
+                throw new ArgumentException("Saved dealer seat is not at this table.", nameof(dealerSeat));
+
+            HandNumber = handNumber;
+            DealerSeat = dealerSeat;
+            _round = null;
+            Phase = GamePhase.WaitingForHand;
+        }
+
         public PokerPlayer GetPlayer(int seat) => _players.First(p => p.Seat == seat);
 
         /// <summary>

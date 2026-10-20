@@ -16,6 +16,21 @@ namespace CinematicPoker.Engine.Tests
     public class GameFlowTests
     {
         [Test]
+        public void RestoreProgressResumesAtNextHandWithSavedButton()
+        {
+            var game = CreateGame(new long[] { 500, 700, 900 }, seed: 42);
+            game.RestoreProgress(handNumber: 12, dealerSeat: 1);
+
+            Assert.AreEqual(12, game.HandNumber);
+            Assert.AreEqual(1, game.DealerSeat);
+            Assert.AreEqual(GamePhase.WaitingForHand, game.Phase);
+
+            game.StartHand();
+            Assert.AreEqual(13, game.HandNumber);
+            Assert.AreEqual(2, game.DealerSeat);
+        }
+
+        [Test]
         public void CompleteSessionFromBuyInToElimination()
         {
             var rules = new TableRules(smallBlind: 10, bigBlind: 20, startingStack: 400);
