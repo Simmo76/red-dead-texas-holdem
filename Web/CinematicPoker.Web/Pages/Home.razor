@@ -3,6 +3,7 @@
 @using CinematicPoker.Engine.Players
 @using CinematicPoker.Engine.Poker
 @using CinematicPoker.Engine.Simulation
+@using System.Text.Json
 @inject IJSRuntime JS
 
 <PageTitle>Dead Man's Hand</PageTitle>
@@ -551,6 +552,34 @@
     private PokerGame _game;
     private HandSequenceLog _handLog = new();
     private readonly Random _rng = new();
+    private bool _webSnapshotLoaded;
+    private static readonly JsonSerializerOptions SnapshotJson =
+        new JsonSerializerOptions { IncludeFields = true };
+
+    private sealed class WebSeatSnapshot
+    {
+        public int seat;
+        public string id;
+        public string name;
+        public long stack;
+        public bool eliminated;
+        public double tilt;
+        public double confidence;
+    }
+
+    private sealed class WebSessionSnapshot
+    {
+        public int version = 1;
+        public string playerName;
+        public int difficulty;
+        public bool quickMode;
+        public bool muted;
+        public string tableScene;
+        public int handNumber;
+        public int dealerSeat;
+        public List<WebSeatSnapshot> seats = new();
+        public PokerRoundSnapshot round;
+    }
     private readonly Dictionary<int, IReadOnlyList<Card>> _revealed = new();
     // Result audio belongs to the hand outcome, not to the shape of the
     // showdown. This matters for an immediate all-in, where the engine can
@@ -887,8 +916,6 @@
         // knows whether this device has a saved name.
         _playerName = ReadCachedPlayerName();
         _settingsLoaded = !string.IsNullOrEmpty(_playerName) || JS is IJSInProcessRuntime;
-        if (!string.IsNullOrEmpty(_playerName) && _game == null)
-            StartSession();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -898,8 +925,17 @@
             if (string.IsNullOrEmpty(_playerName))
                 _playerName = await ReadCachedPlayerNameAsync();
             _settingsLoaded = true;
-            if (!string.IsNullOrEmpty(_playerName) && _game == null)
-                StartSession();
+            if (!_webSnapshotLoaded)
+            {
+                _webSnapshotLoaded = true;
+                string saved = "";
+                try { saved = await JS.InvokeAsync<string>("pokerSession.load"); }
+                catch (JSException) { }
+                if (!string.IsNullOrEmpty(saved))
+                    TryRestoreWebSession(saved);
+                if (_game == null && !string.IsNullOrEmpty(_playerName))
+                    StartSession();
+            }
             StateHasChanged();
 
             // The scene module loads asynchronously; retry until it's there.
@@ -998,6 +1034,7 @@
             // is how seats ended up with no cards on the felt.
             Console.Error.WriteLine($"pokerScene.update failed: {ex.Message}");
         }
+        await PersistWebSession();
     }
 
     private void SceneEmotion(int seat, string mood, double intensity, bool speak = true)
@@ -1055,8 +1092,109 @@
         _ = JS.InvokeVoidAsync("pokerScene.action", seat, kind);
     }
 
+    private void ClearWebSession()
+    {
+        try { _ = JS.InvokeVoidAsync("pokerSession.clear"); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+    }
+
+    private void TryRestoreWebSession(string json)
+    {
+        try
+        {
+            WebSessionSnapshot saved = JsonSerializer.Deserialize<WebSessionSnapshot>(json, SnapshotJson);
+            if (saved == null || saved.version != 1 || saved.seats is not { Count: >= 2 })
+                return;
+
+            _playerName = SanitizeName(saved.playerName, allowEmpty: true);
+            _difficulty = Math.Clamp(saved.difficulty, 0, DifficultyNames.Length - 1);
+            _quickMode = saved.quickMode;
+            _muted = saved.muted;
+            _tableScene = saved.tableScene == "street" ? "street" : "saloon";
+
+            var players = new List<PokerPlayer>();
+            foreach (WebSeatSnapshot seat in saved.seats.OrderBy(s => s.seat))
+            {
+                if (seat.seat == 0)
+                {
+                    var human = new HumanPlayer("human", PlayerName, 0, Math.Max(0, seat.stack));
+                    human.Status = seat.eliminated ? PlayerStatus.Eliminated : PlayerStatus.Active;
+                    players.Add(human);
+                    continue;
+                }
+
+                AIProfile profile = WithDifficulty(Roster[seat.seat - 1]());
+                var npc = new AIPlayer(
+                    string.IsNullOrEmpty(seat.id) ? $"npc{seat.seat - 1}" : seat.id,
+                    string.IsNullOrEmpty(seat.name) ? $"Player {seat.seat}" : seat.name,
+                    seat.seat, Math.Max(0, seat.stack), profile, _rng.Next());
+                npc.Status = seat.eliminated ? PlayerStatus.Eliminated : PlayerStatus.Active;
+                npc.Tilt.Tilt = seat.tilt;
+                npc.Tilt.Confidence = seat.confidence;
+                players.Add(npc);
+            }
+
+            if (players.Count < 2) return;
+            _game = new PokerGame(TableRules.Default, players, _rng.Next());
+            _game.EventEmitted += OnEngineEvent;
+            _game.RestoreProgress(saved.handNumber, saved.dealerSeat);
+            if (saved.round != null)
+            {
+                _game.RestoreRound(saved.round);
+                _shownBoard.AddRange(_game.CurrentRound.Board);
+            }
+            _handLog = new HandSequenceLog();
+            _handLog.BeginSession(0, TableRules.Default, players);
+            _statusLine = saved.round == null ? "Dealing…" : "Resuming your hand…";
+            _ = RunLoop(++_loopToken);
+        }
+        catch (Exception ex) when (ex is JsonException || ex is ArgumentException || ex is InvalidOperationException)
+        {
+            ClearWebSession();
+        }
+    }
+
+    private async Task PersistWebSession()
+    {
+        if (_game == null) return;
+        var saved = new WebSessionSnapshot
+        {
+            playerName = PlayerName,
+            difficulty = _difficulty,
+            quickMode = _quickMode,
+            muted = _muted,
+            tableScene = _tableScene,
+            handNumber = _game.HandNumber,
+            dealerSeat = _game.DealerSeat,
+            round = Round?.Capture()
+        };
+        foreach (PokerPlayer player in _game.Players)
+        {
+            SeatState roundSeat = SeatOf(player.Seat);
+            saved.seats.Add(new WebSeatSnapshot
+            {
+                seat = player.Seat,
+                id = player.Id,
+                name = player.Name,
+                stack = roundSeat?.Stack ?? player.Stack,
+                eliminated = player.Status == PlayerStatus.Eliminated,
+                tilt = player is AIPlayer ai ? ai.Tilt.Tilt : 0.2,
+                confidence = player is AIPlayer ai2 ? ai2.Tilt.Confidence : 0.5
+            });
+        }
+        try
+        {
+            string json = JsonSerializer.Serialize(saved, SnapshotJson);
+            await JS.InvokeVoidAsync("pokerSession.save", json);
+        }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+    }
+
     private void StartSession()
     {
+        ClearWebSession();
         var rules = TableRules.Default;
         var players = new List<PokerPlayer> { new HumanPlayer("human", PlayerName, seat: 0, stack: rules.StartingStack) };
         string[] npcNames = ShuffledNpcNames();

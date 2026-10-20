@@ -33,6 +33,18 @@ namespace CinematicPoker.Engine.Poker
 
         /// <summary>All 52 cards in current order (dealt and undealt). Exposed for tests.</summary>
         public IReadOnlyList<Card> Cards => _cards;
+        public int Position => _next;
+
+        public Deck(IReadOnlyList<Card> cards, int position)
+        {
+            if (cards == null || cards.Count != 52)
+                throw new ArgumentException("A standard deck snapshot must contain 52 cards.", nameof(cards));
+            if (position < 0 || position > cards.Count)
+                throw new ArgumentOutOfRangeException(nameof(position));
+            _rng = new Random();
+            _cards.AddRange(cards);
+            _next = position;
+        }
 
         public void Reset()
         {

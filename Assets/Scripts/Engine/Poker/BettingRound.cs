@@ -72,6 +72,7 @@ namespace CinematicPoker.Engine.Poker
 
         public SeatState CurrentActor =>
             _actorIndex >= 0 ? _seats[_actorIndex] : null;
+        public int ActorIndex => _actorIndex;
 
         private int PreviousIndex(int index) => (index - 1 + _seats.Count) % _seats.Count;
 
@@ -309,6 +310,15 @@ namespace CinematicPoker.Engine.Poker
                 s.CommittedThisStreet = 0;
                 s.HasActedThisStreet = false;
             }
+        }
+
+        internal void Restore(long currentBet, long minRaiseIncrement, int actorIndex)
+        {
+            if (actorIndex < -1 || actorIndex >= _seats.Count)
+                throw new ArgumentOutOfRangeException(nameof(actorIndex));
+            CurrentBet = currentBet;
+            MinRaiseIncrement = minRaiseIncrement;
+            _actorIndex = actorIndex;
         }
     }
 }

@@ -53,6 +53,8 @@ namespace CinematicPoker.Engine.Poker
 
         public long CurrentBet => _betting.CurrentBet;
         public long MinRaiseIncrement => _betting.MinRaiseIncrement;
+        public int ActorIndex => _betting.ActorIndex;
+        public IDeck Deck => _deck;
 
         public IReadOnlyList<SeatState> Seats => _seats;
 
@@ -96,6 +98,43 @@ namespace CinematicPoker.Engine.Poker
         }
 
         public SeatState GetSeat(int seat) => _seats.First(s => s.Seat == seat);
+
+        public void Restore(PokerRoundSnapshot snapshot)
+        {
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            if (snapshot.seats == null || snapshot.seats.Count != _seats.Count)
+                throw new ArgumentException("Saved seat count does not match the round.", nameof(snapshot));
+
+            _board.Clear();
+            _dealtCardIndices.Clear();
+            foreach (int index in snapshot.board)
+            {
+                Card card = Card.FromIndex(index);
+                _board.Add(card);
+                _dealtCardIndices.Add(index);
+            }
+            foreach (SeatSnapshot saved in snapshot.seats)
+            {
+                SeatState seat = GetSeat(saved.seat);
+                seat.Stack = saved.stack;
+                seat.StackAtHandStart = saved.stackAtHandStart;
+                seat.HoleCards.Clear();
+                foreach (int index in saved.holeCards)
+                {
+                    seat.HoleCards.Add(Card.FromIndex(index));
+                    _dealtCardIndices.Add(index);
+                }
+                seat.Folded = saved.folded;
+                seat.AllIn = saved.allIn;
+                seat.CommittedThisStreet = saved.committedThisStreet;
+                seat.TotalCommitted = saved.totalCommitted;
+                seat.HasActedThisStreet = saved.hasActedThisStreet;
+            }
+            Phase = snapshot.phase;
+            CurrentSeat = snapshot.currentSeat;
+            WonByFolds = snapshot.wonByFolds;
+            _betting.Restore(snapshot.currentBet, snapshot.minRaiseIncrement, snapshot.actorIndex);
+        }
 
         public void Start()
         {
