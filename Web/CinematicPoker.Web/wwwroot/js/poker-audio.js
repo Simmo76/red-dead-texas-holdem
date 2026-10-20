@@ -28,7 +28,6 @@ window.pokerAudio = (function () {
     let dealerPlaying = false;
     let victoryPending = false;
     let playerLossPending = false;
-    let adviceSpeech = null;
 
     // Owner-supplied outlaw VO pools (renamed from the Dropbox zip).
     const WIN_CLIPS = 15;
@@ -106,60 +105,6 @@ window.pokerAudio = (function () {
     function button() {
         if (muted) return;
         playBuffer(BUTTON_SOUND_URL, 1.6, 1);
-    }
-
-    // The advisor is deliberately spoken by the browser's local speech
-    // engine: the sentence changes every hand, so a fixed voice clip cannot
-    // read the actual pot, price, action history and recommendation. Prefer
-    // a low, conversational English voice when the platform provides one.
-    function pickAdviceVoice() {
-        if (!window.speechSynthesis) return null;
-        const voices = window.speechSynthesis.getVoices();
-        const english = voices.filter(function (v) {
-            return /^en(-|_)/i.test(v.lang || '');
-        });
-        const maleWestern = /david|guy|mark|alex|daniel|google us english|microsoft.*(male|david|guy)/i;
-        return english.find(function (v) { return maleWestern.test(v.name); })
-            || english.find(function (v) { return /en-US|en_US/i.test(v.lang || ''); })
-            || english[0]
-            || null;
-    }
-
-    function stopAdvice() {
-        if (!window.speechSynthesis) return;
-        try { window.speechSynthesis.cancel(); } catch (e) { }
-        adviceSpeech = null;
-    }
-
-    function speakAdvice(text) {
-        if (muted || !text || !window.speechSynthesis) return;
-        stopAdvice();
-        const speak = function () {
-            if (muted) return;
-            const utterance = new SpeechSynthesisUtterance(String(text));
-            utterance.lang = 'en-US';
-            utterance.rate = 0.9;
-            utterance.pitch = 0.78;
-            utterance.volume = 0.95;
-            utterance.voice = pickAdviceVoice();
-            adviceSpeech = utterance;
-            utterance.onend = function () {
-                if (adviceSpeech === utterance) adviceSpeech = null;
-            };
-            window.speechSynthesis.speak(utterance);
-        };
-        // Some mobile browsers populate voices asynchronously after the first
-        // gesture. Give them one short chance to provide the preferred voice.
-        if (window.speechSynthesis.getVoices().length) speak();
-        else {
-            window.speechSynthesis.onvoiceschanged = function () {
-                window.speechSynthesis.onvoiceschanged = null;
-                speak();
-            };
-            setTimeout(function () {
-                if (!adviceSpeech) speak();
-            }, 250);
-        }
     }
 
     // Wikimedia Commons ragtime recordings, re-encoded to MP3 for iOS Safari.
@@ -427,8 +372,6 @@ window.pokerAudio = (function () {
     return {
         play: play,
         button: button,
-        speakAdvice: speakAdvice,
-        stopAdvice: stopAdvice,
         voice: voice,
         dealer: dealer,
         // Start the intro movie audio (called on the same tap that starts
@@ -488,7 +431,6 @@ window.pokerAudio = (function () {
             if (m) {
                 victoryPending = false;
                 playerLossPending = false;
-                stopAdvice();
             }
             if (m) stopMusic();
             else if (!m) startMusic();
