@@ -182,6 +182,28 @@ namespace CinematicPoker.Engine.Poker
             Phase = GamePhase.WaitingForHand;
         }
 
+        /// <summary>Restore a live hand from a browser/device checkpoint.</summary>
+        public void RestoreRound(PokerRoundSnapshot snapshot)
+        {
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            if (Phase == GamePhase.HandInProgress)
+                throw new InvalidOperationException("Cannot restore over an active hand.");
+
+            var cards = snapshot.deck.Select(Card.FromIndex).ToList();
+            var entries = snapshot.seats
+                .Select(s => (s.seat, s.stackAtHandStart))
+                .ToList();
+            _round = new PokerRound(Rules, entries, snapshot.dealerSeat,
+                new Deck(cards, snapshot.deckPosition), Emit);
+            _round.Restore(snapshot);
+            foreach (var saved in snapshot.seats)
+            {
+                PokerPlayer player = GetPlayer(saved.seat);
+                player.Stack = saved.stack;
+            }
+            Phase = GamePhase.HandInProgress;
+        }
+
         public PokerPlayer GetPlayer(int seat) => _players.First(p => p.Seat == seat);
 
         /// <summary>
