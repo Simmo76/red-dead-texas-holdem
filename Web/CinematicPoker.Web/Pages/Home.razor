@@ -1525,11 +1525,16 @@
         if (!_adviceCollapsed)
         {
             _adviceCollapsed = true;
+            _ = JS.InvokeVoidAsync("pokerAudio.stopAdvice");
             return;
         }
         // First tap this turn: run the count now, not before.
         _advice ??= ComputeAdvice();
-        if (_advice != null) _adviceCollapsed = false;
+        if (_advice != null)
+        {
+            _adviceCollapsed = false;
+            _ = JS.InvokeVoidAsync("pokerAudio.speakAdvice", _advice.SpokenText);
+        }
     }
 
     private sealed class MaxAdvice
@@ -1543,6 +1548,7 @@
         public string ActionRead;
         public string Assumptions;
         public string Rationale;
+        public string SpokenText;
     }
 
     private MaxAdvice ComputeAdvice()
@@ -1571,6 +1577,7 @@
                 AdviseUnopened(ctx, advice, equity);
             else
                 AdviseFacingBet(ctx, advice, equity);
+            advice.SpokenText = BuildSpokenAdvice(ctx, advice);
             return advice;
         }
         catch (ArgumentException)
@@ -1647,6 +1654,21 @@
                (ctx.OpponentsInHand == 1 ? "" : "s") +
                " using unseen cards; folded players are removed. " + range +
                " The decision is recalculated from this exact point, not from the start of the hand.";
+    }
+
+    private static string BuildSpokenAdvice(DecisionContext ctx, MaxAdvice advice)
+    {
+        string price = ctx.ToCall > 0
+            ? $"It costs {ctx.ToCall} dollars to call"
+            : "Nobody's bet into us yet";
+        string position = ctx.PlayersBehind == 0
+            ? "we're last to act"
+            : $"there are {ctx.PlayersBehind} players left behind us";
+        return $"Alright, partner. We're on the {advice.Street.ToLowerInvariant()}. " +
+               $"There's {ctx.Pot} dollars in the pot, {price}, and {position}. " +
+               $"I've got us at {advice.WinPercent} percent to win against {advice.Opponents.ToLowerInvariant()}. " +
+               $"I'd {advice.ActionLabel.ToLowerInvariant()}, {advice.Rationale.ToLowerInvariant()} " +
+               "That's the play from where the hand stands right now.";
     }
 
     // Nothing to call: bet for value past the Professional's threshold,
