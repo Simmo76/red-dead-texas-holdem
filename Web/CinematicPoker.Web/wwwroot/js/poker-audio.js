@@ -26,6 +26,7 @@ window.pokerAudio = (function () {
     let awaitingHuman = false;
     let dealerSrc = null;
     let dealerPlaying = false;
+    let sliderDragSrc = null;
     let victoryPending = false;
     let playerLossPending = false;
 
@@ -73,13 +74,14 @@ window.pokerAudio = (function () {
         return buffers[url];
     }
 
-    function playBuffer(url, volume, rate, onEnded) {
+    function playBuffer(url, volume, rate, onEnded, loop) {
         if (!ensureCtx() || ctx.state !== 'running') return null;
         const src = ctx.createBufferSource();
         loadBuffer(url).then(function (buf) {
-            if (muted) { if (onEnded) onEnded(); return; }
+            if (src._cancelled || muted) { if (onEnded) onEnded(); return; }
             src.buffer = buf;
             if (rate) src.playbackRate.value = rate;
+            src.loop = !!loop;
             if (onEnded) {
                 src.onended = function () { onEnded(); };
             }
@@ -89,6 +91,19 @@ window.pokerAudio = (function () {
             src.start();
         }).catch(function () { if (onEnded) onEnded(); });
         return src;
+    }
+
+    function stopSliderDrag() {
+        if (!sliderDragSrc) return;
+        sliderDragSrc._cancelled = true;
+        try { sliderDragSrc.onended = null; sliderDragSrc.stop(); } catch (e) { }
+        sliderDragSrc = null;
+    }
+
+    function startSliderDrag() {
+        if (muted) return;
+        stopSliderDrag();
+        sliderDragSrc = playBuffer('audio/drop-chips.mp3', 0.7, 1, null, true);
     }
 
     function play(name, delayMs) {
@@ -222,6 +237,9 @@ window.pokerAudio = (function () {
             if (p) p.then(flushPendingResultAudio).catch(function () { });
         }
         const target = event.target;
+        const slider = target && target.closest
+            ? target.closest('.slider-control input[type="range"]') : null;
+        if (slider) startSliderDrag();
         const buttonEl = target && target.closest
             ? target.closest('button, [role="button"], .hud-board') : null;
         const playButton = buttonEl
@@ -237,6 +255,10 @@ window.pokerAudio = (function () {
             }
         }
     });
+    document.addEventListener('pointerup', function (event) {
+        if (sliderDragSrc) stopSliderDrag();
+    });
+    document.addEventListener('pointercancel', stopSliderDrag);
 
     // One dealer call — used for the player's winning-hand category at pot award.
     // Ignored until the first tap unlocks audio, same as SFX.
@@ -428,6 +450,7 @@ window.pokerAudio = (function () {
         setAwaitingHuman: function (on) { awaitingHuman = !!on; },
         setMuted: function (m) {
             muted = m;
+            if (m) stopSliderDrag();
             if (m) {
                 victoryPending = false;
                 playerLossPending = false;
