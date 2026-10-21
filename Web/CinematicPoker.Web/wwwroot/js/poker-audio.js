@@ -27,6 +27,8 @@ window.pokerAudio = (function () {
     let dealerSrc = null;
     let dealerPlaying = false;
     let sliderDragSrc = null;
+    let sliderDragActive = false;
+    let sliderAudioFinished = false;
     let victoryPending = false;
     let playerLossPending = false;
 
@@ -94,6 +96,8 @@ window.pokerAudio = (function () {
     }
 
     function stopSliderDrag() {
+        sliderDragActive = false;
+        sliderAudioFinished = false;
         if (!sliderDragSrc) return;
         sliderDragSrc._cancelled = true;
         try { sliderDragSrc.onended = null; sliderDragSrc.stop(); } catch (e) { }
@@ -103,7 +107,11 @@ window.pokerAudio = (function () {
     function startSliderDrag() {
         if (muted) return;
         stopSliderDrag();
-        sliderDragSrc = playBuffer('audio/drop-chips.mp3', 0.7, 1, null, true);
+        sliderDragActive = true;
+        sliderAudioFinished = false;
+        sliderDragSrc = playBuffer('audio/drop-chips.mp3', 0.7, 1, function () {
+            if (sliderDragActive) sliderAudioFinished = true;
+        });
     }
 
     function play(name, delayMs) {
@@ -257,6 +265,13 @@ window.pokerAudio = (function () {
     });
     document.addEventListener('pointerup', function (event) {
         if (sliderDragSrc) stopSliderDrag();
+    });
+    document.addEventListener('pointermove', function (event) {
+        const target = event.target;
+        if (!sliderDragActive || !sliderAudioFinished
+            || !target || !target.closest
+            || !target.closest('.slider-control input[type="range"]')) return;
+        startSliderDrag();
     });
     document.addEventListener('pointercancel', stopSliderDrag);
 
