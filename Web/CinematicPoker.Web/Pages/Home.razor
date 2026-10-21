@@ -265,6 +265,8 @@
                            @onpointerdown="BeginSliderInteraction"
                            @onpointerup="EndSliderInteraction"
                            @onpointercancel="EndSliderInteraction" />
+                    <span class="slider-thumb-symbol" aria-hidden="true"
+                          style="left: @SliderPercent%;">$</span>
                     <span class="slider-tooltip @(_sliderInteracting ? "visible" : "")" role="tooltip"
                           style="left: @SliderPercent%;">$@_sliderValue</span>
                 </div>
