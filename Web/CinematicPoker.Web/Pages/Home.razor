@@ -265,8 +265,10 @@
                            @onpointerdown="BeginSliderInteraction"
                            @onpointerup="EndSliderInteraction"
                            @onpointercancel="EndSliderInteraction" />
+                    <span class="slider-thumb-symbol" aria-hidden="true"
+                          style="left: @SliderThumbPosition;">$</span>
                     <span class="slider-tooltip @(_sliderInteracting ? "visible" : "")" role="tooltip"
-                          style="left: @SliderPercent%;">$@_sliderValue</span>
+                          style="left: @SliderThumbPosition;">$@_sliderValue</span>
                 </div>
                 <div class="slider-row">
                     <span class="slider-amount">$@_sliderValue</span>
@@ -1525,6 +1527,11 @@
     // position changes. The range input re-renders on every pointer movement.
     private int SliderPercent => (int)Math.Round(
         Math.Clamp(_sliderPosition, 0, BetSliderSteps) / (double)BetSliderSteps * 100);
+
+    // Native range thumbs travel between half-thumb-width inset endpoints,
+    // rather than across the full input width. Keep overlays on that same path.
+    private string SliderThumbPosition => 
+        $"calc({SliderPercent}% + {30 - SliderPercent * 0.6:0.##}px)";
 
     private long SliderPositionToBetAmount(int position)
     {

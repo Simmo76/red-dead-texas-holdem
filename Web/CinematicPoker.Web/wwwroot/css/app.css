@@ -1058,6 +1058,19 @@ html, body {
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.55);
 }
 
+.slider-thumb-symbol {
+    position: absolute;
+    top: 50%;
+    z-index: 1;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
 .slider-control input[type="range"]::-moz-range-track {
     height: 4px;
     border-radius: 999px;
