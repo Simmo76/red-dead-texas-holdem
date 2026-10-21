@@ -822,6 +822,45 @@ function characterMaterial(material, shirt, meshName, hatTint) {
   return m;
 }
 
+// Folded players keep their chair as part of the muted ghost. Chairs use
+// ordinary furniture materials, so give each clone the same lightweight
+// grayscale/alpha treatment as the character without changing the shared GLB.
+function chairMaterial(material) {
+  const m = material.clone();
+  m.userData.baseOpacity = m.opacity;
+  m.userData.foldChairShader = null;
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uChairGrey = { value: 0 };
+    shader.fragmentShader = 'uniform float uChairGrey;\n' +
+      shader.fragmentShader.replace('#include <dithering_fragment>', `
+        float chairLuma = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
+        gl_FragColor.rgb = mix(gl_FragColor.rgb,
+          vec3(chairLuma * 0.6 + 0.3), uChairGrey);
+        #include <dithering_fragment>`);
+    m.userData.foldChairShader = shader;
+  };
+  return m;
+}
+
+function updateChairFold(chair, weight) {
+  if (!chair) return;
+  const w = Math.max(0, Math.min(1, weight));
+  const ghost = w > 0.001;
+  const materials = chair.userData.foldMaterials || [];
+  for (const m of materials) {
+    const wantTransparent = ghost || m.userData.keepTransparent;
+    if (m.transparent !== wantTransparent) {
+      m.transparent = wantTransparent;
+      m.needsUpdate = true;
+    }
+    m.depthWrite = !ghost;
+    m.opacity = (m.userData.baseOpacity ?? 1) * (1 - w * 0.55);
+    if (m.userData.foldChairShader) {
+      m.userData.foldChairShader.uniforms.uChairGrey.value = w;
+    }
+  }
+}
+
 function makeCharacter(gltf, spec, extraClips) {
   if (!gltf) return null;
   // All seats share one model, so clone the skinned rig per seat.
@@ -1074,12 +1113,19 @@ function makeCharacter(gltf, spec, extraClips) {
   character.setFolded = (on) => {
     if (character.folded === on) {
       // Keep chair visibility in sync even when fold state is unchanged.
-      if (character.chair) character.chair.visible = !on;
+      if (character.chair) {
+        character.chair.visible = !character.dead;
+        updateChairFold(character.chair, character.dead ? 0 : (on ? 1 : 0));
+      }
       return;
     }
     character.folded = on;
-    // Drop the chair as soon as they fold so the ghost isn't sat on furniture.
-    if (character.chair) character.chair.visible = !on;
+    // Keep the chair, but mute it along with the folded character. Eliminated
+    // players still lose the whole seat via the dead flag.
+    if (character.chair) {
+      character.chair.visible = !character.dead;
+      updateChairFold(character.chair, character.dead ? 0 : (on ? 1 : 0));
+    }
     if (!on) {
       // Folded is a per-hand flag. When it clears, this is the start of a
       // new hand, not an in-hand un-fold. Cancel any old fold/win/lose take
@@ -1099,7 +1145,6 @@ function makeCharacter(gltf, spec, extraClips) {
   character.updateFold = (dt) => {
     const target = character.folded ? 1 : 0;
     const seeTarget = character.seeTarget || 0;
-    if (character.chair) character.chair.visible = !character.folded;
     const foldSettled = character.foldW === target;
     const seeSettled = character.seeW === seeTarget;
     const maskHeldCards = character.isPlayer && !!character.maskHeldCards;
@@ -1117,6 +1162,10 @@ function makeCharacter(gltf, spec, extraClips) {
     }
     const w = character.foldW;
     const see = character.seeW;
+    if (character.chair) {
+      character.chair.visible = !character.dead;
+      updateChairFold(character.chair, character.dead ? 0 : w);
+    }
     const ghost = w > 0.001 || see > 0.001;
     // Fold keeps the old muted ghost (45% fade). See-through is stronger
     // (body alpha 0.35) and stays in colour so the cards read through him.
@@ -1813,11 +1862,17 @@ async function buildScene(canvas) {
 
     if (chairGltf) {
       const chair = chairGltf.scene.clone(true);
+      const foldMaterials = [];
       chair.traverse((m) => {
         if (!m.isMesh) return;
         m.castShadow = true;
         m.receiveShadow = true;
+        const sourceMaterials = Array.isArray(m.material) ? m.material : [m.material];
+        const madeMaterials = sourceMaterials.map(chairMaterial);
+        m.material = madeMaterials.length === 1 ? madeMaterials[0] : madeMaterials;
+        foldMaterials.push(...madeMaterials);
       });
+      chair.userData.foldMaterials = foldMaterials;
       scene.add(chair);
       seat.chair = chair;
     }
@@ -3490,7 +3545,7 @@ window.pokerScene = {
         seat.char.setOut(!!data.out);
         seat.char.setFolded(foldedOut);
       }
-      if (seat.chair) seat.chair.visible = !foldedOut;
+      if (seat.chair) seat.chair.visible = !data.out;
       if (seat.char && typeof data.heat === 'number') seat.char.heat = data.heat;
       if (seat.char && data.out) {
         // A bust plays a lose reaction once, then settles back to sitting.
