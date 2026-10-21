@@ -724,7 +724,12 @@
 
     private async Task StartIntro()
     {
-        if (_namePromptOpen) return;
+        if (_namePromptOpen || _introRequested || _sceneLoading) return;
+        // Give immediate feedback for the tap. Profile lookup can be
+        // asynchronous on a cold WebAssembly boot, and without this the
+        // splash appears to ignore the player's first tap.
+        _sceneLoading = true;
+        StateHasChanged();
         // The first tap can arrive before the asynchronous profile read has
         // completed. Do not silently discard it; finish loading the profile
         // and continue the same tap through the normal name/play flow.
@@ -735,8 +740,10 @@
         }
         if (string.IsNullOrEmpty(_playerName))
         {
+            _sceneLoading = false;
             _namePromptOpen = true;
             _nameDraft = "";
+            StateHasChanged();
             return;
         }
         await BeginPlay();
@@ -820,6 +827,8 @@
     {
         if (_introRequested) return;
         _introRequested = true; // the tap doubles as the audio-unlock gesture
+        _sceneLoading = true;
+        StateHasChanged();
         // Hold the title card up — with a visible loading notice — until the
         // whole scene (table, characters AND the saloon backdrop) is in
         // memory. The old 6-second cap dropped slow connections onto a table
@@ -828,7 +837,6 @@
         // with a generous ceiling as a final safety net.
         if (!_sceneReady)
         {
-            _sceneLoading = true;
             StateHasChanged();
             for (int i = 0; i < 480 && !_sceneReady; i++)
             {
@@ -846,7 +854,6 @@
                 catch (JSException) { /* scene module still downloading */ }
                 if (!_sceneReady) await Task.Delay(250);
             }
-            _sceneLoading = false;
             if (_sceneReady) await SyncBackdropLabel();
         }
         // Reveal the table first, then let the title card fade out over it.
@@ -863,6 +870,7 @@
             // Scene module still loading; gameplay HUD is already live.
         }
         await Task.Delay(IntroFadeMs);
+        _sceneLoading = false;
         _introStarted = true;
         await MaybeShowBoardHint();
     }
