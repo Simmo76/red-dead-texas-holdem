@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6ed936709b0628f41991f38e769da9a3
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 208926
+  packageName: Poker chips
+  packageVersion: 2.0
+  assetPath: Assets/Poker_Chips/Materials/Low_Poly/Pocker_Chip_LP_Green.mat
+  uploadId: 658259
