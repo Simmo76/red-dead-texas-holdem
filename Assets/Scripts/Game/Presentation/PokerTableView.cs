@@ -15,6 +15,7 @@ namespace CinematicPoker.Game.Presentation
         [SerializeField] private PokerTableController controller;
         [SerializeField] private CardView cardPrefab;
         [SerializeField] private ChipView chipPrefab;
+        [SerializeField] private GameObject chipModelPrefab;
         [SerializeField] private Transform[] seatCardAnchors;
         [SerializeField] private Transform[] boardAnchors;
         [SerializeField] private Transform potAnchor;
@@ -25,6 +26,26 @@ namespace CinematicPoker.Game.Presentation
         private readonly List<CardView> _activeCards = new List<CardView>();
         private readonly Dictionary<int, int> _seatCardCounts = new Dictionary<int, int>();
         private int _boardCount;
+
+        private void Awake()
+        {
+            // Use the supplied low-poly casino chip when a scene has not
+            // assigned a ChipView wrapper yet. The wrapper is added to a
+            // private template so pooled instances retain the prefab mesh.
+            if (chipPrefab == null)
+            {
+                GameObject source = chipModelPrefab != null
+                    ? chipModelPrefab
+                    : Resources.Load<GameObject>("Poker/Chips/Pocker_Chip_LP_Red");
+                if (source != null)
+                {
+                    GameObject template = Instantiate(source, transform);
+                    template.name = "ChipViewTemplate";
+                    template.SetActive(false);
+                    chipPrefab = template.GetComponent<ChipView>() ?? template.AddComponent<ChipView>();
+                }
+            }
+        }
 
         private void OnEnable()
         {
