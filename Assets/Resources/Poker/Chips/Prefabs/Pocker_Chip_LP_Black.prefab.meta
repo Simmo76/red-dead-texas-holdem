@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 55c590ca98cabf442b3b1820efee183d
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 208926
+  packageName: Poker chips
+  packageVersion: 2.0
+  assetPath: Assets/Poker_Chips/Prefabs/Pocker_Chip_LP_Black.prefab
+  uploadId: 658259
