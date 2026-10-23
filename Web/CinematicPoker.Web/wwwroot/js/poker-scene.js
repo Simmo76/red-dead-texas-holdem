@@ -1628,7 +1628,7 @@ async function buildScene(canvas) {
   const loadSaloon = () => {
     if (state.saloon || saloonLoad) return saloonLoad;
     const backdropUrl = TABLE_SCENE === 'street'
-      ? 'models/env/street-arena.glb?v=4'
+      ? 'models/env/street-arena.glb?v=5'
       : 'models/env/backdrop.glb?v=2';
     saloonLoad = loadGlb(loader, backdropUrl).then((gltf) => {
       if (!gltf) {

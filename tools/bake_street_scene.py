@@ -789,6 +789,39 @@ def canvas_height(obj, center_xy, radius):
     return max(areas, key=areas.get)
 
 
+def split_opaque_materials():
+    """Give solid meshes an opaque copy of any material that carries alpha.
+
+    The arena 1-3 materials link the texture's alpha, and the chain-link cage
+    shares that material with the canvas, truss, tables and chairs. Left as
+    blended, the web client renders all of them ~55% see-through and dark.
+    Only the cages/fences (and the beam cones, which have their own
+    materials) keep the alpha.
+    """
+    copies = {}
+    for obj in bpy.data.objects:
+        if obj.type != "MESH":
+            continue
+        low = obj.name.lower()
+        if "fence" in low or "fecen" in low:
+            continue
+        for i, mat in enumerate(obj.data.materials):
+            if mat is None or not mat.use_nodes or "high light" in mat.name.lower():
+                continue
+            bsdf = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+            if bsdf is None or not bsdf.inputs["Alpha"].links:
+                continue
+            if mat.name not in copies:
+                solid = mat.copy()
+                solid.name = f"{mat.name} solid"
+                sb = next(n for n in solid.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+                for link in list(sb.inputs["Alpha"].links):
+                    solid.node_tree.links.remove(link)
+                sb.inputs["Alpha"].default_value = 1.0
+                copies[mat.name] = solid
+            obj.data.materials[i] = copies[mat.name]
+
+
 def bake_arena():
     reset_file()
     bpy.ops.import_scene.fbx(filepath=os.path.join(ASSETS, "cartoon boxing arena/cartoon boxing arena.FBX"))
@@ -830,6 +863,7 @@ def bake_arena():
 
     for mat in bpy.data.materials:
         assign_arena_material(mat)
+    split_opaque_materials()
 
     # Drop empty non-mesh helpers.
     for obj in list(bpy.data.objects):
