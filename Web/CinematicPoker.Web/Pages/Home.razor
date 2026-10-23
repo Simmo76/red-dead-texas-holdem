@@ -1355,6 +1355,7 @@
         _awaitingHuman = false;
         _awaitingNextHand = false;
         _showSlider = false;
+        _ = EndBetPreview();
         try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
         catch (InvalidOperationException) { }
         catch (JSException) { }
@@ -1469,6 +1470,9 @@
         if (!_awaitingHuman) return;
         try
         {
+            // A completed action ends any sizing close-up, including actions
+            // that finish the hand before the normal slider cleanup runs.
+            await EndBetPreview();
             _game.SubmitAction(action);
             _awaitingHuman = false;
             _showSlider = false;

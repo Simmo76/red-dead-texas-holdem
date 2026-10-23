@@ -481,7 +481,17 @@ function drawLabel(label, seat) {
 
 // ------------------------------------------------------------------ chips
 
-const CHIP_COLORS = [0xb0483c, 0x3b6ea5, 0x3f7d4e, 0x2b2b2b, 0xc9a13d];
+const CHIP_COLORS = [0xb0483c, 0x3b6ea5, 0x3f7d4e, 0x2b2b2b, 0xf1f1f1];
+// Web chips use the base-colour maps imported from the supplied Unity chip
+// prefabs, keeping the browser palette in sync with the Unity materials.
+const CHIP_TEXTURES = [
+  'img/chips/chip_red.png',
+  'img/chips/chip_blue.png',
+  'img/chips/chip_green.png',
+  'img/chips/chip_black.png',
+  'img/chips/chip_white.png',
+];
+let _chipTemplate = null;
 
 // Bet and pot stacks are torn down and rebuilt on every chip movement, so
 // all chips share one cylinder and one material per colour — building fresh
@@ -495,10 +505,37 @@ function chipGeometry() {
 function chipMaterial(color) {
   let mat = _chipMats.get(color);
   if (!mat) {
-    mat = new THREE.MeshStandardMaterial({ color, roughness: 0.55 });
+    const chipIndex = CHIP_COLORS.indexOf(color);
+    const map = chipIndex >= 0 && chipIndex < CHIP_TEXTURES.length
+      ? texture(CHIP_TEXTURES[chipIndex]) : null;
+    mat = new THREE.MeshStandardMaterial({
+      color: map ? 0xffffff : color,
+      map,
+      roughness: 0.55,
+    });
     _chipMats.set(color, mat);
   }
   return mat;
+}
+
+function makeChipMesh(color) {
+  if (!_chipTemplate) {
+    const chip = new THREE.Mesh(chipGeometry(), chipMaterial(color));
+    chip.castShadow = true;
+    return chip;
+  }
+  const chip = _chipTemplate.clone(true);
+  chip.scale.set(2.05, 2.05, 2.24);
+  // The source FBX is authored flat in XY with thickness on Z. The poker
+  // table is XZ with Y up, so explicitly lay the source mesh flat before any
+  // per-chip yaw is applied.
+  chip.rotation.set(Math.PI / 2, 0, 0);
+  chip.traverse((part) => {
+    if (!part.isMesh) return;
+    part.material = chipMaterial(color);
+    part.castShadow = true;
+  });
+  return chip;
 }
 
 function makeChipStacks(amount, spread = 0.05) {
@@ -509,10 +546,8 @@ function makeChipStacks(amount, spread = 0.05) {
   for (let i = 0; i < chips; i++) {
     const stack = Math.floor(i / perStack);
     const level = i % perStack;
-    const chip = new THREE.Mesh(chipGeometry(), chipMaterial(CHIP_COLORS[(i + stack) % CHIP_COLORS.length]));
-    chip.castShadow = true;
+    const chip = makeChipMesh(CHIP_COLORS[(i + stack) % CHIP_COLORS.length]);
     chip.position.set(stack * spread * 1.9 - spread, 0.007 + level * 0.0125, (stack % 2) * spread * 0.8);
-    chip.rotation.y = Math.random() * Math.PI;
     group.add(chip);
   }
   return group;
@@ -1566,6 +1601,8 @@ async function buildScene(canvas) {
   const SALOON_BAR_NUDGE_Z = 2.4; // metres toward the bar (player forward)
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
+  const chipModel = await loadGlb(loader, 'models/props/chips/poker-chip.glb?v=1');
+  _chipTemplate = chipModel ? chipModel.scene : null;
 
   // Saloon mood: warm lantern over the felt + rose room wash. bg doubles as
   // the fog colour so distant geometry melts into the dark.
@@ -2412,10 +2449,7 @@ const POT_POS = new THREE.Vector3(-0.06, TABLE_TOP, -0.18);
 function spawnChipToss(seatIndex, count = 3) {
   const from = seatPos(seatIndex, TABLE_RADIUS - 0.18);
   for (let i = 0; i < count; i++) {
-    const chip = new THREE.Mesh(
-      chipGeometry(),
-      chipMaterial(CHIP_COLORS[Math.floor(Math.random() * CHIP_COLORS.length)]));
-    chip.castShadow = true;
+    const chip = makeChipMesh(CHIP_COLORS[Math.floor(Math.random() * CHIP_COLORS.length)]);
     const start = new THREE.Vector3(from.x, TABLE_TOP + 0.03, from.z);
     const end = POT_POS.clone().add(new THREE.Vector3(
       (Math.random() - 0.5) * 0.18, 0.02, (Math.random() - 0.5) * 0.18));
@@ -3369,7 +3403,11 @@ window.pokerScene = {
     state.betPreview = null;
     const seat0 = state.seats && state.seats[0];
     if (seat0 && seat0.chips) seat0.chips.visible = true;
-    if (state.zoom.kind === 'bet') state.zoom.active = false;
+    if (state.zoom.kind === 'bet') {
+      state.zoom.active = false;
+      state.zoom.kind = 'board';
+      if (state.applyCameraHome) state.applyCameraHome(true);
+    }
   },
 
   // Backdrops other than the saloon are disabled; kept as a no-op so any
