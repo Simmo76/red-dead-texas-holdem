@@ -1800,7 +1800,11 @@ async function buildScene(canvas) {
 
   const base = new THREE.Mesh(
     new THREE.CylinderGeometry(0.55, 0.6, 0.05, 24),
-    new THREE.MeshStandardMaterial({ color: 0x4a2f1a, roughness: 0.85 }));
+    new THREE.MeshStandardMaterial({
+      map: texture('img/floor_planks.jpg'),
+      color: 0xffffff,
+      roughness: 0.85
+    }));
   base.position.y = 0.025;
   scene.add(base);
 
