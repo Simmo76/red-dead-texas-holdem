@@ -27,7 +27,7 @@ public sealed class PokerHub : Hub
         await room.BroadcastAsync(Clients);
     }
 
-    public override async Task OnDisconnectedAsync(Exception? exception)
+    public override async Task OnDisconnectedAsync(Exception exception)
     {
         if (Rooms.TryFind(Context.ConnectionId, out Room room))
         {
@@ -37,7 +37,7 @@ public sealed class PokerHub : Hub
         await base.OnDisconnectedAsync(exception);
     }
 
-    private static string CleanName(string? name) =>
+    private static string CleanName(string name) =>
         string.IsNullOrWhiteSpace(name)
             ? "Friend"
             : new string(name.Trim().Where(char.IsLetterOrDigit).Take(16).ToArray());
@@ -54,7 +54,7 @@ internal sealed class RoomStore
         if (code.Length < 4) throw new HubException("A valid room code is required.");
         lock (_gate)
         {
-            if (!_rooms.TryGetValue(code, out Room? room))
+            if (!_rooms.TryGetValue(code, out Room room))
                 _rooms[code] = room = new Room(code);
             return room;
         }
@@ -150,7 +150,7 @@ internal sealed class Room
             // server, while either human seat pauses the loop for its client.
             for (int i = 0; i < 48 && _game.Phase == GamePhase.HandInProgress; i++)
             {
-                PokerPlayer? actor = _game.CurrentPlayer;
+                PokerPlayer actor = _game.CurrentPlayer;
                 if (actor == null || actor.IsHuman) break;
                 var context = DecisionContext.ForCurrentActor(_game, 120);
                 _game.SubmitAction(((AIPlayer)actor).DecideAction(context));
@@ -174,7 +174,7 @@ internal sealed class Room
     {
         lock (_gate)
         {
-            PokerRound? round = _game.CurrentRound;
+            PokerRound round = _game.CurrentRound;
             return new TableView
             {
                 Room = Code,
@@ -226,7 +226,7 @@ public sealed class TableView
     public string[] Board { get; set; } = Array.Empty<string>();
     public string[] Hole { get; set; } = Array.Empty<string>();
     public PlayerView[] Players { get; set; } = Array.Empty<PlayerView>();
-    public LegalView? Legal { get; set; }
+    public LegalView Legal { get; set; }
     public string Status { get; set; } = "";
 }
 
