@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bake the Street Fighter table scene for the web client.
+"""Bake the Octagon table scene for the web client.
 
 Reads the cartoon boxing arena (UFC octagon featured) and the two Arcade
 Fighter characters (plus their texture variations) out of an unpacked Unity

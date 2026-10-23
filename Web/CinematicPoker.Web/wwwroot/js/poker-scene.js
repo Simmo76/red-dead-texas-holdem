@@ -3354,7 +3354,7 @@ window.pokerScene = {
   // Texture / saloon health for the regression harness.
   textureAudit() {
     const audit = {
-      backdrop: TABLE_SCENE === 'street' ? 'STREET FIGHTER' : 'SALOON',
+      backdrop: TABLE_SCENE === 'street' ? 'OCTAGON' : 'SALOON',
       saloonLoaded: !!state.saloon,
       stdWithMap: 0,
       stdNoMap: 0,
@@ -3485,7 +3485,7 @@ window.pokerScene = {
 
   // Saloon is the default. "street" is the arcade ring and fighters.
   backdropName() {
-    return TABLE_SCENE === 'street' ? 'STREET FIGHTER' : 'SALOON';
+    return TABLE_SCENE === 'street' ? 'OCTAGON' : 'SALOON';
   },
 
   tableScene() {

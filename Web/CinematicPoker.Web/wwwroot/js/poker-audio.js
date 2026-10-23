@@ -1,7 +1,7 @@
 // Sound effects (Kenney CC0 casino pack), per-backdrop background music
 // (bundled Wikimedia Commons saloon music + OpenGameArt CC0 beach/western/disco beds),
 // owner-supplied outlaw table voice packs (win / fold-or-lose / random banter),
-// and owner-supplied Street Fighter announcer one-liners,
+// and owner-supplied Octagon announcer one-liners,
 // and a short dealer call for the player's winning hand (B. Patrick pack).
 // Short clips are MP3 or PCM WAV (both are supported by iOS Safari) and
 // play through WebAudio: once the context is unlocked by the first tap,
