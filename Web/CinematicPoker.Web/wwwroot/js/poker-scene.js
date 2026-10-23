@@ -481,24 +481,65 @@ function drawLabel(label, seat) {
 
 // ------------------------------------------------------------------ chips
 
+// Colour cycle is unchanged: red, blue, green, black, then the old gold slot.
+// The pack has no gold chip, so that slot uses the white chip texture.
 const CHIP_COLORS = [0xb0483c, 0x3b6ea5, 0x3f7d4e, 0x2b2b2b, 0xc9a13d];
+const CHIP_TEXTURES = {
+  0xb0483c: 'models/props/chips/red.png',
+  0x3b6ea5: 'models/props/chips/blue.png',
+  0x3f7d4e: 'models/props/chips/green.png',
+  0x2b2b2b: 'models/props/chips/black.png',
+  0xc9a13d: 'models/props/chips/white.png',
+};
 
 // Bet and pot stacks are torn down and rebuilt on every chip movement, so
-// all chips share one cylinder and one material per colour — building fresh
+// all chips share one mesh and one material per colour — building fresh
 // GPU resources per chip leaked them on every bet of every hand.
+// The mesh is the low-poly Poker Chips pack, baked to the old cylinder size
+// (radius 0.045, height 0.012) so stack positions do not move.
 let _chipGeo = null;
+let _chipFallback = null;
+let _chipNormal = null;
+let _chipRough = null;
 const _chipMats = new Map();
 function chipGeometry() {
-  if (!_chipGeo) _chipGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.012, 20);
-  return _chipGeo;
+  if (_chipGeo) return _chipGeo;
+  if (!_chipFallback) _chipFallback = new THREE.CylinderGeometry(0.045, 0.045, 0.012, 20);
+  return _chipFallback;
+}
+// glTF UVs keep the texture upright. TextureLoader flips images by default,
+// which lands the chip faces on the edge islands.
+function chipTexture(path, srgb) {
+  const tex = texture(path);
+  tex.flipY = false;
+  tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  return tex;
 }
 function chipMaterial(color) {
   let mat = _chipMats.get(color);
   if (!mat) {
-    mat = new THREE.MeshStandardMaterial({ color, roughness: 0.55 });
+    const mapPath = _chipGeo ? CHIP_TEXTURES[color] : null;
+    mat = new THREE.MeshStandardMaterial({
+      color: mapPath ? 0xffffff : color,
+      map: mapPath ? chipTexture(mapPath, true) : null,
+      normalMap: mapPath ? _chipNormal : null,
+      roughnessMap: mapPath ? _chipRough : null,
+      roughness: mapPath ? 1 : 0.55,
+      metalness: 0,
+    });
     _chipMats.set(color, mat);
   }
   return mat;
+}
+function adoptChipMesh(gltf) {
+  if (!gltf) return;
+  let src = null;
+  gltf.scene.traverse((obj) => { if (!src && obj.isMesh) src = obj; });
+  if (!src || !src.geometry) return;
+  _chipGeo = src.geometry;
+  _chipNormal = chipTexture('models/props/chips/normal.png', false);
+  _chipRough = chipTexture('models/props/chips/roughness.png', false);
+  _chipMats.clear();
 }
 
 function makeChipStacks(amount, spread = 0.05) {
@@ -1565,6 +1606,7 @@ async function buildScene(canvas) {
   // This is the only environment — alternate backdrops are disabled for now.
   const SALOON_BAR_NUDGE_Z = 2.4; // metres toward the bar (player forward)
   const loader = new GLTFLoader();
+  const chipMeshPromise = loadGlb(loader, 'models/props/chips/chip.glb?v=1');
   loader.setMeshoptDecoder(MeshoptDecoder);
 
   // Saloon mood: warm lantern over the felt + rose room wash. bg doubles as
@@ -1954,6 +1996,7 @@ async function buildScene(canvas) {
   state.camera = camera;
   state.clock = new THREE.Clock();
 
+  adoptChipMesh(await chipMeshPromise);
   preloadCardTextures();
 
   renderer.setAnimationLoop(() => {
