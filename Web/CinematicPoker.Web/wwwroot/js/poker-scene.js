@@ -482,6 +482,9 @@ function drawLabel(label, seat) {
 // Colour cycle is unchanged: red, blue, green, black, then the old gold slot.
 // The pack has no gold chip, so that slot uses the white chip texture.
 const CHIP_COLORS = [0xb0483c, 0x3b6ea5, 0x3f7d4e, 0x2b2b2b, 0xc9a13d];
+// Regular stack/bet/pot chips are twice their original dimensions. The
+// dealer and blind pucks below use separate geometry and remain unchanged.
+const POKER_CHIP_SCALE = 2;
 const CHIP_TEXTURES = {
   0xb0483c: 'models/props/chips/red.png',
   0x3b6ea5: 'models/props/chips/blue.png',
@@ -529,6 +532,11 @@ function chipMaterial(color) {
   }
   return mat;
 }
+function makePokerChip(color) {
+  const chip = new THREE.Mesh(chipGeometry(), chipMaterial(color));
+  chip.scale.setScalar(POKER_CHIP_SCALE);
+  return chip;
+}
 function adoptChipMesh(gltf) {
   if (!gltf) return;
   let src = null;
@@ -545,12 +553,16 @@ function makeChipStacks(amount, spread = 0.05) {
   if (amount <= 0) return group;
   const chips = Math.min(24, 1 + Math.floor(amount / 60));
   const perStack = 8;
+  const scaledSpread = spread * POKER_CHIP_SCALE;
   for (let i = 0; i < chips; i++) {
     const stack = Math.floor(i / perStack);
     const level = i % perStack;
-    const chip = new THREE.Mesh(chipGeometry(), chipMaterial(CHIP_COLORS[(i + stack) % CHIP_COLORS.length]));
+    const chip = makePokerChip(CHIP_COLORS[(i + stack) % CHIP_COLORS.length]);
     chip.castShadow = true;
-    chip.position.set(stack * spread * 1.9 - spread, 0.007 + level * 0.0125, (stack % 2) * spread * 0.8);
+    chip.position.set(
+      stack * scaledSpread * 1.9 - scaledSpread,
+      0.007 * POKER_CHIP_SCALE + level * 0.0125 * POKER_CHIP_SCALE,
+      (stack % 2) * scaledSpread * 0.8);
     chip.rotation.y = Math.random() * Math.PI;
     group.add(chip);
   }
@@ -2492,9 +2504,8 @@ const POT_POS = new THREE.Vector3(-0.06, TABLE_TOP, -0.18);
 function spawnChipToss(seatIndex, count = 3) {
   const from = seatPos(seatIndex, TABLE_RADIUS - 0.18);
   for (let i = 0; i < count; i++) {
-    const chip = new THREE.Mesh(
-      chipGeometry(),
-      chipMaterial(CHIP_COLORS[Math.floor(Math.random() * CHIP_COLORS.length)]));
+    const chip = makePokerChip(
+      CHIP_COLORS[Math.floor(Math.random() * CHIP_COLORS.length)]);
     chip.castShadow = true;
     const start = new THREE.Vector3(from.x, TABLE_TOP + 0.03, from.z);
     const end = POT_POS.clone().add(new THREE.Vector3(
