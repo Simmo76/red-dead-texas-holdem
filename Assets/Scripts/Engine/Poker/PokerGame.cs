@@ -44,8 +44,8 @@ namespace CinematicPoker.Engine.Poker
                 throw new ArgumentException($"Player count must be {rules.MinPlayers}-{rules.MaxPlayers}.");
             if (_players.Select(p => p.Seat).Distinct().Count() != _players.Count)
                 throw new ArgumentException("Players must occupy distinct seats.");
-            if (_players.Count(p => p.IsHuman) > 5)
-                throw new ArgumentException("A table supports at most five human players.");
+            if (_players.Count(p => p.IsHuman) > 1)
+                throw new ArgumentException("At most one human player is supported (single-player game).");
 
             var rng = seed.HasValue ? new Random(seed.Value) : new Random();
             _deckFactory = deckFactory ?? (() =>
@@ -209,8 +209,10 @@ namespace CinematicPoker.Engine.Poker
         /// <summary>
         /// Start the next hand. May complete instantly (e.g. everyone all-in from
         /// the blinds), so callers must check <see cref="Phase"/> afterwards.
+        /// A mirrored table (multiplayer guest) passes the dealer seat chosen
+        /// by the authoritative table instead of rotating the button itself.
         /// </summary>
-        public void StartHand()
+        public void StartHand(int? dealerSeat = null)
         {
             if (Phase == GamePhase.HandInProgress)
                 throw new InvalidOperationException("A hand is already in progress.");
@@ -219,7 +221,16 @@ namespace CinematicPoker.Engine.Poker
 
             var alive = AlivePlayers;
             HandNumber++;
-            DealerSeat = NextDealerSeat(alive);
+            if (dealerSeat.HasValue)
+            {
+                if (!alive.Any(p => p.Seat == dealerSeat.Value))
+                    throw new ArgumentException("Dealer seat is not in the hand.", nameof(dealerSeat));
+                DealerSeat = dealerSeat.Value;
+            }
+            else
+            {
+                DealerSeat = NextDealerSeat(alive);
+            }
 
             var entries = alive
                 .OrderBy(p => p.Seat)

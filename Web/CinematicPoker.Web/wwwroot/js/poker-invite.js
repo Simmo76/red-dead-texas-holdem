@@ -1,5 +1,5 @@
-// Small, transport-agnostic invite layer for the first multiplayer slice.
-// Room state is local until a server-backed realtime table is connected.
+// Invite links for the friends beta: the host shares /?room=CODE by text,
+// email, the native share sheet, or the clipboard.
 (function (w) {
     var ROOM_KEY = 'dead-mans-hand-room';
 
@@ -25,13 +25,9 @@
     }
 
     function inviteUrl(room) {
-        var url = new URL('/multiplayer', w.location.origin);
+        var url = new URL('/', w.location.origin);
         url.searchParams.set('room', room);
         return url.toString();
-    }
-
-    function openTable(url) {
-        w.location.href = url;
     }
 
     function roomFromUrl() {
@@ -77,10 +73,14 @@
         return 'opened';
     }
 
+    function goHome() {
+        w.location.href = w.location.origin + '/';
+    }
+
     w.pokerInvite = {
+        goHome: goHome,
         ensureRoom: ensureRoom,
         url: inviteUrl,
-        openTable: openTable,
         roomFromUrl: roomFromUrl,
         copy: copy,
         share: share,

@@ -4,7 +4,4 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="../../DotNet/CinematicPoker.Engine/CinematicPoker.Engine.csproj" />
-  </ItemGroup>
 </Project>

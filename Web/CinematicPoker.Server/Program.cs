@@ -1,4 +1,5 @@
 using CinematicPoker.Server;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,7 +30,18 @@ if (Directory.Exists(webRoot))
 {
     var provider = new PhysicalFileProvider(webRoot);
     app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = provider });
-    app.UseStaticFiles(new StaticFileOptions { FileProvider = provider });
+    // .glb models, .dll/.dat/.blat Blazor payloads etc. have no built-in MIME
+    // type; without this Kestrel answers 404 and the 3D scene never loads.
+    var contentTypes = new FileExtensionContentTypeProvider();
+    contentTypes.Mappings[".glb"] = "model/gltf-binary";
+    contentTypes.Mappings[".gltf"] = "model/gltf+json";
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = provider,
+        ContentTypeProvider = contentTypes,
+        ServeUnknownFileTypes = true,
+        DefaultContentType = "application/octet-stream"
+    });
     app.MapFallback(async context =>
     {
         context.Response.ContentType = "text/html";
