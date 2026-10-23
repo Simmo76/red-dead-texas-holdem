@@ -34,10 +34,19 @@ JACOB = os.path.join(WEB, "characters/western/Jacob.glb")
 MIGHTY = os.path.join(WEB, "characters/western/mighty-cat.glb")
 PREVIEW = os.environ.get("SF_PREVIEW", "")
 
-# cm -> m, then enlarge so the featured ring clears the poker seats
-# (seat radius 1.74 m). Fence radius is ~1.49 m at 0.01; 0.018 lands ~2.7 m.
+# cm -> m, then enlarge so the featured octagon clears the poker seats
+# (seat radius 1.74 m). Keep this identical to the previous boxing-ring bake.
 ARENA_SCALE = 0.018
-RING_MESH = "cartoon boxing arena 5"
+RING_MESH = "cartoon boxing arena 2"
+RING_PARTS = {
+    RING_MESH,
+    "cartoon boxing arena 2_fence",
+    "cartoon boxing arena 2_Led ",
+    "cartoon boxing arena 2_light systems",
+}
+# Source-space height of the octagon canvas. Baking this face to y=0 in glTF
+# lets the poker-table foot sit exactly on it without a runtime approximation.
+RING_CANVAS_Z = 18.60056
 
 RENAME = {
     "Pelvis": "pelvis",
@@ -769,7 +778,7 @@ def bake_arena():
 
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
-    shift = Matrix.Translation((-center.x, -center.y, -mins.z))
+    shift = Matrix.Translation((-center.x, -center.y, -RING_CANVAS_Z))
     scale = Matrix.Diagonal((ARENA_SCALE, ARENA_SCALE, ARENA_SCALE, 1))
     xform = scale @ shift
     for obj in list(bpy.data.objects):
@@ -780,9 +789,10 @@ def bake_arena():
     for mat in bpy.data.materials:
         assign_arena_material(mat)
 
-    # Drop empty non-mesh helpers.
+    # This FBX contains six arenas laid out side-by-side. Export only the
+    # selected octagon and its cage/light pieces, not the five distant rings.
     for obj in list(bpy.data.objects):
-        if obj.type not in ("MESH",):
+        if obj.type != "MESH" or obj.name not in RING_PARTS:
             bpy.data.objects.remove(obj, do_unlink=True)
 
     os.makedirs(os.path.dirname(ARENA_OUT), exist_ok=True)
