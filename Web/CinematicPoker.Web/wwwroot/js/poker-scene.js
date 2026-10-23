@@ -1,7 +1,7 @@
 // Over-the-shoulder poker scene (Three.js) set in the Dead Man's Hand saloon.
 // Props/textures are CC0; the saloon is a web-optimised conversion of the
 // repo owner's licensed Unity pub scene (see tools/build_saloon_backdrop.py).
-// The settings panel can swap in the arcade boxing ring and its fighters.
+// The settings panel can swap in the arcade octagon and its fighters.
 // That swap changes meshes only: the poker clips and the saloon music stay.
 // The player is always a random outfit of David Grette's Jacob cowboy.
 // NPC seats draw from Jacob outfits plus the Sheriff and Bandit characters
@@ -183,16 +183,16 @@ const WESTERN_SCALE = 1.098;
 // Fighters are exported in metres (standing height ~1.8). The seat placer
 // drops the posed hands onto the felt, same as the cowboys.
 const FIGHTER_SCALE = 1;
-// The featured ring's ropes sit about 1.9 m from centre in the exported GLB,
-// almost on top of the 1.74 m seat circle, so they cut through shoulders.
-// Scale the whole venue so the ropes land near 4.2 m and the stands read
-// as a room around the ring instead of a wall just behind the posts.
+// The octagon cage sits about 1.9 m from centre in the exported GLB,
+// almost on top of the 1.74 m seat circle, so the fence would cut shoulders.
+// Scale the whole venue so the cage lands near 4.2 m and the stands read
+// as a room around the octagon instead of a wall just behind the posts.
 const STREET_ARENA_SCALE = 2.2;
-// The ring canvas is a flat face at this height in the exported GLB. Scale
-// is about the origin, so that face would land near the felt (~0.80 m).
+// The octagon canvas is a flat face at this height in the exported GLB.
+// Scale is about the origin, so that face would land near the felt (~0.85 m).
 // The table stand's foot sits on y=0; drop the backdrop by the scaled canvas
-// height so the canvas floor meets that foot.
-const STREET_CANVAS_Y = 0.3637;
+// height so the canvas meets that foot.
+const STREET_CANVAS_Y = 0.386666;
 const FIGHTER_URLS = [
   'models/characters/street/Fighter1.glb?v=3',
   'models/characters/street/Fighter1-variation.glb?v=3',
@@ -202,6 +202,10 @@ const FIGHTER_URLS = [
 const TABLE_SCENE_KEY = 'cinematic-poker-table-scene';
 
 function readTableScene() {
+  try {
+    const q = new URLSearchParams(window.location.search).get('scene');
+    if (q === 'street' || q === 'saloon') return q;
+  } catch (e) { }
   try {
     return localStorage.getItem(TABLE_SCENE_KEY) === 'street' ? 'street' : 'saloon';
   } catch (e) {
@@ -1588,7 +1592,7 @@ async function buildScene(canvas) {
   const loadSaloon = () => {
     if (state.saloon || saloonLoad) return saloonLoad;
     const backdropUrl = TABLE_SCENE === 'street'
-      ? 'models/env/street-arena.glb?v=2'
+      ? 'models/env/street-arena.glb?v=3'
       : 'models/env/backdrop.glb?v=2';
     saloonLoad = loadGlb(loader, backdropUrl).then((gltf) => {
       if (!gltf) {
@@ -1599,8 +1603,8 @@ async function buildScene(canvas) {
       const env = new THREE.Group();
       const saloon = gltf.scene;
       if (TABLE_SCENE === 'street') {
-        // Arena export already puts the featured ring on the origin and the
-        // stands on glTF -Z, across the table from the player seat.
+        // Arena export puts the octagon on the origin (same footprint the
+        // boxing ring used) and the stands on glTF -Z, across the table.
         saloon.rotation.y = 0;
         saloon.position.set(0, -STREET_CANVAS_Y * STREET_ARENA_SCALE, 0);
         saloon.scale.setScalar(STREET_ARENA_SCALE);

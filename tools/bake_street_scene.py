@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Bake the Street Fighter table scene for the web client.
 
-Reads the cartoon boxing arena and the two Arcade Fighter characters (plus
-their texture variations) out of an unpacked Unity export, retargets the
-existing poker animation clips onto those skeletons, and writes:
+Reads the cartoon stadium (boxing ring swapped for the UFC octagon) and the
+two Arcade Fighter characters (plus their texture variations) out of an
+unpacked Unity export, retargets the existing poker animation clips onto
+those skeletons, and writes:
 
   wwwroot/models/env/street-arena.glb
   wwwroot/models/characters/street/Fighter{1,2}.glb
@@ -37,7 +38,10 @@ PREVIEW = os.environ.get("SF_PREVIEW", "")
 # cm -> m, then enlarge so the featured ring clears the poker seats
 # (seat radius 1.74 m). Fence radius is ~1.49 m at 0.01; 0.018 lands ~2.7 m.
 ARENA_SCALE = 0.018
+# The stadium is still framed on the boxing ring (stands face it). The UFC
+# octagon from the same FBX is slid onto that footprint afterwards.
 RING_MESH = "cartoon boxing arena 5"
+OCTAGON_MESH = "cartoon boxing arena 2"
 
 RENAME = {
     "Pelvis": "pelvis",
@@ -757,6 +761,78 @@ def assign_arena_material(mat):
         bsdf.inputs["Emission Strength"].default_value = 4.0
 
 
+def _part_of(name, root):
+    cleaned = name.strip()
+    return cleaned == root or cleaned.startswith(root + "_")
+
+
+def canvas_z_at(obj, x, y):
+    """World Z of upward faces covering a ground point. Blender Z is glTF Y."""
+    mesh = obj.data
+    mw = obj.matrix_world
+    mesh.calc_loop_triangles()
+    hits = []
+    for tri in mesh.loop_triangles:
+        verts = [mw @ mesh.vertices[i].co for i in tri.vertices]
+        a, b, c = verts
+        den = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y)
+        if abs(den) < 1e-9:
+            continue
+        w1 = ((b.y - c.y) * (x - c.x) + (c.x - b.x) * (y - c.y)) / den
+        w2 = ((c.y - a.y) * (x - c.x) + (a.x - c.x) * (y - c.y)) / den
+        w3 = 1 - w1 - w2
+        if w1 < -0.02 or w2 < -0.02 or w3 < -0.02:
+            continue
+        normal = (b - a).cross(c - a)
+        if normal.length < 1e-8 or abs(normal.z) / normal.length < 0.9:
+            continue
+        hits.append(w1 * a.z + w2 * b.z + w3 * c.z)
+    return hits
+
+
+def feature_octagon():
+    """Move the UFC octagon onto the boxing ring, then drop the ring.
+
+    Both cages ship in one FBX. Centring stays on the boxing ring so the
+    stands, scale (0.018) and facing do not change. The octagon keeps that
+    orientation and only slides across the ground onto the ring's footprint.
+    The web client then drops the backdrop so this canvas meets the table foot.
+    """
+    ring = bpy.data.objects.get(RING_MESH)
+    octagon = bpy.data.objects.get(OCTAGON_MESH)
+    if ring is None or octagon is None:
+        raise RuntimeError("boxing ring or octagon mesh missing")
+    rmins, rmaxs = world_bbox(ring)
+    omins, omaxs = world_bbox(octagon)
+    delta = Vector((
+        (rmins.x + rmaxs.x) / 2 - (omins.x + omaxs.x) / 2,
+        (rmins.y + rmaxs.y) / 2 - (omins.y + omaxs.y) / 2,
+        0.0,
+    ))
+    print("octagon slide", tuple(round(v, 4) for v in delta))
+    moved = 0
+    for obj in list(bpy.data.objects):
+        if obj.type != "MESH" or not _part_of(obj.name, OCTAGON_MESH):
+            continue
+        obj.location += delta
+        moved += 1
+    if moved == 0:
+        raise RuntimeError("no octagon parts to move")
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
+    for obj in list(bpy.data.objects):
+        if obj.type == "MESH" and _part_of(obj.name, RING_MESH):
+            bpy.data.objects.remove(obj, do_unlink=True)
+
+    octagon = bpy.data.objects.get(OCTAGON_MESH)
+    heights = canvas_z_at(octagon, 0.0, 0.0) if octagon else []
+    if heights:
+        print("OCTAGON_CANVAS_Z", round(sum(heights) / len(heights), 4), "hits", len(heights))
+    else:
+        print("OCTAGON_CANVAS_Z missing")
+
+
 def bake_arena():
     reset_file()
     bpy.ops.import_scene.fbx(filepath=os.path.join(ASSETS, "cartoon boxing arena/cartoon boxing arena.FBX"))
@@ -776,6 +852,7 @@ def bake_arena():
         obj.matrix_world = xform @ obj.matrix_world
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    feature_octagon()
 
     for mat in bpy.data.materials:
         assign_arena_material(mat)
@@ -821,6 +898,10 @@ def bake_arena():
 
 
 def main():
+    if os.environ.get("SF_ARENA_ONLY"):
+        print("=== arena only")
+        bake_arena()
+        return
     fighters = [
         ("Arcade Fighters/Fighter1/3D/Fighter1.FBX", "Fighter1.glb"),
         ("Arcade Fighters/Fighter1/3D/Fighter1 Variation.FBX", "Fighter1-variation.glb"),
