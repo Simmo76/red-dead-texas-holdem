@@ -480,6 +480,7 @@
                 <div class="invite-actions">
                     <button class="act call" @onclick="OpenMultiplayerTable">OPEN TABLE</button>
                     <button class="act call" @onclick="TextInvite">TEXT INVITE</button>
+                    <button class="act bet" @onclick="EmailInvite">EMAIL INVITE</button>
                     <button class="act bet" @onclick="ShareInvite">SHARE LINK</button>
                     <button class="act small" @onclick="CopyInvite">COPY LINK</button>
                     <button class="act small" @onclick="CloseInvite">CLOSE</button>
@@ -1911,6 +1912,15 @@
             "copied" => "Link copied — paste it into a message.",
             _ => "Sharing is unavailable. Use Text Invite instead."
         };
+    }
+
+    private async Task EmailInvite()
+    {
+        string result = await JS.InvokeAsync<string>(
+            "pokerInvite.email", _inviteUrl, PlayerName);
+        _inviteNote = result == "opened"
+            ? "Email composer opened with your table link."
+            : "Could not open your email app. Copy the link instead.";
     }
 
     private async Task OpenMultiplayerTable()

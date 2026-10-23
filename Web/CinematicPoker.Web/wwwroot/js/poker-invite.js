@@ -67,6 +67,16 @@
         return 'opened';
     }
 
+    function email(url, name) {
+        var subject = encodeURIComponent((name || 'Your friend') +
+            ' invited you to play Dead Man\'s Hand');
+        var body = encodeURIComponent((name || 'Your friend') +
+            ' invited you to play Dead Man\'s Hand.\n\nJoin the table: ' + url +
+            '\n\nEnter your name and take the next open seat.');
+        w.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+        return 'opened';
+    }
+
     w.pokerInvite = {
         ensureRoom: ensureRoom,
         url: inviteUrl,
@@ -74,6 +84,7 @@
         roomFromUrl: roomFromUrl,
         copy: copy,
         share: share,
-        text: text
+        text: text,
+        email: email
     };
 })(window);

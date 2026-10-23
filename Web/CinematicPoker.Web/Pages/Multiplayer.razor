@@ -13,6 +13,7 @@
         <div class="multiplayer-header-actions">
             <span class="multiplayer-room">TABLE @_roomCode</span>
             <button class="chip-btn" @onclick="TextAnotherFriend">TEXT FRIEND</button>
+            <button class="chip-btn" @onclick="EmailAnotherFriend">EMAIL FRIEND</button>
         </div>
     </header>
 
@@ -203,6 +204,16 @@
         _inviteNote = result == "opened"
             ? "Messages opened with this table link. Your friend will choose their own seat."
             : "Could not open Messages. Share this table URL manually.";
+    }
+
+    private async Task EmailAnotherFriend()
+    {
+        string url = await JS.InvokeAsync<string>("pokerInvite.url", _roomCode);
+        string result = await JS.InvokeAsync<string>(
+            "pokerInvite.email", url, "Your friend");
+        _inviteNote = result == "opened"
+            ? "Email composer opened with this table link."
+            : "Could not open email. Copy the table URL manually.";
     }
 
     private Task AggressiveAction() =>
