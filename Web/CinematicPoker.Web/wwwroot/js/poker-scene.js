@@ -496,7 +496,7 @@ const CHIP_TEXTURES = {
 // The mesh is the low-poly Poker Chips pack, baked to the old cylinder size
 // (radius 0.045, height 0.012) and then scaled by CHIP_SCALE. Dealer and
 // blind pucks are sized separately and do not follow CHIP_SCALE.
-const CHIP_SCALE = 1.5;
+const CHIP_SCALE = 2;
 const CHIP_HEIGHT = 0.012 * CHIP_SCALE;
 let _chipGeo = null;
 let _chipFallback = null;
@@ -572,6 +572,7 @@ function makeChipStacks(amount, spread = 0.05) {
 // puck, a blue SMALL BLIND and a yellow BIG BLIND. Each sits flat on the
 // felt beside its player's cards, slides across the table when the deal
 // passes on, and the blind pucks leave once the flop is out.
+// Intentionally not multiplied by CHIP_SCALE — these pucks stay this size.
 const BUTTON_RADIUS = 0.08;
 const BUTTON_HEIGHT = 0.02;
 
