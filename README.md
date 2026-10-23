@@ -138,7 +138,7 @@ GitHub Actions: `.github/workflows/android-apk.yml` runs the engine tests and th
 
 The prototype and web version use free CC0 game assets — every file is recorded in [`ASSET_LICENSES.md`](ASSET_LICENSES.md):
 
-- **Kenney Boardgame Pack** (card faces, card backs, poker chips) and **Kenney Casino Audio** (shuffle, deal, chip sounds) — [kenney.nl](https://kenney.nl), CC0.
+- **Kenney Boardgame Pack** (card faces, card backs) and **Kenney Casino Audio** (shuffle, deal, chip sounds) — [kenney.nl](https://kenney.nl), CC0. Table chips are the low-poly meshes from the Poker Chips pack (see the licence register).
 - **Kenney Mini Characters** — five rigged, animated 3D characters (idle/sit/emote-yes/emote-no/die clips embedded in the FBX) used as the NPCs, and **Kenney Furniture Kit** — chairs, ceiling lamp, rug, potted plant, radio for set dressing. CC0.
 - **Poly Haven** fabric and wood textures (table felt and rail) — [polyhaven.com](https://polyhaven.com), CC0.
 
