@@ -529,7 +529,7 @@ function makeChipMesh(color) {
   // The source FBX is authored flat in XY with thickness on Z. The poker
   // table is XZ with Y up, so explicitly lay the source mesh flat before any
   // per-chip yaw is applied.
-  chip.rotation.set(Math.PI / 2, Math.random() * Math.PI, 0);
+  chip.rotation.set(Math.PI / 2, 0, 0);
   chip.traverse((part) => {
     if (!part.isMesh) return;
     part.material = chipMaterial(color);
