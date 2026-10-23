@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Bake the Street Fighter table scene for the web client.
 
-Reads the cartoon boxing arena and the two Arcade Fighter characters (plus
+Reads the cartoon MMA octagon arena (mesh 6 in the shared stadium FBX) and the
+two Arcade Fighter characters (plus
 their texture variations) out of an unpacked Unity export, retargets the
 existing poker animation clips onto those skeletons, and writes:
 
@@ -20,6 +21,7 @@ Environment:
 from __future__ import annotations
 
 import os
+import re
 import sys
 
 import bpy
@@ -37,7 +39,24 @@ PREVIEW = os.environ.get("SF_PREVIEW", "")
 # cm -> m, then enlarge so the featured ring clears the poker seats
 # (seat radius 1.74 m). Fence radius is ~1.49 m at 0.01; 0.018 lands ~2.7 m.
 ARENA_SCALE = 0.018
-RING_MESH = "cartoon boxing arena 5"
+# Mesh 6 is the UFC-style octagon; mesh 5 is the boxing ring variant in the
+# same export. Snap 6 onto 5's slot so stands and lights stay put.
+RING_MESH = "cartoon boxing arena 6"
+RING_SLOT_MESH = "cartoon boxing arena 5"
+# Alternate ring meshes and sample props shipped in the same FBX.
+DROP_ARENA_EXACT = {
+    "cartoon boxing arena_fence",
+    "Object005",
+    "cau thang",
+    "table",
+    "chair",
+    "chair001",
+    "chair002",
+    "chair003",
+    "chair004",
+    "chair005",
+    "chair_2",
+}
 
 RENAME = {
     "Pelvis": "pelvis",
@@ -700,6 +719,41 @@ def world_bbox(obj):
     return mins, maxs
 
 
+def world_center(obj):
+    mins, maxs = world_bbox(obj)
+    return (mins + maxs) / 2
+
+
+def snap_octagon_to_ring_slot():
+    slot = bpy.data.objects.get(RING_SLOT_MESH)
+    ring = bpy.data.objects.get(RING_MESH)
+    if slot is None or ring is None:
+        raise RuntimeError("octagon or boxing slot mesh missing")
+    delta = world_center(slot) - world_center(ring)
+    ring.matrix_world = Matrix.Translation(delta) @ ring.matrix_world
+    print("snapped octagon by cm", tuple(round(v, 1) for v in delta))
+
+
+def should_drop_arena_mesh(name: str) -> bool:
+    name = name.strip()
+    if name in DROP_ARENA_EXACT:
+        return True
+    # Meshes 1-5 are alternate rings and their add-ons; keep 5_light* for the rig.
+    if name.startswith("cartoon boxing arena 5_light"):
+        return False
+    if re.match(r"^cartoon boxing arena [1-5]", name):
+        return True
+    return False
+
+
+def drop_extra_arena_meshes():
+    for obj in list(bpy.data.objects):
+        if obj.type != "MESH":
+            continue
+        if should_drop_arena_mesh(obj.name):
+            bpy.data.objects.remove(obj, do_unlink=True)
+
+
 def arena_texture(mat_name: str):
     folder = os.path.join(ASSETS, "cartoon boxing arena")
     key = " ".join(mat_name.strip().lower().split())
@@ -760,6 +814,8 @@ def assign_arena_material(mat):
 def bake_arena():
     reset_file()
     bpy.ops.import_scene.fbx(filepath=os.path.join(ASSETS, "cartoon boxing arena/cartoon boxing arena.FBX"))
+    snap_octagon_to_ring_slot()
+    drop_extra_arena_meshes()
     ring = bpy.data.objects.get(RING_MESH)
     if ring is None:
         raise RuntimeError("featured ring mesh missing")

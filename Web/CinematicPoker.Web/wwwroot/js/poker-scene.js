@@ -188,11 +188,11 @@ const FIGHTER_SCALE = 1;
 // Scale the whole venue so the ropes land near 4.2 m and the stands read
 // as a room around the ring instead of a wall just behind the posts.
 const STREET_ARENA_SCALE = 2.2;
-// The ring canvas is a flat face at this height in the exported GLB. Scale
+// The octagon canvas is a flat face at this height in the exported GLB. Scale
 // is about the origin, so that face would land near the felt (~0.80 m).
 // The table stand's foot sits on y=0; drop the backdrop by the scaled canvas
 // height so the canvas floor meets that foot.
-const STREET_CANVAS_Y = 0.3637;
+const STREET_CANVAS_Y = 0.301;
 const FIGHTER_URLS = [
   'models/characters/street/Fighter1.glb?v=3',
   'models/characters/street/Fighter1-variation.glb?v=3',
@@ -1588,7 +1588,7 @@ async function buildScene(canvas) {
   const loadSaloon = () => {
     if (state.saloon || saloonLoad) return saloonLoad;
     const backdropUrl = TABLE_SCENE === 'street'
-      ? 'models/env/street-arena.glb?v=2'
+      ? 'models/env/street-arena.glb?v=3'
       : 'models/env/backdrop.glb?v=2';
     saloonLoad = loadGlb(loader, backdropUrl).then((gltf) => {
       if (!gltf) {
