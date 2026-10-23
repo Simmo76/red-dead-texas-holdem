@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -44,6 +45,13 @@ jobs:
             > publish/wwwroot/version.json
           touch publish/wwwroot/.nojekyll
           cp publish/wwwroot/index.html publish/wwwroot/404.html
+
+      - name: Keep branch previews
+        # Pages serves one deployment; re-add the live /preview/<slug>/ builds
+        # so a main deploy doesn't wipe them (see deploy-preview.yml).
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/collect-previews.sh publish/wwwroot
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
