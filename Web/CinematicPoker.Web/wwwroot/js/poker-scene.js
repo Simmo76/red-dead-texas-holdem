@@ -291,6 +291,9 @@ const state = {
   saloon: null,         // backdrop group (saloon or boxing arena)
   tableScene: TABLE_SCENE,
   eyeHeight: EYE_HEIGHT,
+  playerSeat: 0,
+  multiplayer: false,
+  focusSeat: -1,
   lastJson: '',
   lastActorSeat: -2
 };
@@ -1970,7 +1973,7 @@ async function buildScene(canvas) {
     // player's name in the same colour).
     const pick = lineup[i];
     const spec = {
-      look: pick.look, cards: i === 0,
+      look: pick.look, cards: i === state.playerSeat,
       scale: pick.kind === 'fighter' ? FIGHTER_SCALE : WESTERN_SCALE,
       hatColor: SEAT_COLORS[i % SEAT_COLORS.length]
     };
@@ -2002,12 +2005,14 @@ async function buildScene(canvas) {
         character.chair = seat.chair;
       }
       seat.char = character;
+      if (state.multiplayer || i !== state.playerSeat) {
+        seat.label = makeLabel();
+        scene.add(seat.label.sprite);
+      }
     }));
 
-    if (i === 0) continue; // no floating name label over the player himself
-
-    // NPC name/stack lives in the screen-space HUD (Home.razor actor-card),
-    // not as a world sprite that clips through the over-the-shoulder camera.
+    // Multiplayer labels are billboards anchored above each character's head.
+    // The local single-player scene keeps its existing HUD treatment.
   }
 
   await Promise.all([backdropPromise, ...charPromises]);
@@ -2057,6 +2062,13 @@ async function buildScene(canvas) {
       // HoldCards wrist motion. Done before the see-through test so the
       // pair's world position matches the pose the camera is about to draw.
       if (seat.char.isPlayer && seat.char.cardHold) syncCardHold(seat.char);
+      if (seat.label && seat.labelData) {
+        const head = seat.char.headBone || findCharBone(seat.char, ['head', 'Head']);
+        if (head) {
+          head.getWorldPosition(_labelPos);
+          seat.label.sprite.position.copy(_labelPos).add(_labelLift);
+        }
+      }
     }
 
     // Ease drag/pinch offsets toward their targets, then orbit the table
@@ -2088,6 +2100,11 @@ async function buildScene(canvas) {
     } else if (state.zoom.active) {
       _desiredPos.copy(state.zoom.pos);
       _lookTarget.copy(state.zoom.look);
+    } else if (state.focusSeat >= 0) {
+      const focus = seatPos(state.focusSeat, SEAT_RADIUS + 0.72);
+      _desiredPos.set(focus.x, (state.eyeHeight || EYE_HEIGHT) + 0.18, focus.z);
+      const look = seatPos(state.focusSeat, TABLE_RADIUS - 0.55);
+      _lookTarget.set(look.x, TABLE_TOP + 0.38, look.z);
     } else {
       const yaw = view.homeYaw + view.offYaw;
       const pitch = view.homePitch + view.offPitch;
@@ -2703,6 +2720,8 @@ const _palmL = new THREE.Vector3();
 const _palmR = new THREE.Vector3();
 const _headPos = new THREE.Vector3();
 const _headFallback = new THREE.Vector3(0, 0.35, 0);
+const _labelPos = new THREE.Vector3();
+const _labelLift = new THREE.Vector3(0, 0.28, 0);
 function syncCardHold(character) {
   const hold = character && character.cardHold;
   const parent = hold && hold.parent;
@@ -2968,7 +2987,7 @@ const BET_SPOT = new THREE.Vector3(0, TABLE_TOP, TABLE_RADIUS - 0.62);
 // Wire the player's palm helper and park any already-dealt hole cards in it.
 // Arm IK is intentionally not applied — Jacob's HoldCards idle owns the pose.
 function setupPlayerArms() {
-  const seat = state.seats[0];
+  const seat = state.seats[state.playerSeat];
   if (seat && seat.char) ensureCardHold(seat.char);
   state.holeAnchor = HOLE_ANCHOR.clone();
   layoutHoleCards();
@@ -2979,7 +2998,7 @@ function setupPlayerArms() {
 // stays readable while the wrists follow HoldCards.
 function layoutHoleCards() {
   state.holeFlat = false;
-  const seat = state.seats[0];
+  const seat = state.seats[state.playerSeat];
   const hold = seat && seat.char ? ensureCardHold(seat.char) : null;
   if (!hold || !state.holeCards.length) {
     // No character yet (or mucked): keep meshes out of the scene graph.
@@ -3052,7 +3071,7 @@ function positionHandCards() {
 // was applied — a single missed update can no longer leave a seat's cards
 // off the table for the rest of the hand.
 function seatCardSig(i, data) {
-  if (i === 0) return 'none'; // the player's pair is handled by updateHole
+  if (i === state.playerSeat) return 'none'; // the player's pair is handled by updateHole
   // Revealed showdown cards stay on the felt even after the engine has
   // already marked that seat eliminated / inactive.
   if (data.reveal && data.reveal.length) return 'reveal:' + data.reveal.join(',');
@@ -3060,7 +3079,7 @@ function seatCardSig(i, data) {
 }
 
 function seatCardCount(i, data) {
-  if (i === 0 || (!data.active && !(data.reveal && data.reveal.length))) return 0;
+  if (i === state.playerSeat || (!data.active && !(data.reveal && data.reveal.length))) return 0;
   return data.reveal && data.reveal.length ? Math.min(2, data.reveal.length) : 2;
 }
 
@@ -3073,7 +3092,7 @@ function updateSeatCards(seat, i, data) {
   const paths = data.reveal && data.reveal.length ? data.reveal : null;
   // Folded / out / inactive seats with nothing to show: leave the felt empty
   // (and never parent cards to NPC hands — no floating cards on arms-folded).
-  if (i === 0 || (!data.active && !paths)) return;
+  if (i === state.playerSeat || (!data.active && !paths)) return;
 
   if (paths) {
     // Showdown reveals stay on the felt (readable from the OTS camera).
@@ -3217,6 +3236,15 @@ function healSceneTextures() {
 
 window.pokerScene = {
   get loaded() { return state.ready; },
+  setPlayerSeat(seatIndex) {
+    state.playerSeat = Math.max(0, Math.min(SEATS - 1, Number(seatIndex) || 0));
+    state.multiplayer = true;
+    return state.playerSeat;
+  },
+  focusSeat(seatIndex) {
+    if (!state.ready) return;
+    state.focusSeat = Math.max(0, Math.min(SEATS - 1, Number(seatIndex) || 0));
+  },
 
   // Diagnostics: which graphics tier this device booted into (see the
   // graphics safe mode block at the top of this file).
@@ -3588,6 +3616,10 @@ window.pokerScene = {
     for (const data of seats) {
       const seat = state.seats[data.seat];
       if (!seat) continue;
+      if (seat.label) {
+        seat.labelData = data;
+        drawLabel(seat.label, data);
+      }
       // `active` is derived from the C# round seat lookup. During a hand
       // transition that lookup can briefly be absent, but absence is not a
       // fold. Never let an inconsistent { active:false, folded:false,

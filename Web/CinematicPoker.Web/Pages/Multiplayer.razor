@@ -6,13 +6,25 @@
 <PageTitle>Dead Man's Hand — Multiplayer</PageTitle>
 
 <div class="multiplayer-page">
+    <canvas id="multiplayer-canvas"></canvas>
     <header class="multiplayer-header">
         <a class="multiplayer-back" href="/">← SALOON</a>
         <div class="brand">DEAD MAN'S <span>HAND</span></div>
         <span class="multiplayer-room">TABLE @_roomCode</span>
     </header>
 
-    @if (_error != null)
+    @if (!_nameSubmitted)
+    {
+        <div class="multiplayer-name-card">
+            <div class="overlay-title">WHO'S DEALING?</div>
+            <p>Enter your name before taking your seat at the table.</p>
+            <input class="name-input" maxlength="16" placeholder="Your name"
+                   @bind="_nameDraft" @bind:event="oninput" />
+            <button class="act call" disabled="@string.IsNullOrWhiteSpace(_nameDraft)"
+                    @onclick="JoinTable">TAKE YOUR SEAT</button>
+        </div>
+    }
+    else if (_error != null)
     {
         <div class="multiplayer-message error">@_error</div>
     }
@@ -74,9 +86,12 @@
 
 @code {
     private string _roomCode = "";
+    private string _nameDraft = "";
     private string _error;
     private TableView _state;
-    private DotNetObjectReference<Multiplayer>? _callback;
+    private DotNetObjectReference<Multiplayer> _callback;
+    private bool _nameSubmitted;
+    private bool _sceneReady;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -89,12 +104,24 @@
             return;
         }
         _callback = DotNetObjectReference.Create(this);
+        StateHasChanged();
+    }
+
+    private async Task JoinTable()
+    {
+        if (string.IsNullOrWhiteSpace(_nameDraft)) return;
+        _nameSubmitted = true;
         try
         {
             string playerName = await JS.InvokeAsync<string>("pokerProfile.loadName");
+            playerName = _nameDraft.Trim();
             _state = await JS.InvokeAsync<TableView>(
                 "pokerRealtime.start", _roomCode,
                 string.IsNullOrWhiteSpace(playerName) ? "Friend" : playerName, _callback);
+            await JS.InvokeVoidAsync("pokerScene.setPlayerSeat", _state.YourSeat);
+            _sceneReady = await JS.InvokeAsync<bool>("pokerScene.init", "multiplayer-canvas");
+            await JS.InvokeVoidAsync("pokerScene.focusSeat", _state.YourSeat);
+            await PushScene();
         }
         catch (JSException ex)
         {
@@ -107,8 +134,51 @@
     public Task ReceiveState(TableView state)
     {
         _state = state;
+        _ = InvokeAsync(PushScene);
         InvokeAsync(StateHasChanged);
         return Task.CompletedTask;
+    }
+
+    private async Task PushScene()
+    {
+        if (!_sceneReady || _state == null) return;
+        var seats = _state.Players.Select(player => new
+        {
+            seat = player.Seat,
+            name = player.Name,
+            stack = player.Stack,
+            bet = player.Bet,
+            folded = player.Folded,
+            @out = false,
+            active = !player.Folded,
+            actor = player.Seat == _state.CurrentSeat,
+            heat = 0.15,
+            dealer = false,
+            sb = false,
+            bb = false,
+            reveal = (string[])null,
+            status = player.Connected ? "" : "waiting"
+        }).ToArray();
+        await JS.InvokeVoidAsync("pokerScene.update", new
+        {
+            pot = _state.Pot,
+            actorSeat = _state.CurrentSeat,
+            board = _state.Board.Select(CardPath).ToArray(),
+            hole = _state.Hole.Select(CardPath).ToArray(),
+            seats
+        });
+    }
+
+    private static string CardPath(string card)
+    {
+        if (string.IsNullOrWhiteSpace(card) || card.Length < 2) return "img/cards/back.png";
+        string rank = card[..^1] switch { "T" => "10", _ => card[..^1] };
+        string suit = card[^1] switch
+        {
+            '♣' => "clubs", '♦' => "diamonds", '♥' => "hearts", '♠' => "spades",
+            _ => "spades"
+        };
+        return $"img/cards/{suit}_{rank}.png";
     }
 
     private async Task Act(string action, long amount = 0)
@@ -152,6 +222,7 @@
         public bool Connected { get; set; }
         public long Stack { get; set; }
         public long Bet { get; set; }
+        public bool Folded { get; set; }
     }
 
     public sealed class LegalView

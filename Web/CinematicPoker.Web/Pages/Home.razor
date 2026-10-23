@@ -1867,6 +1867,7 @@
 
     private async Task OpenInvite()
     {
+        _friendConnected = false;
         _roomCode = await JS.InvokeAsync<string>("pokerInvite.ensureRoom");
         _inviteUrl = await JS.InvokeAsync<string>("pokerInvite.url", _roomCode);
         _friendSeatVisible = true;
