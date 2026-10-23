@@ -14,8 +14,8 @@ window.pokerAudio = (function () {
     const buffers = {};       // url -> Promise<AudioBuffer>
     let muted = false;
     let music = null;
+    let musicFadingOut = null;
     let ambience = null;
-    let musicTimer = null;
     let voiceSrc = null;      // one table voice at a time so lines don't overlap
     let voicePlaying = false;
     let lastVoiceAt = 0;
@@ -131,7 +131,7 @@ window.pokerAudio = (function () {
     }
 
     // Wikimedia Commons ragtime recordings, re-encoded to MP3 for iOS Safari.
-    // Shuffle without repeats, then leave a five-second pause between beds.
+    // Shuffle without repeats; beds crossfade so there is no hard gap.
     const SALOON_MUSIC_TRACKS = [
         'audio/saloon/top-liner-rag.mp3',
         'audio/saloon/black-and-white-rag.mp3',
@@ -145,6 +145,8 @@ window.pokerAudio = (function () {
     ];
     const SALOON_AMBIENCE_URL = 'audio/saloon-bar-ambience.mp3';
     const STREET_AMBIENCE_URL = 'audio/street/crowd-shouting.ogg';
+    const MUSIC_VOLUME = 0.12;
+    const MUSIC_FADE_SECONDS = 2.5;
     let sceneName = 'saloon';
     let recentMusic = [];
 
@@ -160,6 +162,58 @@ window.pokerAudio = (function () {
         const url = candidates[Math.floor(Math.random() * candidates.length)];
         recentMusic.push(url);
         return url;
+    }
+
+    function clearMusicFade(audio) {
+        if (audio && audio._fadeTimer) {
+            clearInterval(audio._fadeTimer);
+            audio._fadeTimer = null;
+        }
+    }
+
+    function disposeMusic(audio) {
+        if (!audio) return;
+        clearMusicFade(audio);
+        try { audio.onended = null; } catch (e) { }
+        try { audio.removeEventListener('timeupdate', audio._onTimeUpdate); } catch (e) { }
+        try { audio.pause(); } catch (e) { }
+        if (music === audio) music = null;
+        if (musicFadingOut === audio) musicFadingOut = null;
+    }
+
+    function fadeMusicTo(audio, targetVolume, seconds, onDone) {
+        if (!audio) { if (onDone) onDone(); return; }
+        clearMusicFade(audio);
+        const startVol = audio.volume;
+        const t0 = Date.now();
+        const ms = Math.max(50, (seconds || MUSIC_FADE_SECONDS) * 1000);
+        audio._fadeTimer = setInterval(function () {
+            const t = Math.min(1, (Date.now() - t0) / ms);
+            audio.volume = muted ? 0 : startVol + (targetVolume - startVol) * t;
+            if (t >= 1) {
+                clearMusicFade(audio);
+                if (onDone) onDone();
+            }
+        }, 50);
+    }
+
+    function musicFadeSecondsFor(audio) {
+        const dur = audio && isFinite(audio.duration) ? audio.duration : 0;
+        if (dur > 0) return Math.min(MUSIC_FADE_SECONDS, Math.max(0.4, dur * 0.2));
+        return MUSIC_FADE_SECONDS;
+    }
+
+    function beginMusicCrossfade(outgoing) {
+        if (!outgoing || outgoing._crossfading) return;
+        outgoing._crossfading = true;
+        if (musicFadingOut && musicFadingOut !== outgoing) disposeMusic(musicFadingOut);
+        musicFadingOut = outgoing;
+        if (music === outgoing) music = null;
+        const fadeSec = musicFadeSecondsFor(outgoing);
+        fadeMusicTo(outgoing, 0, fadeSec, function () {
+            disposeMusic(outgoing);
+        });
+        startMusic({ fadeIn: true, fadeSeconds: fadeSec });
     }
 
     // Intro movie audio: the two owner-supplied parts played back to back
@@ -201,8 +255,9 @@ window.pokerAudio = (function () {
         }, 100);
     }
 
-    function startMusic() {
-        if (muted || introPlaying || musicTimer) return;
+    function startMusic(opts) {
+        if (muted || introPlaying) return;
+        const fadeIn = !!(opts && opts.fadeIn);
         try {
             if (!ambience) {
                 const ambienceUrl = sceneName === 'street' ? STREET_AMBIENCE_URL : SALOON_AMBIENCE_URL;
@@ -213,15 +268,32 @@ window.pokerAudio = (function () {
                 if (ambiencePlay) ambiencePlay.catch(function () { });
             }
             if (!music) {
-                music = new Audio(pickMusic());
-                music.volume = 0.12;
-                music.addEventListener('ended', function () {
-                    music = null;
-                    musicTimer = setTimeout(function () {
-                        musicTimer = null;
-                        startMusic();
-                    }, 5000);
+                const track = new Audio(pickMusic());
+                music = track;
+                track.volume = fadeIn ? 0 : MUSIC_VOLUME;
+                track._onTimeUpdate = function () {
+                    if (music !== track || track._crossfading) return;
+                    if (!isFinite(track.duration) || track.duration <= 0) return;
+                    const remaining = track.duration - track.currentTime;
+                    if (remaining <= musicFadeSecondsFor(track)) {
+                        beginMusicCrossfade(track);
+                    }
+                };
+                track.addEventListener('timeupdate', track._onTimeUpdate);
+                track.addEventListener('ended', function () {
+                    if (track._crossfading) {
+                        disposeMusic(track);
+                        return;
+                    }
+                    // Duration/metadata missing (some mobile browsers): swap
+                    // immediately with a fade-in instead of a hard gap.
+                    disposeMusic(track);
+                    startMusic({ fadeIn: true });
                 });
+                if (fadeIn) {
+                    const fadeSec = (opts && opts.fadeSeconds) || MUSIC_FADE_SECONDS;
+                    fadeMusicTo(track, MUSIC_VOLUME, fadeSec);
+                }
             }
             const p = music.play();
             if (p) p.catch(function () { });
@@ -229,11 +301,10 @@ window.pokerAudio = (function () {
     }
 
     function stopMusic() {
-        if (musicTimer) {
-            clearTimeout(musicTimer);
-            musicTimer = null;
-        }
-        if (music) { try { music.pause(); } catch (e) { } music = null; }
+        disposeMusic(music);
+        disposeMusic(musicFadingOut);
+        music = null;
+        musicFadingOut = null;
         if (ambience) { try { ambience.pause(); } catch (e) { } ambience = null; }
     }
 
