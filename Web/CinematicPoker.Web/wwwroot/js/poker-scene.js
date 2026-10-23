@@ -496,7 +496,7 @@ const CHIP_TEXTURES = {
 // The mesh is the low-poly Poker Chips pack, baked to the old cylinder size
 // (radius 0.045, height 0.012) and then scaled by CHIP_SCALE. Dealer and
 // blind pucks are sized separately and do not follow CHIP_SCALE.
-const CHIP_SCALE = 2;
+const CHIP_SCALE = 1.5;
 const CHIP_HEIGHT = 0.012 * CHIP_SCALE;
 let _chipGeo = null;
 let _chipFallback = null;
