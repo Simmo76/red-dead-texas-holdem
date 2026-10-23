@@ -1790,7 +1790,11 @@ async function buildScene(canvas) {
 
   const pedestal = new THREE.Mesh(
     new THREE.CylinderGeometry(0.16, 0.34, TABLE_TOP - 0.05, 20),
-    new THREE.MeshStandardMaterial({ map: woodTex.clone(), color: 0x6e4526, roughness: 0.8 }));
+    new THREE.MeshStandardMaterial({
+      map: texture('img/floor_planks.jpg'),
+      color: 0xffffff,
+      roughness: 0.8
+    }));
   pedestal.position.y = (TABLE_TOP - 0.05) / 2;
   scene.add(pedestal);
 
