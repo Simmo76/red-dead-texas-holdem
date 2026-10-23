@@ -12,7 +12,10 @@
         if (!w.signalR) throw new Error('Realtime client is unavailable.');
         callback = dotnetCallback;
         connection = new signalR.HubConnectionBuilder()
-            .withUrl(endpoint())
+            // The temporary localtunnel proxy drops long-lived SSE/WebSocket
+            // connections. Long Polling keeps beta testing reliable over
+            // ordinary HTTPS; production can use the default transport.
+            .withUrl(endpoint(), { transport: signalR.HttpTransportType.LongPolling })
             .withAutomaticReconnect()
             .build();
         connection.on('state', function (state) {
