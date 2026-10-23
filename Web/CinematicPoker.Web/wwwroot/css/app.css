@@ -1340,9 +1340,14 @@ html, body {
 
 .multiplayer-page {
     position: relative;
-    overflow: hidden;
-    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 100%;
     padding: 24px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    touch-action: pan-y;
     color: var(--text);
     background: radial-gradient(circle at 50% 35%, #26452e 0, #102519 42%, #090c0b 100%);
     font-family: Georgia, serif;
@@ -1427,7 +1432,7 @@ html, body {
     flex-direction: column;
     gap: 16px;
     width: min(400px, calc(100vw - 32px));
-    margin: 20vh auto 0;
+    margin: 8vh auto 32px;
     padding: 30px;
     text-align: center;
     border: 1px solid var(--gold-dim);
@@ -1443,6 +1448,16 @@ html, body {
 }
 
 .multiplayer-name-card .name-input { width: 100%; box-sizing: border-box; }
+
+@media (max-height: 600px) {
+    .multiplayer-page { padding-top: calc(8px + env(safe-area-inset-top)); }
+    .multiplayer-header { padding-bottom: 10px; }
+    .multiplayer-name-card {
+        margin-top: 3vh;
+        padding: 20px 24px;
+        gap: 10px;
+    }
+}
 
 .multiplayer-table {
     position: relative;
