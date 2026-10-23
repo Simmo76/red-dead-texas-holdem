@@ -491,6 +491,7 @@ const CHIP_TEXTURES = [
   'img/chips/chip_black.png',
   'img/chips/chip_white.png',
 ];
+let _chipTemplate = null;
 
 // Bet and pot stacks are torn down and rebuilt on every chip movement, so
 // all chips share one cylinder and one material per colour — building fresh
@@ -517,6 +518,23 @@ function chipMaterial(color) {
   return mat;
 }
 
+function makeChipMesh(color) {
+  if (!_chipTemplate) {
+    const chip = new THREE.Mesh(chipGeometry(), chipMaterial(color));
+    chip.castShadow = true;
+    return chip;
+  }
+  const chip = _chipTemplate.clone(true);
+  chip.scale.set(2.05, 2.05, 2.24);
+  chip.rotation.x = Math.PI / 2;
+  chip.traverse((part) => {
+    if (!part.isMesh) return;
+    part.material = chipMaterial(color);
+    part.castShadow = true;
+  });
+  return chip;
+}
+
 function makeChipStacks(amount, spread = 0.05) {
   const group = new THREE.Group();
   if (amount <= 0) return group;
@@ -525,10 +543,9 @@ function makeChipStacks(amount, spread = 0.05) {
   for (let i = 0; i < chips; i++) {
     const stack = Math.floor(i / perStack);
     const level = i % perStack;
-    const chip = new THREE.Mesh(chipGeometry(), chipMaterial(CHIP_COLORS[(i + stack) % CHIP_COLORS.length]));
-    chip.castShadow = true;
+    const chip = makeChipMesh(CHIP_COLORS[(i + stack) % CHIP_COLORS.length]);
     chip.position.set(stack * spread * 1.9 - spread, 0.007 + level * 0.0125, (stack % 2) * spread * 0.8);
-    chip.rotation.y = Math.random() * Math.PI;
+    chip.rotation.y += Math.random() * Math.PI;
     group.add(chip);
   }
   return group;
@@ -1582,6 +1599,8 @@ async function buildScene(canvas) {
   const SALOON_BAR_NUDGE_Z = 2.4; // metres toward the bar (player forward)
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
+  const chipModel = await loadGlb(loader, 'models/props/chips/poker-chip.glb?v=1');
+  _chipTemplate = chipModel ? chipModel.scene : null;
 
   // Saloon mood: warm lantern over the felt + rose room wash. bg doubles as
   // the fog colour so distant geometry melts into the dark.
@@ -2428,10 +2447,7 @@ const POT_POS = new THREE.Vector3(-0.06, TABLE_TOP, -0.18);
 function spawnChipToss(seatIndex, count = 3) {
   const from = seatPos(seatIndex, TABLE_RADIUS - 0.18);
   for (let i = 0; i < count; i++) {
-    const chip = new THREE.Mesh(
-      chipGeometry(),
-      chipMaterial(CHIP_COLORS[Math.floor(Math.random() * CHIP_COLORS.length)]));
-    chip.castShadow = true;
+    const chip = makeChipMesh(CHIP_COLORS[Math.floor(Math.random() * CHIP_COLORS.length)]);
     const start = new THREE.Vector3(from.x, TABLE_TOP + 0.03, from.z);
     const end = POT_POS.clone().add(new THREE.Vector3(
       (Math.random() - 0.5) * 0.18, 0.02, (Math.random() - 0.5) * 0.18));
