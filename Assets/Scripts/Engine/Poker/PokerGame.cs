@@ -44,8 +44,8 @@ namespace CinematicPoker.Engine.Poker
                 throw new ArgumentException($"Player count must be {rules.MinPlayers}-{rules.MaxPlayers}.");
             if (_players.Select(p => p.Seat).Distinct().Count() != _players.Count)
                 throw new ArgumentException("Players must occupy distinct seats.");
-            if (_players.Count(p => p.IsHuman) > 1)
-                throw new ArgumentException("At most one human player is supported (single-player game).");
+            if (_players.Count(p => p.IsHuman) > 2)
+                throw new ArgumentException("A table supports at most two human players.");
 
             var rng = seed.HasValue ? new Random(seed.Value) : new Random();
             _deckFactory = deckFactory ?? (() =>

@@ -478,6 +478,7 @@
                     <p class="invite-note" role="status">@_inviteNote</p>
                 }
                 <div class="invite-actions">
+                    <button class="act call" @onclick="OpenMultiplayerTable">OPEN TABLE</button>
                     <button class="act call" @onclick="TextInvite">TEXT INVITE</button>
                     <button class="act bet" @onclick="ShareInvite">SHARE LINK</button>
                     <button class="act small" @onclick="CopyInvite">COPY LINK</button>
@@ -1906,6 +1907,13 @@
             "copied" => "Link copied — paste it into a message.",
             _ => "Sharing is unavailable. Use Text Invite instead."
         };
+    }
+
+    private async Task OpenMultiplayerTable()
+    {
+        if (string.IsNullOrEmpty(_inviteUrl))
+            await OpenInvite();
+        await JS.InvokeVoidAsync("pokerInvite.openTable", _inviteUrl);
     }
 
     private bool CanSaveSettingsName => SanitizeName(_settingsNameDraft, allowEmpty: true).Length > 0;

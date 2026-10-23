@@ -25,11 +25,13 @@
     }
 
     function inviteUrl(room) {
-        var url = new URL(w.location.href);
-        url.search = '';
-        url.hash = '';
+        var url = new URL('/multiplayer', w.location.origin);
         url.searchParams.set('room', room);
         return url.toString();
+    }
+
+    function openTable(url) {
+        w.location.href = url;
     }
 
     function roomFromUrl() {
@@ -68,6 +70,7 @@
     w.pokerInvite = {
         ensureRoom: ensureRoom,
         url: inviteUrl,
+        openTable: openTable,
         roomFromUrl: roomFromUrl,
         copy: copy,
         share: share,
