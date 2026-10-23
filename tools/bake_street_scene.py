@@ -48,7 +48,11 @@ RING_MESH = "cartoon boxing arena 5"
 OCTAGON_MESH = "cartoon boxing arena 1"
 OCTAGON_FENCE = "cartoon boxing arena 1_Fecen"
 OCTAGON_PROPS = ("cau thang", "chair", "table")
-RING_PARTS = ("cartoon boxing arena 5", "cartoon boxing arena_high light")
+RING_PARTS = ("cartoon boxing arena 5",)
+# The "cartoon boxing arena 5_light systems" prefab (truss, hanging lamps and
+# the coloured beam cones) stays over the featured spot, so it hangs above
+# the octagon and shines down on the players instead of leaving with the ring.
+LIGHT_RIG = ("cartoon boxing arena 5_light systems", "cartoon boxing arena_high light")
 
 RENAME = {
     "Pelvis": "pelvis",
@@ -805,6 +809,8 @@ def bake_arena():
     swap = Vector((ring_center.x - oct_center.x, ring_center.y - oct_center.y, 0.0))
     for obj in list(bpy.data.objects):
         name = obj.name.strip()
+        if name.startswith(LIGHT_RIG):
+            continue
         if name.startswith(OCTAGON_MESH) or name.startswith(OCTAGON_PROPS):
             obj.matrix_world = Matrix.Translation(swap) @ obj.matrix_world
         elif name.startswith(RING_PARTS):

@@ -190,6 +190,7 @@ const FIGHTER_SCALE = 1;
 // Scale is about the origin, and the export puts the octagon canvas on y=0,
 // so the canvas stays flush with the table stand's foot.
 const STREET_ARENA_SCALE = 2.2;
+const STREET_BEAM_OPACITY = 0.25;
 const FIGHTER_URLS = [
   'models/characters/street/Fighter1.glb?v=3',
   'models/characters/street/Fighter1-variation.glb?v=3',
@@ -1627,7 +1628,7 @@ async function buildScene(canvas) {
   const loadSaloon = () => {
     if (state.saloon || saloonLoad) return saloonLoad;
     const backdropUrl = TABLE_SCENE === 'street'
-      ? 'models/env/street-arena.glb?v=3'
+      ? 'models/env/street-arena.glb?v=4'
       : 'models/env/backdrop.glb?v=2';
     saloonLoad = loadGlb(loader, backdropUrl).then((gltf) => {
       if (!gltf) {
@@ -1652,6 +1653,24 @@ async function buildScene(canvas) {
         if (!m.isMesh) return;
         m.castShadow = false;
         m.receiveShadow = false;
+        // The light rig's beam cones hang over the table, so the camera sits
+        // inside them. Lit + emissive alpha layers stack into a grey veil;
+        // unlit additive shafts keep their colour and stay see-through.
+        if (TABLE_SCENE === 'street' && /high light/i.test(m.material?.name || '')) {
+          const map = m.material.map;
+          if (map) map.colorSpace = THREE.SRGBColorSpace;
+          m.material = new THREE.MeshBasicMaterial({
+            name: m.material.name,
+            map,
+            transparent: true,
+            opacity: STREET_BEAM_OPACITY,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            fog: false,
+          });
+          return;
+        }
         const mats = Array.isArray(m.material) ? m.material : [m.material];
         for (const mat of mats) {
           if (!mat) continue;
@@ -1695,6 +1714,27 @@ async function buildScene(canvas) {
         const lamp = new THREE.PointLight(color, intensity, dist, 1.8);
         lamp.position.set(pos[0], pos[1], pos[2]);
         env.add(lamp);
+      }
+      // The rig's six truss lamps hang ~7.3 m up, 2.4 m either side of the
+      // table, and their beam cones slant down to the felt. Coloured spots
+      // from those heads put the beam light on the players; lite tiers keep
+      // one from each pair, ultra-lite none.
+      if (TABLE_SCENE === 'street' && !GFX_ULTRA_LITE) {
+        const beamSpecs = [
+          [0xffb000, [-1.58, 7.31, -2.43]],
+          [0xff2a20, [-0.04, 7.31, -2.43]],
+          [0x20ff50, [1.41, 7.31, -2.43]],
+          [0x2090ff, [-1.58, 7.31, 2.42]],
+          [0xa030ff, [-0.04, 7.31, 2.42]],
+          [0xffb000, [1.41, 7.31, 2.42]]
+        ];
+        beamSpecs.forEach(([color, pos], i) => {
+          if (GFX_LITE && i % 2) return;
+          const spot = new THREE.SpotLight(color, GFX_LITE ? 80 : 50, 14, 0.38, 0.7, 1.5);
+          spot.position.set(pos[0], pos[1], pos[2]);
+          spot.target.position.set(pos[0], 0, pos[2] * 0.17);
+          env.add(spot, spot.target);
+        });
       }
       scene.add(env);
       state.saloon = env;
