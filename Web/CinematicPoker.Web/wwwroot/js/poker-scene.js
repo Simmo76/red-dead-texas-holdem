@@ -481,7 +481,16 @@ function drawLabel(label, seat) {
 
 // ------------------------------------------------------------------ chips
 
-const CHIP_COLORS = [0xb0483c, 0x3b6ea5, 0x3f7d4e, 0x2b2b2b, 0xc9a13d];
+const CHIP_COLORS = [0xb0483c, 0x3b6ea5, 0x3f7d4e, 0x2b2b2b, 0xf1f1f1];
+// Web chips use the base-colour maps imported from the supplied Unity chip
+// prefabs, keeping the browser palette in sync with the Unity materials.
+const CHIP_TEXTURES = [
+  'img/chips/chip_red.png',
+  'img/chips/chip_blue.png',
+  'img/chips/chip_green.png',
+  'img/chips/chip_black.png',
+  'img/chips/chip_white.png',
+];
 
 // Bet and pot stacks are torn down and rebuilt on every chip movement, so
 // all chips share one cylinder and one material per colour — building fresh
@@ -495,7 +504,14 @@ function chipGeometry() {
 function chipMaterial(color) {
   let mat = _chipMats.get(color);
   if (!mat) {
-    mat = new THREE.MeshStandardMaterial({ color, roughness: 0.55 });
+    const chipIndex = CHIP_COLORS.indexOf(color);
+    const map = chipIndex >= 0 && chipIndex < CHIP_TEXTURES.length
+      ? texture(CHIP_TEXTURES[chipIndex]) : null;
+    mat = new THREE.MeshStandardMaterial({
+      color: map ? 0xffffff : color,
+      map,
+      roughness: 0.55,
+    });
     _chipMats.set(color, mat);
   }
   return mat;
