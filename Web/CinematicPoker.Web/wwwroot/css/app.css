@@ -1349,7 +1349,7 @@ html, body {
     padding-bottom: calc(24px + env(safe-area-inset-bottom));
     touch-action: pan-y;
     color: var(--text);
-    background: radial-gradient(circle at 50% 35%, #26452e 0, #102519 42%, #090c0b 100%);
+    background: transparent;
     font-family: Georgia, serif;
 }
 
@@ -1462,18 +1462,33 @@ html, body {
 .multiplayer-table {
     position: relative;
     z-index: 2;
-    max-width: 1000px;
-    margin: 4vh auto 0;
-    padding: clamp(20px, 5vw, 56px);
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
     text-align: center;
-    border: 1px solid rgba(216, 178, 92, 0.5);
-    border-radius: 34px;
-    background: rgba(8, 35, 20, 0.62);
-    box-shadow: 0 18px 80px rgba(0, 0, 0, 0.45);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
 }
 
-.multiplayer-status { color: var(--text-dim); letter-spacing: 1px; }
-.multiplayer-pot { margin: 12px 0; color: var(--gold); letter-spacing: 2px; }
+.multiplayer-status {
+    position: fixed;
+    top: calc(86px + env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--text-dim);
+    letter-spacing: 1px;
+}
+
+.multiplayer-pot {
+    position: fixed;
+    top: calc(112px + env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--gold);
+    letter-spacing: 2px;
+}
 .multiplayer-board,
 .hand-cards { display: flex; justify-content: center; gap: 10px; min-height: 72px; align-items: center; }
 
@@ -1496,7 +1511,7 @@ html, body {
 .card-back { color: var(--gold); background: #23170e; font-size: 10px; letter-spacing: 1px; }
 
 .multiplayer-seats {
-    display: grid;
+    display: none;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 10px;
     margin: 28px 0;
@@ -1514,9 +1529,23 @@ html, body {
 .seat-meta, .seat-bet, .human-mark { color: var(--text-dim); font-size: 10px; letter-spacing: 1px; }
 .human-mark { color: var(--gold); }
 .seat-bet { margin-top: 5px; color: var(--gold); }
-.multiplayer-hand { margin: 20px 0; }
+.multiplayer-hand {
+    position: fixed;
+    right: calc(18px + env(safe-area-inset-right));
+    bottom: calc(94px + env(safe-area-inset-bottom));
+}
 .hand-label { margin-bottom: 8px; color: var(--gold); font-size: 11px; letter-spacing: 2px; }
-.multiplayer-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.multiplayer-actions {
+    position: fixed;
+    left: 50%;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    z-index: 4;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    transform: translateX(-50%);
+}
 .multiplayer-note { color: var(--text-dim); font-size: 11px; }
 
 /* ------------------------------------------------------- hand rankings */

@@ -14,7 +14,7 @@ public sealed class PokerHub : Hub
         Room room = Rooms.Get(roomCode);
         int seat = room.Join(Context.ConnectionId, CleanName(playerName));
         await Groups.AddToGroupAsync(Context.ConnectionId, room.Code);
-        await room.AdvanceAsync();
+        room.Advance();
         await room.BroadcastAsync(Clients);
         return room.View(seat);
     }
@@ -23,7 +23,7 @@ public sealed class PokerHub : Hub
     {
         Room room = Rooms.Get(roomCode);
         room.Submit(Context.ConnectionId, action, amount);
-        await room.AdvanceAsync();
+        room.Advance();
         await room.BroadcastAsync(Clients);
     }
 
@@ -139,7 +139,7 @@ internal sealed class Room
         }
     }
 
-    public async Task AdvanceAsync()
+    public void Advance()
     {
         lock (_gate)
         {
@@ -162,7 +162,6 @@ internal sealed class Room
             if (_game.Phase == GamePhase.WaitingForHand && !_game.IsSessionOver)
                 _game.StartHand();
         }
-        await Task.CompletedTask;
     }
 
     public async Task BroadcastAsync(IHubCallerClients clients)
@@ -175,6 +174,10 @@ internal sealed class Room
 
     public TableView View(int viewerSeat)
     {
+        // A join can race another join's broadcast. Never publish a state
+        // parked on an NPC decision; the authoritative room resolves all
+        // server-controlled turns before any client receives its view.
+        Advance();
         lock (_gate)
         {
             PokerRound round = _game.CurrentRound;
