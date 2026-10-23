@@ -167,6 +167,46 @@ html, body {
     background: rgba(35, 26, 12, 0.85);
 }
 
+.invite-btn {
+    color: var(--gold);
+    border-color: rgba(216, 178, 92, 0.55);
+}
+
+.friend-seat-pill {
+    position: absolute;
+    top: calc(74px + env(safe-area-inset-top));
+    right: calc(18px + env(safe-area-inset-right));
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid rgba(216, 178, 92, 0.45);
+    border-radius: 20px;
+    background: rgba(12, 8, 5, 0.82);
+    color: var(--gold);
+    font-size: 10px;
+    letter-spacing: 1.2px;
+}
+
+.friend-seat-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px var(--gold);
+}
+
+.friend-seat-pill button {
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    font: inherit;
+    letter-spacing: inherit;
+    text-decoration: underline;
+}
+
 /* ----------------------------------------------------- intro splash */
 
 .intro-overlay {
@@ -1237,6 +1277,63 @@ html, body {
 .overlay-actions .act:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+}
+
+.invite-box {
+    width: min(520px, calc(100vw - 32px));
+    padding: 30px 34px;
+    gap: 16px;
+}
+
+.invite-blurb,
+.invite-footnote {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.invite-room {
+    display: grid;
+    gap: 7px;
+    padding: 14px;
+    text-align: left;
+    border: 1px solid rgba(216, 178, 92, 0.3);
+    border-radius: 10px;
+    background: rgba(5, 3, 2, 0.55);
+}
+
+.invite-room-label {
+    color: var(--gold);
+    font-size: 10px;
+    letter-spacing: 1.6px;
+}
+
+.invite-room code {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.invite-note {
+    margin: 0;
+    color: var(--gold);
+    font-size: 13px;
+}
+
+.invite-footnote {
+    font-size: 11px;
+    opacity: 0.65;
+}
+
+.invite-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
 }
 
 /* ------------------------------------------------------- hand rankings */

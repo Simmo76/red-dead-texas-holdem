@@ -58,8 +58,23 @@
             <button class="chip-btn" @onclick="OpenSettings" title="Game settings">
                 <span class="chip-gear" aria-hidden="true">⚙</span> SETTINGS
             </button>
+            <button class="chip-btn invite-btn" @onclick="OpenInvite" title="Invite a friend to this table">
+                <span aria-hidden="true">♧</span> INVITE
+            </button>
         </div>
     </header>
+
+    @if (_friendSeatVisible)
+    {
+        <div class="friend-seat-pill" role="status">
+            <span class="friend-seat-dot"></span>
+            <span>@(_friendConnected ? $"{_friendName} IS AT THE TABLE" : "FRIEND'S SEAT RESERVED")</span>
+            @if (!_friendConnected)
+            {
+                <button type="button" @onclick="OpenInvite">INVITE</button>
+            }
+        </div>
+    }
 
     @if (Round != null)
     {
@@ -442,6 +457,33 @@
                     <button class="act small" @onclick="ExportDownload" disabled="@(_handLog.CompletedHandCount == 0)">DOWNLOAD</button>
                     <button class="act small" @onclick="CloseExportPanel">CLOSE</button>
                 </div>
+            </div>
+        </div>
+    }
+
+    @if (_inviteOpen)
+    {
+        <div class="overlay" @onclick="CloseInvite">
+            <div class="overlay-box invite-box" @onclick:stopPropagation="true">
+                <div class="overlay-title">DEAL IN A FRIEND</div>
+                <p class="invite-blurb">
+                    Your friend can use this link to join your table. The other seats stay filled by the same NPCs.
+                </p>
+                <div class="invite-room">
+                    <span class="invite-room-label">TABLE LINK</span>
+                    <code>@_inviteUrl</code>
+                </div>
+                @if (!string.IsNullOrEmpty(_inviteNote))
+                {
+                    <p class="invite-note" role="status">@_inviteNote</p>
+                }
+                <div class="invite-actions">
+                    <button class="act call" @onclick="TextInvite">TEXT INVITE</button>
+                    <button class="act bet" @onclick="ShareInvite">SHARE LINK</button>
+                    <button class="act small" @onclick="CopyInvite">COPY LINK</button>
+                    <button class="act small" @onclick="CloseInvite">CLOSE</button>
+                </div>
+                <p class="invite-footnote">Invite links are ready for the realtime table service.</p>
             </div>
         </div>
     }
@@ -932,6 +974,19 @@
     {
         if (firstRender)
         {
+            try
+            {
+                _roomCode = await JS.InvokeAsync<string>("pokerInvite.roomFromUrl");
+                if (!string.IsNullOrWhiteSpace(_roomCode))
+                {
+                    _roomCode = new string(_roomCode
+                        .Where(char.IsLetterOrDigit).Take(12).ToArray()).ToUpperInvariant();
+                    _inviteUrl = await JS.InvokeAsync<string>("pokerInvite.url", _roomCode);
+                    _friendSeatVisible = true;
+                    _inviteNote = "You joined an invite link. The realtime table connection is next.";
+                }
+            }
+            catch (JSException) { }
             if (string.IsNullOrEmpty(_playerName))
                 _playerName = await ReadCachedPlayerNameAsync();
             _settingsLoaded = true;
@@ -1796,6 +1851,62 @@
     private bool _settingsOpen;
     private string _settingsNameDraft = "";
     private string _settingsNameNote = "";
+
+    // Multiplayer invite shell. The room id is deliberately URL-safe and
+    // persistent for this browser session, so reopening the invite sheet
+    // produces the same link instead of surprising the friend with a new
+    // table. A future realtime transport owns the actual seat handoff.
+    private bool _inviteOpen;
+    private bool _friendSeatVisible;
+    private bool _friendConnected;
+    private string _friendName = "YOUR FRIEND";
+    private string _roomCode = "";
+    private string _inviteUrl = "";
+    private string _inviteNote = "";
+
+    private async Task OpenInvite()
+    {
+        _roomCode = await JS.InvokeAsync<string>("pokerInvite.ensureRoom");
+        _inviteUrl = await JS.InvokeAsync<string>("pokerInvite.url", _roomCode);
+        _friendSeatVisible = true;
+        _inviteNote = "";
+        _inviteOpen = true;
+    }
+
+    private void CloseInvite()
+    {
+        _inviteOpen = false;
+        _inviteNote = "";
+    }
+
+    private async Task CopyInvite()
+    {
+        string result = await JS.InvokeAsync<string>("pokerInvite.copy", _inviteUrl);
+        _inviteNote = result == "copied"
+            ? "Link copied — paste it into a message."
+            : "Copy was blocked — use Text Invite instead.";
+    }
+
+    private async Task TextInvite()
+    {
+        string result = await JS.InvokeAsync<string>(
+            "pokerInvite.text", _inviteUrl, PlayerName);
+        _inviteNote = result == "opened"
+            ? "Messages opened with your table link."
+            : "Could not open Messages. Copy the link and send it manually.";
+    }
+
+    private async Task ShareInvite()
+    {
+        string result = await JS.InvokeAsync<string>(
+            "pokerInvite.share", _inviteUrl, $"{PlayerName} invited you to Dead Man's Hand");
+        _inviteNote = result switch
+        {
+            "shared" => "Share sheet opened.",
+            "copied" => "Link copied — paste it into a message.",
+            _ => "Sharing is unavailable. Use Text Invite instead."
+        };
+    }
 
     private bool CanSaveSettingsName => SanitizeName(_settingsNameDraft, allowEmpty: true).Length > 0;
 
