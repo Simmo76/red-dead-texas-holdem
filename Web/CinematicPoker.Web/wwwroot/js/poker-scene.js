@@ -3403,7 +3403,11 @@ window.pokerScene = {
     state.betPreview = null;
     const seat0 = state.seats && state.seats[0];
     if (seat0 && seat0.chips) seat0.chips.visible = true;
-    if (state.zoom.kind === 'bet') state.zoom.active = false;
+    if (state.zoom.kind === 'bet') {
+      state.zoom.active = false;
+      state.zoom.kind = 'board';
+      if (state.applyCameraHome) state.applyCameraHome(true);
+    }
   },
 
   // Backdrops other than the saloon are disabled; kept as a no-op so any
