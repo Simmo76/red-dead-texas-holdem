@@ -1381,6 +1381,17 @@ html, body {
     letter-spacing: 1.5px;
 }
 
+.multiplayer-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.multiplayer-header-actions .chip-btn {
+    padding: 7px 12px;
+    font-size: 10px;
+}
+
 .multiplayer-message {
     position: relative;
     z-index: 2;
@@ -1395,6 +1406,19 @@ html, body {
 }
 
 .multiplayer-message.error { color: #e58a7c; }
+
+.multiplayer-invite-note {
+    position: relative;
+    z-index: 2;
+    width: fit-content;
+    max-width: calc(100vw - 48px);
+    margin: 14px auto;
+    padding: 8px 14px;
+    border-radius: 14px;
+    color: var(--gold);
+    background: rgba(12, 8, 5, 0.82);
+    font-size: 12px;
+}
 
 .multiplayer-name-card {
     position: relative;

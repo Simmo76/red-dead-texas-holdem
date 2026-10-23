@@ -10,7 +10,10 @@
     <header class="multiplayer-header">
         <a class="multiplayer-back" href="/">← SALOON</a>
         <div class="brand">DEAD MAN'S <span>HAND</span></div>
-        <span class="multiplayer-room">TABLE @_roomCode</span>
+        <div class="multiplayer-header-actions">
+            <span class="multiplayer-room">TABLE @_roomCode</span>
+            <button class="chip-btn" @onclick="TextAnotherFriend">TEXT FRIEND</button>
+        </div>
     </header>
 
     @if (!_nameSubmitted)
@@ -82,6 +85,10 @@
             <p class="multiplayer-note">Beta table · up to five humans · NPCs fill the remaining seats</p>
         </main>
     }
+    @if (!string.IsNullOrEmpty(_inviteNote))
+    {
+        <div class="multiplayer-invite-note" role="status">@_inviteNote</div>
+    }
 </div>
 
 @code {
@@ -92,6 +99,7 @@
     private DotNetObjectReference<Multiplayer> _callback;
     private bool _nameSubmitted;
     private bool _sceneReady;
+    private string _inviteNote;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -185,6 +193,16 @@
     {
         try { await JS.InvokeVoidAsync("pokerRealtime.act", _roomCode, action, amount); }
         catch (JSException ex) { _error = ex.Message; }
+    }
+
+    private async Task TextAnotherFriend()
+    {
+        string url = await JS.InvokeAsync<string>("pokerInvite.url", _roomCode);
+        string result = await JS.InvokeAsync<string>(
+            "pokerInvite.text", url, "Your friend");
+        _inviteNote = result == "opened"
+            ? "Messages opened with this table link. Your friend will choose their own seat."
+            : "Could not open Messages. Share this table URL manually.";
     }
 
     private Task AggressiveAction() =>
