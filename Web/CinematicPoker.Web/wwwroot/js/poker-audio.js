@@ -140,7 +140,8 @@ window.pokerAudio = (function () {
     ];
     const STREET_MUSIC_TRACKS = [
         'audio/street/urban-battle-bpm135.mp3',
-        'audio/street/fight-looped.wav'
+        'audio/street/fight-looped.wav',
+        'audio/street/crushing-enemies-dos.mp3'
     ];
     const SALOON_AMBIENCE_URL = 'audio/saloon-bar-ambience.mp3';
     const STREET_AMBIENCE_URL = 'audio/street/crowd-shouting.ogg';
