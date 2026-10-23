@@ -1802,7 +1802,7 @@ async function buildScene(canvas) {
     new THREE.CylinderGeometry(0.55, 0.6, 0.05, 24),
     new THREE.MeshStandardMaterial({
       map: texture('img/floor_planks.jpg'),
-      color: 0xffffff,
+      color: 0x6e4526,
       roughness: 0.85
     }));
   base.position.y = 0.025;
