@@ -116,6 +116,13 @@
     <!-- Bump ?v= on scene/audio changes so phones don't serve a stale cache. -->
     <script src="js/poker-profile.js?v=1"></script>
     <script src="js/poker-invite.js?v=1"></script>
+    <script>
+        // Local beta: the Blazor dev server runs on 5000 while the SignalR
+        // process runs on 5080. Production keeps both behind one origin.
+        if (!window.pokerRealtimeEndpoint && window.location.port === "5000")
+            window.pokerRealtimeEndpoint =
+                window.location.protocol + "//" + window.location.hostname + ":5080/gamehub";
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.31/dist/browser/signalr.min.js"></script>
     <script src="js/poker-realtime.js?v=1"></script>
     <script src="js/poker-session.js?v=1"></script>
