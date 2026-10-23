@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Bake the Street Fighter table scene for the web client.
 
-Reads the cartoon boxing arena and the two Arcade Fighter characters (plus
-their texture variations) out of an unpacked Unity export, retargets the
+Reads the cartoon boxing arena (UFC octagon featured) and the two Arcade
+Fighter characters (plus their texture variations) out of an unpacked Unity
+export, retargets the
 existing poker animation clips onto those skeletons, and writes:
 
   wwwroot/models/env/street-arena.glb
@@ -16,6 +17,7 @@ with the same catalogue. Only the meshes change.
 Environment:
   SF_ASSETS   unpacked Assets tree (default /tmp/sf-assets)
   SF_PREVIEW  if set, write a couple of PNG checks there
+  SF_ARENA_ONLY  if set, skip the fighters and only re-bake the arena
 """
 from __future__ import annotations
 
@@ -33,11 +35,20 @@ CHAR_DIR = os.path.join(WEB, "characters/street")
 JACOB = os.path.join(WEB, "characters/western/Jacob.glb")
 MIGHTY = os.path.join(WEB, "characters/western/mighty-cat.glb")
 PREVIEW = os.environ.get("SF_PREVIEW", "")
+ARENA_ONLY = bool(os.environ.get("SF_ARENA_ONLY"))
 
 # cm -> m, then enlarge so the featured ring clears the poker seats
 # (seat radius 1.74 m). Fence radius is ~1.49 m at 0.01; 0.018 lands ~2.7 m.
 ARENA_SCALE = 0.018
+# The FBX lays its six arenas out in a row in front of one set of stands.
+# The original bake framed the boxing ring (arena 5) in front of those
+# stands; the UFC octagon (arena 1, from the "cartoon boxing arena 1" prefab)
+# now takes that spot and the ring moves to where the octagon stood.
 RING_MESH = "cartoon boxing arena 5"
+OCTAGON_MESH = "cartoon boxing arena 1"
+OCTAGON_FENCE = "cartoon boxing arena 1_Fecen"
+OCTAGON_PROPS = ("cau thang", "chair", "table")
+RING_PARTS = ("cartoon boxing arena 5", "cartoon boxing arena_high light")
 
 RENAME = {
     "Pelvis": "pelvis",
@@ -757,19 +768,53 @@ def assign_arena_material(mat):
         bsdf.inputs["Emission Strength"].default_value = 4.0
 
 
+def canvas_height(obj, center_xy, radius):
+    """Height of the largest upward-facing surface within `radius` of centre."""
+    areas = {}
+    n3 = obj.matrix_world.to_3x3()
+    for poly in obj.data.polygons:
+        if (n3 @ poly.normal).normalized().z < 0.99:
+            continue
+        world = obj.matrix_world @ poly.center
+        if (world.xy - center_xy).length > radius:
+            continue
+        key = round(world.z, 1)
+        areas[key] = areas.get(key, 0.0) + poly.area
+    if not areas:
+        raise RuntimeError(f"no canvas found on {obj.name}")
+    return max(areas, key=areas.get)
+
+
 def bake_arena():
     reset_file()
     bpy.ops.import_scene.fbx(filepath=os.path.join(ASSETS, "cartoon boxing arena/cartoon boxing arena.FBX"))
     ring = bpy.data.objects.get(RING_MESH)
-    if ring is None:
-        raise RuntimeError("featured ring mesh missing")
+    fence = bpy.data.objects.get(OCTAGON_FENCE)
+    octagon = bpy.data.objects.get(OCTAGON_MESH)
+    if ring is None or fence is None or octagon is None:
+        raise RuntimeError("featured ring or octagon mesh missing")
     mins, maxs = world_bbox(ring)
-    center = (mins + maxs) / 2
-    print("ring center cm", tuple(round(v, 1) for v in center), "size", tuple(round(v, 1) for v in (maxs - mins)))
+    ring_center = (mins + maxs) / 2
+    fmins, fmaxs = world_bbox(fence)
+    oct_center = (fmins + fmaxs) / 2
+    print("ring center cm", tuple(round(v, 1) for v in ring_center), "size", tuple(round(v, 1) for v in (maxs - mins)))
+    print("octagon center cm", tuple(round(v, 1) for v in oct_center), "size", tuple(round(v, 1) for v in (fmaxs - fmins)))
 
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
-    shift = Matrix.Translation((-center.x, -center.y, -mins.z))
+    swap = Vector((ring_center.x - oct_center.x, ring_center.y - oct_center.y, 0.0))
+    for obj in list(bpy.data.objects):
+        name = obj.name.strip()
+        if name.startswith(OCTAGON_MESH) or name.startswith(OCTAGON_PROPS):
+            obj.matrix_world = Matrix.Translation(swap) @ obj.matrix_world
+        elif name.startswith(RING_PARTS):
+            obj.matrix_world = Matrix.Translation(-swap) @ obj.matrix_world
+    bpy.context.view_layer.update()
+    canvas_z = canvas_height(octagon, ring_center.xy, 90.0)
+    print("octagon canvas cm", canvas_z)
+
+    # Octagon canvas lands on y=0, where the poker table's foot stands.
+    shift = Matrix.Translation((-ring_center.x, -ring_center.y, -canvas_z))
     scale = Matrix.Diagonal((ARENA_SCALE, ARENA_SCALE, ARENA_SCALE, 1))
     xform = scale @ shift
     for obj in list(bpy.data.objects):
@@ -828,6 +873,8 @@ def main():
         ("Arcade Fighters/Fighter2/3D/Fighter2 Variation.FBX", "Fighter2-variation.glb"),
     ]
     for rel, name in fighters:
+        if ARENA_ONLY:
+            break
         print("===", name)
         bake_character(os.path.join(ASSETS, rel), os.path.join(CHAR_DIR, name))
     print("=== arena")
