@@ -9,10 +9,10 @@ public sealed class PokerHub : Hub
 {
     private static readonly RoomStore Rooms = new();
 
-    public async Task<TableView> Join(string roomCode, string playerName)
+    public async Task<TableView> Join(string roomCode, string playerName, string playerId = "")
     {
         Room room = Rooms.Get(roomCode);
-        int seat = room.Join(Context.ConnectionId, CleanName(playerName));
+        int seat = room.Join(Context.ConnectionId, CleanName(playerName), playerId);
         await Groups.AddToGroupAsync(Context.ConnectionId, room.Code);
         room.Advance();
         await room.BroadcastAsync(Clients);
@@ -75,6 +75,7 @@ internal sealed class Room
     private const int HumanSeats = 5;
     private readonly object _gate = new();
     private readonly Dictionary<string, int> _connections = new();
+    private readonly Dictionary<string, int> _playerSeats = new();
     private readonly PokerGame _game;
     private readonly Dictionary<int, string> _names = Enumerable.Range(0, HumanSeats)
         .ToDictionary(seat => seat, seat => seat == 0 ? "Host" : $"Friend {seat}");
@@ -105,16 +106,32 @@ internal sealed class Room
         lock (_gate) return _connections.ContainsKey(id);
     }
 
-    public int Join(string connectionId, string name)
+    public int Join(string connectionId, string name, string playerId)
     {
         lock (_gate)
         {
             if (_connections.TryGetValue(connectionId, out int existing)) return existing;
-            int seat = Enumerable.Range(0, HumanSeats)
-                .FirstOrDefault(candidate => !_connections.Values.Contains(candidate), -1);
+            int seat;
+            if (!string.IsNullOrWhiteSpace(playerId)
+                && _playerSeats.TryGetValue(playerId, out int rememberedSeat))
+            {
+                // SignalR reconnects get a new connection id. Reclaim the
+                // same seat and evict the stale connection mapping.
+                foreach (string stale in _connections
+                    .Where(pair => pair.Value == rememberedSeat)
+                    .Select(pair => pair.Key).ToArray())
+                    _connections.Remove(stale);
+                seat = rememberedSeat;
+            }
+            else
+            {
+                seat = Enumerable.Range(0, HumanSeats)
+                    .FirstOrDefault(candidate => !_connections.Values.Contains(candidate), -1);
+            }
             if (seat < 0)
                 throw new HubException("This table already has five human players.");
             _connections[connectionId] = seat;
+            if (!string.IsNullOrWhiteSpace(playerId)) _playerSeats[playerId] = seat;
             _names[seat] = name;
             _game.GetPlayer(seat).Status = PlayerStatus.Active;
             _game.GetPlayer(seat).Stack = TableRules.Default.StartingStack;
