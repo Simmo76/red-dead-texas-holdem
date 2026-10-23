@@ -494,7 +494,10 @@ const CHIP_TEXTURES = {
 // all chips share one mesh and one material per colour — building fresh
 // GPU resources per chip leaked them on every bet of every hand.
 // The mesh is the low-poly Poker Chips pack, baked to the old cylinder size
-// (radius 0.045, height 0.012) so stack positions do not move.
+// (radius 0.045, height 0.012) and then scaled by CHIP_SCALE. Dealer and
+// blind pucks are sized separately and do not follow CHIP_SCALE.
+const CHIP_SCALE = 2;
+const CHIP_HEIGHT = 0.012 * CHIP_SCALE;
 let _chipGeo = null;
 let _chipFallback = null;
 let _chipNormal = null;
@@ -502,7 +505,9 @@ let _chipRough = null;
 const _chipMats = new Map();
 function chipGeometry() {
   if (_chipGeo) return _chipGeo;
-  if (!_chipFallback) _chipFallback = new THREE.CylinderGeometry(0.045, 0.045, 0.012, 20);
+  if (!_chipFallback) {
+    _chipFallback = new THREE.CylinderGeometry(0.045 * CHIP_SCALE, 0.045 * CHIP_SCALE, CHIP_HEIGHT, 20);
+  }
   return _chipFallback;
 }
 // glTF UVs keep the texture upright. TextureLoader flips images by default,
@@ -534,7 +539,7 @@ function adoptChipMesh(gltf) {
   let src = null;
   gltf.scene.traverse((obj) => { if (!src && obj.isMesh) src = obj; });
   if (!src || !src.geometry) return;
-  _chipGeo = src.geometry;
+  _chipGeo = src.geometry.clone().scale(CHIP_SCALE, CHIP_SCALE, CHIP_SCALE);
   _chipNormal = chipTexture('models/props/chips/normal.png', false);
   _chipRough = chipTexture('models/props/chips/roughness.png', false);
   _chipMats.clear();
@@ -543,6 +548,7 @@ function adoptChipMesh(gltf) {
 function makeChipStacks(amount, spread = 0.05) {
   const group = new THREE.Group();
   if (amount <= 0) return group;
+  spread *= CHIP_SCALE;
   const chips = Math.min(24, 1 + Math.floor(amount / 60));
   const perStack = 8;
   for (let i = 0; i < chips; i++) {
@@ -550,7 +556,10 @@ function makeChipStacks(amount, spread = 0.05) {
     const level = i % perStack;
     const chip = new THREE.Mesh(chipGeometry(), chipMaterial(CHIP_COLORS[(i + stack) % CHIP_COLORS.length]));
     chip.castShadow = true;
-    chip.position.set(stack * spread * 1.9 - spread, 0.007 + level * 0.0125, (stack % 2) * spread * 0.8);
+    chip.position.set(
+      stack * spread * 1.9 - spread,
+      CHIP_HEIGHT / 2 + 0.001 + level * (CHIP_HEIGHT + 0.0005),
+      (stack % 2) * spread * 0.8);
     chip.rotation.y = Math.random() * Math.PI;
     group.add(chip);
   }
