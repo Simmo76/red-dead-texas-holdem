@@ -72,10 +72,12 @@ internal sealed class RoomStore
 
 internal sealed class Room
 {
+    private const int HumanSeats = 5;
     private readonly object _gate = new();
     private readonly Dictionary<string, int> _connections = new();
     private readonly PokerGame _game;
-    private readonly Dictionary<int, string> _names = new() { [0] = "Host", [1] = "Friend" };
+    private readonly Dictionary<int, string> _names = Enumerable.Range(0, HumanSeats)
+        .ToDictionary(seat => seat, seat => seat == 0 ? "Host" : $"Friend {seat}");
     private bool _started;
 
     public string Code { get; }
@@ -83,18 +85,18 @@ internal sealed class Room
     public Room(string code)
     {
         Code = code;
-        var players = new List<PokerPlayer>
+        var players = new List<PokerPlayer>();
+        for (int seat = 0; seat < HumanSeats; seat++)
         {
-            new HumanPlayer("human-0", "Host", 0, TableRules.Default.StartingStack),
-            new HumanPlayer("human-1", "Friend", 1, TableRules.Default.StartingStack)
-        };
-        var profiles = new Func<AIProfile>[]
-        {
-            AIProfile.Maniac, AIProfile.Regular, AIProfile.Rock, AIProfile.Professional
-        };
-        for (int i = 0; i < profiles.Length; i++)
-            players.Add(new AIPlayer($"npc{i}", $"NPC {i + 1}", i + 2,
-                TableRules.Default.StartingStack, profiles[i](), Environment.TickCount + i));
+            var human = new HumanPlayer($"human-{seat}", _names[seat], seat,
+                TableRules.Default.StartingStack);
+            // An empty invited seat must not be dealt into the hand or become
+            // an actor the server waits for before that friend arrives.
+            human.Status = PlayerStatus.Eliminated;
+            players.Add(human);
+        }
+        players.Add(new AIPlayer("npc0", "NPC 1", HumanSeats,
+            TableRules.Default.StartingStack, AIProfile.Professional(), Environment.TickCount));
         _game = new PokerGame(TableRules.Default, players, Environment.TickCount);
     }
 
@@ -108,9 +110,10 @@ internal sealed class Room
         lock (_gate)
         {
             if (_connections.TryGetValue(connectionId, out int existing)) return existing;
-            int seat = _connections.Values.Contains(0) ? 1 : 0;
-            if (_connections.Values.Contains(seat))
-                throw new HubException("This table already has two human players.");
+            int seat = Enumerable.Range(0, HumanSeats)
+                .FirstOrDefault(candidate => !_connections.Values.Contains(candidate), -1);
+            if (seat < 0)
+                throw new HubException("This table already has five human players.");
             _connections[connectionId] = seat;
             _names[seat] = name;
             _game.GetPlayer(seat).Status = PlayerStatus.Active;
@@ -182,13 +185,14 @@ internal sealed class Room
                 CurrentSeat = _game.CurrentSeat,
                 Pot = round?.PotTotal ?? 0,
                 Board = round?.Board.Select(CardText).ToArray() ?? Array.Empty<string>(),
-                Hole = round?.GetSeat(viewerSeat).HoleCards.Select(CardText).ToArray() ?? Array.Empty<string>(),
+                Hole = round?.Seats.FirstOrDefault(s => s.Seat == viewerSeat)?
+                    .HoleCards.Select(CardText).ToArray() ?? Array.Empty<string>(),
                 Players = _game.Players.Select(p => new PlayerView
                 {
                     Seat = p.Seat,
-                    Name = p.Seat < 2 ? _names[p.Seat] : p.Name,
+                    Name = p.Seat < HumanSeats ? _names[p.Seat] : p.Name,
                     IsHuman = p.IsHuman,
-                    Connected = p.Seat >= 2 || _connections.Values.Contains(p.Seat),
+                    Connected = p.Seat >= HumanSeats || _connections.Values.Contains(p.Seat),
                     Stack = round?.Seats.FirstOrDefault(s => s.Seat == p.Seat)?.Stack ?? p.Stack,
                     Folded = round?.Seats.FirstOrDefault(s => s.Seat == p.Seat)?.Folded ?? false,
                     Bet = round?.Seats.FirstOrDefault(s => s.Seat == p.Seat)?.CommittedThisStreet ?? 0

@@ -1,7 +1,7 @@
 # Multiplayer beta server
 
 This is the first server-authoritative multiplayer slice. It keeps rooms in
-memory, seats two human connections, runs the four NPCs on the server, and
+memory, seats up to five human connections, runs NPCs in the remaining seats, and
 publishes each player's private hole cards only to that connection.
 
 Run it locally:
