@@ -540,8 +540,14 @@ function adoptChipMesh(gltf) {
   _chipMats.clear();
 }
 
+// Chips render at twice their modelled size. Scaling the stack group (not
+// the shared geometry) doubles chip size and stack spacing together, so
+// stacks never interpenetrate; the dealer/blind pucks are not affected.
+const CHIP_SCALE = 2;
+
 function makeChipStacks(amount, spread = 0.05) {
   const group = new THREE.Group();
+  group.scale.setScalar(CHIP_SCALE);
   if (amount <= 0) return group;
   const chips = Math.min(24, 1 + Math.floor(amount / 60));
   const perStack = 8;
@@ -2495,6 +2501,7 @@ function spawnChipToss(seatIndex, count = 3) {
     const chip = new THREE.Mesh(
       chipGeometry(),
       chipMaterial(CHIP_COLORS[Math.floor(Math.random() * CHIP_COLORS.length)]));
+    chip.scale.setScalar(CHIP_SCALE);
     chip.castShadow = true;
     const start = new THREE.Vector3(from.x, TABLE_TOP + 0.03, from.z);
     const end = POT_POS.clone().add(new THREE.Vector3(
