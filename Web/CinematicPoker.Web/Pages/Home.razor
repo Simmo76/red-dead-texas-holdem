@@ -766,6 +766,7 @@
 
     /* Matches the .intro-overlay.fading transition in app.css. */
     private const int IntroFadeMs = 3000;
+    private const int SceneLoadTimeoutMs = 15000;
 
     private async Task StartIntro()
     {
@@ -883,7 +884,9 @@
         if (!_sceneReady)
         {
             StateHasChanged();
-            for (int i = 0; i < 480 && !_sceneReady; i++)
+            var sceneWaitStarted = DateTime.UtcNow;
+            for (int i = 0; !_sceneReady
+                && (DateTime.UtcNow - sceneWaitStarted).TotalMilliseconds < SceneLoadTimeoutMs; i++)
             {
                 try
                 {

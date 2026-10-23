@@ -21,9 +21,10 @@ app.MapHub<PokerHub>("/gamehub");
 // Local beta convenience: serve the built WASM app beside the hub so an
 // iPhone only needs one public HTTPS URL. Production can put both behind a
 // proper reverse proxy instead.
-var webRoot = Path.GetFullPath(
-    "../CinematicPoker.Web/wwwroot",
-    app.Environment.ContentRootPath);
+var configuredWebRoot = Environment.GetEnvironmentVariable("DMH_WEB_ROOT");
+var webRoot = !string.IsNullOrWhiteSpace(configuredWebRoot)
+    ? Path.GetFullPath(configuredWebRoot)
+    : Path.GetFullPath("../CinematicPoker.Web/wwwroot", app.Environment.ContentRootPath);
 if (Directory.Exists(webRoot))
 {
     var provider = new PhysicalFileProvider(webRoot);
