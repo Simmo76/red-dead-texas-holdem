@@ -5,14 +5,14 @@
 
 <PageTitle>Dead Man's Hand — Multiplayer</PageTitle>
 
-<div class="multiplayer-page">
-    <canvas id="multiplayer-canvas"></canvas>
+<div class="game3d multiplayer-page">
+    <canvas id="poker-canvas"></canvas>
     <header class="multiplayer-header">
         <a class="multiplayer-back" href="/">← SALOON</a>
         <div class="brand">DEAD MAN'S <span>HAND</span></div>
         <div class="multiplayer-header-actions">
             <span class="multiplayer-room">TABLE @_roomCode</span>
-            <button class="chip-btn" @onclick="TextAnotherFriend">TEXT FRIEND</button>
+            <button class="chip-btn" @onclick="TextAnotherFriend">INVITE FRIEND</button>
             <button class="chip-btn" @onclick="EmailAnotherFriend">EMAIL FRIEND</button>
         </div>
     </header>
@@ -128,7 +128,7 @@
                 "pokerRealtime.start", _roomCode,
                 string.IsNullOrWhiteSpace(playerName) ? "Friend" : playerName, _callback);
             await JS.InvokeVoidAsync("pokerScene.setPlayerSeat", _state.YourSeat);
-            _sceneReady = await JS.InvokeAsync<bool>("pokerScene.init", "multiplayer-canvas");
+            _sceneReady = await JS.InvokeAsync<bool>("pokerScene.init", "poker-canvas");
             await JS.InvokeVoidAsync("pokerScene.focusSeat", _state.YourSeat);
             await PushScene();
         }
