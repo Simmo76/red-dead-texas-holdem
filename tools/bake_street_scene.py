@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Bake the Street Fighter table scene for the web client.
 
-Reads the cartoon boxing arena and the two Arcade Fighter characters (plus
+Reads the cartoon MMA arena showroom (featuring the UFC-style octagon,
+supplied as ufc_octagon.unitypackage) and the two Arcade Fighter characters (plus
 their texture variations) out of an unpacked Unity export, retargets the
 existing poker animation clips onto those skeletons, and writes:
 
@@ -34,10 +35,32 @@ JACOB = os.path.join(WEB, "characters/western/Jacob.glb")
 MIGHTY = os.path.join(WEB, "characters/western/mighty-cat.glb")
 PREVIEW = os.environ.get("SF_PREVIEW", "")
 
-# cm -> m, then enlarge so the featured ring clears the poker seats
-# (seat radius 1.74 m). Fence radius is ~1.49 m at 0.01; 0.018 lands ~2.7 m.
+# cm -> m, then enlarge so the featured arena clears the poker seats
+# (seat radius 1.74 m). At 0.018 the octagon cage lands ~2.0 m from centre in
+# the GLB (~4.4 m once the scene scales it), same room the old ring ropes had.
 ARENA_SCALE = 0.018
-RING_MESH = "cartoon boxing arena 5"
+# The pack is a showroom of six arenas. The featured one is the UFC-style
+# octagon (mesh 1, supplied as ufc_octagon.unitypackage); its cage mesh gives
+# the true play-area centre because mesh 1's bbox also covers the entry ramp.
+RING_MESH = "cartoon boxing arena 1"
+CAGE_MESH = "cartoon boxing arena 1_Fecen"
+# Venue dressing modelled around showroom slot 5 (where the boxing ring used
+# to be featured): the crowd stands, the entrance barrier, and the coloured
+# spotlight beams. Re-anchor these around the octagon with the same offsets
+# they had from slot 5, so the crowd still sits across from the player.
+VENUE_MESHES = {
+    " cartoon boxing arena_stands fence",
+    "cartoon boxing arena_ stands",
+    "cartoon boxing arena_fence ",
+    "Object005",
+    "cartoon boxing arena_high light _1",
+    "cartoon boxing arena_high light _2",
+    "cartoon boxing arena_high light _3",
+    "cartoon boxing arena_high light _4",
+    "cartoon boxing arena_high light _5",
+    "cartoon boxing arena_high light _6",
+}
+VENUE_ANCHOR = "cartoon boxing arena 5"
 
 RENAME = {
     "Pelvis": "pelvis",
@@ -761,19 +784,28 @@ def bake_arena():
     reset_file()
     bpy.ops.import_scene.fbx(filepath=os.path.join(ASSETS, "cartoon boxing arena/cartoon boxing arena.FBX"))
     ring = bpy.data.objects.get(RING_MESH)
-    if ring is None:
-        raise RuntimeError("featured ring mesh missing")
+    cage = bpy.data.objects.get(CAGE_MESH)
+    if ring is None or cage is None:
+        raise RuntimeError("featured octagon mesh missing")
     mins, maxs = world_bbox(ring)
-    center = (mins + maxs) / 2
-    print("ring center cm", tuple(round(v, 1) for v in center), "size", tuple(round(v, 1) for v in (maxs - mins)))
+    cage_mins, cage_maxs = world_bbox(cage)
+    center = (cage_mins + cage_maxs) / 2
+    print("octagon center cm", tuple(round(v, 1) for v in center), "size", tuple(round(v, 1) for v in (maxs - mins)))
+
+    anchor = bpy.data.objects.get(VENUE_ANCHOR)
+    if anchor is None:
+        raise RuntimeError("venue anchor mesh missing")
+    a_mins, a_maxs = world_bbox(anchor)
+    a_center = (a_mins + a_maxs) / 2
 
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
     shift = Matrix.Translation((-center.x, -center.y, -mins.z))
+    venue_shift = Matrix.Translation((-a_center.x, -a_center.y, -a_mins.z))
     scale = Matrix.Diagonal((ARENA_SCALE, ARENA_SCALE, ARENA_SCALE, 1))
-    xform = scale @ shift
     for obj in list(bpy.data.objects):
-        obj.matrix_world = xform @ obj.matrix_world
+        local = venue_shift if obj.name in VENUE_MESHES else shift
+        obj.matrix_world = (scale @ local) @ obj.matrix_world
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
