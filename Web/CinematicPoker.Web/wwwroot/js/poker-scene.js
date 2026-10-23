@@ -526,7 +526,10 @@ function makeChipMesh(color) {
   }
   const chip = _chipTemplate.clone(true);
   chip.scale.set(2.05, 2.05, 2.24);
-  chip.rotation.x = Math.PI / 2;
+  // The source FBX is authored flat in XY with thickness on Z. The poker
+  // table is XZ with Y up, so explicitly lay the source mesh flat before any
+  // per-chip yaw is applied.
+  chip.rotation.set(Math.PI / 2, Math.random() * Math.PI, 0);
   chip.traverse((part) => {
     if (!part.isMesh) return;
     part.material = chipMaterial(color);
@@ -545,7 +548,6 @@ function makeChipStacks(amount, spread = 0.05) {
     const level = i % perStack;
     const chip = makeChipMesh(CHIP_COLORS[(i + stack) % CHIP_COLORS.length]);
     chip.position.set(stack * spread * 1.9 - spread, 0.007 + level * 0.0125, (stack % 2) * spread * 0.8);
-    chip.rotation.y += Math.random() * Math.PI;
     group.add(chip);
   }
   return group;
