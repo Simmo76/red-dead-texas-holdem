@@ -13,9 +13,17 @@ The poker clips keep their names (IdleHoldCards*, IdleSit*, Win*, Lose*,
 Bet, Check, Fold, Talk, ...) so the scene player can drive the new bodies
 with the same catalogue. Only the meshes change.
 
+The arena FBX holds six rings in a row. The featured one (the caged
+octagon, "cartoon boxing arena 1") is centred on the origin with its base
+on z=0; the grandstand that ships behind ring 5 is carried over so it still
+sits behind the featured ring. The bake prints the canvas height of the
+exported GLB — copy it into STREET_CANVAS_Y in poker-scene.js so the table
+foot lands on the canvas.
+
 Environment:
-  SF_ASSETS   unpacked Assets tree (default /tmp/sf-assets)
-  SF_PREVIEW  if set, write a couple of PNG checks there
+  SF_ASSETS      unpacked Assets tree (default /tmp/sf-assets)
+  SF_PREVIEW     if set, write a couple of PNG checks there
+  SF_ARENA_ONLY  if set, skip the fighters and only bake the arena
 """
 from __future__ import annotations
 
@@ -35,9 +43,31 @@ MIGHTY = os.path.join(WEB, "characters/western/mighty-cat.glb")
 PREVIEW = os.environ.get("SF_PREVIEW", "")
 
 # cm -> m, then enlarge so the featured ring clears the poker seats
-# (seat radius 1.74 m). Fence radius is ~1.49 m at 0.01; 0.018 lands ~2.7 m.
+# (seat radius 1.74 m). Same factor as the rope ring this octagon replaced:
+# the cage (radius ~111 cm in the FBX) lands at ~2.0 m here and the scene
+# scales the venue again, so it ends up where the ropes used to be.
 ARENA_SCALE = 0.018
-RING_MESH = "cartoon boxing arena 5"
+RING_MESH = "cartoon boxing arena 1"
+# The cage. Its footprint is the canvas mat, so its centroid is the table
+# centre and its base marks the canvas level.
+RING_FENCE_MESH = "cartoon boxing arena 1_Fecen"
+# Ring 5 is the one the grandstand was modelled behind. These pieces (stands,
+# stands fence, the barrier bits between them and the ring) are shifted by
+# the ring-5 -> featured-ring offset so the backdrop composition survives.
+STANDS_ANCHOR_MESH = "cartoon boxing arena 5"
+STANDS_MESHES = {
+    "cartoon boxing arena_ stands",
+    "cartoon boxing arena_stands fence",
+    "cartoon boxing arena_fence",
+    "Object005",
+}
+# Materials whose texture carries a cutout (chain-link cage, stand fence).
+# Exported as alphaMode MASK so the cage reads as mesh instead of panels.
+CUTOUT_MATERIALS = {
+    "cartoon boxing arena 1",
+    "cartoon boxing arena 2",
+    "cartoon boxing arena_stands fence",
+}
 
 RENAME = {
     "Pelvis": "pelvis",
@@ -662,6 +692,15 @@ def bake_character(fbx_path, out_path):
         render_fighter_preview(arm, mesh)
 
 
+def preview_engine():
+    # Blender 4.2 renamed EEVEE; fall back to whatever this build offers.
+    options = bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items.keys()
+    for name in ("BLENDER_EEVEE", "BLENDER_EEVEE_NEXT", "BLENDER_WORKBENCH"):
+        if name in options:
+            return name
+    return options[0]
+
+
 def render_fighter_preview(arm, mesh):
     os.makedirs(PREVIEW, exist_ok=True)
     scene = bpy.context.scene
@@ -682,7 +721,7 @@ def render_fighter_preview(arm, mesh):
     look = Vector((0, 0, 1.0))
     cam.rotation_euler = (look - cam.location).to_track_quat("-Z", "Y").to_euler()
     scene.camera = cam
-    scene.render.engine = "BLENDER_EEVEE"
+    scene.render.engine = preview_engine()
     scene.render.resolution_x = 640
     scene.render.resolution_y = 480
     scene.render.filepath = os.path.join(PREVIEW, "fighter-sit.png")
@@ -700,9 +739,15 @@ def world_bbox(obj):
     return mins, maxs
 
 
+def _norm_name(name: str) -> str:
+    # FBX names carry stray spaces (" cartoon boxing arena_stands fence",
+    # "cartoon boxing arena_fence "); compare them collapsed.
+    return " ".join(name.strip().split())
+
+
 def arena_texture(mat_name: str):
     folder = os.path.join(ASSETS, "cartoon boxing arena")
-    key = " ".join(mat_name.strip().lower().split())
+    key = _norm_name(mat_name).lower()
     table = {
         "cartoon boxing arena 1": "cartoon boxing arena 1.png",
         "cartoon boxing arena 2": "cartoon boxing arena 2.png",
@@ -747,6 +792,20 @@ def assign_arena_material(mat):
     tex.image = bpy.data.images.load(path)
     tex.image.colorspace_settings.name = "sRGB"
     nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+    if _norm_name(mat.name) in CUTOUT_MATERIALS and "Alpha" in bsdf.inputs:
+        # Alpha -> Round -> Alpha is what the glTF exporter reads as
+        # alphaMode MASK (cutoff 0.5). Drop whatever the FBX importer wired
+        # into the alpha socket first, or the mesh ships as BLEND and the
+        # scene's glass treatment turns the cage into a 55 % translucent wall.
+        for link in list(nt.links):
+            if link.to_node is bsdf and link.to_socket.name == "Alpha":
+                nt.links.remove(link)
+        clip = nt.nodes.new("ShaderNodeMath")
+        clip.operation = "ROUND"
+        nt.links.new(tex.outputs["Alpha"], clip.inputs[0])
+        nt.links.new(clip.outputs[0], bsdf.inputs["Alpha"])
+        mat.blend_method = "CLIP"
+        mat.alpha_threshold = 0.5
     if "Roughness" in bsdf.inputs:
         bsdf.inputs["Roughness"].default_value = 0.82
     if "Metallic" in bsdf.inputs:
@@ -757,18 +816,63 @@ def assign_arena_material(mat):
         bsdf.inputs["Emission Strength"].default_value = 4.0
 
 
+def world_verts(obj):
+    return [obj.matrix_world @ v.co for v in obj.data.vertices]
+
+
+def canvas_top_z(ring, fence_center, fence_radius, fence_floor_z):
+    """World z of the mat inside the cage: the lowest upward-facing face of
+    the ring mesh that sits at or above the cage base and lies wholly inside
+    the cage footprint (the skirt around the cage spills past it, the padded
+    top rail is higher)."""
+    rot = ring.matrix_world.to_3x3()
+    verts = ring.data.vertices
+    best = None
+    for poly in ring.data.polygons:
+        if (rot @ poly.normal).normalized().z < 0.95:
+            continue
+        c = ring.matrix_world @ poly.center
+        if c.z < fence_floor_z - 0.5:
+            continue
+        inside = all(
+            ((ring.matrix_world @ verts[i].co) - fence_center).xy.length <= fence_radius + 1.0
+            for i in poly.vertices)
+        if not inside:
+            continue
+        if best is None or c.z < best:
+            best = c.z
+    if best is None:
+        raise RuntimeError("could not find the canvas face inside the cage")
+    return best
+
+
 def bake_arena():
     reset_file()
     bpy.ops.import_scene.fbx(filepath=os.path.join(ASSETS, "cartoon boxing arena/cartoon boxing arena.FBX"))
     ring = bpy.data.objects.get(RING_MESH)
-    if ring is None:
-        raise RuntimeError("featured ring mesh missing")
+    fence = bpy.data.objects.get(RING_FENCE_MESH)
+    anchor = bpy.data.objects.get(STANDS_ANCHOR_MESH)
+    if ring is None or fence is None or anchor is None:
+        raise RuntimeError("featured ring / cage / stands anchor mesh missing")
     mins, maxs = world_bbox(ring)
-    center = (mins + maxs) / 2
-    print("ring center cm", tuple(round(v, 1) for v in center), "size", tuple(round(v, 1) for v in (maxs - mins)))
+    fence_pts = world_verts(fence)
+    center = sum(fence_pts, Vector((0, 0, 0))) / len(fence_pts)
+    fence_floor = min(p.z for p in fence_pts)
+    fence_radius = max((p - center).xy.length for p in fence_pts)
+    canvas_z = canvas_top_z(ring, center, fence_radius, fence_floor)
+    print("ring bbox cm", tuple(round(v, 1) for v in mins), tuple(round(v, 1) for v in maxs))
+    print("cage centre cm", tuple(round(v, 1) for v in center), "cage radius cm", round(fence_radius, 1))
+    print("canvas top cm", round(canvas_z, 2), "-> STREET_CANVAS_Y =", round((canvas_z - mins.z) * ARENA_SCALE, 4))
+
+    # Carry the grandstand across so it keeps its offset from the featured ring.
+    a_min, a_max = world_bbox(anchor)
+    stands_shift = Matrix.Translation((center.x - (a_min.x + a_max.x) / 2, center.y - (a_min.y + a_max.y) / 2, 0))
 
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
+    for obj in list(bpy.data.objects):
+        if _norm_name(obj.name) in STANDS_MESHES:
+            obj.matrix_world = stands_shift @ obj.matrix_world
     shift = Matrix.Translation((-center.x, -center.y, -mins.z))
     scale = Matrix.Diagonal((ARENA_SCALE, ARENA_SCALE, ARENA_SCALE, 1))
     xform = scale @ shift
@@ -812,7 +916,7 @@ def bake_arena():
         look = Vector((0, 0.5, 1.1))
         cam.rotation_euler = (look - cam.location).to_track_quat("-Z", "Y").to_euler()
         scene.camera = cam
-        scene.render.engine = "BLENDER_EEVEE"
+        scene.render.engine = preview_engine()
         scene.render.resolution_x = 768
         scene.render.resolution_y = 432
         scene.render.filepath = os.path.join(PREVIEW, "arena.png")
@@ -827,9 +931,10 @@ def main():
         ("Arcade Fighters/Fighter2/3D/Fighter2.FBX", "Fighter2.glb"),
         ("Arcade Fighters/Fighter2/3D/Fighter2 Variation.FBX", "Fighter2-variation.glb"),
     ]
-    for rel, name in fighters:
-        print("===", name)
-        bake_character(os.path.join(ASSETS, rel), os.path.join(CHAR_DIR, name))
+    if not os.environ.get("SF_ARENA_ONLY"):
+        for rel, name in fighters:
+            print("===", name)
+            bake_character(os.path.join(ASSETS, rel), os.path.join(CHAR_DIR, name))
     print("=== arena")
     bake_arena()
 

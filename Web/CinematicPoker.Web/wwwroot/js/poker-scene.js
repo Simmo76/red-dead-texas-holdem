@@ -183,16 +183,17 @@ const WESTERN_SCALE = 1.098;
 // Fighters are exported in metres (standing height ~1.8). The seat placer
 // drops the posed hands onto the felt, same as the cowboys.
 const FIGHTER_SCALE = 1;
-// The featured ring's ropes sit about 1.9 m from centre in the exported GLB,
-// almost on top of the 1.74 m seat circle, so they cut through shoulders.
-// Scale the whole venue so the ropes land near 4.2 m and the stands read
-// as a room around the ring instead of a wall just behind the posts.
+// The featured ring is the caged octagon from the same arena pack as the
+// rope ring it replaced, baked at the same cm->m factor. Its cage sits
+// about 2.0 m from centre in the exported GLB, barely outside the 1.74 m
+// seat circle, so the same venue scale pushes the fence out to ~4.4 m and
+// keeps the stands reading as a room around the cage.
 const STREET_ARENA_SCALE = 2.2;
-// The ring canvas is a flat face at this height in the exported GLB. Scale
-// is about the origin, so that face would land near the felt (~0.80 m).
-// The table stand's foot sits on y=0; drop the backdrop by the scaled canvas
-// height so the canvas floor meets that foot.
-const STREET_CANVAS_Y = 0.3637;
+// The octagon canvas is a flat face at this height in the exported GLB
+// (tools/bake_street_scene.py prints it). Scale is about the origin, so
+// that face would land near the felt. The table stand's foot sits on y=0;
+// drop the backdrop by the scaled canvas height so the canvas meets that foot.
+const STREET_CANVAS_Y = 0.2986;
 const FIGHTER_URLS = [
   'models/characters/street/Fighter1.glb?v=3',
   'models/characters/street/Fighter1-variation.glb?v=3',
@@ -1588,7 +1589,7 @@ async function buildScene(canvas) {
   const loadSaloon = () => {
     if (state.saloon || saloonLoad) return saloonLoad;
     const backdropUrl = TABLE_SCENE === 'street'
-      ? 'models/env/street-arena.glb?v=2'
+      ? 'models/env/street-arena.glb?v=3'
       : 'models/env/backdrop.glb?v=2';
     saloonLoad = loadGlb(loader, backdropUrl).then((gltf) => {
       if (!gltf) {
@@ -1599,7 +1600,7 @@ async function buildScene(canvas) {
       const env = new THREE.Group();
       const saloon = gltf.scene;
       if (TABLE_SCENE === 'street') {
-        // Arena export already puts the featured ring on the origin and the
+        // Arena export already puts the octagon on the origin and the
         // stands on glTF -Z, across the table from the player seat.
         saloon.rotation.y = 0;
         saloon.position.set(0, -STREET_CANVAS_Y * STREET_ARENA_SCALE, 0);
