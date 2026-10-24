@@ -141,7 +141,18 @@ window.pokerAudio = (function () {
     const STREET_MUSIC_TRACKS = [
         'audio/street/urban-battle-bpm135.mp3',
         'audio/street/fight-looped.wav',
-        'audio/street/crushing-enemies-dos.mp3'
+        'audio/street/crushing-enemies-dos.mp3',
+        // Owner-supplied "BATTLE MUSIC Volume 162 / CLASSIC ARCADE GAME" beds
+        // (Dropbox pack; filenames shortened for the web build).
+        'audio/street/battle-music-vol162-01.mp3',
+        'audio/street/battle-music-vol162-02.mp3',
+        'audio/street/battle-music-vol162-03.mp3',
+        'audio/street/battle-music-vol162-04.mp3',
+        'audio/street/battle-music-vol162-05.mp3',
+        'audio/street/battle-music-vol162-07.mp3',
+        'audio/street/battle-music-vol162-09.mp3',
+        'audio/street/battle-music-vol162-10.mp3',
+        'audio/street/battle-music-vol162-11.mp3'
     ];
     const SALOON_AMBIENCE_URL = 'audio/saloon-bar-ambience.mp3';
     const STREET_AMBIENCE_URL = 'audio/street/crowd-shouting.ogg';
