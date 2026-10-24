@@ -134,5 +134,16 @@
         return !!connection && connection.state === 'Connected';
     }
 
-    w.pokerRealtime = { host: host, join: join, toHost: toHost, toGuest: toGuest, leave: leave, stop: stop, isLive: isLive };
+    // The table-chat log is a fixed-height box; keep the newest line in view
+    // after Blazor renders it. No-op when the panel is collapsed.
+    function scrollChat() {
+        var el = document.getElementById('chat-log');
+        if (!el) return;
+        el.scrollTop = el.scrollHeight;
+    }
+
+    w.pokerRealtime = {
+        host: host, join: join, toHost: toHost, toGuest: toGuest,
+        leave: leave, stop: stop, isLive: isLive, scrollChat: scrollChat
+    };
 })(window);
