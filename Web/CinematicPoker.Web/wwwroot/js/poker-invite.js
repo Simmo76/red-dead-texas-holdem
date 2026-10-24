@@ -2,6 +2,7 @@
 // email, the native share sheet, or the clipboard.
 (function (w) {
     var ROOM_KEY = 'dead-mans-hand-room';
+    var HOSTING_KEY = 'dead-mans-hand-hosting';
 
     function randomRoom() {
         if (w.crypto && w.crypto.getRandomValues) {
@@ -22,6 +23,19 @@
             try { sessionStorage.setItem(ROOM_KEY, room); } catch (e) { }
         }
         return room;
+    }
+
+    // The host page can reload mid-game (changing the table scene does it).
+    // Remember that this tab was hosting so the table re-opens by itself.
+    function markHosting() {
+        try { sessionStorage.setItem(HOSTING_KEY, '1'); } catch (e) { }
+    }
+
+    function hostedRoom() {
+        try {
+            if (sessionStorage.getItem(HOSTING_KEY) === '1') return sessionStorage.getItem(ROOM_KEY) || '';
+        } catch (e) { }
+        return '';
     }
 
     function inviteUrl(room) {
@@ -79,6 +93,8 @@
 
     w.pokerInvite = {
         goHome: goHome,
+        markHosting: markHosting,
+        hostedRoom: hostedRoom,
         ensureRoom: ensureRoom,
         url: inviteUrl,
         roomFromUrl: roomFromUrl,

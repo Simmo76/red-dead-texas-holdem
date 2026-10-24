@@ -1032,6 +1032,8 @@
                     StartSessionCore(run: !_isGuest);
             }
             StateHasChanged();
+            if (_isGuest && !string.IsNullOrEmpty(_playerName)) _ = ConnectGuestAsync();
+            else _ = ResumeHostingAfterReload();
 
             // The scene module loads asynchronously; retry until it's there.
             for (int i = 0; i < 60 && !_sceneReady; i++)
@@ -1235,14 +1237,14 @@
             _game = new PokerGame(TableRules.Default, players, _rng.Next());
             _game.EventEmitted += OnEngineEvent;
             _game.RestoreProgress(saved.handNumber, saved.dealerSeat);
-            if (saved.round != null)
+            if (saved.round != null && saved.round.phase != HandPhase.Complete)
             {
                 _game.RestoreRound(saved.round);
                 _shownBoard.AddRange(_game.CurrentRound.Board);
             }
             _handLog = new HandSequenceLog();
             _handLog.BeginSession(0, TableRules.Default, players);
-            _statusLine = saved.round == null ? "Dealing…" : "Resuming your hand…";
+            _statusLine = saved.round == null || saved.round.phase == HandPhase.Complete ? "Dealing…" : "Resuming your hand…";
             _ = RunLoop(++_loopToken);
         }
         catch (Exception ex) when (ex is JsonException || ex is ArgumentException || ex is InvalidOperationException)
@@ -1263,7 +1265,9 @@
             tableScene = _tableScene,
             handNumber = _game.HandNumber,
             dealerSeat = _game.DealerSeat,
-            round = Round?.Capture()
+            // A finished hand has nothing left to resume; the saved stacks
+            // already include its result, so the next deal simply follows.
+            round = Round is { IsComplete: false } ? Round.Capture() : null
         };
         foreach (PokerPlayer player in _game.Players)
         {
@@ -1929,6 +1933,7 @@
     private bool _isGuest;
     private bool _hosting;
     private bool _guestJoined;
+    private bool _guestConnecting;
     private bool _guestOverDismissed;
     private int _guestRot;
     private bool _inviteOpen;
@@ -2080,7 +2085,27 @@
         _selfRef ??= DotNetObjectReference.Create(this);
         string json = await JS.InvokeAsync<string>("pokerRealtime.host", _roomCode, _selfRef);
         _hosting = true;
+        await SafeInvoke("pokerInvite.markHosting");
         ApplyGuestRoster(json);
+    }
+
+    // A reload (e.g. switching the table scene) drops the host's connection;
+    // reopen the same room straight away so friends are not left waiting.
+    private async Task ResumeHostingAfterReload()
+    {
+        if (_isGuest || _hosting || _game == null) return;
+        try
+        {
+            string room = await JS.InvokeAsync<string>("pokerInvite.hostedRoom");
+            if (string.IsNullOrEmpty(room)) return;
+            _roomCode = room;
+            _inviteUrl = await JS.InvokeAsync<string>("pokerInvite.url", _roomCode);
+            await EnsureHosting();
+        }
+        catch (JSException ex)
+        {
+            Console.Error.WriteLine($"Could not resume hosting: {ex.Message}");
+        }
     }
 
     private void ApplyGuestRoster(string json)
@@ -2265,6 +2290,8 @@
 
     private async Task ConnectGuestAsync()
     {
+        if (_guestConnecting || _guestJoined) return;
+        _guestConnecting = true;
         _mpPill = "JOINING THE TABLE…";
         _statusLine = "Joining the table…";
         StateHasChanged();
@@ -2276,6 +2303,7 @@
             if (result == null || !result.Ok)
             {
                 _mpPill = "";
+                _guestConnecting = false;
                 _guestError = string.IsNullOrEmpty(result?.Error) ? "Couldn't join this table." : result.Error;
             }
             else
@@ -2290,6 +2318,7 @@
             _mpPill = "";
             _guestError = $"Couldn't reach the table ({ex.Message}). Check the link and try again.";
         }
+        _guestConnecting = false;
         StateHasChanged();
     }
 
