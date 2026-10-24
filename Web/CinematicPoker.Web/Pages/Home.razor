@@ -70,7 +70,7 @@
         </div>
     </header>
 
-    @if (!string.IsNullOrEmpty(_mpPill))
+    @if (ShowFriendPill)
     {
         <div class="friend-seat-pill" role="status">
             <span class="friend-seat-dot"></span>
@@ -216,7 +216,65 @@
         </div>
     }
 
-    <div class="hud-bottom-row">
+    <div class="hud-bottom-row @(ShowChat ? "with-chat" : "") @(_chatCollapsed ? "" : "chat-open")">
+
+    @* Friends talk from the left end of this row — the left thumb in
+       landscape, and a slot that's empty except on your own turn, when
+       Maximilian sits just to its right. Hidden entirely while you're
+       the only human here. The header carries who's seated, so the old
+       floating "at the table" pill can stay out of the top-left corner. *@
+    @if (ShowChat)
+    {
+        <section class="table-chat @(_chatCollapsed ? "collapsed" : "") @(_chatCollapsed && _chatUnread > 0 ? "has-unread" : "")"
+                 aria-label="Table chat" @onclick:stopPropagation="true">
+            <button type="button" class="table-chat-toggle" @onclick="ToggleChat"
+                    aria-expanded="@(!_chatCollapsed)"
+                    title="@(_chatCollapsed ? "Show table chat" : "Hide table chat")">
+                <span class="table-chat-mark" aria-hidden="true"></span>
+                <span class="table-chat-heading">CHAT</span>
+                @if (_chatCollapsed && _chatUnread > 0)
+                {
+                    <span class="table-chat-unread">@(_chatUnread > 9 ? "9+" : _chatUnread.ToString())</span>
+                }
+                <span class="table-chat-who">@ChatBarHint</span>
+                <span class="table-chat-chevron" aria-hidden="true"></span>
+            </button>
+            @if (!_chatCollapsed)
+            {
+                <div class="table-chat-log" id="chat-log" role="log" aria-live="polite">
+                    @if (_chat.Count == 0)
+                    {
+                        <p class="table-chat-empty">The table's quiet. Say howdy.</p>
+                    }
+                    else
+                    {
+                        @foreach (var line in _chat)
+                        {
+                            @if (line.System)
+                            {
+                                <p class="table-chat-line system" @key="line.Id">@line.Text</p>
+                            }
+                            else
+                            {
+                                <p class="table-chat-line @(line.Mine ? "mine" : "")" @key="line.Id">
+                                    <span class="table-chat-name" style="color:@SeatColor(line.Seat)">@line.Name</span>
+                                    <span class="table-chat-text">@line.Text</span>
+                                </p>
+                            }
+                        }
+                    }
+                </div>
+                <form class="table-chat-form" @onsubmit="SubmitChat" @onsubmit:preventDefault="true">
+                    <input class="table-chat-input" type="text" maxlength="@ChatMaxLength"
+                           placeholder="Talk to the table…"
+                           autocomplete="off" enterkeyhint="send"
+                           aria-label="Message the table"
+                           @bind="_chatDraft" @bind:event="oninput" />
+                    <button class="act small table-chat-send" type="submit" disabled="@(!CanSendChat)">SEND</button>
+                </form>
+            }
+        </section>
+    }
 
     @* Expanded close-up moves this window up under the pot pill instead
        (see the hud-meters block above). Round == null is a safety net so
@@ -1013,6 +1071,13 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_chatPendingScroll)
+        {
+            _chatPendingScroll = false;
+            try { await JS.InvokeVoidAsync("pokerRealtime.scrollChat"); }
+            catch (JSException) { }
+            catch (InvalidOperationException) { }
+        }
         if (firstRender)
         {
             if (string.IsNullOrEmpty(_playerName))
@@ -1984,6 +2049,7 @@
         public PokerRoundSnapshot round;
         public string text;
         public string scene;      // state | hand: the host's table scene, which friends follow
+        public string who;        // chat: speaker name; rename: the friend's new name
     }
 
     private static readonly JsonSerializerOptions MpJson = new JsonSerializerOptions
@@ -2002,6 +2068,87 @@
     private readonly Dictionary<int, PlayerAction> _remoteActions = new();
     private readonly Dictionary<int, string> _seatNames = new();
     private readonly HashSet<int> _guestHumanSeats = new();
+    private bool _tableLinkDown;
+
+    // --------------------------------------------------------------- table chat
+    //
+    // Words ride the same host relay as bets: a guest tells the host, the
+    // host keeps a copy and forwards it to every other friend. The hub still
+    // never reads the text. The panel is absent while one human is the whole
+    // table — NPCs don't talk here, and a friend who has dropped doesn't
+    // count. Someone who busted but stayed connected still can.
+
+    private const int ChatMaxLength = 180;
+    private const int ChatMaxLines = 80;
+
+    private sealed class ChatLine
+    {
+        public int Id;
+        public string Name;
+        public string Text;
+        public int Seat;
+        public bool Mine;
+        public bool System;
+    }
+
+    private readonly List<ChatLine> _chat = new();
+    private readonly Dictionary<int, DateTime> _chatHeardAt = new();
+    private string _chatDraft = "";
+    private bool _chatCollapsed = true;
+    private bool _chatPendingScroll;
+    private int _chatUnread;
+    private int _chatSeq;
+    private DateTime _chatLastSent = DateTime.MinValue;
+
+    // Connected humans still seated. Link-down (host gone, guest reconnecting)
+    // leaves you as the only person who can hear a message, so the box hides.
+    private int ActiveHumanCount =>
+        _isGuest
+            ? (_tableLinkDown ? 1 : 1 + _guestHumanSeats.Count)
+            : 1 + _remote.Count;
+
+    private bool ShowChat => _introStarted && ActiveHumanCount >= 2;
+
+    // Steady "who's here" copy moved into the chat header. Transient link
+    // status (joining, host away, reconnecting) still uses the top-left pill,
+    // and that pill only exists while the chat itself is hidden.
+    private bool ShowFriendPill => !string.IsNullOrEmpty(_mpPill) && !ShowChat;
+
+    private bool CanSendChat => ShowChat && SanitizeChat(_chatDraft).Length > 0
+        && (DateTime.UtcNow - _chatLastSent).TotalMilliseconds >= 400;
+
+    private string ChatRosterLabel
+    {
+        get
+        {
+            IEnumerable<string> names = _isGuest
+                ? _guestHumanSeats.OrderBy(s => s).Select(SeatLabel)
+                : _remote.OrderBy(r => r.Key).Select(r => r.Value.Name);
+            return string.Join(" · ", names.Where(n => !string.IsNullOrWhiteSpace(n)));
+        }
+    }
+
+    // Caught up: who else is here. Unread: the latest line, so a collapsed
+    // bar tells you why it's pulsing without covering the felt.
+    private string ChatBarHint
+    {
+        get
+        {
+            if (_chatCollapsed && _chatUnread > 0 && _chat.Count > 0)
+            {
+                ChatLine last = _chat[^1];
+                return last.System || string.IsNullOrEmpty(last.Name) ? last.Text : $"{last.Name}: {last.Text}";
+            }
+            return ChatRosterLabel;
+        }
+    }
+
+    private string SeatLabel(int seat)
+    {
+        if (_seatNames.TryGetValue(seat, out string shown) && !string.IsNullOrEmpty(shown))
+            return shown;
+        return _game?.GetPlayer(seat)?.Name ?? "Friend";
+    }
     private readonly Queue<MpMessage> _guestInbox = new();
     private List<Card> _guestDeck = new();
 
@@ -2146,20 +2293,34 @@
         if (seat < 1 || seat >= TableSeats) return;
         string shown = SanitizeName(name, allowEmpty: true);
         if (shown.Length == 0) shown = "Friend";
+        bool already = _remote.ContainsKey(seat);
         _remote[seat] = new RemoteSeat { PlayerId = playerId, Name = shown };
         _seatNames[seat] = shown;
         _remoteActions.Remove(seat);
         RefreshHostPill();
         SendState(seat);
+        BroadcastRoster();
+        if (!already)
+        {
+            // Everyone else hears who sat down. The new player gets a
+            // welcome instead of a line about their own name.
+            Announce($"{shown} joined the table.", skipSeat: seat);
+            SendToGuest(seat, new MpMessage { t = "chat", a = "sys", text = "You're in. Say howdy." });
+        }
         _ = InvokeAsync(StateHasChanged);
     }
 
     private void RemoveRemote(int seat)
     {
-        if (!_remote.Remove(seat)) return;
+        if (!_remote.TryGetValue(seat, out RemoteSeat remote)) return;
+        string name = remote.Name;
+        _remote.Remove(seat);
         _seatNames.Remove(seat);
         _remoteActions.Remove(seat);
+        _chatHeardAt.Remove(seat);
         RefreshHostPill();
+        BroadcastRoster();
+        Announce($"{name} left the table.");
         _ = InvokeAsync(StateHasChanged);
     }
 
@@ -2187,9 +2348,20 @@
     [JSInvokable]
     public void OnGuestMessage(int seat, string payload)
     {
-        if (_isGuest || _game == null || !IsRemote(seat)) return;
+        if (_isGuest) return;
         MpMessage m = Decode(payload);
         if (m == null) return;
+        if (m.t == "chat")
+        {
+            ReceiveGuestChat(seat, m);
+            return;
+        }
+        if (m.t == "rename")
+        {
+            ApplyRemoteRename(seat, m.who);
+            return;
+        }
+        if (_game == null || !IsRemote(seat)) return;
         if (m.t == "act")
         {
             if (_game.Phase == GamePhase.HandInProgress && _game.CurrentSeat == seat
@@ -2351,9 +2523,23 @@
     [JSInvokable]
     public void OnHostMessage(string payload)
     {
-        if (!_isGuest || _game == null) return;
+        if (!_isGuest) return;
         MpMessage m = Decode(payload);
         if (m == null) return;
+        // Chat and the seating roster are not hands. They must never enter
+        // the replay inbox, and they have to work before the first deal.
+        if (m.t == "chat")
+        {
+            ReceiveRelayedChat(m);
+            return;
+        }
+        if (m.t == "roster")
+        {
+            ApplyRoster(m);
+            _ = InvokeAsync(StateHasChanged);
+            return;
+        }
+        if (_game == null) return;
         if (!string.IsNullOrEmpty(m.scene) && m.scene != _tableScene)
             _ = FollowHostScene(m.scene);
         if (m.t == "state")
@@ -2378,6 +2564,7 @@
     public void OnHostGone()
     {
         if (!_isGuest) return;
+        _tableLinkDown = true;
         _mpPill = "HOST AWAY — WAITING FOR THEM TO RETURN…";
         _ = InvokeAsync(StateHasChanged);
     }
@@ -2386,6 +2573,7 @@
     public void OnHostBack()
     {
         if (!_isGuest) return;
+        _tableLinkDown = false;
         _mpPill = "HOST IS BACK";
         RequestSync();
         _ = InvokeAsync(StateHasChanged);
@@ -2397,10 +2585,23 @@
         if (!_isGuest) return;
         switch (state)
         {
-            case "reconnecting": _mpPill = "RECONNECTING…"; break;
-            case "connected": _mpPill = "BACK AT THE TABLE"; RequestSync(); break;
-            case "rejected": _guestError = "This table is no longer open."; break;
-            case "closed": _mpPill = "DISCONNECTED"; break;
+            case "reconnecting":
+                _tableLinkDown = true;
+                _mpPill = "RECONNECTING…";
+                break;
+            case "connected":
+                _tableLinkDown = false;
+                _mpPill = "BACK AT THE TABLE";
+                RequestSync();
+                break;
+            case "rejected":
+                _tableLinkDown = true;
+                _guestError = "This table is no longer open.";
+                break;
+            case "closed":
+                _tableLinkDown = true;
+                _mpPill = "DISCONNECTED";
+                break;
         }
         _ = InvokeAsync(StateHasChanged);
     }
@@ -2408,6 +2609,215 @@
     private void SendToHost(MpMessage message) => _ = SafeInvoke("pokerRealtime.toHost", Encode(message));
 
     private void RequestSync() => SendToHost(new MpMessage { t = "sync" });
+
+    // Who is human, in each guest's own seat numbers, so a join or a leave
+    // shows or hides chat without waiting for the next deal.
+    private void BroadcastRoster()
+    {
+        if (!_hosting) return;
+        foreach (int guest in _remote.Keys.ToList())
+        {
+            var names = new string[TableSeats];
+            var humans = new bool[TableSeats];
+            if (_game != null)
+            {
+                foreach (PokerPlayer p in _game.Players)
+                {
+                    int j = Rot(p.Seat, guest);
+                    if (j < 0 || j >= TableSeats) continue;
+                    names[j] = p.Seat == 0 ? PlayerName : NameOf(p.Seat);
+                    humans[j] = IsHumanSeat(p.Seat);
+                }
+            }
+            else
+            {
+                int hostSeat = Rot(0, guest);
+                if (hostSeat >= 0 && hostSeat < TableSeats)
+                {
+                    names[hostSeat] = PlayerName;
+                    humans[hostSeat] = true;
+                }
+                foreach (KeyValuePair<int, RemoteSeat> kv in _remote)
+                {
+                    int j = Rot(kv.Key, guest);
+                    if (j < 0 || j >= TableSeats) continue;
+                    names[j] = kv.Value.Name;
+                    humans[j] = true;
+                }
+            }
+            SendToGuest(guest, new MpMessage { t = "roster", names = names, humans = humans });
+        }
+    }
+
+    private void ApplyRoster(MpMessage m)
+    {
+        if (m.humans == null) return;
+        _guestHumanSeats.Clear();
+        int limit = Math.Min(TableSeats, m.humans.Length);
+        for (int j = 1; j < limit; j++)
+        {
+            if (m.names != null && j < m.names.Length && !string.IsNullOrEmpty(m.names[j]))
+                _seatNames[j] = m.names[j];
+            if (m.humans[j]) _guestHumanSeats.Add(j);
+        }
+        // The placeholder solo game is still on screen until the host's
+        // first state arrives (_guestRot stays 0). Don't paint that over
+        // the felt just because someone sat down.
+        if (_guestRot != 0 && _sceneReady) _ = PushSceneState();
+    }
+
+    private void ApplyRemoteRename(int seat, string raw)
+    {
+        if (!_remote.TryGetValue(seat, out RemoteSeat remote)) return;
+        string shown = SanitizeName(raw, allowEmpty: true);
+        if (shown.Length == 0 || string.Equals(shown, remote.Name, StringComparison.Ordinal)) return;
+        string previous = remote.Name;
+        remote.Name = shown;
+        _seatNames[seat] = shown;
+        RefreshHostPill();
+        BroadcastRoster();
+        Announce($"{previous} is now {shown}.", skipSeat: seat);
+        if (_sceneReady) _ = PushSceneState();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void Announce(string text, int skipSeat = -1)
+    {
+        text = SanitizeChat(text);
+        if (text.Length == 0) return;
+        AppendChat(null, text, 0, mine: false, system: true);
+        if (!_hosting) return;
+        foreach (int guest in _remote.Keys.ToList())
+        {
+            if (guest == skipSeat) continue;
+            SendToGuest(guest, new MpMessage { t = "chat", a = "sys", text = text });
+        }
+    }
+
+    private void ReceiveGuestChat(int seat, MpMessage m)
+    {
+        if (!IsRemote(seat)) return;
+        if (_chatHeardAt.TryGetValue(seat, out DateTime last)
+            && (DateTime.UtcNow - last).TotalMilliseconds < 250)
+            return;
+        string text = SanitizeChat(m.text);
+        if (text.Length == 0) return;
+        _chatHeardAt[seat] = DateTime.UtcNow;
+        string name = _remote[seat].Name;
+        AppendChat(name, text, seat, mine: false, system: false);
+        foreach (int other in _remote.Keys.ToList())
+        {
+            if (other == seat) continue;
+            SendToGuest(other, new MpMessage
+            {
+                t = "chat",
+                who = name,
+                text = text,
+                seat = Rot(seat, other)
+            });
+        }
+    }
+
+    private void ReceiveRelayedChat(MpMessage m)
+    {
+        string text = SanitizeChat(m.text);
+        if (text.Length == 0) return;
+        if (m.a == "sys")
+        {
+            AppendChat(null, text, 0, mine: false, system: true);
+            return;
+        }
+        string name = SanitizeName(m.who, allowEmpty: true);
+        if (name.Length == 0) name = "Friend";
+        int seat = m.seat;
+        if (seat <= 0 || seat >= TableSeats) seat = 1;
+        AppendChat(name, text, seat, mine: false, system: false);
+    }
+
+    private void AppendChat(string name, string text, int seat, bool mine, bool system)
+    {
+        _chat.Add(new ChatLine
+        {
+            Id = ++_chatSeq,
+            Name = name,
+            Text = text,
+            Seat = seat < 0 ? 0 : seat,
+            Mine = mine,
+            System = system
+        });
+        if (_chat.Count > ChatMaxLines) _chat.RemoveAt(0);
+        if (_chatCollapsed) _chatUnread++;
+        else _chatPendingScroll = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleChat()
+    {
+        _chatCollapsed = !_chatCollapsed;
+        if (!_chatCollapsed)
+        {
+            _chatUnread = 0;
+            _chatPendingScroll = true;
+        }
+    }
+
+    private void SubmitChat()
+    {
+        if (!ShowChat) return;
+        string text = SanitizeChat(_chatDraft);
+        if (text.Length == 0) return;
+        if ((DateTime.UtcNow - _chatLastSent).TotalMilliseconds < 400) return;
+        _chatLastSent = DateTime.UtcNow;
+        _chatDraft = "";
+        AppendChat(PlayerName, text, 0, mine: true, system: false);
+        if (_isGuest)
+        {
+            SendToHost(new MpMessage { t = "chat", who = PlayerName, text = text });
+            return;
+        }
+        foreach (int guest in _remote.Keys.ToList())
+        {
+            SendToGuest(guest, new MpMessage
+            {
+                t = "chat",
+                who = PlayerName,
+                text = text,
+                seat = Rot(0, guest)
+            });
+        }
+    }
+
+    private static string SanitizeChat(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "";
+        var cleaned = new System.Text.StringBuilder();
+        bool pendingSpace = false;
+        foreach (char c in raw.Trim())
+        {
+            if (char.IsControl(c)) continue;
+            if (char.IsWhiteSpace(c))
+            {
+                pendingSpace = cleaned.Length > 0;
+                continue;
+            }
+            if (pendingSpace)
+            {
+                if (cleaned.Length + 1 > ChatMaxLength) break;
+                cleaned.Append(' ');
+                pendingSpace = false;
+            }
+            if (char.IsHighSurrogate(c))
+            {
+                if (cleaned.Length + 2 > ChatMaxLength) break;
+            }
+            else if (cleaned.Length >= ChatMaxLength)
+            {
+                break;
+            }
+            cleaned.Append(c);
+        }
+        return cleaned.ToString();
+    }
 
     private void ResetGuestPresentation()
     {
@@ -2697,6 +3107,12 @@
             try { await JS.InvokeVoidAsync("pokerScene.healGraphics"); }
             catch (JSException) { }
         }
+        // Friends read this name on the next line they see, and on the
+        // nameplate, without waiting for the next deal.
+        if (_isGuest && _guestJoined)
+            SendToHost(new MpMessage { t = "rename", who = _playerName });
+        else if (_hosting && _remote.Count > 0)
+            BroadcastRoster();
     }
 
     private void ExportFromSettings()

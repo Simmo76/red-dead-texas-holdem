@@ -1052,6 +1052,218 @@ html.scene-street .boot-screen {
     text-align: right;
 }
 
+/* Table chat lives in the bottom control row, on the left, above Fold.
+   That corner is the left thumb in landscape and is empty whenever it
+   isn't your turn (Maximilian only sits here while you're deciding).
+   It grows upward inside the column, so it never covers the community
+   cards (top-right), the pot (top-centre), or the action buttons.
+   The "who's here" line moved off the floating friend pill and into
+   this header, which leaves the top-left free for the stack and pot
+   when the card close-up pushes those meters left. */
+.hud-bottom .table-chat { pointer-events: auto; }
+
+/* Chat and the advisor share the left cluster. Wrap instead of clipping
+   the actor card when a phone can't hold both open panels plus that card. */
+.hud-bottom-row.with-chat { flex-wrap: wrap; }
+
+.table-chat {
+    flex: 0 1 280px;
+    width: min(280px, 42vw);
+    max-width: min(280px, 46vw);
+    min-width: 0;
+    align-self: flex-end;
+    display: flex;
+    flex-direction: column;
+    max-height: min(232px, 42dvh);
+    background: rgba(8, 5, 3, 0.94);
+    border: 1px solid var(--gold-dim);
+    border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+    color: var(--text);
+    overflow: hidden;
+    animation: fadein-plain 0.3s ease-out;
+}
+
+.table-chat.collapsed {
+    flex: 0 1 auto;
+    width: auto;
+    max-width: min(300px, 48vw);
+    max-height: none;
+}
+
+.table-chat-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 40px;
+    margin: 0;
+    padding: 8px 12px;
+    background: transparent;
+    border: 0;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 1.6px;
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.table-chat-toggle:hover { color: var(--text); }
+
+.table-chat-mark {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px var(--gold);
+}
+
+.table-chat.has-unread .table-chat-mark {
+    background: #e05a4f;
+    box-shadow: 0 0 8px #e05a4f;
+    animation: chat-unread 1.4s ease-in-out infinite;
+}
+
+.table-chat-heading {
+    flex: 0 0 auto;
+    color: var(--gold);
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+.table-chat-unread {
+    flex: 0 0 auto;
+    min-width: 18px;
+    padding: 1px 5px;
+    border-radius: 9px;
+    background: #7d2430;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 0;
+    text-align: center;
+}
+
+.table-chat-who {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    letter-spacing: 0.4px;
+    text-align: left;
+}
+
+.table-chat-chevron {
+    width: 7px;
+    height: 7px;
+    flex: 0 0 auto;
+    margin-right: 2px;
+    border-right: 2px solid var(--gold-dim);
+    border-bottom: 2px solid var(--gold-dim);
+    transform: rotate(-135deg);
+}
+
+.table-chat:not(.collapsed) .table-chat-chevron { transform: rotate(45deg); }
+
+.table-chat-log {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 12px 6px;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-chat-empty {
+    margin: 2px 0 8px;
+    font-size: 12px;
+    font-style: italic;
+    letter-spacing: 0.3px;
+    color: var(--text-dim);
+}
+
+.table-chat-line {
+    margin: 0 0 6px;
+    font-size: 13px;
+    line-height: 1.35;
+    letter-spacing: 0.2px;
+    overflow-wrap: anywhere;
+}
+
+.table-chat-name {
+    margin-right: 6px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+.table-chat-name::after { content: ":"; color: var(--text-dim); }
+
+.table-chat-text { color: var(--text); }
+
+.table-chat-line.mine .table-chat-text { color: #f3e6c8; }
+
+.table-chat-line.system {
+    font-size: 12px;
+    font-style: italic;
+    letter-spacing: 0.3px;
+    text-align: center;
+    color: var(--text-dim);
+}
+
+.table-chat-form {
+    display: flex;
+    gap: 6px;
+    padding: 0 8px 8px;
+}
+
+.table-chat-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.35);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 16px;
+    letter-spacing: 0.2px;
+    touch-action: manipulation;
+}
+
+.table-chat-input::placeholder { color: var(--text-dim); }
+
+.table-chat-input:focus {
+    outline: none;
+    border-color: var(--gold-dim);
+}
+
+.table-chat-send {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    letter-spacing: 1px;
+}
+
+.table-chat-send:disabled {
+    opacity: 0.4;
+    cursor: default;
+    filter: none;
+}
+
+@keyframes chat-unread {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .table-chat.has-unread .table-chat-mark { animation: none; }
+}
+
 @keyframes fadein-plain {
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
@@ -1604,6 +1816,8 @@ html.scene-street .boot-screen {
     .ai-advice { width: 235px; padding: 10px 12px 8px; }
     .ai-advice-action { font-size: 19px; }
     .ai-advice-why { font-size: 12.5px; }
+    .table-chat { width: min(220px, 70vw); max-height: min(200px, 36dvh); }
+    .table-chat.collapsed { width: auto; max-height: none; }
 
     .act { padding: 12px 14px; font-size: 13px; letter-spacing: 1px; flex: 0 1 auto; }
     .actionbar { gap: 8px; }
@@ -1655,6 +1869,21 @@ html.scene-street .boot-screen {
     .ai-advice-action { font-size: 19px; }
     .ai-advice-why { font-size: 12.5px; }
     .ai-advice-sig { display: none; }
+    /* Phone landscape is short: keep the log to a couple of lines so Fold
+       and Call stay on screen, and let advice shrink so the row can hold
+       chat beside it instead of spilling over the actor card. */
+    .table-chat {
+        flex-basis: 220px;
+        max-width: min(220px, 42vw);
+        max-height: min(148px, 38dvh);
+    }
+    .table-chat.collapsed {
+        flex-basis: auto;
+        width: auto;
+        max-width: min(240px, 46vw);
+        max-height: none;
+    }
+    .hud-bottom-row.chat-open .ai-advice { width: min(210px, 34vw); }
 
     .act { padding: 10px 14px; font-size: 12px; flex: 0 1 auto; }
     .actionbar {
