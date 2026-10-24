@@ -42,6 +42,24 @@ namespace CinematicPoker.Engine.Poker
 
     public static class PokerRoundSnapshotExtensions
     {
+        /// <summary>
+        /// Relabels every seat so seat <paramref name="by"/> becomes seat 0
+        /// on a six-seat table. Clockwise order is unchanged, so the hand
+        /// plays out identically; only the point of view moves.
+        /// </summary>
+        public static PokerRoundSnapshot RotateSeats(this PokerRoundSnapshot snapshot, int by, int tableSize = 6)
+        {
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            int Rot(int seat) => seat < 0 ? seat : ((seat - by) % tableSize + tableSize) % tableSize;
+            snapshot.dealerSeat = Rot(snapshot.dealerSeat);
+            snapshot.smallBlindSeat = Rot(snapshot.smallBlindSeat);
+            snapshot.bigBlindSeat = Rot(snapshot.bigBlindSeat);
+            snapshot.currentSeat = Rot(snapshot.currentSeat);
+            foreach (SeatSnapshot seat in snapshot.seats)
+                seat.seat = Rot(seat.seat);
+            return snapshot;
+        }
+
         public static PokerRoundSnapshot Capture(this PokerRound round)
         {
             var deck = round.Deck as Deck;

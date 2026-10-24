@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CinematicPoker.Engine.Tests
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CinematicPoker.Simulation", "CinematicPoker.Simulation\CinematicPoker.Simulation.csproj", "{7CC28BE4-17F0-4AD2-B55D-D6A97B046449}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CinematicPoker.Server", "..\Web\CinematicPoker.Server\CinematicPoker.Server.csproj", "{EAC0A19F-3143-4F3A-8CA5-FBC0BB13D4A1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +32,9 @@ Global
 		{7CC28BE4-17F0-4AD2-B55D-D6A97B046449}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7CC28BE4-17F0-4AD2-B55D-D6A97B046449}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7CC28BE4-17F0-4AD2-B55D-D6A97B046449}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EAC0A19F-3143-4F3A-8CA5-FBC0BB13D4A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EAC0A19F-3143-4F3A-8CA5-FBC0BB13D4A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EAC0A19F-3143-4F3A-8CA5-FBC0BB13D4A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EAC0A19F-3143-4F3A-8CA5-FBC0BB13D4A1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

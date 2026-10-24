@@ -425,6 +425,8 @@ function placeTableCard(mesh, x, z, lean = 0, yaw = 0) {
 
 // ------------------------------------------------------------------ labels
 
+const nameTagPos = new THREE.Vector3();
+
 function makeLabel() {
   const canvas = document.createElement('canvas');
   canvas.width = 512; canvas.height = 192;
@@ -438,6 +440,30 @@ function makeLabel() {
   sprite.scale.set(0.58, 0.2175, 1);
   sprite.renderOrder = 10;
   return { sprite, canvas, tex, text: '' };
+}
+
+// Floating name tag for a seat held by another human player. NPC names stay
+// in the screen-space HUD; a friend's name hovers over their character.
+function drawNameTag(label, name, dim) {
+  const key = JSON.stringify(['tag', name, dim]);
+  if (key === label.text) return;
+  label.text = key;
+  const ctx = label.canvas.getContext('2d');
+  const W = 512, H = 192;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(12,10,8,0.78)';
+  ctx.beginPath();
+  ctx.roundRect(10, 52, W - 20, 88, 30);
+  ctx.fill();
+  ctx.strokeStyle = dim ? '#8a7f70' : '#e8b23c';
+  ctx.lineWidth = 6;
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = dim ? '#8a7f70' : '#f6e7c6';
+  ctx.font = 'bold 58px Georgia, serif';
+  ctx.fillText(name, W / 2, 98, W - 56);
+  label.tex.needsUpdate = true;
 }
 
 function drawLabel(label, seat) {
@@ -2067,6 +2093,18 @@ async function buildScene(canvas) {
       if (seat.char.isPlayer && seat.char.cardHold) syncCardHold(seat.char);
     }
 
+    for (const seat of state.seats) if (seat.nameTag && seat.nameTag.sprite.visible && seat.char) {
+      if (seat.nameTag.head === undefined) {
+        seat.nameTag.head = null;
+        seat.char.root.traverse((o) => {
+          if (!seat.nameTag.head && o.isBone && (o.name === 'head' || o.name === 'Head')) seat.nameTag.head = o;
+        });
+      }
+      const anchor = seat.nameTag.head || seat.char.root;
+      anchor.getWorldPosition(nameTagPos);
+      seat.nameTag.sprite.position.set(nameTagPos.x, nameTagPos.y + (seat.nameTag.head ? 0.3 : 1.5), nameTagPos.z);
+    }
+
     // Ease drag/pinch offsets toward their targets, then orbit the table
     // centre (or fly to a tapped card group while zoomed).
     const ease = Math.min(1, dt * 8);
@@ -3643,6 +3681,17 @@ window.pokerScene = {
         seat.char.setFolded(foldedOut);
       }
       if (seat.chair) seat.chair.visible = !data.out;
+      if (data.human && data.seat !== 0) {
+        if (!seat.nameTag) {
+          seat.nameTag = makeLabel();
+          seat.nameTag.sprite.scale.set(0.5, 0.1875, 1);
+          state.scene.add(seat.nameTag.sprite);
+        }
+        drawNameTag(seat.nameTag, data.name || 'Player', !!data.folded);
+        seat.nameTag.sprite.visible = !data.out;
+      } else if (seat.nameTag) {
+        seat.nameTag.sprite.visible = false;
+      }
       if (seat.char && typeof data.heat === 'number') seat.char.heat = data.heat;
       if (seat.char && data.out) {
         // A bust plays a lose reaction once, then settles back to sitting.

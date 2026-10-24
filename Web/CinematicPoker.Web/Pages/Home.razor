@@ -4,6 +4,7 @@
 @using CinematicPoker.Engine.Poker
 @using CinematicPoker.Engine.Simulation
 @using System.Text.Json
+@using System.Text.Json.Serialization
 @inject IJSRuntime JS
 
 <PageTitle>Dead Man's Hand</PageTitle>
@@ -58,8 +59,22 @@
             <button class="chip-btn" @onclick="OpenSettings" title="Game settings">
                 <span class="chip-gear" aria-hidden="true">⚙</span> SETTINGS
             </button>
+            @if (!_isGuest)
+            {
+                <button class="chip-btn invite-btn" @onclick="OpenInvite" title="Invite a friend to this table">
+                    <span aria-hidden="true">♧</span> INVITE FRIEND
+                </button>
+            }
         </div>
     </header>
+
+    @if (!string.IsNullOrEmpty(_mpPill))
+    {
+        <div class="friend-seat-pill" role="status">
+            <span class="friend-seat-dot"></span>
+            <span>@_mpPill</span>
+        </div>
+    }
 
     @if (Round != null)
     {
@@ -319,7 +334,12 @@
             <div class="overlay-box @(_humanLost ? "game-over" : _humanWon ? "table-win" : "")">
                 <div class="overlay-title">@_sessionOverMessage</div>
                 <div class="overlay-actions">
-                    @if (_humanLost || _humanWon)
+                    @if (_isGuest)
+                    {
+                        <button class="act call big" @onclick="DismissGuestOverlay">KEEP WATCHING</button>
+                        <button class="act allin big restart-btn" @onclick="LeaveTable">LEAVE TABLE</button>
+                    }
+                    else if (_humanLost || _humanWon)
                     {
                         @if (_humanWon)
                         {
@@ -381,13 +401,16 @@
                             @(_quickMode ? "QUICK PLAY" : "CINEMATIC")
                         </button>
                     </div>
-                    <div class="settings-row">
-                        <span class="settings-label">DIFFICULTY</span>
-                        <button class="chip-btn" @onclick="CycleDifficulty">@DifficultyNames[_difficulty]</button>
-                    </div>
+                    @if (!_isGuest)
+                    {
+                        <div class="settings-row">
+                            <span class="settings-label">DIFFICULTY</span>
+                            <button class="chip-btn" @onclick="CycleDifficulty">@DifficultyNames[_difficulty]</button>
+                        </div>
+                    }
                     <div class="settings-row">
                         <label class="settings-label" for="settings-scene">SCENE</label>
-                        <select id="settings-scene" class="chip-btn settings-select" @onchange="OnTableSceneChanged">
+                        <select id="settings-scene" class="chip-btn settings-select" disabled="@_isGuest" @onchange="OnTableSceneChanged">
                             <option value="saloon" selected="@(_tableScene == "saloon")">SALOON</option>
                             <option value="street" selected="@(_tableScene == "street")">OCTAGON</option>
                         </select>
@@ -396,7 +419,14 @@
 
                 <div class="overlay-actions">
                     <button class="act small" @onclick="ExportFromSettings">EXPORT STATS</button>
-                    <button class="act allin settings-restart" @onclick="RestartFromSettings">RESTART</button>
+                    @if (_isGuest)
+                    {
+                        <button class="act allin settings-restart" @onclick="LeaveTable">LEAVE TABLE</button>
+                    }
+                    else
+                    {
+                        <button class="act allin settings-restart" @onclick="RestartFromSettings">RESTART</button>
+                    }
                     <button class="act small" @onclick="CloseSettings">CLOSE</button>
                 </div>
             </div>
@@ -442,6 +472,51 @@
                     <button class="act small" @onclick="ExportDownload" disabled="@(_handLog.CompletedHandCount == 0)">DOWNLOAD</button>
                     <button class="act small" @onclick="CloseExportPanel">CLOSE</button>
                 </div>
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(_guestError))
+    {
+        <div class="overlay" role="dialog" aria-label="Could not join">
+            <div class="overlay-box">
+                <div class="overlay-title">CAN'T JOIN THIS TABLE</div>
+                <p class="invite-blurb">@_guestError</p>
+                <div class="overlay-actions">
+                    <button class="act call big" @onclick="LeaveTable">PLAY SOLO</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_inviteOpen)
+    {
+        <div class="overlay" @onclick="CloseInvite">
+            <div class="overlay-box invite-box" @onclick:stopPropagation="true">
+                <div class="overlay-title">INVITE A FRIEND</div>
+                <p class="invite-blurb">
+                    Send this link to a friend (up to four can join). Each one takes over an NPC seat and keeps this
+                    same table, camera and controls. Keep this game open while they play.
+                </p>
+                <div class="invite-room">
+                    <span class="invite-room-label">TABLE LINK</span>
+                    <code>@_inviteUrl</code>
+                </div>
+                @if (!string.IsNullOrEmpty(_inviteNote))
+                {
+                    <p class="invite-note" role="status">@_inviteNote</p>
+                }
+                <div class="invite-actions">
+                    <button class="act call" @onclick="TextInvite">TEXT INVITE</button>
+                    <button class="act bet" @onclick="EmailInvite">EMAIL INVITE</button>
+                    <button class="act bet" @onclick="ShareInvite">SHARE LINK</button>
+                    <button class="act small" @onclick="CopyInvite">COPY LINK</button>
+                    <button class="act small" @onclick="CloseInvite">CLOSE</button>
+                </div>
+                @if (_remote.Count > 0)
+                {
+                    <p class="invite-footnote">At the table now: @string.Join(", ", _remote.Values.Select(r => r.Name))</p>
+                }
             </div>
         </div>
     }
@@ -723,6 +798,7 @@
 
     /* Matches the .intro-overlay.fading transition in app.css. */
     private const int IntroFadeMs = 3000;
+    private const int SceneLoadTimeoutMs = 15000;
 
     private async Task StartIntro()
     {
@@ -762,7 +838,7 @@
         _playerName = SanitizeName(_nameDraft);
         await PersistPlayerName(_playerName);
         _namePromptOpen = false;
-        if (_game == null) StartSession();
+        if (_game == null) StartSessionCore(run: !_isGuest);
         await BeginPlay();
     }
 
@@ -840,7 +916,9 @@
         if (!_sceneReady)
         {
             StateHasChanged();
-            for (int i = 0; i < 480 && !_sceneReady; i++)
+            var sceneWaitStarted = DateTime.UtcNow;
+            for (int i = 0; !_sceneReady
+                && (DateTime.UtcNow - sceneWaitStarted).TotalMilliseconds < SceneLoadTimeoutMs; i++)
             {
                 try
                 {
@@ -875,6 +953,7 @@
         _sceneLoading = false;
         _introStarted = true;
         await MaybeShowBoardHint();
+        if (_isGuest && !_guestJoined) await ConnectGuestAsync();
     }
 
     // ------------------------------------- first-game community-cards hint
@@ -925,7 +1004,9 @@
         // WASM can read localStorage synchronously here so TAP TO PLAY already
         // knows whether this device has a saved name.
         _playerName = ReadCachedPlayerName();
+        _tableScene = ReadSceneSync();
         _settingsLoaded = !string.IsNullOrEmpty(_playerName) || JS is IJSInProcessRuntime;
+        ReadInviteRoomFromUrl();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -939,14 +1020,21 @@
             {
                 _webSnapshotLoaded = true;
                 string saved = "";
-                try { saved = await JS.InvokeAsync<string>("pokerSession.load"); }
-                catch (JSException) { }
+                // A friend's browser never resumes (or overwrites) its own
+                // saved solo game: the host's table is the only game there.
+                if (!_isGuest)
+                {
+                    try { saved = await JS.InvokeAsync<string>("pokerSession.load"); }
+                    catch (JSException) { }
+                }
                 if (!string.IsNullOrEmpty(saved))
                     TryRestoreWebSession(saved);
                 if (_game == null && !string.IsNullOrEmpty(_playerName))
-                    StartSession();
+                    StartSessionCore(run: !_isGuest);
             }
             StateHasChanged();
+            if (_isGuest && !string.IsNullOrEmpty(_playerName)) _ = ConnectGuestAsync();
+            else _ = ResumeThenRunLoop();
 
             // The scene module loads asynchronously; retry until it's there.
             for (int i = 0; i < 60 && !_sceneReady; i++)
@@ -1014,6 +1102,7 @@
                 // stale empty state can look like a random table animation.
                 active = Round != null && !folded && !eliminated,
                 heat = SeatHeat(p.Seat),
+                human = IsHumanSeat(p.Seat),
                 dealer = Round != null && p.Seat == Round.DealerSeat,
                 sb = Round != null && p.Seat == Round.SmallBlindSeat,
                 bb = Round != null && p.Seat == Round.BigBlindSeat,
@@ -1044,7 +1133,7 @@
             // is how seats ended up with no cards on the felt.
             Console.Error.WriteLine($"pokerScene.update failed: {ex.Message}");
         }
-        await PersistWebSession();
+        if (!_isGuest) await PersistWebSession();
     }
 
     private void SceneEmotion(int seat, string mood, double intensity, bool speak = true)
@@ -1121,7 +1210,6 @@
             _difficulty = Math.Clamp(saved.difficulty, 0, DifficultyNames.Length - 1);
             _quickMode = saved.quickMode;
             _muted = saved.muted;
-            _tableScene = saved.tableScene == "street" ? "street" : "saloon";
 
             var players = new List<PokerPlayer>();
             foreach (WebSeatSnapshot seat in saved.seats.OrderBy(s => s.seat))
@@ -1149,15 +1237,15 @@
             _game = new PokerGame(TableRules.Default, players, _rng.Next());
             _game.EventEmitted += OnEngineEvent;
             _game.RestoreProgress(saved.handNumber, saved.dealerSeat);
-            if (saved.round != null)
+            if (saved.round != null && saved.round.phase != HandPhase.Complete)
             {
                 _game.RestoreRound(saved.round);
                 _shownBoard.AddRange(_game.CurrentRound.Board);
             }
             _handLog = new HandSequenceLog();
             _handLog.BeginSession(0, TableRules.Default, players);
-            _statusLine = saved.round == null ? "Dealing…" : "Resuming your hand…";
-            _ = RunLoop(++_loopToken);
+            _statusLine = saved.round == null || saved.round.phase == HandPhase.Complete ? "Dealing…" : "Resuming your hand…";
+            _restoredAwaitingLoop = true;
         }
         catch (Exception ex) when (ex is JsonException || ex is ArgumentException || ex is InvalidOperationException)
         {
@@ -1177,7 +1265,9 @@
             tableScene = _tableScene,
             handNumber = _game.HandNumber,
             dealerSeat = _game.DealerSeat,
-            round = Round?.Capture()
+            // A finished hand has nothing left to resume; the saved stacks
+            // already include its result, so the next deal simply follows.
+            round = Round is { IsComplete: false } ? Round.Capture() : null
         };
         foreach (PokerPlayer player in _game.Players)
         {
@@ -1202,9 +1292,11 @@
         catch (InvalidOperationException) { }
     }
 
-    private void StartSession()
+    private void StartSession() => StartSessionCore(run: true);
+
+    private void StartSessionCore(bool run)
     {
-        ClearWebSession();
+        if (!_isGuest) ClearWebSession();
         var rules = TableRules.Default;
         var players = new List<PokerPlayer> { new HumanPlayer("human", PlayerName, seat: 0, stack: rules.StartingStack) };
         string[] npcNames = ShuffledNpcNames();
@@ -1249,7 +1341,8 @@
         catch (InvalidOperationException) { }
         catch (JSException) { }
 
-        _ = RunLoop(++_loopToken);
+        ++_loopToken;
+        if (run) _ = RunLoop(_loopToken);
     }
 
     /// <summary>
@@ -1349,7 +1442,7 @@
                 ? "Nobody takes the table."
                 : winner.IsHuman
                 ? $"{PlayerName} cleaned out the whole table!"
-                : $"{winner.Name} takes the table. Rough night.";
+                : $"{NameOf(winner.Seat)} takes the table. Rough night.";
         }
         _sessionOver = true;
         _awaitingHuman = false;
@@ -1358,6 +1451,8 @@
         try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
         catch (InvalidOperationException) { }
         catch (JSException) { }
+        if (!_isGuest && _remote.Count > 0)
+            BroadcastToAll(new MpMessage { t = "over", text = $"{_sessionOverMessage} Waiting for the host…" });
         StateHasChanged();
     }
 
@@ -1430,6 +1525,7 @@
 
                 _handHasCompleted = false;
                 _game.StartHand();
+                if (_remote.Count > 0) BroadcastHand();
                 await DrainEvents(token);
                 continue;
             }
@@ -1439,37 +1535,60 @@
 
             if (actor.IsHuman)
             {
-                _legal = _game.GetLegalActions();
-                _sliderValue = _legal.MinBetOrRaiseTo;
-                _sliderPosition = BetAmountToSliderPosition(_sliderValue);
-                _showSlider = false;
-                _advice = null;           // computed on demand when the button is tapped
-                _adviceCollapsed = true;  // every turn starts as just the button
-                _awaitingHuman = true;
-                try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", true); }
-                catch (JSException) { }
-                StateHasChanged();
+                PromptHuman();
                 return; // resumes via Act()
             }
 
-            _statusLine = $"{actor.Name} is thinking…";
+            if (IsRemote(actor.Seat))
+            {
+                await RunRemoteTurn(actor, token);
+                continue;
+            }
+
+            _statusLine = $"{NameOf(actor.Seat)} is thinking…";
             StateHasChanged();
             await PacedDelay(ThinkTimeMs, token);
             if (token != _loopToken) return;
+            if (IsRemote(actor.Seat)) continue; // a friend took this seat while the NPC was thinking
 
             var npc = (AIPlayer)actor;
             DecisionContext context = DecisionContext.ForCurrentActor(_game, EquityIterations);
-            _game.SubmitAction(npc.DecideAction(context));
+            SubmitAndBroadcast(npc.DecideAction(context));
             await DrainEvents(token);
         }
+    }
+
+    private void PromptHuman()
+    {
+        _legal = _game.GetLegalActions();
+        _sliderValue = _legal.MinBetOrRaiseTo;
+        _sliderPosition = BetAmountToSliderPosition(_sliderValue);
+        _showSlider = false;
+        _advice = null;           // computed on demand when the button is tapped
+        _adviceCollapsed = true;  // every turn starts as just the button
+        _awaitingHuman = true;
+        try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", true); }
+        catch (JSException) { }
+        StateHasChanged();
     }
 
     private async Task Act(PlayerAction action)
     {
         if (!_awaitingHuman) return;
+        if (_isGuest)
+        {
+            SendToHost(new MpMessage { t = "act", a = action.Type.ToString(), amt = action.Amount });
+            _awaitingHuman = false;
+            _showSlider = false;
+            _advice = null;
+            try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
+            catch (JSException) { }
+            StateHasChanged();
+            return;
+        }
         try
         {
-            _game.SubmitAction(action);
+            SubmitAndBroadcast(action);
             _awaitingHuman = false;
             _showSlider = false;
             _advice = null;
@@ -1796,6 +1915,740 @@
     private bool _settingsOpen;
     private string _settingsNameDraft = "";
     private string _settingsNameNote = "";
+
+    // ------------------------------------------------------------ friends beta
+    //
+    // The host's browser runs the real table: the same engine and NPCs as the
+    // single-player game. A friend's seat is still an NPC in the engine, but on
+    // that seat's turn the host waits for the friend's action instead of asking
+    // the NPC brain, and shows the friend's name. Each guest replays the hand
+    // locally from their own point of view: seats are relabelled so a guest is
+    // always seat 0 (same camera, controls and HUD as the host) using the deck
+    // order and actions relayed by the host. The SignalR hub only forwards
+    // messages and never looks at cards.
+
+    private const int TableSeats = 6;
+    private const int RemoteTurnTimeoutSeconds = 60;
+
+    private bool _isGuest;
+    private bool _hosting;
+    private bool _guestJoined;
+    private bool _guestConnecting;
+    private bool _guestOverDismissed;
+    private int _guestRot;
+    private bool _inviteOpen;
+    private string _roomCode = "";
+    private string _inviteUrl = "";
+    private string _inviteNote = "";
+    private string _mpPill = "";
+    private string _guestError = "";
+    private DotNetObjectReference<Home> _selfRef;
+
+    private sealed class RemoteSeat
+    {
+        public string PlayerId;
+        public string Name;
+    }
+
+    private sealed class GuestRow
+    {
+        public int Seat { get; set; }
+        public string PlayerId { get; set; }
+        public string Name { get; set; }
+        public bool Connected { get; set; }
+    }
+
+    private sealed class JoinRow
+    {
+        public bool Ok { get; set; }
+        public int Seat { get; set; }
+        public string Error { get; set; }
+    }
+
+    private sealed class MpMessage
+    {
+        public string t;          // state | hand | act | over | sync
+        public int seat;          // act: acting seat, in the receiver's numbering
+        public string a;          // act: action type
+        public long amt;          // act: bet/raise-to amount
+        public int rot;           // state: seat shift applied for this guest
+        public int dealer = -1;
+        public int handNumber;
+        public int[] deck;
+        public long[] stacks;
+        public bool[] outs;
+        public string[] names;
+        public bool[] humans;
+        public PokerRoundSnapshot round;
+        public string text;
+        public string scene;      // state | hand: the host's table scene, which friends follow
+    }
+
+    private static readonly JsonSerializerOptions MpJson = new JsonSerializerOptions
+    {
+        IncludeFields = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
+    private static readonly JsonSerializerOptions MpRead = new JsonSerializerOptions
+    {
+        IncludeFields = true,
+        PropertyNameCaseInsensitive = true
+    };
+
+    private readonly Dictionary<int, RemoteSeat> _remote = new();
+    private readonly Dictionary<int, PlayerAction> _remoteActions = new();
+    private readonly Dictionary<int, string> _seatNames = new();
+    private readonly HashSet<int> _guestHumanSeats = new();
+    private readonly Queue<MpMessage> _guestInbox = new();
+    private List<Card> _guestDeck = new();
+
+    private static int Rot(int seat, int by) =>
+        seat < 0 ? seat : ((seat - by) % TableSeats + TableSeats) % TableSeats;
+
+    private bool IsRemote(int seat) => _remote.ContainsKey(seat);
+
+    private bool IsHumanSeat(int seat) =>
+        _isGuest ? _guestHumanSeats.Contains(seat) : seat == 0 || _remote.ContainsKey(seat);
+
+    private void ReadInviteRoomFromUrl()
+    {
+        if (JS is not IJSInProcessRuntime sync) return;
+        try
+        {
+            string raw = sync.Invoke<string>("pokerInvite.roomFromUrl");
+            string code = new string((raw ?? "").Where(char.IsLetterOrDigit).Take(12).ToArray()).ToUpperInvariant();
+            if (code.Length >= 4)
+            {
+                _roomCode = code;
+                _isGuest = true;
+            }
+        }
+        catch (JSException) { }
+    }
+
+    private static string Encode(MpMessage m) => JsonSerializer.Serialize(m, MpJson);
+
+    private static MpMessage Decode(string payload)
+    {
+        try { return JsonSerializer.Deserialize<MpMessage>(payload, MpRead); }
+        catch (JsonException) { return null; }
+    }
+
+    private static bool TryDecodeAction(MpMessage m, out PlayerAction action)
+    {
+        action = default;
+        if (!Enum.TryParse(m.a, out ActionType type)) return false;
+        switch (type)
+        {
+            case ActionType.Fold: action = PlayerAction.Fold(); return true;
+            case ActionType.Check: action = PlayerAction.Check(); return true;
+            case ActionType.Call: action = PlayerAction.Call(); return true;
+            case ActionType.Bet: action = PlayerAction.Bet(m.amt); return true;
+            case ActionType.Raise: action = PlayerAction.Raise(m.amt); return true;
+            case ActionType.AllIn: action = PlayerAction.AllIn(); return true;
+            default: return false;
+        }
+    }
+
+    private async Task SafeInvoke(string identifier, params object[] args)
+    {
+        try { await JS.InvokeVoidAsync(identifier, args); }
+        catch (JSException ex) { Console.Error.WriteLine($"{identifier} failed: {ex.Message}"); }
+        catch (InvalidOperationException) { }
+    }
+
+    // ------------------------------------------------------------------ host
+
+    private async Task OpenInvite()
+    {
+        _roomCode = await JS.InvokeAsync<string>("pokerInvite.ensureRoom");
+        _inviteUrl = await JS.InvokeAsync<string>("pokerInvite.url", _roomCode);
+        _inviteNote = _hosting ? "" : "Opening your table to friends…";
+        _inviteOpen = true;
+        StateHasChanged();
+        if (!_hosting)
+        {
+            try
+            {
+                await EnsureHosting();
+                _inviteNote = "";
+            }
+            catch (JSException ex)
+            {
+                _inviteNote = $"Couldn't reach the multiplayer service: {ex.Message}";
+            }
+        }
+    }
+
+    private async Task EnsureHosting()
+    {
+        _selfRef ??= DotNetObjectReference.Create(this);
+        string json = await JS.InvokeAsync<string>("pokerRealtime.host", _roomCode, _selfRef);
+        _hosting = true;
+        await SafeInvoke("pokerInvite.markHosting");
+        ApplyGuestRoster(json);
+    }
+
+    // A reload (e.g. switching the table scene) drops the host's connection;
+    // reopen the same room straight away so friends are not left waiting.
+    private bool _restoredAwaitingLoop;
+
+    // A restored table must not start dealing until friends are seated again,
+    // or the NPC logic would play their hands during the reload.
+    private async Task ResumeThenRunLoop()
+    {
+        try
+        {
+            Task resume = ResumeHostingAfterReload();
+            await Task.WhenAny(resume, Task.Delay(8000));
+        }
+        finally
+        {
+            if (_restoredAwaitingLoop && _game != null)
+            {
+                _restoredAwaitingLoop = false;
+                _ = RunLoop(++_loopToken);
+            }
+        }
+    }
+
+    private async Task ResumeHostingAfterReload()
+    {
+        if (_isGuest || _hosting || _game == null) return;
+        try
+        {
+            string room = await JS.InvokeAsync<string>("pokerInvite.hostedRoom");
+            if (string.IsNullOrEmpty(room)) return;
+            _roomCode = room;
+            _inviteUrl = await JS.InvokeAsync<string>("pokerInvite.url", _roomCode);
+            await EnsureHosting();
+        }
+        catch (JSException ex)
+        {
+            Console.Error.WriteLine($"Could not resume hosting: {ex.Message}");
+        }
+    }
+
+    private void ApplyGuestRoster(string json)
+    {
+        List<GuestRow> rows;
+        try { rows = JsonSerializer.Deserialize<List<GuestRow>>(json, MpRead) ?? new(); }
+        catch (JsonException) { return; }
+        foreach (GuestRow row in rows)
+            if (row.Connected) AddRemote(row.Seat, row.Name, row.PlayerId);
+    }
+
+    private void AddRemote(int seat, string name, string playerId)
+    {
+        if (seat < 1 || seat >= TableSeats) return;
+        string shown = SanitizeName(name, allowEmpty: true);
+        if (shown.Length == 0) shown = "Friend";
+        _remote[seat] = new RemoteSeat { PlayerId = playerId, Name = shown };
+        _seatNames[seat] = shown;
+        _remoteActions.Remove(seat);
+        RefreshHostPill();
+        SendState(seat);
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void RemoveRemote(int seat)
+    {
+        if (!_remote.Remove(seat)) return;
+        _seatNames.Remove(seat);
+        _remoteActions.Remove(seat);
+        RefreshHostPill();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void RefreshHostPill()
+    {
+        _mpPill = _remote.Count == 0
+            ? ""
+            : "AT THE TABLE: " + string.Join(", ", _remote.OrderBy(r => r.Key)
+                .Select(r => r.Value.Name.ToUpperInvariant()));
+    }
+
+    [JSInvokable]
+    public void OnGuestJoined(int seat, string name, string playerId) => AddRemote(seat, name, playerId);
+
+    [JSInvokable]
+    public void OnGuestLeft(int seat, bool permanent) => RemoveRemote(seat);
+
+    [JSInvokable]
+    public void OnHostReattached(string guestsJson)
+    {
+        _hosting = true;
+        ApplyGuestRoster(guestsJson);
+    }
+
+    [JSInvokable]
+    public void OnGuestMessage(int seat, string payload)
+    {
+        if (_isGuest || _game == null || !IsRemote(seat)) return;
+        MpMessage m = Decode(payload);
+        if (m == null) return;
+        if (m.t == "act")
+        {
+            if (_game.Phase == GamePhase.HandInProgress && _game.CurrentSeat == seat
+                && TryDecodeAction(m, out PlayerAction action))
+                _remoteActions[seat] = action;
+            else
+                SendState(seat);
+        }
+        else if (m.t == "sync")
+        {
+            SendState(seat);
+        }
+    }
+
+    private void SendToGuest(int seat, MpMessage message) =>
+        _ = SafeInvoke("pokerRealtime.toGuest", seat, Encode(message));
+
+    private void BroadcastToAll(MpMessage message)
+    {
+        foreach (int seat in _remote.Keys) SendToGuest(seat, message);
+    }
+
+    private void SubmitAndBroadcast(PlayerAction action)
+    {
+        int seat = _game.CurrentSeat;
+        _game.SubmitAction(action);
+        foreach (int guest in _remote.Keys)
+        {
+            SendToGuest(guest, new MpMessage
+            {
+                t = "act",
+                seat = Rot(seat, guest),
+                a = action.Type.ToString(),
+                amt = action.Amount,
+                handNumber = _game.HandNumber
+            });
+        }
+    }
+
+    private void FillTable(MpMessage m, int guest, bool atHandStart)
+    {
+        m.stacks = new long[TableSeats];
+        m.outs = new bool[TableSeats];
+        m.names = new string[TableSeats];
+        m.humans = new bool[TableSeats];
+        foreach (PokerPlayer p in _game.Players)
+        {
+            int j = Rot(p.Seat, guest);
+            SeatState inHand = SeatOf(p.Seat);
+            m.stacks[j] = atHandStart && inHand != null ? inHand.StackAtHandStart : p.Stack;
+            m.outs[j] = p.Status == PlayerStatus.Eliminated && inHand == null;
+            m.names[j] = p.Seat == 0 ? PlayerName : NameOf(p.Seat);
+            m.humans[j] = IsHumanSeat(p.Seat);
+        }
+    }
+
+    private void BroadcastHand()
+    {
+        if (_game?.CurrentRound == null) return;
+        List<int> deck = Round.Capture().deck;
+        foreach (int guest in _remote.Keys)
+        {
+            var m = new MpMessage
+            {
+                t = "hand",
+                scene = _tableScene,
+                handNumber = _game.HandNumber,
+                dealer = Rot(_game.DealerSeat, guest),
+                deck = deck.ToArray()
+            };
+            FillTable(m, guest, atHandStart: true);
+            SendToGuest(guest, m);
+        }
+    }
+
+    private void SendState(int guest)
+    {
+        if (_game == null || !IsRemote(guest)) return;
+        var m = new MpMessage
+        {
+            t = "state",
+            scene = _tableScene,
+            rot = guest,
+            handNumber = _game.HandNumber,
+            dealer = Rot(_game.DealerSeat, guest)
+        };
+        FillTable(m, guest, atHandStart: false);
+        if (_game.Phase == GamePhase.HandInProgress && Round != null && !Round.IsComplete)
+            m.round = Round.Capture().RotateSeats(guest);
+        SendToGuest(guest, m);
+    }
+
+    private async Task RunRemoteTurn(PokerPlayer actor, int token)
+    {
+        int seat = actor.Seat;
+        _statusLine = $"{NameOf(seat)} is thinking…";
+        StateHasChanged();
+        _remoteActions.Remove(seat);
+        DateTime started = DateTime.UtcNow;
+        while (token == _loopToken && IsRemote(seat) && !_remoteActions.ContainsKey(seat))
+        {
+            if ((DateTime.UtcNow - started).TotalSeconds > RemoteTurnTimeoutSeconds)
+            {
+                // An away friend must not stall the table: check if free, else fold.
+                LegalActions legal = _game.GetLegalActions();
+                _remoteActions[seat] = legal.CanCheck ? PlayerAction.Check() : PlayerAction.Fold();
+                break;
+            }
+            await Task.Delay(50);
+        }
+        if (token != _loopToken) return;
+        if (!_remoteActions.Remove(seat, out PlayerAction action)) return; // seat is an NPC again
+
+        try { SubmitAndBroadcast(action); }
+        catch (IllegalActionException)
+        {
+            SendState(seat);
+            return;
+        }
+        await DrainEvents(token);
+    }
+
+    // ----------------------------------------------------------------- guest
+
+    private async Task ConnectGuestAsync()
+    {
+        if (_guestConnecting || _guestJoined) return;
+        _guestConnecting = true;
+        _mpPill = "JOINING THE TABLE…";
+        _statusLine = "Joining the table…";
+        StateHasChanged();
+        _selfRef ??= DotNetObjectReference.Create(this);
+        try
+        {
+            string json = await JS.InvokeAsync<string>("pokerRealtime.join", _roomCode, PlayerName, _selfRef);
+            JoinRow result = JsonSerializer.Deserialize<JoinRow>(json, MpRead);
+            if (result == null || !result.Ok)
+            {
+                _mpPill = "";
+                _guestConnecting = false;
+                _guestError = string.IsNullOrEmpty(result?.Error) ? "Couldn't join this table." : result.Error;
+            }
+            else
+            {
+                _guestJoined = true;
+                _mpPill = "JOINED — WAITING FOR THE DEAL";
+                _statusLine = "Waiting for the host to deal you in…";
+            }
+        }
+        catch (JSException ex)
+        {
+            _mpPill = "";
+            _guestError = $"Couldn't reach the table ({ex.Message}). Check the link and try again.";
+        }
+        _guestConnecting = false;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnHostMessage(string payload)
+    {
+        if (!_isGuest || _game == null) return;
+        MpMessage m = Decode(payload);
+        if (m == null) return;
+        if (!string.IsNullOrEmpty(m.scene) && m.scene != _tableScene)
+            _ = FollowHostScene(m.scene);
+        if (m.t == "state")
+        {
+            _guestInbox.Clear();
+            ApplyGuestState(m);
+        }
+        else
+        {
+            _guestInbox.Enqueue(m);
+        }
+    }
+
+    private async Task FollowHostScene(string scene)
+    {
+        try { await JS.InvokeVoidAsync("pokerInvite.followScene", scene); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+    }
+
+    [JSInvokable]
+    public void OnHostGone()
+    {
+        if (!_isGuest) return;
+        _mpPill = "HOST AWAY — WAITING FOR THEM TO RETURN…";
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnHostBack()
+    {
+        if (!_isGuest) return;
+        _mpPill = "HOST IS BACK";
+        RequestSync();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnLinkState(string state)
+    {
+        if (!_isGuest) return;
+        switch (state)
+        {
+            case "reconnecting": _mpPill = "RECONNECTING…"; break;
+            case "connected": _mpPill = "BACK AT THE TABLE"; RequestSync(); break;
+            case "rejected": _guestError = "This table is no longer open."; break;
+            case "closed": _mpPill = "DISCONNECTED"; break;
+        }
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void SendToHost(MpMessage message) => _ = SafeInvoke("pokerRealtime.toHost", Encode(message));
+
+    private void RequestSync() => SendToHost(new MpMessage { t = "sync" });
+
+    private void ResetGuestPresentation()
+    {
+        _revealed.Clear();
+        _pending.Clear();
+        _shownBoard.Clear();
+        _showdownView.Clear();
+        _banner = null;
+        _bannerAmount = null;
+        _playerWonPot = false;
+        _shotBusy = false;
+        _shotStatus = null;
+        _pendingFocusSeat = -1;
+        _sessionOver = false;
+        _humanLost = false;
+        _humanWon = false;
+        _awaitingHuman = false;
+        _showSlider = false;
+        _advice = null;
+        _skipRequested = false;
+        _skipToNextHand = false;
+        _awaitingNextHand = false;
+        _handHasCompleted = false;
+        try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
+        catch (InvalidOperationException) { }
+        catch (JSException) { }
+        _ = EndBetPreview();
+    }
+
+    private void ApplySeatInfo(MpMessage m)
+    {
+        _seatNames.Clear();
+        _guestHumanSeats.Clear();
+        for (int j = 1; j < TableSeats; j++)
+        {
+            _seatNames[j] = m.names[j];
+            if (m.humans[j]) _guestHumanSeats.Add(j);
+        }
+        // Seat (6 - guest) % 6 in this view is the host's real seat 0.
+        _mpPill = $"PLAYING AT {m.names[Rot(0, _guestRot)].ToUpperInvariant()}'S TABLE";
+    }
+
+    private void ApplyGuestState(MpMessage m)
+    {
+        _guestRot = m.rot;
+        ResetGuestPresentation();
+        ApplySeatInfo(m);
+        var players = new List<PokerPlayer>();
+        for (int j = 0; j < TableSeats; j++)
+        {
+            PokerPlayer player;
+            if (j == 0)
+            {
+                player = new HumanPlayer("human", PlayerName, 0, Math.Max(0, m.stacks[0]));
+            }
+            else
+            {
+                int hostSeat = (j + m.rot) % TableSeats;
+                player = new AIPlayer($"npc{j}", m.names[j] ?? $"Player {j}", j, Math.Max(0, m.stacks[j]),
+                    WithDifficulty(Roster[Math.Max(0, hostSeat - 1)]()), _rng.Next());
+            }
+            player.Status = m.outs[j] ? PlayerStatus.Eliminated : PlayerStatus.Active;
+            players.Add(player);
+        }
+
+        _game = new PokerGame(TableRules.Default, players, _rng.Next(), () => new Deck(_guestDeck, 0));
+        _game.EventEmitted += OnEngineEvent;
+        try
+        {
+            _game.RestoreProgress(m.handNumber, m.dealer);
+            if (m.round != null)
+            {
+                _game.RestoreRound(m.round);
+                _shownBoard.AddRange(_game.CurrentRound.Board);
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException)
+        {
+            Console.Error.WriteLine($"Guest state rejected: {ex.Message}");
+            RequestSync();
+            return;
+        }
+        _handLog = new HandSequenceLog();
+        _handLog.BeginSession(0, TableRules.Default, players);
+        _ = GuestLoop(++_loopToken);
+    }
+
+    private bool ApplyGuestHand(MpMessage m)
+    {
+        ResetGuestPresentation();
+        ApplySeatInfo(m);
+        try
+        {
+            _guestDeck = m.deck.Select(Card.FromIndex).ToList();
+            foreach (PokerPlayer p in _game.Players)
+            {
+                p.Stack = Math.Max(0, m.stacks[p.Seat]);
+                p.Status = m.outs[p.Seat] ? PlayerStatus.Eliminated : PlayerStatus.Active;
+            }
+            _game = new PokerGame(TableRules.Default, _game.Players.ToList(), _rng.Next(),
+                () => new Deck(_guestDeck, 0));
+            _game.EventEmitted += OnEngineEvent;
+            _game.RestoreProgress(m.handNumber - 1, -1);
+            _game.StartHand(m.dealer);
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException)
+        {
+            Console.Error.WriteLine($"Guest hand rejected: {ex.Message}");
+            return false;
+        }
+    }
+
+    private async Task GuestLoop(int token)
+    {
+        AfterGuestStep();
+        while (token == _loopToken)
+        {
+            if (_guestInbox.Count == 0)
+            {
+                await Task.Delay(30);
+                continue;
+            }
+
+            MpMessage m = _guestInbox.Dequeue();
+            if (m.t == "hand")
+            {
+                if (!ApplyGuestHand(m))
+                {
+                    RequestSync();
+                    continue;
+                }
+                await DrainEvents(token);
+            }
+            else if (m.t == "act")
+            {
+                if (_game.Phase != GamePhase.HandInProgress || _game.CurrentSeat != m.seat
+                    || !TryDecodeAction(m, out PlayerAction action))
+                {
+                    RequestSync();
+                    continue;
+                }
+                try { _game.SubmitAction(action); }
+                catch (IllegalActionException)
+                {
+                    RequestSync();
+                    continue;
+                }
+                await DrainEvents(token);
+            }
+            else if (m.t == "over")
+            {
+                _statusLine = m.text ?? "Waiting for the host…";
+                StateHasChanged();
+                continue;
+            }
+
+            if (token != _loopToken) return;
+            AfterGuestStep();
+        }
+    }
+
+    private void AfterGuestStep()
+    {
+        if (_game.Phase == GamePhase.HandInProgress && _game.CurrentSeat >= 0)
+        {
+            if (_game.CurrentPlayer.IsHuman)
+            {
+                if (!_awaitingHuman) PromptHuman();
+            }
+            else
+            {
+                _statusLine = $"{NameOf(_game.CurrentSeat)} is thinking…";
+            }
+        }
+        else if (_game.HasHumanLost && !_guestOverDismissed && !_sessionOver && _handHasCompleted)
+        {
+            FinishSession();
+        }
+        else
+        {
+            _statusLine = "Waiting for the next hand…";
+        }
+        StateHasChanged();
+    }
+
+    private void DismissGuestOverlay()
+    {
+        _sessionOver = false;
+        _guestOverDismissed = true;
+    }
+
+    private async Task LeaveTable()
+    {
+        await SafeInvoke("pokerRealtime.leave");
+        await SafeInvoke("pokerInvite.goHome");
+    }
+
+    // ---------------------------------------------------------------- invites
+
+    private void CloseInvite()
+    {
+        _inviteOpen = false;
+        _inviteNote = "";
+    }
+
+    private async Task CopyInvite()
+    {
+        string result = await JS.InvokeAsync<string>("pokerInvite.copy", _inviteUrl);
+        _inviteNote = result == "copied"
+            ? "Link copied — paste it into a message."
+            : "Copy was blocked — use Text Invite instead.";
+    }
+
+    private async Task TextInvite()
+    {
+        string result = await JS.InvokeAsync<string>(
+            "pokerInvite.text", _inviteUrl, PlayerName);
+        _inviteNote = result == "opened"
+            ? "Messages opened with your table link."
+            : "Could not open Messages. Copy the link and send it manually.";
+    }
+
+    private async Task ShareInvite()
+    {
+        string result = await JS.InvokeAsync<string>(
+            "pokerInvite.share", _inviteUrl, $"{PlayerName} invited you to Dead Man's Hand");
+        _inviteNote = result switch
+        {
+            "shared" => "Share sheet opened.",
+            "copied" => "Link copied — paste it into a message.",
+            _ => "Sharing is unavailable. Use Text Invite instead."
+        };
+    }
+
+    private async Task EmailInvite()
+    {
+        string result = await JS.InvokeAsync<string>(
+            "pokerInvite.email", _inviteUrl, PlayerName);
+        _inviteNote = result == "opened"
+            ? "Email composer opened with your table link."
+            : "Could not open your email app. Copy the link instead.";
+    }
 
     private bool CanSaveSettingsName => SanitizeName(_settingsNameDraft, allowEmpty: true).Length > 0;
 
@@ -2225,11 +3078,14 @@
             : _banner;
     }
 
-    private string NameOf(int seat) => _game.GetPlayer(seat).Name;
+    private string NameOf(int seat) =>
+        _seatNames.TryGetValue(seat, out string shown) && !string.IsNullOrEmpty(shown)
+            ? shown
+            : _game.GetPlayer(seat).Name;
 
     // The engine's player record is immutable, so a mid-session rename from
     // the settings panel only changes what this HUD shows for the human seat.
-    private string DisplayName(PokerPlayer p) => p.IsHuman ? PlayerName : p.Name;
+    private string DisplayName(PokerPlayer p) => p.IsHuman ? PlayerName : NameOf(p.Seat);
 
     private PokerPlayer HudActor =>
         _game == null || _sessionOver ? null : _game.CurrentPlayer;
@@ -2444,8 +3300,16 @@
     private const string BackdropName = "SALOON";
     private string _tableScene = "saloon";
 
+    private string ReadSceneSync()
+    {
+        if (JS is not IJSInProcessRuntime sync) return _tableScene;
+        try { return sync.Invoke<string>("pokerInvite.scene") == "street" ? "street" : "saloon"; }
+        catch (JSException) { return _tableScene; }
+    }
+
     private async Task OnTableSceneChanged(ChangeEventArgs e)
     {
+        if (_isGuest) return;
         var next = e.Value?.ToString() == "street" ? "street" : "saloon";
         if (next == _tableScene) return;
         _tableScene = next;

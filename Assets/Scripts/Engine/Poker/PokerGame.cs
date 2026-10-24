@@ -209,8 +209,10 @@ namespace CinematicPoker.Engine.Poker
         /// <summary>
         /// Start the next hand. May complete instantly (e.g. everyone all-in from
         /// the blinds), so callers must check <see cref="Phase"/> afterwards.
+        /// A mirrored table (multiplayer guest) passes the dealer seat chosen
+        /// by the authoritative table instead of rotating the button itself.
         /// </summary>
-        public void StartHand()
+        public void StartHand(int? dealerSeat = null)
         {
             if (Phase == GamePhase.HandInProgress)
                 throw new InvalidOperationException("A hand is already in progress.");
@@ -219,7 +221,16 @@ namespace CinematicPoker.Engine.Poker
 
             var alive = AlivePlayers;
             HandNumber++;
-            DealerSeat = NextDealerSeat(alive);
+            if (dealerSeat.HasValue)
+            {
+                if (!alive.Any(p => p.Seat == dealerSeat.Value))
+                    throw new ArgumentException("Dealer seat is not in the hand.", nameof(dealerSeat));
+                DealerSeat = dealerSeat.Value;
+            }
+            else
+            {
+                DealerSeat = NextDealerSeat(alive);
+            }
 
             var entries = alive
                 .OrderBy(p => p.Seat)
