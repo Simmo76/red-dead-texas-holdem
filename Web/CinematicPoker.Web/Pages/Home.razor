@@ -410,7 +410,7 @@
                     }
                     <div class="settings-row">
                         <label class="settings-label" for="settings-scene">SCENE</label>
-                        <select id="settings-scene" class="chip-btn settings-select" @onchange="OnTableSceneChanged">
+                        <select id="settings-scene" class="chip-btn settings-select" disabled="@_isGuest" @onchange="OnTableSceneChanged">
                             <option value="saloon" selected="@(_tableScene == "saloon")">SALOON</option>
                             <option value="street" selected="@(_tableScene == "street")">OCTAGON</option>
                         </select>
@@ -1004,6 +1004,7 @@
         // WASM can read localStorage synchronously here so TAP TO PLAY already
         // knows whether this device has a saved name.
         _playerName = ReadCachedPlayerName();
+        _tableScene = ReadSceneSync();
         _settingsLoaded = !string.IsNullOrEmpty(_playerName) || JS is IJSInProcessRuntime;
         ReadInviteRoomFromUrl();
     }
@@ -1033,7 +1034,7 @@
             }
             StateHasChanged();
             if (_isGuest && !string.IsNullOrEmpty(_playerName)) _ = ConnectGuestAsync();
-            else _ = ResumeHostingAfterReload();
+            else _ = ResumeThenRunLoop();
 
             // The scene module loads asynchronously; retry until it's there.
             for (int i = 0; i < 60 && !_sceneReady; i++)
@@ -1209,7 +1210,6 @@
             _difficulty = Math.Clamp(saved.difficulty, 0, DifficultyNames.Length - 1);
             _quickMode = saved.quickMode;
             _muted = saved.muted;
-            _tableScene = saved.tableScene == "street" ? "street" : "saloon";
 
             var players = new List<PokerPlayer>();
             foreach (WebSeatSnapshot seat in saved.seats.OrderBy(s => s.seat))
@@ -1245,7 +1245,7 @@
             _handLog = new HandSequenceLog();
             _handLog.BeginSession(0, TableRules.Default, players);
             _statusLine = saved.round == null || saved.round.phase == HandPhase.Complete ? "Dealing…" : "Resuming your hand…";
-            _ = RunLoop(++_loopToken);
+            _restoredAwaitingLoop = true;
         }
         catch (Exception ex) when (ex is JsonException || ex is ArgumentException || ex is InvalidOperationException)
         {
@@ -1981,6 +1981,7 @@
         public bool[] humans;
         public PokerRoundSnapshot round;
         public string text;
+        public string scene;      // state | hand: the host's table scene, which friends follow
     }
 
     private static readonly JsonSerializerOptions MpJson = new JsonSerializerOptions
@@ -2091,6 +2092,27 @@
 
     // A reload (e.g. switching the table scene) drops the host's connection;
     // reopen the same room straight away so friends are not left waiting.
+    private bool _restoredAwaitingLoop;
+
+    // A restored table must not start dealing until friends are seated again,
+    // or the NPC logic would play their hands during the reload.
+    private async Task ResumeThenRunLoop()
+    {
+        try
+        {
+            Task resume = ResumeHostingAfterReload();
+            await Task.WhenAny(resume, Task.Delay(8000));
+        }
+        finally
+        {
+            if (_restoredAwaitingLoop && _game != null)
+            {
+                _restoredAwaitingLoop = false;
+                _ = RunLoop(++_loopToken);
+            }
+        }
+    }
+
     private async Task ResumeHostingAfterReload()
     {
         if (_isGuest || _hosting || _game == null) return;
@@ -2231,6 +2253,7 @@
             var m = new MpMessage
             {
                 t = "hand",
+                scene = _tableScene,
                 handNumber = _game.HandNumber,
                 dealer = Rot(_game.DealerSeat, guest),
                 deck = deck.ToArray()
@@ -2246,6 +2269,7 @@
         var m = new MpMessage
         {
             t = "state",
+            scene = _tableScene,
             rot = guest,
             handNumber = _game.HandNumber,
             dealer = Rot(_game.DealerSeat, guest)
@@ -2328,6 +2352,8 @@
         if (!_isGuest || _game == null) return;
         MpMessage m = Decode(payload);
         if (m == null) return;
+        if (!string.IsNullOrEmpty(m.scene) && m.scene != _tableScene)
+            _ = FollowHostScene(m.scene);
         if (m.t == "state")
         {
             _guestInbox.Clear();
@@ -2337,6 +2363,13 @@
         {
             _guestInbox.Enqueue(m);
         }
+    }
+
+    private async Task FollowHostScene(string scene)
+    {
+        try { await JS.InvokeVoidAsync("pokerInvite.followScene", scene); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
     }
 
     [JSInvokable]
@@ -3267,8 +3300,16 @@
     private const string BackdropName = "SALOON";
     private string _tableScene = "saloon";
 
+    private string ReadSceneSync()
+    {
+        if (JS is not IJSInProcessRuntime sync) return _tableScene;
+        try { return sync.Invoke<string>("pokerInvite.scene") == "street" ? "street" : "saloon"; }
+        catch (JSException) { return _tableScene; }
+    }
+
     private async Task OnTableSceneChanged(ChangeEventArgs e)
     {
+        if (_isGuest) return;
         var next = e.Value?.ToString() == "street" ? "street" : "saloon";
         if (next == _tableScene) return;
         _tableScene = next;

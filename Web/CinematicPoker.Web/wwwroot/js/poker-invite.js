@@ -38,6 +38,21 @@
         return '';
     }
 
+    var SCENE_KEY = 'cinematic-poker-table-scene';
+
+    function scene() {
+        try { return localStorage.getItem(SCENE_KEY) === 'street' ? 'street' : 'saloon'; } catch (e) { return 'saloon'; }
+    }
+
+    // A friend always plays in the host's scene: switch and reload if it differs.
+    function followScene(id) {
+        var next = id === 'street' ? 'street' : 'saloon';
+        if (next === scene()) return false;
+        try { localStorage.setItem(SCENE_KEY, next); } catch (e) { return false; }
+        w.location.reload();
+        return true;
+    }
+
     function inviteUrl(room) {
         var url = new URL('/', w.location.origin);
         url.searchParams.set('room', room);
@@ -95,6 +110,8 @@
         goHome: goHome,
         markHosting: markHosting,
         hostedRoom: hostedRoom,
+        scene: scene,
+        followScene: followScene,
         ensureRoom: ensureRoom,
         url: inviteUrl,
         roomFromUrl: roomFromUrl,
