@@ -21,6 +21,21 @@
     {
         <div class="intro-overlay intro-splash @(_introFading ? "fading" : "") @(_namePromptOpen ? "prompting" : "")"
              @onclick="StartIntro" role="button" aria-label="Tap to play">
+            <div class="intro-splash-art @(_tableScene == "street" ? "street" : "")">
+                @if (_sceneLoading && !_namePromptOpen)
+                {
+                    @* Play was tapped but the scene (saloon backdrop included) is
+                       still downloading — say so instead of silently sitting on
+                       the splash or, worse, revealing a background-less table. *@
+                    <div class="intro-loading" aria-live="polite">SETTING THE TABLE</div>
+                }
+                else if (!_namePromptOpen)
+                {
+                    @* Title art + TAP TO PLAY live in the splash image; keep a
+                       pulsing hotspot over the painted CTA so the cue still animates. *@
+                    <div class="intro-tap-pulse" aria-hidden="true"></div>
+                }
+            </div>
             @if (_namePromptOpen)
             {
                 <div class="name-prompt" @onclick:stopPropagation="true">
@@ -34,19 +49,6 @@
                         <button class="act call big" disabled="@(!CanConfirmName)" @onclick="ConfirmName">SIT DOWN</button>
                     </div>
                 </div>
-            }
-            else if (_sceneLoading)
-            {
-                @* Play was tapped but the scene (saloon backdrop included) is
-                   still downloading — say so instead of silently sitting on
-                   the splash or, worse, revealing a background-less table. *@
-                <div class="intro-loading" aria-live="polite">SETTING THE TABLE</div>
-            }
-            else
-            {
-                @* Title art + TAP TO PLAY live in the splash image; keep a
-                   pulsing hotspot over the painted CTA so the cue still animates. *@
-                <div class="intro-tap-pulse" aria-hidden="true"></div>
             }
         </div>
     }
