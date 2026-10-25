@@ -567,14 +567,14 @@ html.scene-street .boot-screen {
     transition: width 0.15s ease;
 }
 
-/* Tapping the panel toggles a close-up of the whole hand at 1.2x the
+/* Tapping the panel toggles a close-up of the whole hand at 1.4x the
    current expanded size. It may overlap the meters/bottom windows on tight
    screens, but the last two
    min() terms keep the five-card row and both rows on-screen. */
 .hud-board.expanded .hud-card {
     /* Never below the collapsed 49px, never past the viewport edges. */
-    width: max(49px, min(200px, calc((100vw - 370px) * 0.36), calc((100vh - 285px) * 0.648), calc((100vw - 60px) / 5), calc((100vh - 80px) * 0.432)));
-    width: max(49px, min(200px, calc((100vw - 370px) * 0.36), calc((100dvh - 285px) * 0.648), calc((100vw - 60px) / 5), calc((100dvh - 80px) * 0.432)));
+    width: max(49px, min(235px, calc((100vw - 370px) * 0.42), calc((100vh - 285px) * 0.756), calc((100vw - 60px) / 5), calc((100vh - 80px) * 0.504)));
+    width: max(49px, min(235px, calc((100vw - 370px) * 0.42), calc((100dvh - 285px) * 0.756), calc((100vw - 60px) / 5), calc((100dvh - 80px) * 0.504)));
 }
 
 /* The enlarged close-up owns the top-right corner: tuck the stack/pot
@@ -1803,10 +1803,10 @@ html.scene-street .boot-screen {
     .hud-board { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 4px; padding: 4px 5px; }
     .hud-row { gap: 3px; }
     .hud-card { width: 38px; }
-    /* 1.2x expanded panel, clamped so five cards never overflow a narrow screen. */
+    /* 1.4x expanded panel, clamped so five cards never overflow a narrow screen. */
     .hud-board.expanded { right: calc(4px + env(safe-area-inset-right)); }
     .hud-board.expanded .hud-row { gap: 2px; }
-    .hud-board.expanded .hud-card { width: min(130px, calc((100vw - 40px) * 0.36), calc((100vw - 24px) / 5)); }
+    .hud-board.expanded .hud-card { width: min(151px, calc((100vw - 40px) * 0.42), calc((100vw - 24px) / 5)); }
     .banner { font-size: 12px; top: 24%; }
     .banner-amount { font-size: 26px; }
     .banner-line { font-size: 12px; }
@@ -1850,13 +1850,13 @@ html.scene-street .boot-screen {
     .hud-stack-icon { width: 22px; height: 22px; flex-basis: 22px; }
     .hud-board { top: 42px; gap: 4px; padding: 4px 5px; }
     .hud-card { width: 40px; }
-    /* Enlarged: start below the (possibly wrapped) top-bar buttons at 1.2x
+    /* Enlarged: start below the (possibly wrapped) top-bar buttons at 1.4x
        the old close-up size; the last min() term keeps both rows on-screen. */
     .hud-board.expanded { top: 68px; }
     .hud-board.expanded .hud-card {
         /* Never below the collapsed 40px, never past the viewport edges. */
-        width: max(40px, min(162px, calc((100vw - 350px) * 0.36), calc((100vh - 230px) * 0.648), calc((100vh - 85px) * 0.432)));
-        width: max(40px, min(162px, calc((100vw - 350px) * 0.36), calc((100dvh - 230px) * 0.648), calc((100dvh - 85px) * 0.432)));
+        width: max(40px, min(189px, calc((100vw - 350px) * 0.42), calc((100vh - 230px) * 0.756), calc((100vh - 85px) * 0.504)));
+        width: max(40px, min(189px, calc((100vw - 350px) * 0.42), calc((100dvh - 230px) * 0.756), calc((100dvh - 85px) * 0.504)));
     }
     .banner { font-size: 12px; top: 18%; }
     .banner-amount { font-size: 24px; }
