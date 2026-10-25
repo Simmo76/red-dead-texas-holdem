@@ -1862,8 +1862,8 @@ html.scene-street .boot-screen {
     .hud-board.expanded { top: 42px; }
     .hud-board.expanded .hud-card {
         /* Never below the collapsed 40px, never past the viewport edges. */
-        width: max(40px, min(189px, calc((100vw - 350px) * 0.42), calc((100vh - 230px) * 0.756), calc((100vh - 300px) * 0.72), calc((100vh - 85px) * 0.504)));
-        width: max(40px, min(189px, calc((100vw - 350px) * 0.42), calc((100dvh - 230px) * 0.756), calc((100dvh - 300px) * 0.72), calc((100dvh - 85px) * 0.504)));
+        width: max(56px, min(189px, calc((100vw - 350px) * 0.42), calc((100vh - 230px) * 0.756), calc((100vh - 300px) * 0.72), calc((100vh - 85px) * 0.504)));
+        width: max(56px, min(189px, calc((100vw - 350px) * 0.42), calc((100dvh - 230px) * 0.756), calc((100dvh - 300px) * 0.72), calc((100dvh - 85px) * 0.504)));
     }
     .banner { font-size: 12px; top: 18%; }
     .banner-amount { font-size: 24px; }
