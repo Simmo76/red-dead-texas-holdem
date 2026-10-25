@@ -1610,6 +1610,17 @@
 
         ++_loopToken;
         if (run) _ = RunLoop(_loopToken);
+        // Solo sessions never touch SignalR; ping the server so Render logs
+        // still show who sat down to play. Guests and open host tables are
+        // already covered by the hub lifecycle lines.
+        if (!_isGuest && !_hosting) _ = ReportSoloUsageAsync();
+    }
+
+    private async Task ReportSoloUsageAsync()
+    {
+        try { await JS.InvokeVoidAsync("pokerUsage.reportSolo", PlayerName); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
     }
 
     /// <summary>

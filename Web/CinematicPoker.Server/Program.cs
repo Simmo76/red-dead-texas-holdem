@@ -17,6 +17,19 @@ app.MapGet("/health", () => Results.Ok(new
     transport = "SignalR",
     note = "In-memory beta rooms; restart clears rooms."
 }));
+// Solo play runs in the browser; the client posts here so Render logs
+// can see single-player sessions the same way the hub logs multiplayer.
+app.MapPost("/usage", (UsageReport body, ILoggerFactory logs) =>
+{
+    var log = logs.CreateLogger("GameUsage");
+    string raw = string.Join(" ", (body?.Player ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    string player = new string(raw.Where(c => char.IsLetterOrDigit(c) || c == ' ' || c == '-' || c == '_').Take(16).ToArray());
+    if (player.Length == 0) player = "Player";
+    log.LogInformation(
+        "Game solo started at={At:o} player={Player}",
+        DateTimeOffset.UtcNow, player);
+    return Results.NoContent();
+});
 app.MapHub<PokerHub>("/gamehub");
 
 // Local beta convenience: serve the built WASM app beside the hub so an
@@ -49,3 +62,5 @@ if (Directory.Exists(webRoot))
     });
 }
 app.Run();
+
+internal sealed record UsageReport(string Player, string Mode);
