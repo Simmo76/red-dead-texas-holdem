@@ -25,9 +25,18 @@ app.MapPost("/usage", (UsageReport body, ILoggerFactory logs) =>
     string raw = string.Join(" ", (body?.Player ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries));
     string player = new string(raw.Where(c => char.IsLetterOrDigit(c) || c == ' ' || c == '-' || c == '_').Take(16).ToArray());
     if (player.Length == 0) player = "Player";
+    string mode = (body?.Mode ?? "solo").Trim().ToLowerInvariant();
+    mode = mode switch
+    {
+        "solo_resume" or "resume" => "solo_resume",
+        "host_table" or "host" => "host_table",
+        _ => "solo"
+    };
+    // Keep the greppable "Game solo" prefix for the common case; resume/host
+    // variants stay under the same Game … family for Render search.
     log.LogInformation(
-        "Game solo started at={At:o} player={Player}",
-        DateTimeOffset.UtcNow, player);
+        "Game solo started at={At:o} player={Player} mode={Mode}",
+        DateTimeOffset.UtcNow, player, mode);
     return Results.NoContent();
 });
 app.MapHub<PokerHub>("/gamehub");

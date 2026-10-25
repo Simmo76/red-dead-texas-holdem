@@ -17,12 +17,16 @@
         }
     }
 
-    function reportSolo(player) {
+    // mode: "solo" (default) | "solo_resume" | "host_table"
+    function report(player, mode) {
         try {
             fetch(usageUrl(), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ player: player || 'Player', mode: 'solo' }),
+                body: JSON.stringify({
+                    player: player || 'Player',
+                    mode: mode || 'solo'
+                }),
                 keepalive: true,
                 mode: 'cors',
                 credentials: 'omit'
@@ -30,5 +34,9 @@
         } catch (e) { }
     }
 
-    w.pokerUsage = { reportSolo: reportSolo };
+    w.pokerUsage = {
+        report: report,
+        // Older Blazor builds called reportSolo(name).
+        reportSolo: function (player) { report(player, 'solo'); }
+    };
 })(window);
