@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
-import { createCoachController } from './coach-scene.js?v=7';
+import { createCoachController } from './coach-scene.js?v=8';
 
 // ---------------------------------------------------------- graphics safe mode
 //
