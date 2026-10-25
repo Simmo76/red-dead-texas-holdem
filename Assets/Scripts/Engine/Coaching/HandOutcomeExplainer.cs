@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -54,6 +55,35 @@ namespace CinematicPoker.Engine.Coaching
             return review;
         }
 
+        private static void DescribeFoldedShowdown(
+            CompletedHandRecord hand,
+            HandReview review,
+            Dictionary<int, HandValue> values,
+            Dictionary<int, List<Card>> fives)
+        {
+            PotAwardRecord pot = Main(hand);
+            int winner = -1;
+            if (pot?.WinnerSeats != null)
+            {
+                foreach (int seat in pot.WinnerSeats)
+                {
+                    if (seat != hand.HeroSeat) { winner = seat; break; }
+                }
+                if (winner < 0 && pot.WinnerSeats.Count > 0) winner = pot.WinnerSeats[0];
+            }
+            string name = SeatName(hand, winner);
+            review.Heading = "WHAT HAPPENED";
+            review.HighlightCodes = new List<string>();
+            if (values.TryGetValue(winner, out HandValue value))
+            {
+                review.WhyWon = "You folded. " + name + " won at showdown with " + WithArticle(CategoryPhrase(value)) + ".";
+                if (fives.TryGetValue(winner, out List<Card> five))
+                    review.HighlightCodes = Codes(five);
+                return;
+            }
+            review.WhyWon = "You folded. " + name + " won the pot at showdown.";
+        }
+
         private static void BuildFoldResult(CompletedHandRecord hand, HandReview review)
         {
             PotAwardRecord pot = Main(hand);
@@ -87,6 +117,20 @@ namespace CinematicPoker.Engine.Coaching
                 all.AddRange(hand.FinalBoard);
                 values[shown.Seat] = HandEvaluator.Evaluate(all);
                 fives[shown.Seat] = BestFiveCards.Select(all);
+            }
+
+            if (hand.HeroFolded && !values.ContainsKey(hand.HeroSeat))
+            {
+                if (hand.Awards.Count > 1)
+                {
+                    BuildMultiPot(hand, review, values, fives);
+                    review.Heading = "WHAT HAPPENED";
+                    if (review.WhyWon != null && review.WhyWon.IndexOf("You folded", StringComparison.Ordinal) < 0)
+                        review.WhyWon = "You folded. " + review.WhyWon;
+                    return;
+                }
+                DescribeFoldedShowdown(hand, review, values, fives);
+                return;
             }
 
             if (hand.Awards.Count > 1)

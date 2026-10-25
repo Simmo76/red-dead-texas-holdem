@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
-import { createCoachController } from './coach-scene.js?v=4';
+import { createCoachController } from './coach-scene.js?v=6';
 
 // ---------------------------------------------------------- graphics safe mode
 //
@@ -849,6 +849,7 @@ coachControl = createCoachController({
   loadGlb: (url) => loadGlb(state.loader, url),
   assets: () => ({
     jacob: state.jacobGltf || null,
+    bandit: state.banditGltf || null,
     clips: state.mightyCatGltf || null,
     chair: state.chairGltf || null,
     // The octagon is a different room. Maximilian always stands in the saloon.
@@ -1869,6 +1870,7 @@ async function buildScene(canvas) {
   const banditModel = (streetScene || GFX_ULTRA_LITE) ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Bandit.glb?v=10');
   const mightyCatModel = streetScene ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=9');
   jacobModel.then((g) => { state.jacobGltf = g; });
+  banditModel.then((g) => { state.banditGltf = g; });
   mightyCatModel.then((g) => { state.mightyCatGltf = g; });
   const fighterUrls = GFX_ULTRA_LITE ? FIGHTER_URLS.slice(0, 2) : FIGHTER_URLS;
   const fighterModels = streetScene ? fighterUrls.map((url) => loadGlb(loader, url)) : [];

@@ -1786,6 +1786,7 @@
                         ? "Tap NEXT HAND to keep your stack"
                         : "Tap NEXT HAND when you've seen the result";
                     StateHasChanged();
+                    await OpenCoachAfterHand();
                     while (token == _loopToken && !_skipRequested)
                         await Task.Delay(50);
                     _skipRequested = false;

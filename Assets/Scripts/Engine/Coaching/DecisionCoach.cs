@@ -360,9 +360,19 @@ namespace CinematicPoker.Engine.Coaching
         public static string RaiseLesson() =>
             "You raised. Showdown equity alone doesn't say a raise was better — that needs fold equity and a size.";
 
+        private static bool FoldedBeforeFlop(CompletedHandRecord hand)
+        {
+            if (hand == null || !hand.HeroFolded) return false;
+            if (hand.Decisions == null || hand.Decisions.Count == 0) return true;
+            CoachStreet last = CoachStreet.Preflop;
+            foreach (HeroDecisionSnapshot spot in hand.Decisions)
+                if (spot != null && spot.Street > last) last = spot.Street;
+            return last == CoachStreet.Preflop;
+        }
+
         private static LessonSelection BoardOrNeutral(CompletedHandRecord hand)
         {
-            string board = BoardLesson(hand);
+            string board = FoldedBeforeFlop(hand) ? null : BoardLesson(hand);
             if (!string.IsNullOrEmpty(board))
             {
                 return new LessonSelection
@@ -371,7 +381,7 @@ namespace CinematicPoker.Engine.Coaching
                     Lesson = board
                 };
             }
-            if (hand != null && hand.HeroFolded && (hand.FinalBoard == null || hand.FinalBoard.Count == 0))
+            if (FoldedBeforeFlop(hand))
             {
                 return new LessonSelection
                 {

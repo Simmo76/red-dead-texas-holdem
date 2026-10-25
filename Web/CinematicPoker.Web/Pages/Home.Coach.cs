@@ -60,6 +60,7 @@ namespace CinematicPoker.Web.Pages
         private int _coachHandsSinceTip = 2;
         private int _coachRequest;
         private long _coachSeq;
+        private string _coachAutoOpenedHandId;
         private DateTime _coachOpenedUtc;
 
         private bool CanReview =>
@@ -233,6 +234,19 @@ namespace CinematicPoker.Web.Pages
             if (_isGuest || _coachOffer == null) return;
             _coachRecorder?.Accept(_coachOffer, action);
             _coachOffer = null;
+        }
+
+        // Solo, on request: the review opens itself once the hand is over and
+        // the table is holding for the next deal. Closing it does not reopen
+        // the same hand. Notable mode keeps the tip chip. Off stays quiet.
+        private async Task OpenCoachAfterHand()
+        {
+            if (_isGuest || _coachPreview || _remote.Count > 0) return;
+            if (_coachMode != CoachMode.OnRequest || _coachOpen || _awaitingHuman) return;
+            CompletedHandRecord hand = _coachRecorder?.LastCompleted;
+            if (hand == null || !hand.Complete || hand.HandId == _coachAutoOpenedHandId) return;
+            _coachAutoOpenedHandId = hand.HandId;
+            await OpenCoachReview();
         }
 
         private void NoteCoachHandReady()
