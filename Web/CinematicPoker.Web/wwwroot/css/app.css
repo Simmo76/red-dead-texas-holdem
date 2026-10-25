@@ -1055,8 +1055,8 @@ html.scene-street .boot-screen {
 /* Table chat lives in the bottom control row, on the left, above Fold.
    That corner is the left thumb in landscape and is empty whenever it
    isn't your turn (Maximilian only sits here while you're deciding).
-   It grows upward inside the column, so it never covers the community
-   cards (top-right), the pot (top-centre), or the action buttons.
+   Collapsed it stays a one-line chip. Open, the log is four conversation
+   lines tall and may sit over other controls; the chip itself does not grow.
    The "who's here" line moved off the floating friend pill and into
    this header, which leaves the top-left free for the stack and pot
    when the card close-up pushes those meters left. */
@@ -1074,7 +1074,7 @@ html.scene-street .boot-screen {
     align-self: flex-end;
     display: flex;
     flex-direction: column;
-    max-height: min(232px, 42dvh);
+    max-height: none;
     background: rgba(8, 5, 3, 0.94);
     border: 1px solid var(--gold-dim);
     border-radius: 12px;
@@ -1171,8 +1171,11 @@ html.scene-street .boot-screen {
 .table-chat:not(.collapsed) .table-chat-chevron { transform: rotate(45deg); }
 
 .table-chat-log {
-    flex: 1 1 auto;
-    min-height: 0;
+    /* Four player lines (13px × 1.35 + the 6px gap) plus this box's bottom
+       padding, with a couple of pixels of slack so subpixel rounding cannot
+       clip the fourth line. Older lines scroll. */
+    flex: 0 0 auto;
+    height: calc(4 * (13px * 1.35 + 6px) + 8px);
     overflow-y: auto;
     padding: 0 12px 6px;
     touch-action: pan-y;
@@ -1816,7 +1819,7 @@ html.scene-street .boot-screen {
     .ai-advice { width: 235px; padding: 10px 12px 8px; }
     .ai-advice-action { font-size: 19px; }
     .ai-advice-why { font-size: 12.5px; }
-    .table-chat { width: min(220px, 70vw); max-height: min(200px, 36dvh); }
+    .table-chat { width: min(220px, 70vw); max-height: none; }
     .table-chat.collapsed { width: auto; max-height: none; }
 
     .act { padding: 12px 14px; font-size: 13px; letter-spacing: 1px; flex: 0 1 auto; }
@@ -1869,13 +1872,13 @@ html.scene-street .boot-screen {
     .ai-advice-action { font-size: 19px; }
     .ai-advice-why { font-size: 12.5px; }
     .ai-advice-sig { display: none; }
-    /* Phone landscape is short: keep the log to a couple of lines so Fold
-       and Call stay on screen, and let advice shrink so the row can hold
-       chat beside it instead of spilling over the actor card. */
+    /* Phone landscape stays narrow. The open log keeps its four lines and
+       may cover whatever sits behind it; the collapsed chip does not grow.
+       Advice still shrinks so the row can hold chat beside it. */
     .table-chat {
         flex-basis: 220px;
         max-width: min(220px, 42vw);
-        max-height: min(148px, 38dvh);
+        max-height: none;
     }
     .table-chat.collapsed {
         flex-basis: auto;
