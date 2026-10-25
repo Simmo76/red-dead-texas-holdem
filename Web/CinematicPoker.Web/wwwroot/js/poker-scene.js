@@ -2145,10 +2145,19 @@ async function buildScene(canvas) {
       _lookTarget.copy(state.pivot);
     }
     if (!state.intro.active) {
-      camera.position.lerp(_desiredPos, Math.min(1, dt * 6));
-      _lookMat.lookAt(camera.position, _lookTarget, _upVec);
-      _desiredQuat.setFromRotationMatrix(_lookMat);
-      camera.quaternion.slerp(_desiredQuat, Math.min(1, dt * 8));
+      if (state.zoom.active && state.zoom.kind === 'board') {
+        // Board close-ups are deliberately instantaneous: interpolating from
+        // the seated camera makes the cards sweep through a tilted,
+        // unreadable pose before the top-down orientation settles.
+        camera.position.copy(_desiredPos);
+        _lookMat.lookAt(camera.position, _lookTarget, _upVec);
+        camera.quaternion.setFromRotationMatrix(_lookMat);
+      } else {
+        camera.position.lerp(_desiredPos, Math.min(1, dt * 6));
+        _lookMat.lookAt(camera.position, _lookTarget, _upVec);
+        _desiredQuat.setFromRotationMatrix(_lookMat);
+        camera.quaternion.slerp(_desiredQuat, Math.min(1, dt * 8));
+      }
     }
 
     // The dealer/blind pucks glide across the felt when the deal passes on.
