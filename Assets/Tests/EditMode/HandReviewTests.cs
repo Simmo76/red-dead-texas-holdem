@@ -105,6 +105,33 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void FoldedHeroStillNamesTheShowdownWinner()
+        {
+            CompletedHandRecord hand = CoachFixtures.FoldedBlind();
+            hand.WonByFolds = false;
+            hand.FinalBoard = new List<Card>
+            {
+                Card.Parse("Ah"), Card.Parse("Kh"), Card.Parse("8h"), Card.Parse("8c"), Card.Parse("2s")
+            };
+            hand.RevealedHands.Add(new RevealedHand
+            {
+                Seat = 1,
+                HoleCards = new List<Card> { Card.Parse("Qh"), Card.Parse("Jh") }
+            });
+            hand.Awards[0].ByFold = false;
+
+            HandReview review = new HandReviewService().Explain(hand);
+
+            Assert.AreEqual("WHAT HAPPENED", review.Heading);
+            Assert.That(review.WhyWon, Does.Contain("You folded"));
+            Assert.That(review.WhyWon, Does.Contain("Sam"));
+            Assert.That(review.WhyWon, Does.Contain("flush"));
+            Assert.That(review.WhyWon, Does.Not.Contain("saved record"));
+            Assert.That(review.Lesson, Does.Not.Contain("third heart"));
+            Assert.That(review.Lesson, Does.Contain("folded before the flop"));
+        }
+
+        [Test]
         public void HeroWinsBecauseEveryoneFolded()
         {
             CompletedHandRecord hand = CoachFixtures.FoldedBlind();

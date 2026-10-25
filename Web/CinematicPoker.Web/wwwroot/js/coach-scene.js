@@ -1,16 +1,15 @@
-// Separate post-hand coaching scene. It reuses the saloon backdrop and a
-// Jacob cowboy (the closest rigged Western player in this checkout) with a
-// looping table-observe idle. It is its own scene graph and camera. The
-// poker scene's render loop is the only requestAnimationFrame driver.
+// Separate post-hand coaching scene. It reuses the saloon backdrop and the
+// Bandit (the Western character whose head carries the stitched eye-patch
+// bandage) with a looping table-observe idle. It is its own scene graph and
+// camera. The poker scene's render loop is the only requestAnimationFrame.
 //
 // CoachSceneDefinition
-//   model:    models/characters/western/Jacob.glb   (SK_Jacob)
-//   look:     shirt, no jacket, no hat, full hair, clean head
+//   model:    models/characters/western/Bandit.glb   (SK_Cowboy_2)
+//   look:     the baked table outfit, including the Bandage eye patch
 //   idle:     IdleTableObserveLeftRight01 (mighty-cat.glb, retargeted)
 //   bar:      models/env/backdrop.glb
-// The mock-up's grey-haired waistcoat, tie and standing gesture are not in
-// the asset pack. Jacob stays on his authored seated idle — that clip is a
-// real loop, not a frozen bind pose. Camera distance is chosen for this rig.
+// The Bandit GLB is already one outfit. His bones match the shared seated
+// clips, so the idle is a real loop, not a frozen bind pose.
 
 import * as THREE from 'three';
 import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';
@@ -18,17 +17,15 @@ import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';
 export const COACH_SCENE_DEFINITION = {
   id: 'maximilian',
   displayName: 'Maximilian',
-  model: 'models/characters/western/Jacob.glb?v=3',
-  modelId: 'SK_Jacob',
-  look: {
-    pants: 3, jacket: 0, shirt: 2, shirtOpt: 0, scarf: 0, hat: 0,
-    hair: 'full', gun: false, holster: false, belt: true, head: 'clean',
-  },
+  model: 'models/characters/western/Bandit.glb?v=10',
+  modelId: 'SK_Cowboy_2',
+  // null keeps the baked outfit: jacket, scarf, hat, and the Bandage eye patch.
+  look: null,
   idleClip: 'IdleTableObserveLeftRight01',
   idleFallbacks: ['IdleSit01', 'IdleSitThinking01', 'IdleHoldCards01', 'Sit'],
   saloon: 'models/env/backdrop.glb?v=2',
   chair: 'models/props/furniture/chair.glb?v=6',
-  reason: 'No waistcoat-and-tie model is in the checkout. Jacob is the Western player the table already rigs, shown without hat or jacket so the face and shirt read.',
+  reason: 'Bandit is the Western character with the stitched eye-patch bandage (mesh Bandage).',
 };
 
 const WESTERN_SCALE = 1.098;
@@ -130,7 +127,7 @@ export function createCoachController(deps) {
       return false;
     }
     const assets = (getAssets && getAssets()) || {};
-    const jacob = assets.jacob || await loadGlb(COACH_SCENE_DEFINITION.model);
+    const jacob = assets.bandit || await loadGlb(COACH_SCENE_DEFINITION.model);
     const clips = assets.clips || await loadGlb('models/characters/western/mighty-cat.glb?v=9');
     const chairGltf = assets.chair || await loadGlb(COACH_SCENE_DEFINITION.chair);
     if (token === 0) {
@@ -239,20 +236,36 @@ export function createCoachController(deps) {
   function addCharacter(jacob, clipsGltf) {
     root = cloneSkinned(jacob.scene);
     root.scale.setScalar(WESTERN_SCALE);
-    const names = westernMeshNames(COACH_SCENE_DEFINITION.look);
-    const inLook = (obj) => {
-      for (let p = obj; p; p = p.parent) {
-        const n = (p.name || '').replace(/\.\d+$/, '');
-        if (names.has(n)) return true;
-      }
-      return false;
-    };
-    const drop = [];
+    // Jacob ships every outfit in one file, so a look drops the extras.
+    // Bandit is already one outfit; filtering him would remove the eye patch.
+    // The hat brim hides that patch in this close framing, so the coach
+    // leaves the hat off and keeps the bandage.
+    const hide = new Set(['Hat__1']);
+    const look = COACH_SCENE_DEFINITION.look;
+    if (look) {
+      const names = westernMeshNames(look);
+      const inLook = (obj) => {
+        for (let p = obj; p; p = p.parent) {
+          const n = (p.name || '').replace(/\.\d+$/, '');
+          if (names.has(n)) return true;
+        }
+        return false;
+      };
+      const drop = [];
+      root.traverse((obj) => {
+        if (!obj.isMesh) return;
+        if (!inLook(obj)) drop.push(obj);
+      });
+      for (const obj of drop) if (obj.parent) obj.parent.remove(obj);
+    }
+    const uncovered = [];
     root.traverse((obj) => {
       if (!obj.isMesh) return;
-      if (!inLook(obj)) drop.push(obj);
+      const n = (obj.name || '').replace(/\.\d+$/, '');
+      const parent = obj.parent && (obj.parent.name || '').replace(/\.\d+$/, '');
+      if (hide.has(n) || hide.has(parent)) uncovered.push(obj);
     });
-    for (const obj of drop) if (obj.parent) obj.parent.remove(obj);
+    for (const obj of uncovered) if (obj.parent) obj.parent.remove(obj);
     root.traverse((obj) => {
       if (!obj.isMesh || !obj.material) return;
       obj.frustumCulled = false;
@@ -492,7 +505,7 @@ export function createCoachController(deps) {
         sceneMeshes: saloonMeshes,
         instances: root ? 1 : 0,
         reason: failedReason,
-        look: 'jacob-shirt-no-jacket-no-hat',
+        look: 'bandit-eye-patch',
       };
     },
   };
