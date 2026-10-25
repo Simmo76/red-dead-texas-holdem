@@ -144,6 +144,106 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void FoldWinAfterAMissedDealDoesNotReuseThePreviousShowdown()
+        {
+            var history = new CoachHistoryBuffer();
+            CompletedHandRecord earlier = CoachFixtures.FlushOverTwoPair();
+            history.Remember(earlier);
+            var recorder = new HandReviewRecorder("resumed-sitting", 0, 5, 10, history);
+            var names = new Dictionary<int, string> { { 0, "You" }, { 1, "Tommy Gunn" } };
+
+            PokerGame game = CreateGame(new long[] { 1000, 1000 });
+            game.StartHand();
+            FoldAround(game);
+            game.StartHand();
+            game.EventEmitted += evt => recorder.Observe(evt, game.CurrentRound, names);
+            Assert.AreEqual(1, game.CurrentSeat, "Heads-up, the button moved, so the opponent folds into the hero.");
+            game.SubmitAction(PlayerAction.Fold());
+
+            CompletedHandRecord latest = recorder.LastCompleted;
+            Assert.AreNotEqual(earlier.HandId, latest.HandId);
+            Assert.AreEqual(game.HandNumber, latest.HandNumber);
+            Assert.IsTrue(latest.WonByFolds);
+            Assert.Greater(latest.HeroNet, 0);
+            Assert.AreEqual(2, latest.HeroHoleCards.Count);
+            HandReview review = new HandReviewService().Explain(latest);
+            Assert.AreEqual("WHY YOU WON", review.Heading);
+            Assert.AreEqual("You won because everyone else folded.", review.WhyWon);
+            Assert.That(review.ChipDetail, Does.Contain("returned uncalled"));
+            Assert.That(review.WhyWon, Does.Not.Contain("pair"));
+            Assert.That(review.Lesson, Does.Not.Contain("all-in for less"));
+            Assert.AreEqual("WHY THEY WON", new HandReviewService().Explain(earlier).Heading);
+
+            int stored = recorder.History.Hands.Count;
+            recorder.Observe(new HandCompleted { WonByFolds = true }, game.CurrentRound, names);
+            Assert.AreEqual(stored, recorder.History.Hands.Count);
+        }
+
+        [Test]
+        public void ResumedHandExplainsTheFoldThatFinishesIt()
+        {
+            var history = new CoachHistoryBuffer();
+            history.Remember(CoachFixtures.Kicker());
+            var recorder = new HandReviewRecorder("resumed-sitting", 0, 5, 10, history);
+            var names = new Dictionary<int, string> { { 0, "You" }, { 1, "Tommy Gunn" } };
+
+            PokerGame game = CreateGame(new long[] { 1000, 1000 });
+            game.StartHand();
+            FoldAround(game);
+            game.StartHand();
+            recorder.ResumeHand(game.HandNumber, game.CurrentRound, names);
+            game.EventEmitted += evt => recorder.Observe(evt, game.CurrentRound, names);
+            game.SubmitAction(PlayerAction.Fold());
+
+            HandReview review = new HandReviewService().Explain(recorder.LastCompleted);
+            Assert.AreEqual("You won because everyone else folded.", review.WhyWon);
+            Assert.AreEqual(game.HandNumber, recorder.LastCompleted.HandNumber);
+            Assert.AreEqual("resumed-sitting", recorder.LastCompleted.SessionId);
+            Assert.AreEqual(2, recorder.History.Hands.Count(h => h.Complete));
+        }
+
+        [Test]
+        public void ObservedFoldWinStillSaysEveryoneFolded()
+        {
+            var recorder = new HandReviewRecorder("live", 0, 5, 10);
+            var names = new Dictionary<int, string> { { 0, "You" }, { 1, "Sam" } };
+            PokerGame game = CreateGame(new long[] { 1000, 1000 });
+            game.EventEmitted += evt => recorder.Observe(evt, game.CurrentRound, names);
+            game.StartHand();
+            FoldAround(game);
+            game.StartHand();
+            game.SubmitAction(PlayerAction.Fold());
+
+            Assert.AreEqual(2, recorder.History.Hands.Count);
+            HandReview review = new HandReviewService().Explain(recorder.LastCompleted);
+            Assert.AreEqual("You won because everyone else folded.", review.WhyWon);
+            Assert.AreEqual(1, recorder.LastCompleted.Awards.Count);
+            Assert.IsTrue(recorder.LastCompleted.Awards[0].ByFold);
+            Assert.IsTrue(recorder.LastCompleted.Awards[0].WinnerSeats.Contains(0));
+        }
+
+        [Test]
+        public void MissedDealStillNamesTheShowdownWinner()
+        {
+            var names = new Dictionary<int, string> { { 0, "You" }, { 1, "Opponent" } };
+            string expected = ExplainShowdown(names);
+
+            var history = new CoachHistoryBuffer();
+            history.Remember(CoachFixtures.FlushOverTwoPair());
+            var deck = StackedDeck.Parse("As", "Qh", "Kd", "Jh", "Ah", "Kh", "8h", "8c", "2s");
+            PokerGame game = CreateGame(new long[] { 1000, 1000 }, deck);
+            game.StartHand();
+            var recorder = new HandReviewRecorder("late", 0, 5, 10, history);
+            game.EventEmitted += evt => recorder.Observe(evt, game.CurrentRound, names);
+            CheckCallDown(game);
+
+            HandReview review = new HandReviewService().Explain(recorder.LastCompleted);
+            Assert.AreEqual(expected, review.WhyWon);
+            Assert.AreNotEqual("fixture-a", recorder.LastCompleted.HandId);
+            Assert.That(review.WhyWon, Does.Contain("flush"));
+        }
+
+        [Test]
         public void PlayedFlushUsesEvaluatorAndLedger()
         {
             var deck = StackedDeck.Parse("As", "Qh", "Kd", "Jh", "Ah", "Kh", "8h", "8c", "2s");
@@ -445,6 +545,17 @@ namespace CinematicPoker.Engine.Tests
             {
                 writer.WriteStringValue(BestFiveCards.Code(value));
             }
+        }
+
+        private static string ExplainShowdown(Dictionary<int, string> names)
+        {
+            var deck = StackedDeck.Parse("As", "Qh", "Kd", "Jh", "Ah", "Kh", "8h", "8c", "2s");
+            PokerGame game = CreateGame(new long[] { 1000, 1000 }, deck);
+            var recorder = new HandReviewRecorder("full", 0, 5, 10);
+            game.EventEmitted += evt => recorder.Observe(evt, game.CurrentRound, names);
+            game.StartHand();
+            CheckCallDown(game);
+            return new HandReviewService().Explain(recorder.LastCompleted).WhyWon;
         }
 
         private static bool ContainsCard(CompletedHandRecord record, string code)

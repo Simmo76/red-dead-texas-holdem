@@ -19,6 +19,7 @@ namespace CinematicPoker.Engine.Coaching
         private CompletedHandRecord _current;
         private int _nextDecisionId;
         private CoachStreet _street = CoachStreet.Preflop;
+        private readonly List<UncalledReturn> _pendingReturns = new List<UncalledReturn>();
 
         public HandReviewRecorder(string sessionId, int heroSeat, long smallBlind, long bigBlind, CoachHistoryBuffer history = null)
         {
@@ -37,6 +38,37 @@ namespace CinematicPoker.Engine.Coaching
         {
             _sessionId = string.IsNullOrEmpty(sessionId) ? "session" : sessionId;
             _current = null;
+            _pendingReturns.Clear();
+        }
+
+        /// <summary>
+        /// Attach the hand already on the table. A restored sitting does not
+        /// replay <see cref="HandStarted"/>, so without this the finishing
+        /// <see cref="HandCompleted"/> is ignored and the review stays on the
+        /// previous saved hand.
+        /// </summary>
+        public void ResumeHand(int handNumber, PokerRound round, IReadOnlyDictionary<int, string> names)
+        {
+            if (handNumber <= 0 || round == null || round.IsComplete) return;
+            if (AlreadyRemembered(handNumber)) return;
+            if (_current != null && !_current.Complete && _current.HandNumber == handNumber) return;
+
+            _nextDecisionId = 0;
+            _log.Clear();
+            _pendingReturns.Clear();
+            _street = StreetOfBoard(round.Board.Count);
+            _current = BlankHand(handNumber, round.DealerSeat);
+            foreach (SeatState seat in round.Seats)
+            {
+                _current.StartingStacks[seat.Seat] = seat.StackAtHandStart;
+                if (seat.Seat != _heroSeat) continue;
+                _current.HeroFolded = seat.Folded;
+                if (seat.HoleCards.Count > 0)
+                    _current.HeroHoleCards.AddRange(seat.HoleCards);
+            }
+            if (round.Board.Count > 0)
+                _current.FinalBoard.AddRange(round.Board);
+            CopyNames(_current, names);
         }
 
         /// <summary>
@@ -96,14 +128,28 @@ namespace CinematicPoker.Engine.Coaching
                 case ShowdownStarted showdown when _current != null:
                     CopyRevealed(showdown);
                     break;
-                case UncalledBetReturned returned when _current != null:
-                    _current.Returns.Add(new UncalledReturn { Seat = returned.Seat, Amount = returned.Amount });
+                case UncalledBetReturned returned:
+                    var uncalled = new UncalledReturn { Seat = returned.Seat, Amount = returned.Amount };
+                    if (_current == null) _pendingReturns.Add(uncalled);
+                    else _current.Returns.Add(uncalled);
                     break;
                 case PotAwarded award when _current != null:
                     CopyAward(award);
                     break;
-                case HandCompleted completed when _current != null && !_current.Complete:
-                    Finish(completed, round, names);
+                case HandCompleted completed:
+                    // HandStarted never arrived (a resumed hand, or a recorder
+                    // attached after the deal). Leaving LastCompleted on the
+                    // previous showdown is how a fold win gets explained as
+                    // "their pair beat your pair".
+                    if (completed.HandNumber > 0
+                        && (_current == null || _current.Complete || _current.HandNumber != completed.HandNumber))
+                    {
+                        RecoverMissedHand(completed, round, names);
+                    }
+                    else if (_current != null && !_current.Complete)
+                    {
+                        Finish(completed, round, names);
+                    }
                     break;
             }
         }
@@ -244,22 +290,174 @@ namespace CinematicPoker.Engine.Coaching
             _street = CoachStreet.Preflop;
             _nextDecisionId = 0;
             _log.Clear();
-            _current = new CompletedHandRecord
-            {
-                SessionId = _sessionId,
-                HandId = _sessionId + ":" + started.HandNumber,
-                HandNumber = started.HandNumber,
-                HeroSeat = _heroSeat,
-                ButtonSeat = started.DealerSeat,
-                SmallBlind = _smallBlind,
-                BigBlind = _bigBlind
-            };
+            _pendingReturns.Clear();
+            _current = BlankHand(started.HandNumber, started.DealerSeat);
             if (round != null)
             {
                 foreach (SeatState seat in round.Seats)
                     _current.StartingStacks[seat.Seat] = seat.StackAtHandStart;
             }
             CopyNames(_current, names);
+        }
+
+        private CompletedHandRecord BlankHand(int handNumber, int buttonSeat)
+        {
+            return new CompletedHandRecord
+            {
+                SessionId = _sessionId,
+                HandId = _sessionId + ":" + handNumber,
+                HandNumber = handNumber,
+                HeroSeat = _heroSeat,
+                ButtonSeat = buttonSeat,
+                SmallBlind = _smallBlind,
+                BigBlind = _bigBlind
+            };
+        }
+
+        private bool AlreadyRemembered(int handNumber)
+        {
+            string id = _sessionId + ":" + handNumber;
+            foreach (CompletedHandRecord hand in _history.Hands)
+                if (hand != null && hand.HandId == id) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Build the finished hand from the round when its opening event was missed.
+        /// Awards are rebuilt from the same pot layering the round uses, because
+        /// the <see cref="PotAwarded"/> events were dropped with no open record.
+        /// </summary>
+        private void RecoverMissedHand(HandCompleted completed, PokerRound round, IReadOnlyDictionary<int, string> names)
+        {
+            if (round == null || !round.IsComplete) return;
+            if (AlreadyRemembered(completed.HandNumber)) return;
+
+            _nextDecisionId = 0;
+            _log.Clear();
+            _street = StreetOfBoard(round.Board.Count);
+            _current = BlankHand(completed.HandNumber, round.DealerSeat);
+            _current.FinalBoard = new List<Card>(round.Board);
+            foreach (SeatState seat in round.Seats)
+            {
+                _current.StartingStacks[seat.Seat] = seat.StackAtHandStart;
+                if (seat.Seat == _heroSeat)
+                {
+                    _current.HeroHoleCards = new List<Card>(seat.HoleCards);
+                    _current.HeroFolded = seat.Folded;
+                }
+                if (completed.WonByFolds || seat.Folded || seat.HoleCards.Count < 2) continue;
+                _current.RevealedHands.Add(new RevealedHand
+                {
+                    Seat = seat.Seat,
+                    HoleCards = new List<Card>(seat.HoleCards)
+                });
+            }
+            if (_pendingReturns.Count > 0)
+            {
+                _current.Returns.AddRange(_pendingReturns);
+                _pendingReturns.Clear();
+            }
+            RebuildAwards(_current, round, completed.WonByFolds);
+            CopyNames(_current, names);
+            Finish(completed, round, names);
+        }
+
+        private static void RebuildAwards(CompletedHandRecord hand, PokerRound round, bool wonByFolds)
+        {
+            if (wonByFolds)
+            {
+                SeatState winner = null;
+                foreach (SeatState seat in round.Seats)
+                {
+                    if (!seat.InHand) continue;
+                    winner = seat;
+                    break;
+                }
+                if (winner == null) return;
+                hand.Awards.Add(new PotAwardRecord
+                {
+                    PotIndex = 0,
+                    Amount = round.PotTotal,
+                    ByFold = true,
+                    WinnerSeats = new List<int> { winner.Seat },
+                    Payouts = new Dictionary<int, long> { { winner.Seat, round.PotTotal } }
+                });
+                return;
+            }
+
+            if (round.Board == null || round.Board.Count < 5) return;
+
+            var contributions = new Dictionary<int, long>();
+            var folded = new Dictionary<int, bool>();
+            var values = new Dictionary<int, HandValue>();
+            foreach (SeatState seat in round.Seats)
+            {
+                contributions[seat.Seat] = seat.TotalCommitted;
+                folded[seat.Seat] = seat.Folded;
+                if (!seat.Folded && seat.HoleCards.Count >= 2)
+                    values[seat.Seat] = HandEvaluator.Evaluate(seat.HoleCards, round.Board);
+            }
+
+            List<Pot> pots = SidePotCalculator.Build(contributions, folded);
+            for (int potIndex = 0; potIndex < pots.Count; potIndex++)
+            {
+                Pot pot = pots[potIndex];
+                HandValue best = default;
+                bool any = false;
+                var winners = new List<int>();
+                foreach (SeatState seat in round.Seats)
+                {
+                    if (!pot.EligibleSeats.Contains(seat.Seat)) continue;
+                    if (!values.TryGetValue(seat.Seat, out HandValue value)) continue;
+                    if (!any || value > best)
+                    {
+                        best = value;
+                        any = true;
+                        winners.Clear();
+                        winners.Add(seat.Seat);
+                    }
+                    else if (value == best)
+                    {
+                        winners.Add(seat.Seat);
+                    }
+                }
+                if (!any) continue;
+                hand.Awards.Add(new PotAwardRecord
+                {
+                    PotIndex = potIndex,
+                    Amount = pot.Amount,
+                    ByFold = false,
+                    WinnerSeats = winners,
+                    Payouts = SplitEven(pot.Amount, winners)
+                });
+            }
+        }
+
+        private static Dictionary<int, long> SplitEven(long amount, List<int> winners)
+        {
+            var payouts = new Dictionary<int, long>();
+            if (winners == null || winners.Count == 0 || amount <= 0) return payouts;
+            long share = amount / winners.Count;
+            long odd = amount - share * winners.Count;
+            foreach (int seat in winners)
+            {
+                long payout = share;
+                if (odd > 0)
+                {
+                    payout++;
+                    odd--;
+                }
+                payouts[seat] = payout;
+            }
+            return payouts;
+        }
+
+        private static CoachStreet StreetOfBoard(int boardCount)
+        {
+            if (boardCount >= 5) return CoachStreet.River;
+            if (boardCount == 4) return CoachStreet.Turn;
+            if (boardCount == 3) return CoachStreet.Flop;
+            return CoachStreet.Preflop;
         }
 
         private void Finish(HandCompleted completed, PokerRound round, IReadOnlyDictionary<int, string> names)

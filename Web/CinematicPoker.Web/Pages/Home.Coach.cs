@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using CinematicPoker.Engine.Coaching;
+using CinematicPoker.Engine.Players;
 using CinematicPoker.Engine.Poker;
 using CinematicPoker.Engine.Telemetry;
 using CinematicPoker.Web.Coaching;
@@ -69,7 +70,7 @@ namespace CinematicPoker.Web.Pages
             && _coachMode != CoachMode.Off
             && !_coachOpen
             && !_awaitingHuman
-            && _coachRecorder?.LastCompleted is { Complete: true };
+            && HandToReview() != null;
 
         private bool CoachCanAdvance =>
             !_coachPreview
@@ -221,6 +222,38 @@ namespace CinematicPoker.Web.Pages
             }
         }
 
+        // A checkpoint restored mid-hand never replays HandStarted. Open a
+        // record for the hand on the table so the result that follows is the
+        // one Tommy explains, not the previous saved showdown.
+        private void ResumeCoachFromRound()
+        {
+            if (_isGuest || _game?.CurrentRound == null || _game.CurrentRound.IsComplete) return;
+            EnsureCoachRecorder();
+            if (_coachRecorder == null) return;
+            var names = new Dictionary<int, string>();
+            foreach (PokerPlayer player in _game.Players)
+                names[player.Seat] = player.Seat == 0 ? PlayerName : player.Name;
+            _coachRecorder.ResumeHand(_game.HandNumber, _game.CurrentRound, names);
+        }
+
+        // While the result banner is up, the review is the hand that just
+        // finished. An older saved hand can still be opened before this
+        // sitting has a result.
+        private CompletedHandRecord HandToReview()
+        {
+            if (_coachPreview)
+                return _coachPreviewHand is { Complete: true } ? _coachPreviewHand : null;
+
+            CompletedHandRecord hand = _coachRecorder?.LastCompleted;
+            if (hand is not { Complete: true }) return null;
+            if (_handHasCompleted || _awaitingNextHand)
+            {
+                if (hand.SessionId != _coachSessionId || _game == null || hand.HandNumber != _game.HandNumber)
+                    return null;
+            }
+            return hand;
+        }
+
         private void ObserveCoach(PokerEvent evt)
         {
             if (_isGuest || evt == null || _game == null) return;
@@ -253,8 +286,8 @@ namespace CinematicPoker.Web.Pages
         {
             if (_isGuest || _coachPreview || _remote.Count > 0) return;
             if (_coachMode != CoachMode.OnRequest || _coachOpen || _awaitingHuman) return;
-            CompletedHandRecord hand = _coachRecorder?.LastCompleted;
-            if (hand == null || !hand.Complete || hand.HandId == _coachAutoOpenedHandId) return;
+            CompletedHandRecord hand = HandToReview();
+            if (hand == null || hand.HandId == _coachAutoOpenedHandId) return;
             _coachAutoOpenedHandId = hand.HandId;
             await OpenCoachReview();
         }
@@ -262,8 +295,8 @@ namespace CinematicPoker.Web.Pages
         private void NoteCoachHandReady()
         {
             if (_isGuest || _coachPreview) return;
-            CompletedHandRecord hand = _coachRecorder?.LastCompleted;
-            if (hand == null || !hand.Complete) return;
+            CompletedHandRecord hand = HandToReview();
+            if (hand == null) return;
             _ = SaveCoachHistory();
             if (_coachMode == CoachMode.Off) return;
             _ = TrackCoach(CoachAnalytics.Available("local", _coachSessionId, NextSeq(), hand.HandId, ModeKey(_coachMode)));
@@ -301,8 +334,8 @@ namespace CinematicPoker.Web.Pages
             if (!_coachPreview && _coachMode == CoachMode.Off) return;
             if (!_coachPreview && _awaitingHuman) return;
 
-            CompletedHandRecord hand = _coachPreview ? _coachPreviewHand : _coachRecorder?.LastCompleted;
-            if (hand == null || !hand.Complete) return;
+            CompletedHandRecord hand = HandToReview();
+            if (hand == null) return;
 
             _coachService ??= new HandReviewService();
             _coachShownHand = hand;
