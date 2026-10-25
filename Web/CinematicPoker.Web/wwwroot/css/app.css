@@ -505,11 +505,6 @@ html.scene-street .boot-screen {
 
 /* Remaining stack is the progress meter players actually watch. */
 .hud-stack {
-    /* Keep the player's own bankroll visible in the lower-left HUD corner,
-       where it stays out of the way of the community cards. */
-    position: fixed;
-    left: calc(18px + env(safe-area-inset-left));
-    bottom: calc(18px + env(safe-area-inset-bottom));
     font-size: 22px;
     padding: 8px 18px;
     border-color: rgba(87, 199, 133, 0.45);
