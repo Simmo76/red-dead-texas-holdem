@@ -1528,10 +1528,27 @@
     /// input, and waits for NEXT HAND after a result is shown. Cancelled by
     /// token when restarting.
     /// </summary>
+    // A friend who takes over a busted opponent's seat must not sit down
+    // with nothing: give that seat a fresh buy-in before the next deal.
+    private void SeatFriendsWithChips()
+    {
+        if (_game == null || _game.Phase == GamePhase.HandInProgress) return;
+        foreach (int seat in _remote.Keys.ToList())
+        {
+            try
+            {
+                if (_game.RebuySeatIfBroke(seat))
+                    Announce($"{NameOf(seat)} bought back in.");
+            }
+            catch (InvalidOperationException) { }
+        }
+    }
+
     private async Task RunLoop(int token)
     {
         while (token == _loopToken)
         {
+            SeatFriendsWithChips();
             // A finished table (James won, or only NPCs remain) still holds
             // on the result until NEXT HAND. Do not overlay immediately —
             // that skipped the banner and hid the action bar.
@@ -1580,6 +1597,7 @@
                     await Task.Delay(NextHandDelayMs);
                 }
                 if (token != _loopToken) return;
+                SeatFriendsWithChips();
 
                 // James still has chips and opponents remain: deal. Bust or
                 // a table sweep goes to the overlay, where Continue Game

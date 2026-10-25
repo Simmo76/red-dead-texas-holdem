@@ -128,6 +128,29 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void RebuySeatIfBrokeRestoresABustedSeatAndLeavesFundedSeatsAlone()
+        {
+            var rules = new TableRules(smallBlind: 5, bigBlind: 10, startingStack: 1000);
+            var human = new HumanPlayer("human", "James", seat: 0, stack: 1000);
+            var busted = new TestPlayer(1, 0) { Status = PlayerStatus.Eliminated };
+            var funded = new TestPlayer(2, 400);
+            var game = new PokerGame(rules, new System.Collections.Generic.List<PokerPlayer>
+            {
+                human, busted, funded
+            }, seed: 1);
+
+            Assert.IsFalse(game.RebuySeatIfBroke(2), "A seat with chips keeps them.");
+            Assert.AreEqual(400, funded.Stack);
+
+            Assert.IsTrue(game.RebuySeatIfBroke(1));
+            Assert.AreEqual(rules.StartingStack, busted.Stack);
+            Assert.AreEqual(PlayerStatus.Active, busted.Status);
+
+            game.StartHand();
+            Assert.IsNotNull(game.CurrentRound.GetSeat(1), "The rebought seat is dealt in.");
+        }
+
+        [Test]
         public void RebuyHumanSitsTheNextHandWithoutResettingOpponents()
         {
             var rules = new TableRules(smallBlind: 5, bigBlind: 10, startingStack: 1000);

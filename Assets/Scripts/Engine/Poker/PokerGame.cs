@@ -126,6 +126,30 @@ namespace CinematicPoker.Engine.Poker
         }
 
         /// <summary>
+        /// Buy in a seat that has no playable chips: a friend taking over a
+        /// busted opponent's seat, for example. Seats that can still cover
+        /// the big blind are left alone. Returns true when the seat was reset.
+        /// </summary>
+        public bool RebuySeatIfBroke(int seat, long? stack = null)
+        {
+            if (Phase == GamePhase.HandInProgress)
+                throw new InvalidOperationException("Cannot rebuy during a hand.");
+            PokerPlayer player = GetPlayer(seat);
+            if (player.Status != PlayerStatus.Eliminated && player.Stack >= Rules.BigBlind)
+                return false;
+
+            long buyIn = stack ?? Rules.StartingStack;
+            if (buyIn < Rules.BigBlind)
+                throw new ArgumentException("Rebuy must cover the big blind.");
+
+            player.Stack = buyIn;
+            player.Status = PlayerStatus.Active;
+            if (Phase == GamePhase.SessionOver && !IsSessionOver)
+                Phase = GamePhase.WaitingForHand;
+            return true;
+        }
+
+        /// <summary>
         /// Seat a fresh set of opponents after James wins the table. He keeps
         /// his stack; the new players buy in for a starting stack each.
         /// </summary>

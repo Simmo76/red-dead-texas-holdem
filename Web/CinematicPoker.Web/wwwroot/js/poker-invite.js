@@ -4,6 +4,22 @@
     var ROOM_KEY = 'dead-mans-hand-room';
     var HOSTING_KEY = 'dead-mans-hand-hosting';
 
+    // A table lives only as long as a reload cycle (a scene change). Opening
+    // the game afresh starts a new table with a new link, so a friend who left
+    // an earlier table can never drift back into this one.
+    (function startFreshTableUnlessReload() {
+        var type = '';
+        try {
+            var nav = w.performance && w.performance.getEntriesByType('navigation')[0];
+            type = nav ? nav.type : '';
+        } catch (e) { }
+        if (type === 'reload') return;
+        try {
+            sessionStorage.removeItem(ROOM_KEY);
+            sessionStorage.removeItem(HOSTING_KEY);
+        } catch (e) { }
+    })();
+
     function randomRoom() {
         if (w.crypto && w.crypto.getRandomValues) {
             var bytes = new Uint8Array(5);
