@@ -2146,10 +2146,10 @@ async function buildScene(canvas) {
     }
     if (!state.intro.active) {
       if (state.zoom.active && state.zoom.kind === 'board') {
-        // Board close-ups are deliberately instantaneous: interpolating from
-        // the seated camera makes the cards sweep through a tilted,
-        // unreadable pose before the top-down orientation settles.
-        camera.position.copy(_desiredPos);
+        // Move into the close-up at a readable pace, but apply its final
+        // top-down orientation immediately so the cards never sweep through
+        // a tilted, unreadable pose.
+        camera.position.lerp(_desiredPos, Math.min(1, dt * 2.4));
         _lookMat.lookAt(camera.position, _lookTarget, _upVec);
         camera.quaternion.setFromRotationMatrix(_lookMat);
       } else {
@@ -2449,7 +2449,7 @@ function pickCardZoomTarget(canvas, e) {
   // Keep the community cards large enough to read in the top-down view.
   // Aim at the group's exact centre so the cards stay centred as the board
   // grows from the flop to the full five-card layout.
-  const height = group === state.boardCards ? 0.88 : 0.52;
+  const height = group === state.boardCards ? 0.78 : 0.52;
   return {
     pos: new THREE.Vector3(centre.x, TABLE_TOP + height, centre.z),
     look: new THREE.Vector3(centre.x, TABLE_TOP, centre.z),
