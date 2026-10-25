@@ -2464,7 +2464,7 @@
     private async Task EnsureHosting()
     {
         _selfRef ??= DotNetObjectReference.Create(this);
-        string json = await JS.InvokeAsync<string>("pokerRealtime.host", _roomCode, _selfRef);
+        string json = await JS.InvokeAsync<string>("pokerRealtime.host", _roomCode, PlayerName, _selfRef);
         _hosting = true;
         await SafeInvoke("pokerInvite.markHosting");
         ApplyGuestRoster(json);
@@ -3261,6 +3261,7 @@
         _inviteNote = result == "copied"
             ? "Link copied — paste it into a message."
             : "Copy was blocked — use Text Invite instead.";
+        if (result == "copied") await ReportInviteAsync("copy");
     }
 
     private async Task TextInvite()
@@ -3270,6 +3271,7 @@
         _inviteNote = result == "opened"
             ? "Messages opened with your table link."
             : "Could not open Messages. Copy the link and send it manually.";
+        if (result == "opened") await ReportInviteAsync("text");
     }
 
     private async Task ShareInvite()
@@ -3282,6 +3284,8 @@
             "copied" => "Link copied — paste it into a message.",
             _ => "Sharing is unavailable. Use Text Invite instead."
         };
+        if (result is "shared" or "copied")
+            await ReportInviteAsync(result == "copied" ? "copy" : "share");
     }
 
     private async Task EmailInvite()
@@ -3291,6 +3295,15 @@
         _inviteNote = result == "opened"
             ? "Email composer opened with your table link."
             : "Could not open your email app. Copy the link instead.";
+        if (result == "opened") await ReportInviteAsync("email");
+    }
+
+    // Invitees are chosen in the OS share / SMS / mail UI, so the server only
+    // learns the channel here; join logs name whoever actually arrives.
+    private async Task ReportInviteAsync(string channel)
+    {
+        if (!_hosting) return;
+        await SafeInvoke("pokerRealtime.reportInvite", channel);
     }
 
     private bool CanSaveSettingsName => SanitizeName(_settingsNameDraft, allowEmpty: true).Length > 0;

@@ -7,6 +7,7 @@
     var role = '';
     var currentRoom = '';
     var currentName = '';
+    var currentHostName = '';
     var playerId = '';
 
     function randomId() {
@@ -65,7 +66,8 @@
         connection.onreconnected(async function () {
             try {
                 if (role === 'host') {
-                    var guests = await connection.invoke('HostRoom', currentRoom, playerId);
+                    var guests = await connection.invoke(
+                        'HostRoom', currentRoom, playerId, currentHostName || 'Player');
                     notify('OnHostReattached', JSON.stringify(guests));
                 } else {
                     var result = await connection.invoke('JoinRoom', currentRoom, playerId, currentName);
@@ -80,14 +82,20 @@
         await connection.start();
     }
 
-    async function host(room, dotnetRef) {
+    async function host(room, hostName, dotnetRef) {
         await stop();
+        // Older Blazor builds called host(room, dotnetRef). Keep that working.
+        if (dotnetRef == null && hostName && typeof hostName === 'object') {
+            dotnetRef = hostName;
+            hostName = 'Player';
+        }
         dotnet = dotnetRef;
         role = 'host';
         currentRoom = room;
+        currentHostName = hostName || 'Player';
         playerId = stableId('host', room);
         await connect();
-        var guests = await connection.invoke('HostRoom', room, playerId);
+        var guests = await connection.invoke('HostRoom', room, playerId, currentHostName);
         return JSON.stringify(guests);
     }
 
@@ -101,6 +109,15 @@
         await connect();
         var result = await connection.invoke('JoinRoom', room, playerId, currentName);
         return JSON.stringify(result);
+    }
+
+    // Tell the relay (and Render logs) that the host sent an invite link.
+    // channel: text | email | share | copy
+    async function reportInvite(channel) {
+        if (!connection || role !== 'host') return;
+        try {
+            await connection.invoke('ReportInvite', currentRoom, channel || 'unknown');
+        } catch (e) { }
     }
 
     async function toHost(payload) {
@@ -143,7 +160,8 @@
     }
 
     w.pokerRealtime = {
-        host: host, join: join, toHost: toHost, toGuest: toGuest,
+        host: host, join: join, reportInvite: reportInvite,
+        toHost: toHost, toGuest: toGuest,
         leave: leave, stop: stop, isLive: isLive, scrollChat: scrollChat
     };
 })(window);
