@@ -2437,12 +2437,12 @@ function pickCardZoomTarget(canvas, e) {
   const tmp = new THREE.Vector3();
   for (const c of group) centre.add(c.getWorldPosition(tmp));
   centre.divideScalar(group.length);
-  // Height chosen so the group fills the view: wider groups sit higher. The
-  // camera hangs a touch behind the group so the top-down view stays stable
-  // and the cards read upright from the player's side of the table.
-  const height = group === state.boardCards ? 1.28 : 0.52;
+  // Keep the community cards large enough to read in the top-down view.
+  // Aim at the group's exact centre so the cards stay centred as the board
+  // grows from the flop to the full five-card layout.
+  const height = group === state.boardCards ? 0.88 : 0.52;
   return {
-    pos: new THREE.Vector3(centre.x, TABLE_TOP + height, centre.z + height * 0.09),
+    pos: new THREE.Vector3(centre.x, TABLE_TOP + height, centre.z),
     look: new THREE.Vector3(centre.x, TABLE_TOP, centre.z),
     kind: group === state.boardCards ? 'board' : 'table'
   };
