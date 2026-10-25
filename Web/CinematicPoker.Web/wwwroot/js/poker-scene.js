@@ -2146,12 +2146,13 @@ async function buildScene(canvas) {
     }
     if (!state.intro.active) {
       if (state.zoom.active && state.zoom.kind === 'board') {
-        // Move into the close-up at a readable pace, but apply its final
-        // top-down orientation immediately so the cards never sweep through
-        // a tilted, unreadable pose.
-        camera.position.lerp(_desiredPos, Math.min(1, dt * 2.4));
-        _lookMat.lookAt(camera.position, _lookTarget, _upVec);
-        camera.quaternion.setFromRotationMatrix(_lookMat);
+        // Position and orientation travel toward the same final pose at the
+        // same rate, keeping the cards level with the camera as it arrives.
+        const zoomEase = Math.min(1, dt * 2.4);
+        camera.position.lerp(_desiredPos, zoomEase);
+        _lookMat.lookAt(_desiredPos, _lookTarget, _upVec);
+        _desiredQuat.setFromRotationMatrix(_lookMat);
+        camera.quaternion.slerp(_desiredQuat, zoomEase);
       } else {
         camera.position.lerp(_desiredPos, Math.min(1, dt * 6));
         _lookMat.lookAt(camera.position, _lookTarget, _upVec);
