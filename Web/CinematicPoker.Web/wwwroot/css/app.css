@@ -505,6 +505,12 @@ html.scene-street .boot-screen {
 
 /* Remaining stack is the progress meter players actually watch. */
 .hud-stack {
+    /* Keep the player's identity and remaining chips in the thumb-side
+       corner instead of competing with the pot at the top of the table. */
+    position: fixed;
+    left: calc(18px + env(safe-area-inset-left));
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    z-index: 7;
     font-size: 22px;
     padding: 8px 18px;
     border-color: rgba(87, 199, 133, 0.45);
