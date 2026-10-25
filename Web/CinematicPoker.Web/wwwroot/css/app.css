@@ -678,6 +678,8 @@ html.scene-street .boot-screen {
     to { opacity: 1; }
 }
 
+/* Result / winners window: 1.5x the previous size so the pot amount,
+   winning cards and "wins with…" line read clearly over the hand strip. */
 .banner {
     position: absolute;
     left: 50%;
@@ -688,41 +690,41 @@ html.scene-street .boot-screen {
     color: var(--gold);
     background: rgba(8, 5, 3, 0.92);
     border: 1px solid var(--gold-dim);
-    border-radius: 8px;
-    padding: 10px 22px 12px;
-    font-size: 15px;
-    letter-spacing: 1px;
+    border-radius: 12px;
+    padding: 15px 33px 18px;
+    font-size: 23px;
+    letter-spacing: 1.5px;
     animation: fadein 0.35s ease-out;
     z-index: 12;
     pointer-events: none;
 }
 
 .banner-amount {
-    font-size: 34px;
+    font-size: 51px;
     font-weight: bold;
-    letter-spacing: 2px;
+    letter-spacing: 3px;
     line-height: 1.1;
     color: #f3d78a;
-    text-shadow: 0 0 18px rgba(216, 178, 92, 0.45);
+    text-shadow: 0 0 27px rgba(216, 178, 92, 0.45);
 }
 
 .banner-line {
-    margin-top: 4px;
-    font-size: 14px;
-    letter-spacing: 1px;
+    margin-top: 6px;
+    font-size: 21px;
+    letter-spacing: 1.5px;
     color: var(--text);
 }
 
 .banner-cards {
     display: flex;
     justify-content: center;
-    gap: 6px;
-    margin: 8px 0 2px;
+    gap: 9px;
+    margin: 12px 0 3px;
 }
 
 .banner-cards .hud-card {
-    width: 52px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+    width: 78px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.65);
 }
 
 .banner-win {
@@ -779,21 +781,22 @@ html.scene-street .boot-screen {
 
 .hud-winner .hud-card { width: 36px; }
 
-/* Hand-compare window: bigger cards and type so the YOU-vs-them read is
-   obvious, but still capped and kept inside .hud-bottom's flow column so it
-   stacks above the action bar instead of covering the banner or NEXT HAND. */
+/* Hand-compare window: 1.5x the previous size (cards + type) so the
+   YOU-vs-them read is obvious, but still capped and kept inside
+   .hud-bottom's flow column so it stacks above the action bar instead of
+   covering NEXT HAND. */
 .showdown-strip {
     align-self: center;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 18px;
-    max-width: min(560px, 78vw);
-    padding: 14px 18px;
+    gap: 27px;
+    max-width: min(840px, 92vw);
+    padding: 21px 27px;
     background: rgba(8, 5, 3, 0.86);
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: 18px;
     pointer-events: none;
 }
 
@@ -801,10 +804,10 @@ html.scene-street .boot-screen {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    min-width: 110px;
-    padding: 8px 12px;
-    border-radius: 10px;
+    gap: 9px;
+    min-width: 165px;
+    padding: 12px 18px;
+    border-radius: 15px;
 }
 
 .showdown-seat.winner {
@@ -813,20 +816,20 @@ html.scene-street .boot-screen {
 }
 
 .showdown-name {
-    font-size: 14px;
-    letter-spacing: 1.5px;
+    font-size: 21px;
+    letter-spacing: 2.25px;
     color: var(--text-dim);
     text-transform: uppercase;
 }
 
 .showdown-seat.winner .showdown-name { color: var(--gold); }
 
-.showdown-cards { display: flex; gap: 6px; }
-.showdown-cards .hud-card { width: 58px; }
+.showdown-cards { display: flex; gap: 9px; }
+.showdown-cards .hud-card { width: 87px; }
 
 .showdown-hand {
-    font-size: 14px;
-    letter-spacing: 0.6px;
+    font-size: 21px;
+    letter-spacing: 0.9px;
     color: var(--text);
 }
 
@@ -1814,15 +1817,15 @@ html.scene-street .boot-screen {
     .hud-board.expanded { right: calc(10px + env(safe-area-inset-right)); }
     .hud-board.expanded .hud-row { gap: 2px; }
     .hud-board.expanded .hud-card { width: min(196px, calc((100vw - 40px) * 0.546), calc((100vw - 24px) / 5)); }
-    .banner { font-size: 12px; top: 24%; }
-    .banner-amount { font-size: 26px; }
-    .banner-line { font-size: 12px; }
-    .banner-cards .hud-card { width: 42px; }
+    .banner { font-size: 18px; top: 24%; }
+    .banner-amount { font-size: 39px; }
+    .banner-line { font-size: 18px; }
+    .banner-cards .hud-card { width: 63px; }
     .hud-winner .hud-card { width: 30px; }
-    .showdown-strip { gap: 12px; padding: 10px 12px; max-width: min(420px, 84vw); }
-    .showdown-seat { min-width: 88px; padding: 6px 8px; gap: 5px; }
-    .showdown-cards .hud-card { width: 46px; }
-    .showdown-name, .showdown-hand { font-size: 12px; }
+    .showdown-strip { gap: 18px; padding: 15px 18px; max-width: min(630px, 94vw); }
+    .showdown-seat { min-width: 132px; padding: 9px 12px; gap: 8px; }
+    .showdown-cards .hud-card { width: 69px; }
+    .showdown-name, .showdown-hand { font-size: 18px; }
     .hud-bottom-row { gap: 8px; padding: 0 calc(10px + env(safe-area-inset-right)) 2px calc(10px + env(safe-area-inset-left)); }
     .actor-card { min-width: 120px; padding: 8px 12px; }
     .actor-name { font-size: 15px; }
@@ -1865,16 +1868,16 @@ html.scene-street .boot-screen {
         width: max(73px, min(246px, calc((100vw - 350px) * 0.546), calc((100vh - 230px) * 0.983), calc((100vh - 300px) * 0.936), calc((100vh - 85px) * 0.655)));
         width: max(73px, min(246px, calc((100vw - 350px) * 0.546), calc((100dvh - 230px) * 0.983), calc((100dvh - 300px) * 0.936), calc((100dvh - 85px) * 0.655)));
     }
-    .banner { font-size: 12px; top: 18%; }
-    .banner-amount { font-size: 24px; }
-    .banner-line { font-size: 12px; }
-    .banner-cards { margin: 6px 0 2px; gap: 5px; }
-    .banner-cards .hud-card { width: 40px; }
+    .banner { font-size: 18px; top: 18%; }
+    .banner-amount { font-size: 36px; }
+    .banner-line { font-size: 18px; }
+    .banner-cards { margin: 9px 0 3px; gap: 8px; }
+    .banner-cards .hud-card { width: 60px; }
     .hud-winner .hud-card { width: 28px; }
-    .showdown-strip { gap: 10px; padding: 8px 10px; max-width: min(380px, 70vw); }
-    .showdown-seat { min-width: 80px; padding: 5px 8px; gap: 4px; }
-    .showdown-cards .hud-card { width: 42px; }
-    .showdown-name, .showdown-hand { font-size: 11px; }
+    .showdown-strip { gap: 15px; padding: 12px 15px; max-width: min(570px, 90vw); }
+    .showdown-seat { min-width: 120px; padding: 8px 12px; gap: 6px; }
+    .showdown-cards .hud-card { width: 63px; }
+    .showdown-name, .showdown-hand { font-size: 17px; }
     .hud-bottom-row { gap: 8px; padding: 0 calc(14px + env(safe-area-inset-right)) 2px calc(14px + env(safe-area-inset-left)); }
     .actor-card { min-width: 120px; padding: 6px 12px; }
     .actor-name { font-size: 14px; }
