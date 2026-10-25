@@ -16,6 +16,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
+import { createCoachController } from './coach-scene.js?v=4';
 
 // ---------------------------------------------------------- graphics safe mode
 //
@@ -821,6 +822,8 @@ function restoreImageBitmap() {
   }
 }
 
+let coachControl = null;
+
 function loadGlb(loader, url) {
   // Force the GLTF parser onto TextureLoader (HTMLImageElement) instead of
   // ImageBitmapLoader. ImageBitmap uploads free their CPU-side image after the
@@ -840,6 +843,20 @@ function loadGlb(loader, url) {
     resolve(null);
   }));
 }
+
+coachControl = createCoachController({
+  getRenderer: () => state.renderer,
+  loadGlb: (url) => loadGlb(state.loader, url),
+  assets: () => ({
+    jacob: state.jacobGltf || null,
+    clips: state.mightyCatGltf || null,
+    chair: state.chairGltf || null,
+    // The octagon is a different room. Maximilian always stands in the saloon.
+    saloon: TABLE_SCENE === 'street' ? null : state.saloon,
+  }),
+  onHide: () => syncPokerCameraAspect(),
+});
+window.pokerCoach = coachControl.api;
 
 // Per-character clone of a mesh material with three shader hooks:
 // - shirt: a hue-rotate + desaturate pass on the albedo (Rodrigues rotation
@@ -1639,6 +1656,7 @@ async function buildScene(canvas) {
   // This is the only environment — alternate backdrops are disabled for now.
   const SALOON_BAR_NUDGE_Z = 2.4; // metres toward the bar (player forward)
   const loader = new GLTFLoader();
+  state.loader = loader;
   const chipMeshPromise = loadGlb(loader, 'models/props/chips/chip.glb?v=1');
   loader.setMeshoptDecoder(MeshoptDecoder);
 
@@ -1838,6 +1856,7 @@ async function buildScene(canvas) {
   // mesh_chair_02 under every cowboy; the saloon still dresses the rest of
   // the room (booths, bar stools, bottles).
   const chairGltf = await loadGlb(loader, 'models/props/furniture/chair.glb?v=6');
+  state.chairGltf = chairGltf;
   state.seats = [];
   const charPromises = [];
 
@@ -1849,6 +1868,8 @@ async function buildScene(canvas) {
   const sheriffModel = (streetScene || GFX_ULTRA_LITE) ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Sheriff.glb?v=10');
   const banditModel = (streetScene || GFX_ULTRA_LITE) ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Bandit.glb?v=10');
   const mightyCatModel = streetScene ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=9');
+  jacobModel.then((g) => { state.jacobGltf = g; });
+  mightyCatModel.then((g) => { state.mightyCatGltf = g; });
   const fighterUrls = GFX_ULTRA_LITE ? FIGHTER_URLS.slice(0, 2) : FIGHTER_URLS;
   const fighterModels = streetScene ? fighterUrls.map((url) => loadGlb(loader, url)) : [];
   // Every Jacob look wears a hat so the seat's accent colour always has
@@ -2080,7 +2101,21 @@ async function buildScene(canvas) {
   preloadCardTextures();
 
   renderer.setAnimationLoop(() => {
-    const dt = state.clock.getDelta();
+    const rawDt = state.clock.getDelta();
+    if (coachControl && coachControl.api.presenting) {
+      const coachDt = Math.min(rawDt, 0.05);
+      if (coachControl.api.ready && coachControl.api.scene()) {
+        if (!document.hidden) coachControl.api.tick(coachDt);
+        const coachCamera = coachControl.api.camera();
+        resizeCoach(canvas, renderer, coachCamera);
+        renderer.render(coachControl.api.scene(), coachCamera);
+      } else {
+        renderer.setClearColor(0x140e0a, 1);
+        renderer.clear();
+      }
+      return;
+    }
+    const dt = rawDt;
     const t = state.clock.elapsedTime;
     for (const seat of state.seats) if (seat.char) {
       seat.char.mixer.update(dt);
@@ -2277,9 +2312,11 @@ function setupLookControls(canvas, view) {
     return Math.hypot(a.x - b.x, a.y - b.y);
   };
 
+  const coachBlockingInput = () => !!(coachControl && coachControl.api.presenting);
+
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    if (!state.view || state.zoom.active) return;
+    if (coachBlockingInput() || !state.view || state.zoom.active) return;
     view.targetDistScale *= (1 + Math.sign(e.deltaY) * 0.04);
     clampLook(view);
   }, { passive: false });
@@ -2288,6 +2325,7 @@ function setupLookControls(canvas, view) {
   canvas.addEventListener('gestureend', (e) => e.preventDefault());
 
   canvas.addEventListener('pointerdown', (e) => {
+    if (coachBlockingInput()) return;
     if (e.pointerType !== 'mouse') {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.size === 2) {
@@ -2318,6 +2356,7 @@ function setupLookControls(canvas, view) {
   });
 
   canvas.addEventListener('pointermove', (e) => {
+    if (coachBlockingInput()) return;
     const touch = touches.get(e.pointerId);
     if (touch) { touch.x = e.clientX; touch.y = e.clientY; }
     if (touch && touches.size >= 2) {
@@ -2672,6 +2711,39 @@ function cardScreenRect(card, canvas) {
 }
 
 let lastW = 0, lastH = 0;
+function resizeCoach(canvas, renderer, camera) {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!camera || w === 0 || h === 0) return;
+  if (w === lastW && h === lastH && camera.userData.fitW === w && camera.userData.fitH === h) return;
+  lastW = w;
+  lastH = h;
+  camera.userData.fitW = w;
+  camera.userData.fitH = h;
+  renderer.setPixelRatio(cappedPixelRatio(canvas));
+  renderer.setSize(w, h, false);
+  camera.fov = 40;
+  // The advice card covers the right half of the canvas. Slide the projection
+  // so the seated coach stays in the open left half. A wider frame needs a
+  // larger slide: fixed vertical fov pulls him toward center as aspect grows.
+  const aspect = w / h;
+  const slide = Math.min(0.18, Math.max(0.1, (aspect - 1.05) * 0.1));
+  const fullW = Math.round(w * (1 + 2 * slide));
+  camera.setViewOffset(fullW, h, fullW - w, 0, w, h);
+}
+
+function syncPokerCameraAspect() {
+  if (!state.camera || !state.renderer) return;
+  const canvas = state.renderer.domElement;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
+  // Aspect only. The seated camera position is left where the player had it.
+  state.camera.aspect = w / h;
+  state.camera.fov = state.baseFov || 60;
+  state.camera.updateProjectionMatrix();
+  lastW = w;
+  lastH = h;
+}
+
 function resizeIfNeeded(canvas, renderer, camera) {
   const w = canvas.clientWidth, h = canvas.clientHeight;
   if (w === lastW && h === lastH) return;
