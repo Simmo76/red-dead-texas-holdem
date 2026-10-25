@@ -862,7 +862,7 @@ html.scene-street .boot-screen {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 12px;
     padding: 14px 18px;
     padding-left: calc(18px + env(safe-area-inset-left));
@@ -877,6 +877,10 @@ html.scene-street .boot-screen {
     flex-wrap: wrap;
     align-items: center;
     gap: 12px;
+}
+
+.actionbar > .hud-stack {
+    flex: 0 0 auto;
 }
 
 .actionbar-right {

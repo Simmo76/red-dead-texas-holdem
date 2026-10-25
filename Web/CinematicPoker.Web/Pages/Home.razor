@@ -81,11 +81,6 @@
     @if (Round != null)
     {
         <div class="hud-meters">
-            <div class="hud-stack" title="Chips you have left">
-                <span class="hud-stack-icon" aria-hidden="true"></span>
-                <span class="hud-stack-name" style="color:@SeatColor(0)">@PlayerName.ToUpperInvariant()</span>
-                <b>$@ShownStack(0)</b>
-            </div>
             <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b></div>
             @* While the enlarged card close-up owns the right edge, the
                current actor's window joins this column under the pot pill
@@ -313,6 +308,14 @@
     </div>
 
     <div class="actionbar">
+        @if (Round != null)
+        {
+            <div class="hud-stack" title="Chips you have left">
+                <span class="hud-stack-icon" aria-hidden="true"></span>
+                <span class="hud-stack-name" style="color:@SeatColor(0)">@PlayerName.ToUpperInvariant()</span>
+                <b>$@ShownStack(0)</b>
+            </div>
+        }
         @if (_awaitingHuman && _legal != null && !_showSlider)
         {
             <div class="actionbar-left">
