@@ -573,8 +573,15 @@ html.scene-street .boot-screen {
    min() terms keep the five-card row and both rows on-screen. */
 .hud-board.expanded .hud-card {
     /* Never below the collapsed 49px, never past the viewport edges. */
-    width: max(49px, min(235px, calc((100vw - 370px) * 0.42), calc((100vh - 285px) * 0.756), calc((100vw - 60px) / 5), calc((100vh - 80px) * 0.504)));
-    width: max(49px, min(235px, calc((100vw - 370px) * 0.42), calc((100dvh - 285px) * 0.756), calc((100vw - 60px) / 5), calc((100dvh - 80px) * 0.504)));
+    width: max(49px, min(235px, calc((100vw - 370px) * 0.42), calc((100vh - 285px) * 0.756), calc((100vh - 315px) * 0.72), calc((100vw - 60px) / 5), calc((100vh - 80px) * 0.504)));
+    width: max(49px, min(235px, calc((100vw - 370px) * 0.42), calc((100dvh - 285px) * 0.756), calc((100dvh - 315px) * 0.72), calc((100vw - 60px) / 5), calc((100dvh - 80px) * 0.504)));
+}
+
+/* Width grows down and to the left from the original top-right corner. */
+.hud-board.expanded {
+    top: calc(56px + env(safe-area-inset-top));
+    right: calc(18px + env(safe-area-inset-right));
+    transform-origin: top right;
 }
 
 /* The enlarged close-up owns the top-right corner: tuck the stack/pot
@@ -1804,7 +1811,7 @@ html.scene-street .boot-screen {
     .hud-row { gap: 3px; }
     .hud-card { width: 38px; }
     /* 1.4x expanded panel, clamped so five cards never overflow a narrow screen. */
-    .hud-board.expanded { right: calc(4px + env(safe-area-inset-right)); }
+    .hud-board.expanded { right: calc(10px + env(safe-area-inset-right)); }
     .hud-board.expanded .hud-row { gap: 2px; }
     .hud-board.expanded .hud-card { width: min(151px, calc((100vw - 40px) * 0.42), calc((100vw - 24px) / 5)); }
     .banner { font-size: 12px; top: 24%; }
@@ -1852,11 +1859,11 @@ html.scene-street .boot-screen {
     .hud-card { width: 40px; }
     /* Enlarged: start below the (possibly wrapped) top-bar buttons at 1.4x
        the old close-up size; the last min() term keeps both rows on-screen. */
-    .hud-board.expanded { top: 68px; }
+    .hud-board.expanded { top: 42px; }
     .hud-board.expanded .hud-card {
         /* Never below the collapsed 40px, never past the viewport edges. */
-        width: max(40px, min(189px, calc((100vw - 350px) * 0.42), calc((100vh - 230px) * 0.756), calc((100vh - 85px) * 0.504)));
-        width: max(40px, min(189px, calc((100vw - 350px) * 0.42), calc((100dvh - 230px) * 0.756), calc((100dvh - 85px) * 0.504)));
+        width: max(40px, min(189px, calc((100vw - 350px) * 0.42), calc((100vh - 230px) * 0.756), calc((100vh - 300px) * 0.72), calc((100vh - 85px) * 0.504)));
+        width: max(40px, min(189px, calc((100vw - 350px) * 0.42), calc((100dvh - 230px) * 0.756), calc((100dvh - 300px) * 0.72), calc((100dvh - 85px) * 0.504)));
     }
     .banner { font-size: 12px; top: 18%; }
     .banner-amount { font-size: 24px; }
