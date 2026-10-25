@@ -293,7 +293,7 @@
     @if (_awaitingHuman)
     {
         <div class="ai-advice @(_adviceCollapsed ? "collapsed" : "")" @onclick="ToggleAdvice"
-             title="Tap and Maximilian counts the cards and tells you what he'd do">
+             title="Tap and @CoachDisplayName counts the cards and tells you what he'd do">
             <div class="ai-advice-title">WHAT WOULD <span>AI</span> DO?</div>
             @if (!_adviceCollapsed && _advice != null)
             {
@@ -307,7 +307,7 @@
                     <span class="ai-stat">VS <b>@_advice.Opponents</b></span>
                 </div>
                 <div class="ai-advice-why">@_advice.Rationale</div>
-                <div class="ai-advice-sig">— Maximilian, card counter</div>
+                <div class="ai-advice-sig">— @CoachDisplayName, card counter</div>
             }
         </div>
     }
@@ -391,7 +391,7 @@
                         @if (CanReview)
                         {
                             <button class="act ff review-hand" @onclick="OpenCoachReview"
-                                    title="Ask Maximilian what happened">
+                                    title="Ask @CoachDisplayName what happened">
                                 REVIEW HAND
                             </button>
                         }
@@ -610,7 +610,7 @@
     @if (_coachTipVisible && !_coachOpen)
     {
         <div class="coach-tip" role="status" @onclick:stopPropagation="true">
-            <span>Maximilian has a tip</span>
+            <span>@CoachDisplayName has a tip</span>
             <button type="button" @onclick="OpenCoachReview">REVIEW</button>
             <button type="button" class="dismiss" @onclick="DismissCoachTip" aria-label="Dismiss tip">×</button>
         </div>
@@ -618,7 +618,7 @@
 
     @if (_coachOpen && _coachReview != null)
     {
-        <div class="coach-layer" role="dialog" aria-modal="@(_coachUseScene ? "true" : "false")" aria-label="Hand review with Maximilian">
+        <div class="coach-layer" role="dialog" aria-modal="@(_coachUseScene ? "true" : "false")" aria-label="Hand review with @CoachDisplayName">
             @if (_coachUseScene)
             {
                 <button type="button" class="coach-back" @onclick="() => CloseCoach(false)" @onclick:stopPropagation="true" @onkeydown="OnCoachKey">
@@ -628,12 +628,12 @@
             @if (_coach3dOk != true)
             {
                 <div class="coach-portrait" aria-hidden="true">
-                    <span>M</span>
+                    <span>@CoachInitial</span>
                     <small>COACH</small>
                 </div>
             }
             <section class="coach-panel" tabindex="-1" @ref="_coachPanelRef" @onclick:stopPropagation="true" @onkeydown="OnCoachKey">
-                <h2 class="coach-name">MAXIMILIAN</h2>
+                <h2 class="coach-name">@CoachDisplayNameUpper</h2>
                 <p class="coach-role">YOUR TABLE COACH</p>
                 <hr class="coach-rule" />
                 <h3 class="coach-section-title">HAND REVIEW</h3>
