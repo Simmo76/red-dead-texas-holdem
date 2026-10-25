@@ -30,6 +30,13 @@ namespace CinematicPoker.Engine.Telemetry
 
             // Coaching — is "Improve My Game" a retention driver?
             public const string CoachingReportViewed = "coaching_report_viewed";
+            public const string ReviewAvailable = "review_available";
+            public const string ReviewOpened = "review_opened";
+            public const string ReviewClosed = "review_closed";
+            public const string ReviewKeyDecisionOpened = "review_key_decision_opened";
+            public const string ReviewFeedback = "review_feedback";
+            public const string CoachModeChanged = "coach_mode_changed";
+            public const string CoachAnalysisFailed = "coach_analysis_failed";
 
             // Monetisation funnel — environment packs, never chips.
             public const string PackStoreViewed = "pack_store_viewed";
@@ -64,6 +71,13 @@ namespace CinematicPoker.Engine.Telemetry
             public const string Field = "field";
             public const string Provider = "provider";
             public const string PlayMode = "play_mode";
+            public const string SchemaVersion = "schema_version";
+            public const string HandId = "hand_id";
+            public const string ReasonCode = "reason_code";
+            public const string AnalysisMs = "analysis_ms";
+            public const string CoachMode = "coach_mode";
+            public const string ViewSeconds = "view_seconds";
+            public const string AnalysisReady = "analysis_ready";
             public const string AppVersion = "app_version";
             public const string Platform = "platform";
         }
@@ -78,6 +92,9 @@ namespace CinematicPoker.Engine.Telemetry
             Events.HandStarted, Events.HandCompleted, Events.PlayerBusted, Events.GameOver,
             Events.EnvironmentSelected,
             Events.CoachingReportViewed,
+            Events.ReviewAvailable, Events.ReviewOpened, Events.ReviewClosed,
+            Events.ReviewKeyDecisionOpened, Events.ReviewFeedback,
+            Events.CoachModeChanged, Events.CoachAnalysisFailed,
             Events.PackStoreViewed, Events.PackViewed,
             Events.PackPurchaseStarted, Events.PackPurchaseCompleted, Events.PackPurchaseFailed,
             Events.AdOffered, Events.AdWatched,

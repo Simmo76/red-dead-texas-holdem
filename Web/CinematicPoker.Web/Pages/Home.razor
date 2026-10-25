@@ -1,19 +1,20 @@
 ﻿@page "/"
 @using CinematicPoker.Engine.AI
+@using CinematicPoker.Engine.Coaching
 @using CinematicPoker.Engine.Players
 @using CinematicPoker.Engine.Poker
 @using CinematicPoker.Engine.Simulation
 @using System.Text.Json
 @using System.Text.Json.Serialization
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 <PageTitle>Dead Man's Hand</PageTitle>
 
 @* Tapping anywhere outside the enlarged card close-up contracts it back
    to its corner size; the close-up itself stops propagation so its own
    tap still toggles (see ToggleHudBoard). *@
-<div class="game3d @(_hudBoardExpanded ? "board-expanded" : "") @(_shotBusy ? "shot-busy" : "")"
-     @onclick="CollapseHudBoard">
+<div class="@GameRootClass" @onclick="CollapseHudBoard">
 
     <canvas id="poker-canvas"></canvas>
 
@@ -55,6 +56,12 @@
     <header class="topbar">
         <div class="brand">DEAD MAN'S <span>HAND</span></div>
         <div class="topbar-right">
+            @if (CanReview && !_awaitingNextHand)
+            {
+                <button class="chip-btn review-hand" @onclick="OpenCoachReview" title="Review the last hand">
+                    REVIEW
+                </button>
+            }
             <button class="chip-btn" @onclick="OpenHandRankings" title="Poker hand rankings">
                 <span class="chip-gear" aria-hidden="true">♠</span> HANDS
             </button>
@@ -292,7 +299,7 @@
             {
                 <div class="ai-advice-action">@_advice.ActionLabel</div>
                 <div class="ai-advice-stats">
-                    <span class="ai-stat">WIN <b>@_advice.WinPercent%</b></span>
+                    <span class="ai-stat">EST. EQUITY <b>@_advice.WinPercent%</b></span>
                     @if (_advice.PotOddsPercent.HasValue)
                     {
                         <span class="ai-stat">POT ODDS <b>@_advice.PotOddsPercent%</b></span>
@@ -380,10 +387,19 @@
                 }
                 else
                 {
-                    <button class="act ff" @onclick="FastForward"
-                            title="@NextHandButtonTitle">
-                        @NextHandButtonLabel
-                    </button>
+                    <div class="actionbar-right">
+                        @if (CanReview)
+                        {
+                            <button class="act ff review-hand" @onclick="OpenCoachReview"
+                                    title="Ask Maximilian what happened">
+                                REVIEW HAND
+                            </button>
+                        }
+                        <button class="act ff" @onclick="FastForward"
+                                title="@NextHandButtonTitle">
+                            @NextHandButtonLabel
+                        </button>
+                    </div>
                 }
             }
         }
@@ -464,6 +480,13 @@
                             @(_quickMode ? "QUICK PLAY" : "CINEMATIC")
                         </button>
                     </div>
+                    @if (!_isGuest)
+                    {
+                        <div class="settings-row">
+                            <span class="settings-label">POST-HAND COACH</span>
+                            <button class="chip-btn" @onclick="CycleCoachMode">@CoachModeLabel</button>
+                        </div>
+                    }
                     @if (!_isGuest)
                     {
                         <div class="settings-row">
@@ -581,6 +604,163 @@
                     <p class="invite-footnote">At the table now: @string.Join(", ", _remote.Values.Select(r => r.Name))</p>
                 }
             </div>
+        </div>
+    }
+
+    @if (_coachTipVisible && !_coachOpen)
+    {
+        <div class="coach-tip" role="status" @onclick:stopPropagation="true">
+            <span>Maximilian has a tip</span>
+            <button type="button" @onclick="OpenCoachReview">REVIEW</button>
+            <button type="button" class="dismiss" @onclick="DismissCoachTip" aria-label="Dismiss tip">×</button>
+        </div>
+    }
+
+    @if (_coachOpen && _coachReview != null)
+    {
+        <div class="coach-layer" role="dialog" aria-modal="@(_coachUseScene ? "true" : "false")" aria-label="Hand review with Maximilian">
+            @if (_coachUseScene)
+            {
+                <button type="button" class="coach-back" @onclick="() => CloseCoach(false)" @onclick:stopPropagation="true" @onkeydown="OnCoachKey">
+                    ← BACK TO TABLE
+                </button>
+            }
+            @if (_coach3dOk != true)
+            {
+                <div class="coach-portrait" aria-hidden="true">
+                    <span>M</span>
+                    <small>COACH</small>
+                </div>
+            }
+            <section class="coach-panel" tabindex="-1" @ref="_coachPanelRef" @onclick:stopPropagation="true" @onkeydown="OnCoachKey">
+                <h2 class="coach-name">MAXIMILIAN</h2>
+                <p class="coach-role">YOUR TABLE COACH</p>
+                <hr class="coach-rule" />
+                <h3 class="coach-section-title">HAND REVIEW</h3>
+                <div class="coach-block">
+                    <div class="coach-mark" aria-hidden="true">♠</div>
+                    <div>
+                        <p class="coach-kicker">@_coachReview.Heading</p>
+                        <p class="coach-copy">
+                            @if (CoachAtShowdown)
+                            {
+                                <span class="coach-sr">At showdown. </span>
+                            }
+                            @_coachReview.WhyWon
+                        </p>
+                    </div>
+                </div>
+                <div class="coach-block">
+                    <div class="coach-mark" aria-hidden="true">✦</div>
+                    <div>
+                        <p class="coach-kicker">ONE THING TO TRY</p>
+                        <p class="coach-copy" aria-live="polite">
+                            <span class="coach-sr">With the information you had then. </span>
+                            @(string.IsNullOrEmpty(_coachReview.Lesson) ? "No lesson for this hand." : _coachReview.Lesson)
+                        </p>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(_coachReview.ChipDetail))
+                {
+                    <p class="coach-chips">@_coachReview.ChipDetail</p>
+                }
+                @if (_coachReview.PotLines != null)
+                {
+                    @foreach (var line in _coachReview.PotLines)
+                    {
+                        <p class="coach-chips">@line</p>
+                    }
+                }
+                @if (_coachFaces.Count > 0)
+                {
+                    <div class="coach-cards" aria-label="Cards from this hand">
+                        @foreach (var face in _coachFaces)
+                        {
+                            <img src="@face.Src" alt="@face.Alt" class="@CoachHot(face.Code)" />
+                        }
+                    </div>
+                }
+                <div class="coach-actions">
+                    <button type="button" class="act call" @onclick="ToggleKeyDecision" aria-expanded="@_coachKeyOpen">SEE KEY DECISION</button>
+                    @if (CoachCanAdvance)
+                    {
+                        <button type="button" class="act bet" @onclick="() => CloseCoach(true)">@CoachAdvanceLabel</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="act bet" @onclick="() => CloseCoach(false)">BACK TO TABLE</button>
+                    }
+                </div>
+                @if (_coachKeyOpen)
+                {
+                    <div class="coach-detail">
+                        @if (_coachReview.KeyDecision == null)
+                        {
+                            <p>This lesson is about the hand as a whole. No single priced decision was selected.</p>
+                        }
+                        else
+                        {
+                            @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.Caveat))
+                            {
+                                <p>@_coachReview.KeyDecision.Caveat</p>
+                            }
+                            <p>Street: @_coachReview.KeyDecision.Street</p>
+                            <p>Board: @_coachReview.KeyDecision.BoardText</p>
+                            <p>Action: @_coachReview.KeyDecision.ActionTaken</p>
+                            @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.RecordedAction))
+                            {
+                                <p>@_coachReview.KeyDecision.RecordedAction</p>
+                            }
+                            @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.PriceLine))
+                            {
+                                <p>@_coachReview.KeyDecision.PriceLine</p>
+                            }
+                            @if (_coachReview.KeyDecision.EquityShare.HasValue || _coachReview.KeyDecision.ReasonCode == "equity_unavailable" || _coachReview.KeyDecision.ReasonCode == "cancelled")
+                            {
+                                <p>Estimated share: @CoachPct(_coachReview.KeyDecision.EquityShare)</p>
+                            }
+                            @if (_coachReview.KeyDecision.BreakEvenEquity.HasValue)
+                            {
+                                <p>Break-even: @CoachPct(_coachReview.KeyDecision.BreakEvenEquity)</p>
+                            }
+                            @if (_coachReview.KeyDecision.CallEv.HasValue)
+                            {
+                                <p>Call value: @CoachChips(_coachReview.KeyDecision.CallEv)</p>
+                            }
+                            @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.Detail))
+                            {
+                                <p>@_coachReview.KeyDecision.Detail</p>
+                            }
+                            @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.Method))
+                            {
+                                <p>Method: @_coachReview.KeyDecision.Method</p>
+                            }
+                        }
+                        @if (!string.IsNullOrEmpty(_coachReview.Assumptions))
+                        {
+                            <p>@_coachReview.Assumptions</p>
+                        }
+                    </div>
+                }
+                <div class="coach-tools">
+                    <button type="button" class="@(_coachHighlight ? "active" : null)" aria-pressed="@_coachHighlight" @onclick="ToggleCoachHighlights">@(_coachHighlight ? "HIGHLIGHT ON" : "HIGHLIGHT WINNING CARDS")</button>
+                    <button type="button" class="@(_coachFeedback == "useful" ? "active" : null)" @onclick='() => SendCoachFeedback("useful")'>USEFUL</button>
+                    <button type="button" class="@(_coachFeedback == "unclear" ? "active" : null)" @onclick='() => SendCoachFeedback("unclear")'>UNCLEAR</button>
+                </div>
+                @if (_coachFeedback != null)
+                {
+                    <p class="coach-note">@(_coachFeedback == "useful" ? "Marked useful." : "Marked unclear.")</p>
+                }
+                @if (_coach3dOk == false && _coachSceneReason == "shared-table")
+                {
+                    <p class="coach-note">This review stays on the card while friends are at the table.</p>
+                }
+                else if (_coach3dOk == false && !string.IsNullOrEmpty(_coachSceneReason))
+                {
+                    <p class="coach-note">Saloon view: @_coachSceneReason. The written advice is on this card.</p>
+                }
+                <p class="coach-foot">POST-HAND ADVICE</p>
+            </section>
         </div>
     }
 </div>
@@ -1070,6 +1250,7 @@
         _tableScene = ReadSceneSync();
         _settingsLoaded = !string.IsNullOrEmpty(_playerName) || JS is IJSInProcessRuntime;
         ReadInviteRoomFromUrl();
+        NoteCoachPreviewFromUrl();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -1083,28 +1264,40 @@
         }
         if (firstRender)
         {
-            if (string.IsNullOrEmpty(_playerName))
-                _playerName = await ReadCachedPlayerNameAsync();
-            _settingsLoaded = true;
-            if (!_webSnapshotLoaded)
+            await LoadCoachPersistence();
+            await BindCoachEscape();
+            if (_coachPreview)
             {
-                _webSnapshotLoaded = true;
-                string saved = "";
-                // A friend's browser never resumes (or overwrites) its own
-                // saved solo game: the host's table is the only game there.
-                if (!_isGuest)
-                {
-                    try { saved = await JS.InvokeAsync<string>("pokerSession.load"); }
-                    catch (JSException) { }
-                }
-                if (!string.IsNullOrEmpty(saved))
-                    TryRestoreWebSession(saved);
-                if (_game == null && !string.IsNullOrEmpty(_playerName))
-                    StartSessionCore(run: !_isGuest);
+                _introStarted = true;
+                _settingsLoaded = true;
+                if (string.IsNullOrEmpty(_playerName))
+                    _playerName = "Preview";
             }
-            StateHasChanged();
-            if (_isGuest && !string.IsNullOrEmpty(_playerName)) _ = ConnectGuestAsync();
-            else _ = ResumeThenRunLoop();
+            else
+            {
+                if (string.IsNullOrEmpty(_playerName))
+                    _playerName = await ReadCachedPlayerNameAsync();
+                _settingsLoaded = true;
+                if (!_webSnapshotLoaded)
+                {
+                    _webSnapshotLoaded = true;
+                    string saved = "";
+                    // A friend's browser never resumes (or overwrites) its own
+                    // saved solo game: the host's table is the only game there.
+                    if (!_isGuest)
+                    {
+                        try { saved = await JS.InvokeAsync<string>("pokerSession.load"); }
+                        catch (JSException) { }
+                    }
+                    if (!string.IsNullOrEmpty(saved))
+                        TryRestoreWebSession(saved);
+                    if (_game == null && !string.IsNullOrEmpty(_playerName))
+                        StartSessionCore(run: !_isGuest);
+                }
+                StateHasChanged();
+                if (_isGuest && !string.IsNullOrEmpty(_playerName)) _ = ConnectGuestAsync();
+                else _ = ResumeThenRunLoop();
+            }
 
             // The scene module loads asynchronously; retry until it's there.
             for (int i = 0; i < 60 && !_sceneReady; i++)
@@ -1119,8 +1312,10 @@
                 }
             }
             if (_sceneReady) await SyncBackdropLabel();
+            if (_coachPreview) await OpenCoachPreview();
         }
-        if (_sceneReady) await PushSceneState();
+        if (_sceneReady && !_coachOpen) await PushSceneState();
+        await FocusCoachPanel();
         // One-shot: fly to the winner's cards after the snapshot has put them
         // on the felt. Cleared immediately so later HUD updates do not yank
         // the camera back if the player has already looked around.
@@ -1315,6 +1510,7 @@
             _handLog = new HandSequenceLog();
             _handLog.BeginSession(0, TableRules.Default, players);
             _statusLine = saved.round == null || saved.round.phase == HandPhase.Complete ? "Dealing…" : "Resuming your hand…";
+            EnsureCoachRecorder();
             _restoredAwaitingLoop = true;
         }
         catch (Exception ex) when (ex is JsonException || ex is ArgumentException || ex is InvalidOperationException)
@@ -1378,6 +1574,7 @@
 
         _game = new PokerGame(rules, players, seed: _rng.Next());
         _game.EventEmitted += OnEngineEvent;
+        BeginCoachSession();
 
         _handLog = new HandSequenceLog();
         _handLog.BeginSession(0, rules, players);
@@ -1422,6 +1619,7 @@
     /// </summary>
     private void ContinueGame()
     {
+        DismissCoachPresentation();
         if (_game == null) return;
         try
         {
@@ -1648,7 +1846,10 @@
 
     private void PromptHuman()
     {
+        if (_coachOpen && !_coachPreview)
+            _ = CloseCoach(false);
         _legal = _game.GetLegalActions();
+        _coachOffer = CaptureCoachOffer();
         _sliderValue = _legal.MinBetOrRaiseTo;
         _sliderPosition = BetAmountToSliderPosition(_sliderValue);
         _showSlider = false;
@@ -1677,6 +1878,7 @@
         try
         {
             SubmitAndBroadcast(action);
+            AcceptCoachAction(action);
             _awaitingHuman = false;
             _showSlider = false;
             _advice = null;
@@ -1939,7 +2141,14 @@
     private void AdviseFacingBet(DecisionContext ctx, MaxAdvice advice, double equity)
     {
         LegalActions legal = ctx.Legal;
-        double potOdds = ctx.PotOdds;
+        double? price = PotPrice.BreakEvenEquity(ctx.Pot, legal.CallAmount);
+        if (price == null)
+        {
+            advice.ActionLabel = legal.CanCheck ? "CHECK" : "FOLD";
+            advice.Rationale = "There isn't a call to price on this street.";
+            return;
+        }
+        double potOdds = price.Value;
         double requiredEdge = MaxTightness * 0.08 - MaxRiskTolerance * 0.04;
         double margin = equity - (potOdds + requiredEdge);
         advice.PotOddsPercent = (int)Math.Round(potOdds * 100);
@@ -3241,6 +3450,7 @@
     private void OnEngineEvent(PokerEvent evt)
     {
         _handLog.OnEvent(evt);
+        ObserveCoach(evt);
         _pending.Enqueue(evt);
     }
 
@@ -3460,6 +3670,7 @@
                         RememberHand(completed);
                         PresentHandResult(completed);
                         _handHasCompleted = true;
+                        NoteCoachHandReady();
                         break;
                 }
                 break;
@@ -3751,6 +3962,7 @@
         if (_isGuest) return;
         var next = e.Value?.ToString() == "street" ? "street" : "saloon";
         if (next == _tableScene) return;
+        if (_coachOpen) await CloseCoach(false);
         _tableScene = next;
         try { await JS.InvokeVoidAsync("pokerScene.setTableScene", next); }
         catch (JSException) { }
