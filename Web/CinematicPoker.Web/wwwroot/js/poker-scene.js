@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
-import { createCoachController } from './coach-scene.js?v=6';
+import { createCoachController } from './coach-scene.js?v=7';
 
 // ---------------------------------------------------------- graphics safe mode
 //
@@ -848,12 +848,14 @@ coachControl = createCoachController({
   getRenderer: () => state.renderer,
   loadGlb: (url) => loadGlb(state.loader, url),
   assets: () => ({
+    scene: TABLE_SCENE,
     jacob: state.jacobGltf || null,
     bandit: state.banditGltf || null,
+    fighter: state.fighterGltf || null,
     clips: state.mightyCatGltf || null,
     chair: state.chairGltf || null,
-    // The octagon is a different room. Maximilian always stands in the saloon.
-    saloon: TABLE_SCENE === 'street' ? null : state.saloon,
+    // Saloon reviews clone the bar. Octagon reviews clone the cage.
+    room: state.saloon || null,
   }),
   onHide: () => syncPokerCameraAspect(),
 });
@@ -1874,6 +1876,9 @@ async function buildScene(canvas) {
   mightyCatModel.then((g) => { state.mightyCatGltf = g; });
   const fighterUrls = GFX_ULTRA_LITE ? FIGHTER_URLS.slice(0, 2) : FIGHTER_URLS;
   const fighterModels = streetScene ? fighterUrls.map((url) => loadGlb(loader, url)) : [];
+  if (streetScene && fighterModels[0]) {
+    fighterModels[0].then((g) => { state.fighterGltf = g; });
+  }
   // Every Jacob look wears a hat so the seat's accent colour always has
   // somewhere to live; hatless presets borrow a hat (and the matching short
   // hair so the full hairstyle doesn't clip through the brim). Sheriff and
