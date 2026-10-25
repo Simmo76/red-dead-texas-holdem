@@ -289,8 +289,10 @@
     @* "What would AI do?" — Maximilian, the card-counting pro. On your turn
        only the title button shows; his advice stays hidden until you tap it,
        so the read is never spoiled before you've asked for it. Tap again to
-       put it away. It starts hidden again on every new turn. *@
-    @if (_awaitingHuman)
+       put it away. It starts hidden again on every new turn. With another
+       human at the table the button stays off — the count would play the
+       hand for you. *@
+    @if (ShowAiAdvice)
     {
         <div class="ai-advice @(_adviceCollapsed ? "collapsed" : "")" @onclick="ToggleAdvice"
              title="Tap and @CoachDisplayName counts the cards and tells you what he'd do">
@@ -2067,7 +2069,8 @@
     // the unseen cards) measured against pot odds. On the player's turn only
     // the "WHAT WOULD AI DO?" button is shown; the count runs and the advice
     // appears only when the player taps it, and every new turn starts back
-    // at the button so the read is opt-in each decision.
+    // at the button so the read is opt-in each decision. A second human at
+    // the table turns the button off for as long as they're seated.
     private const int AdviceEquityIterations = 400;
     private const double MaxAggression = 0.65; // mirrors AIProfile.Professional
     private const double MaxTightness = 0.6;
@@ -2076,8 +2079,30 @@
     private MaxAdvice _advice;
     private bool _adviceCollapsed = true;
 
+    // Solo aid. The host counts connected friends; a guest counts every
+    // other human the roster marked, which still includes them while the
+    // link is down so a reconnect can't briefly unlock the count.
+    private bool AnotherHumanSeated =>
+        _isGuest ? _guestHumanSeats.Count > 0 : _remote.Count > 0;
+
+    private bool ShowAiAdvice => _awaitingHuman && !AnotherHumanSeated;
+
+    // A friend can sit down while the panel is already open. Drop the
+    // read immediately so it cannot sit in memory and pop back open.
+    private void SuppressAdviceForCompany()
+    {
+        if (!AnotherHumanSeated) return;
+        _advice = null;
+        _adviceCollapsed = true;
+    }
+
     private void ToggleAdvice()
     {
+        if (!ShowAiAdvice)
+        {
+            SuppressAdviceForCompany();
+            return;
+        }
         _ = JS.InvokeVoidAsync("pokerAudio.button");
         if (!_adviceCollapsed)
         {
@@ -2100,7 +2125,7 @@
 
     private MaxAdvice ComputeAdvice()
     {
-        if (_game?.CurrentRound == null) return null;
+        if (_game?.CurrentRound == null || AnotherHumanSeated) return null;
         try
         {
             DecisionContext ctx = DecisionContext.ForCurrentActor(_game, AdviceEquityIterations);
@@ -2559,6 +2584,7 @@
             Announce($"{shown} joined the table.", skipSeat: seat);
             SendToGuest(seat, new MpMessage { t = "chat", a = "sys", text = "You're in. Say howdy." });
         }
+        SuppressAdviceForCompany();
         _ = InvokeAsync(StateHasChanged);
     }
 
@@ -2912,6 +2938,7 @@
                 _seatNames[j] = m.names[j];
             if (m.humans[j]) _guestHumanSeats.Add(j);
         }
+        SuppressAdviceForCompany();
         // The placeholder solo game is still on screen until the host's
         // first state arrives (_guestRot stays 0). Don't paint that over
         // the felt just because someone sat down.
@@ -3108,6 +3135,7 @@
             _seatNames[j] = m.names[j];
             if (m.humans[j]) _guestHumanSeats.Add(j);
         }
+        SuppressAdviceForCompany();
         // Seat (6 - guest) % 6 in this view is the host's real seat 0.
         _mpPill = $"PLAYING AT {m.names[Rot(0, _guestRot)].ToUpperInvariant()}'S TABLE";
     }
