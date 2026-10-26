@@ -100,7 +100,7 @@
 
         <div class="hud-board @(_hudBoardExpanded ? "expanded" : "") @(ShowCardWindowGlow ? "hint-active" : "")"
              @onclick="ToggleHudBoard" @onclick:stopPropagation="true">
-            <div class="hud-row">
+                <div class="hud-row hud-card-cue-row">
                 @* Dealt cards fill from the right so they hug the border,
                    aligned above the player's pair. *@
                 @for (int i = 0; i < 5; i++)
@@ -116,7 +116,7 @@
                     }
                 }
             </div>
-            <div class="hud-row hud-hole">
+            <div class="hud-row hud-hole hud-card-cue-row">
                 @{ IReadOnlyList<Card> hudHole = SeatOf(0) is { Folded: true } ? Array.Empty<Card>() : HoleCardsOf(0); }
                 @for (int i = 0; i < 2; i++)
                 {
@@ -129,6 +129,10 @@
                         <img class="hud-card facedown" src="img/cards/back.png" alt="" />
                     }
                 }
+                @if (ShowEnlargeHint)
+                {
+                    <span class="board-hint" role="note">CLICK TO EXPAND</span>
+                }
             </div>
             @if (HudWinningHand is { } winHand)
             {
@@ -138,15 +142,6 @@
                     {
                         <img class="hud-card" src="@CardImage(card)" alt="" />
                     }
-                </div>
-            }
-            @* Keep the first-two-hands affordance attached to the card panel
-               so it stays at the lower-left of the popout. *@
-            @if (ShowEnlargeHint)
-            {
-                <div class="board-hint" role="note">
-                    <span class="board-hint-arrow" aria-hidden="true"></span>
-                    CLICK TO EXPAND
                 </div>
             }
         </div>

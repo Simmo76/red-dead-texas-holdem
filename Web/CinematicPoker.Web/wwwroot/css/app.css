@@ -557,19 +557,8 @@ html.scene-street .boot-screen {
     cursor: pointer;
 }
 
-.hud-board.hint-active::before {
-    content: "";
-    position: absolute;
-    inset: -4px;
-    border: 2px solid #f3d35f;
-    border-radius: 11px;
-    box-shadow: 0 0 8px rgba(243, 211, 95, 0.7),
-                inset 0 0 8px rgba(243, 211, 95, 0.22);
-    pointer-events: none;
-    animation: board-card-outline 1.7s ease-in-out infinite;
-}
-
 .hud-row { display: flex; gap: 4px; }
+.hud-card-cue-row { align-items: center; }
 
 .hud-card {
     width: 49px;
@@ -577,6 +566,12 @@ html.scene-street .boot-screen {
     border-radius: 3px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
     transition: width 0.15s ease;
+}
+
+.hud-board.card-cue-active .hud-card {
+    outline: 2px solid #f3d35f;
+    outline-offset: 2px;
+    animation: card-cue-pulse 1.7s ease-in-out infinite;
 }
 
 /* Tapping the panel toggles a close-up of the whole hand at 1.3x the
@@ -628,16 +623,13 @@ html.scene-street .boot-screen {
 
 .hud-card.facedown { opacity: 0.35; }
 
-/* Opening-hands tutorial callout: hangs under the community-cards window
-   (anchored to it, so it follows the panel at every breakpoint) with an
-   arrow pointing up at the cards. See ShowEnlargeHint in Home.razor. */
+/* Opening-hands tutorial callout: sits directly to the right of the
+   player's two cards in the lower row. See ShowEnlargeHint in Home.razor. */
 .board-hint {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    right: auto;
+    flex: 0 0 auto;
     width: max-content;
     max-width: min(240px, 72vw);
+    margin-left: 4px;
     padding: 6px 12px;
     background: rgba(8, 5, 3, 0.94);
     border: 1px solid rgba(216, 178, 92, 0.78);
@@ -655,15 +647,6 @@ html.scene-street .boot-screen {
     cursor: pointer;
 }
 
-.board-hint-arrow {
-    position: absolute;
-    bottom: 100%;
-    left: 16px;
-    border: 7px solid transparent;
-    border-top-width: 0;
-    border-bottom-color: var(--gold-dim);
-}
-
 @keyframes board-hint-pulse {
     0%, 100% {
         opacity: 0.68;
@@ -677,22 +660,20 @@ html.scene-street .boot-screen {
     }
 }
 
-@keyframes board-card-outline {
+@keyframes card-cue-pulse {
     0%, 100% {
         opacity: 0.55;
-        box-shadow: 0 0 7px rgba(243, 211, 95, 0.45),
-                    inset 0 0 7px rgba(243, 211, 95, 0.16);
+        box-shadow: 0 0 6px rgba(243, 211, 95, 0.42);
     }
     50% {
         opacity: 1;
-        box-shadow: 0 0 19px rgba(243, 211, 95, 0.95),
-                    0 0 0 4px rgba(243, 211, 95, 0.18),
-                    inset 0 0 12px rgba(243, 211, 95, 0.34);
+        box-shadow: 0 0 17px rgba(243, 211, 95, 0.95),
+                    0 0 0 3px rgba(243, 211, 95, 0.16);
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .hud-board.hint-active::before,
+    .hud-board.card-cue-active .hud-card,
     .board-hint { animation: none; }
 }
 
