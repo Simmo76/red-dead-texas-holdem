@@ -131,7 +131,7 @@
                 }
                 @if (ShowEnlargeHint)
                 {
-                    <span class="board-hint" role="note">CLICK TO EXPAND</span>
+                    <span class="board-hint" role="note">click to expand</span>
                 }
             </div>
             @if (HudWinningHand is { } winHand)
@@ -1201,8 +1201,7 @@
     // disappears once the player is past hand two.
     private bool ShowEnlargeHint =>
         _introStarted
-        && _game?.HandNumber is >= 1 and <= 2
-        && !_hudBoardExpanded;
+        && _game?.HandNumber is >= 1 and <= 2;
 
     private bool ShowCardWindowGlow =>
         _introStarted
