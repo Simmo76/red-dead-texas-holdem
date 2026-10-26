@@ -1204,25 +1204,23 @@
     // Keep this prompt tied to the opening hands rather than local storage:
     // every fresh game gets the same short onboarding cue, and it naturally
     // disappears once the player is past hand two.
-    private bool _boardHintVisible;
+    private bool _boardHintDismissed;
 
     private bool ShowEnlargeHint =>
-        _boardHintVisible
-        && _introStarted
+        _introStarted
         && _game?.HandNumber is >= 1 and <= 2
+        && !_boardHintDismissed
         && !_hudBoardExpanded;
 
     private Task MaybeShowBoardHint()
     {
-        _boardHintVisible = _game?.HandNumber is >= 1 and <= 2;
         StateHasChanged();
         return Task.CompletedTask;
     }
 
     private Task DismissBoardHint()
     {
-        if (!_boardHintVisible) return Task.CompletedTask;
-        _boardHintVisible = false;
+        _boardHintDismissed = true;
         StateHasChanged();
         return Task.CompletedTask;
     }
