@@ -119,7 +119,9 @@
             <div class="hud-row hud-hole hud-card-cue-row">
                 @if (ShowEnlargeHint)
                 {
-                    <span class="board-hint" role="note">click to expand</span>
+                    <span class="board-hint" role="note">
+                        click to @(_hudBoardExpanded ? "minimise" : "expand")
+                    </span>
                 }
                 @{ IReadOnlyList<Card> hudHole = SeatOf(0) is { Folded: true } ? Array.Empty<Card>() : HoleCardsOf(0); }
                 @for (int i = 0; i < 2; i++)
