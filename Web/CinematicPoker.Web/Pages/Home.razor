@@ -98,7 +98,7 @@
             }
         </div>
 
-        <div class="hud-board @(_hudBoardExpanded ? "expanded" : "")"
+        <div class="hud-board @(_hudBoardExpanded ? "expanded" : "") @(ShowEnlargeHint ? "hint-active" : "")"
              @onclick="ToggleHudBoard" @onclick:stopPropagation="true">
             <div class="hud-row">
                 @* Dealt cards fill from the right so they hug the border,
@@ -141,12 +141,12 @@
                 </div>
             }
             @* Keep the first-two-hands affordance attached to the card panel
-               so it stays directly beneath the cards at every breakpoint. *@
+               so it stays at the lower-left of the popout. *@
             @if (ShowEnlargeHint)
             {
                 <div class="board-hint" role="note">
                     <span class="board-hint-arrow" aria-hidden="true"></span>
-                    Press to enlarge
+                    CLICK TO EXPAND
                 </div>
             }
         </div>

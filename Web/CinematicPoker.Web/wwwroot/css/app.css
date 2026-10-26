@@ -557,6 +557,18 @@ html.scene-street .boot-screen {
     cursor: pointer;
 }
 
+.hud-board.hint-active::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border: 2px solid #f3d35f;
+    border-radius: 11px;
+    box-shadow: 0 0 8px rgba(243, 211, 95, 0.7),
+                inset 0 0 8px rgba(243, 211, 95, 0.22);
+    pointer-events: none;
+    animation: board-card-outline 1.7s ease-in-out infinite;
+}
+
 .hud-row { display: flex; gap: 4px; }
 
 .hud-card {
@@ -622,7 +634,8 @@ html.scene-street .boot-screen {
 .board-hint {
     position: absolute;
     top: calc(100% + 8px);
-    right: 0;
+    left: 0;
+    right: auto;
     width: max-content;
     max-width: min(240px, 72vw);
     padding: 6px 12px;
@@ -633,7 +646,7 @@ html.scene-street .boot-screen {
     font-size: 11px;
     line-height: 1.2;
     letter-spacing: 1.2px;
-    text-align: right;
+    text-align: left;
     white-space: nowrap;
     text-shadow: 0 1px 5px rgba(0, 0, 0, 0.9);
     box-shadow: 0 0 0 rgba(216, 178, 92, 0);
@@ -645,7 +658,7 @@ html.scene-street .boot-screen {
 .board-hint-arrow {
     position: absolute;
     bottom: 100%;
-    right: 22px;
+    left: 16px;
     border: 7px solid transparent;
     border-top-width: 0;
     border-bottom-color: var(--gold-dim);
@@ -664,7 +677,22 @@ html.scene-street .boot-screen {
     }
 }
 
+@keyframes board-card-outline {
+    0%, 100% {
+        opacity: 0.55;
+        box-shadow: 0 0 7px rgba(243, 211, 95, 0.45),
+                    inset 0 0 7px rgba(243, 211, 95, 0.16);
+    }
+    50% {
+        opacity: 1;
+        box-shadow: 0 0 19px rgba(243, 211, 95, 0.95),
+                    0 0 0 4px rgba(243, 211, 95, 0.18),
+                    inset 0 0 12px rgba(243, 211, 95, 0.34);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
+    .hud-board.hint-active::before,
     .board-hint { animation: none; }
 }
 
