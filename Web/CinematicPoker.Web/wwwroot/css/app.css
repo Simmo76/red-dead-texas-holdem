@@ -946,8 +946,36 @@ html.scene-street .boot-screen {
 
 /* One tap straight to the next deal — stands out from the step-wise SKIP. */
 .act.ff-next {
-    background: rgba(216, 178, 92, 0.16);
-    border-color: var(--gold);
+    min-width: 188px;
+    background: var(--panel);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    box-shadow: 0 0 0 2px rgba(216, 178, 92, 0.18), 0 4px 18px rgba(0, 0, 0, 0.55);
+    animation: next-hand-pulse 2s ease-in-out infinite;
+}
+
+.act.ff-next:hover {
+    filter: brightness(1.12);
+    box-shadow: 0 0 0 3px rgba(216, 178, 92, 0.45), 0 5px 22px rgba(0, 0, 0, 0.6);
+    animation-play-state: paused;
+}
+
+.act.ff-next:focus-visible {
+    outline: 2px solid #fff3c4;
+    outline-offset: 3px;
+}
+
+@keyframes next-hand-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 2px rgba(216, 178, 92, 0.18), 0 4px 18px rgba(0, 0, 0, 0.55);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(216, 178, 92, 0.42), 0 0 22px rgba(216, 178, 92, 0.5);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .act.ff-next { animation: none; }
 }
 
 .act.small {
