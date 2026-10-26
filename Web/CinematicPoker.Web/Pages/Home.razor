@@ -117,6 +117,10 @@
                 }
             </div>
             <div class="hud-row hud-hole hud-card-cue-row">
+                @if (ShowEnlargeHint)
+                {
+                    <span class="board-hint" role="note">click to expand</span>
+                }
                 @{ IReadOnlyList<Card> hudHole = SeatOf(0) is { Folded: true } ? Array.Empty<Card>() : HoleCardsOf(0); }
                 @for (int i = 0; i < 2; i++)
                 {
@@ -128,10 +132,6 @@
                     {
                         <img class="hud-card facedown" src="img/cards/back.png" alt="" />
                     }
-                }
-                @if (ShowEnlargeHint)
-                {
-                    <span class="board-hint" role="note">click to expand</span>
                 }
             </div>
             @if (HudWinningHand is { } winHand)
