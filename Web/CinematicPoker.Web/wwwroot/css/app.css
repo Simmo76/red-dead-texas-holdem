@@ -928,8 +928,22 @@ html.scene-street .boot-screen {
 
 /* One tap straight to the next deal — stands out from the step-wise SKIP. */
 .act.ff-next {
-    background: rgba(216, 178, 92, 0.16);
-    border-color: var(--gold);
+    min-width: 188px;
+    background: linear-gradient(135deg, #f0cc73 0%, #b17d28 100%);
+    border: 2px solid #ffe7a1;
+    color: #241707;
+    text-shadow: 0 1px 0 rgba(255, 242, 190, 0.45);
+    box-shadow: 0 0 0 2px rgba(216, 178, 92, 0.35), 0 4px 18px rgba(0, 0, 0, 0.55);
+}
+
+.act.ff-next:hover {
+    filter: brightness(1.12);
+    box-shadow: 0 0 0 3px rgba(216, 178, 92, 0.45), 0 5px 22px rgba(0, 0, 0, 0.6);
+}
+
+.act.ff-next:focus-visible {
+    outline: 3px solid #fff3c4;
+    outline-offset: 3px;
 }
 
 .act.small {
