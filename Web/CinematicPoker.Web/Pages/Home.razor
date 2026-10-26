@@ -98,7 +98,7 @@
             }
         </div>
 
-        <div class="hud-board @(_hudBoardExpanded ? "expanded" : "") @(ShowEnlargeHint ? "hint-active" : "")"
+        <div class="hud-board @(_hudBoardExpanded ? "expanded" : "") @(ShowCardWindowGlow ? "hint-active" : "")"
              @onclick="ToggleHudBoard" @onclick:stopPropagation="true">
             <div class="hud-row">
                 @* Dealt cards fill from the right so they hug the border,
@@ -1211,6 +1211,10 @@
         && _game?.HandNumber is >= 1 and <= 2
         && !_boardHintDismissed
         && !_hudBoardExpanded;
+
+    private bool ShowCardWindowGlow =>
+        _introStarted
+        && _game?.HandNumber is >= 1 and <= 2;
 
     private Task MaybeShowBoardHint()
     {
