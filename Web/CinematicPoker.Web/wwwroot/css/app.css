@@ -575,8 +575,19 @@ html.scene-street .boot-screen {
 }
 
 .hud-board.card-cue-active {
+    position: absolute;
     border-color: #f3d35f;
     animation: card-window-pulse 1.7s ease-in-out infinite;
+}
+
+.hud-board.card-cue-active::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border: 2px solid #f3d35f;
+    border-radius: 11px;
+    pointer-events: none;
+    animation: card-window-border 1.7s ease-in-out infinite;
 }
 
 /* Tapping the panel toggles a close-up of the whole hand at 1.3x the
@@ -631,10 +642,13 @@ html.scene-street .boot-screen {
 /* Opening-hands tutorial callout: sits directly to the right of the
    player's two cards in the lower row. See ShowEnlargeHint in Home.razor. */
 .board-hint {
-    flex: 0 0 auto;
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    z-index: 1;
     width: max-content;
     max-width: min(240px, 72vw);
-    margin-left: 4px;
+    margin: 0;
     padding: 6px 12px;
     background: rgba(8, 5, 3, 0.94);
     border: 1px solid rgba(216, 178, 92, 0.78);
@@ -695,9 +709,22 @@ html.scene-street .boot-screen {
     }
 }
 
+@keyframes card-window-border {
+    0%, 100% {
+        opacity: 0.55;
+        box-shadow: 0 0 7px rgba(243, 211, 95, 0.45);
+    }
+    50% {
+        opacity: 1;
+        box-shadow: 0 0 22px rgba(243, 211, 95, 0.98),
+                    0 0 0 4px rgba(243, 211, 95, 0.2);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .hud-board.card-cue-active .hud-card,
     .hud-board.card-cue-active,
+    .hud-board.card-cue-active::before,
     .board-hint { animation: none; }
 }
 
