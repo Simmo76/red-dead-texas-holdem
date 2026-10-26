@@ -98,9 +98,9 @@
             }
         </div>
 
-        <div class="hud-board @(_hudBoardExpanded ? "expanded" : "")"
+        <div class="hud-board @(_hudBoardExpanded ? "expanded" : "") @(ShowCardWindowGlow ? "hint-active" : "")"
              @onclick="ToggleHudBoard" @onclick:stopPropagation="true">
-            <div class="hud-row">
+                <div class="hud-row hud-card-cue-row">
                 @* Dealt cards fill from the right so they hug the border,
                    aligned above the player's pair. *@
                 @for (int i = 0; i < 5; i++)
@@ -116,7 +116,13 @@
                     }
                 }
             </div>
-            <div class="hud-row hud-hole">
+            <div class="hud-row hud-hole hud-card-cue-row">
+                @if (ShowEnlargeHint)
+                {
+                    <span class="board-hint @(_hudBoardExpanded ? "expanded" : "")" role="note">
+                        click to @(_hudBoardExpanded ? "minimise" : "expand")
+                    </span>
+                }
                 @{ IReadOnlyList<Card> hudHole = SeatOf(0) is { Folded: true } ? Array.Empty<Card>() : HoleCardsOf(0); }
                 @for (int i = 0; i < 2; i++)
                 {
@@ -138,17 +144,6 @@
                     {
                         <img class="hud-card" src="@CardImage(card)" alt="" />
                     }
-                </div>
-            }
-            @* First-game-only tutorial callout (see MaybeShowBoardHint).
-               It lives inside the panel so it follows the cards at every
-               breakpoint, and a tap on it bubbles into ToggleHudBoard —
-               doing exactly what it teaches, which also dismisses it. *@
-            @if (_boardHintVisible && _introStarted && !_hudBoardExpanded)
-            {
-                <div class="board-hint" role="note">
-                    <span class="board-hint-arrow" aria-hidden="true"></span>
-                    TAP the community cards to see a close-up comparison
                 </div>
             }
         </div>
@@ -1201,43 +1196,29 @@
         if (_isGuest && !_guestJoined) await ConnectGuestAsync();
     }
 
-    // ------------------------------------- first-game community-cards hint
+    // -------------------------------- first-two-hands community-cards hint
 
-    // The very first time someone plays on this device, a small callout
-    // under the community-cards window teaches the close-up comparison tap.
-    // It goes away when the player tries it (ToggleHudBoard), when they tap
-    // the callout itself (the tap bubbles into the same toggle), or after a
-    // generous read timeout — and once dismissed it never comes back.
-    private bool _boardHintVisible;
-    private const int BoardHintTimeoutMs = 20000;
+    // Keep this prompt tied to the opening hands rather than local storage:
+    // every fresh game gets the same short onboarding cue, and it naturally
+    // disappears once the player is past hand two.
+    private bool ShowEnlargeHint =>
+        _introStarted
+        && _game?.HandNumber is >= 1 and <= 2;
 
-    private async Task MaybeShowBoardHint()
+    private bool ShowCardWindowGlow =>
+        _introStarted
+        && _game?.HandNumber is >= 1 and <= 2;
+
+    private Task MaybeShowBoardHint()
     {
-        bool seen = true;
-        try { seen = await JS.InvokeAsync<bool>("pokerProfile.boardHintSeen"); }
-        catch (JSException) { }
-        catch (InvalidOperationException) { }
-        if (seen) return;
-
-        _boardHintVisible = true;
         StateHasChanged();
-        _ = AutoDismissBoardHint();
+        return Task.CompletedTask;
     }
 
-    private async Task AutoDismissBoardHint()
+    private Task DismissBoardHint()
     {
-        await Task.Delay(BoardHintTimeoutMs);
-        if (_boardHintVisible) await DismissBoardHint();
-    }
-
-    private async Task DismissBoardHint()
-    {
-        if (!_boardHintVisible) return;
-        _boardHintVisible = false;
-        try { await JS.InvokeVoidAsync("pokerProfile.markBoardHintSeen"); }
-        catch (JSException) { }
-        catch (InvalidOperationException) { }
         StateHasChanged();
+        return Task.CompletedTask;
     }
 
     // ------------------------------------------------------------- 3D scene
