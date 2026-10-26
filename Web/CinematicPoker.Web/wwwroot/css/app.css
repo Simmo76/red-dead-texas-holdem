@@ -569,14 +569,13 @@ html.scene-street .boot-screen {
 }
 
 .hud-board.card-cue-active .hud-card {
-    outline: 2px solid #f3d35f;
-    outline-offset: 2px;
+    border: 2px solid #f3d35f;
     animation: card-cue-pulse 1.7s ease-in-out infinite;
 }
 
 .hud-board.card-cue-active {
     position: absolute;
-    border-color: #f3d35f;
+    border: 2px solid #f3d35f;
     animation: card-window-pulse 1.7s ease-in-out infinite;
 }
 
@@ -688,10 +687,12 @@ html.scene-street .boot-screen {
 @keyframes card-cue-pulse {
     0%, 100% {
         opacity: 0.55;
+        border-color: rgba(243, 211, 95, 0.55);
         box-shadow: 0 0 6px rgba(243, 211, 95, 0.42);
     }
     50% {
         opacity: 1;
+        border-color: #fff0a3;
         box-shadow: 0 0 17px rgba(243, 211, 95, 0.95),
                     0 0 0 3px rgba(243, 211, 95, 0.16);
     }
@@ -699,10 +700,12 @@ html.scene-street .boot-screen {
 
 @keyframes card-window-pulse {
     0%, 100% {
+        border-color: rgba(243, 211, 95, 0.55);
         box-shadow: 0 0 5px rgba(243, 211, 95, 0.35),
                     inset 0 0 4px rgba(243, 211, 95, 0.12);
     }
     50% {
+        border-color: #fff0a3;
         box-shadow: 0 0 20px rgba(243, 211, 95, 0.9),
                     0 0 0 4px rgba(243, 211, 95, 0.16),
                     inset 0 0 13px rgba(243, 211, 95, 0.28);
