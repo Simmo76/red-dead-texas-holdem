@@ -616,26 +616,27 @@ html.scene-street .boot-screen {
 
 .hud-card.facedown { opacity: 0.35; }
 
-/* First-game tutorial callout: hangs under the community-cards window
+/* Opening-hands tutorial callout: hangs under the community-cards window
    (anchored to it, so it follows the panel at every breakpoint) with an
-   arrow pointing up at the cards. Shown once per device — see
-   MaybeShowBoardHint in Home.razor. */
+   arrow pointing up at the cards. See ShowEnlargeHint in Home.razor. */
 .board-hint {
     position: absolute;
-    top: calc(100% + 11px);
+    top: calc(100% + 8px);
     right: 0;
     width: max-content;
     max-width: min(240px, 72vw);
-    padding: 9px 13px;
-    background: rgba(8, 5, 3, 0.88);
-    border: 1px solid var(--gold-dim);
-    border-radius: 8px;
-    color: var(--text);
-    font-size: 12px;
-    line-height: 1.5;
-    letter-spacing: 0.4px;
+    padding: 6px 12px;
+    background: rgba(8, 5, 3, 0.94);
+    border: 1px solid rgba(216, 178, 92, 0.78);
+    border-radius: 999px;
+    color: #f3d78a;
+    font-size: 11px;
+    line-height: 1.2;
+    letter-spacing: 1.2px;
     text-align: right;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.9);
+    box-shadow: 0 0 0 rgba(216, 178, 92, 0);
     animation: board-hint-pulse 2s ease-in-out infinite;
     pointer-events: auto;
     cursor: pointer;
@@ -651,8 +652,16 @@ html.scene-street .boot-screen {
 }
 
 @keyframes board-hint-pulse {
-    0%, 100% { opacity: 0.75; }
-    50% { opacity: 1; }
+    0%, 100% {
+        opacity: 0.68;
+        box-shadow: 0 0 5px rgba(216, 178, 92, 0.25),
+                    0 0 0 0 rgba(216, 178, 92, 0);
+    }
+    50% {
+        opacity: 1;
+        box-shadow: 0 0 14px rgba(216, 178, 92, 0.78),
+                    0 0 0 4px rgba(216, 178, 92, 0.12);
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
