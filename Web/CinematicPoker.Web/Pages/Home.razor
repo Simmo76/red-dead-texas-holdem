@@ -1503,7 +1503,10 @@
             _handLog = new HandSequenceLog();
             _handLog.BeginSession(0, TableRules.Default, players);
             _statusLine = saved.round == null || saved.round.phase == HandPhase.Complete ? "Dealing…" : "Resuming your hand…";
-            EnsureCoachRecorder();
+            if (saved.round != null && saved.round.phase != HandPhase.Complete)
+                ResumeCoachFromRound();
+            else
+                EnsureCoachRecorder();
             _restoredAwaitingLoop = true;
         }
         catch (Exception ex) when (ex is JsonException || ex is ArgumentException || ex is InvalidOperationException)

@@ -22,12 +22,14 @@ namespace CinematicPoker.Engine.Coaching
         public void Remember(CompletedHandRecord hand)
         {
             if (hand == null || !hand.Complete || string.IsNullOrEmpty(hand.HandId)) return;
+            // A hand that just finished is the one REVIEW HAND explains, even
+            // when its id was already in the ring.
             for (int i = 0; i < _hands.Count; i++)
             {
                 if (_hands[i].HandId == hand.HandId)
                 {
-                    _hands[i] = hand;
-                    return;
+                    _hands.RemoveAt(i);
+                    break;
                 }
             }
             _hands.Add(hand);
