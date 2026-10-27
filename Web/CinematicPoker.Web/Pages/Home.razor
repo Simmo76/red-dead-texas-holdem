@@ -185,33 +185,36 @@
         </div>
     }
 
-    @* Every window along the bottom edge shares one flow column: the
-       showdown strip, Maximilian's advisor, the actor card and the action
-       bar stack on top of each other instead of overlapping, whatever
-       height each one happens to have. *@
-    <div class="hud-bottom">
-
+    @* Hand-compare sits in its own centered stage (not the bottom flow
+       column) so multi-seat showdowns stay middle-of-screen and never
+       clip past the top or bottom of the viewport. *@
     @if (_showdownView.Count > 0)
     {
-        <div class="showdown-strip">
-            @foreach (var row in _showdownView)
-            {
-                <div class="showdown-seat @(row.Winner ? "winner" : "")">
-                    <div class="showdown-name" style="color:@SeatColor(row.Seat)">@row.Name</div>
-                    <div class="showdown-cards">
-                        @foreach (var card in row.Cards)
+        <div class="showdown-layer">
+            <div class="showdown-strip">
+                @foreach (var row in _showdownView)
+                {
+                    <div class="showdown-seat @(row.Winner ? "winner" : "")">
+                        <div class="showdown-name" style="color:@SeatColor(row.Seat)">@row.Name</div>
+                        <div class="showdown-cards">
+                            @foreach (var card in row.Cards)
+                            {
+                                <img class="hud-card" src="@CardImage(card)" alt="" />
+                            }
+                        </div>
+                        @if (!string.IsNullOrEmpty(row.HandName))
                         {
-                            <img class="hud-card" src="@CardImage(card)" alt="" />
+                            <div class="showdown-hand">@row.HandName</div>
                         }
                     </div>
-                    @if (!string.IsNullOrEmpty(row.HandName))
-                    {
-                        <div class="showdown-hand">@row.HandName</div>
-                    }
-                </div>
-            }
+                }
+            </div>
         </div>
     }
+
+    @* Bottom-edge flow column: Maximilian's advisor, the actor card and
+       the action bar stack on top of each other instead of overlapping. *@
+    <div class="hud-bottom">
 
     <div class="hud-bottom-row @(ShowChat ? "with-chat" : "") @(_chatCollapsed ? "" : "chat-open")">
 
