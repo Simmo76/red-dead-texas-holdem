@@ -56,7 +56,7 @@
     <header class="topbar">
         <div class="brand">DEAD MAN'S <span>HAND</span></div>
         <div class="topbar-right">
-            @if (CanReview && !_awaitingNextHand)
+            @if (CanReview && _handHasCompleted && _awaitingNextHand)
             {
                 <button class="chip-btn review-hand" @onclick="OpenCoachReview" title="Ask the poker coach about the last hand">
                     POKER COACH
