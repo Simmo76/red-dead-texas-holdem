@@ -2260,9 +2260,11 @@ const _upVec = new THREE.Vector3(0, 1, 0);
 
 const DEG = Math.PI / 180;
 // Home is 10° clockwise (negative yaw: toward the player's right, so his
-// hole cards read on the left of his body) and 10° more overhead.
+// hole cards read on the left of his body) and 16° more overhead. The extra
+// downward framing keeps the far edge of the community-card row inside the
+// landscape viewport during the pre-result reveal.
 const HOME_YAW_OFFSET = -10 * DEG;
-const HOME_PITCH_OFFSET = 10 * DEG;
+const HOME_PITCH_OFFSET = 16 * DEG;
 const LOOK_RANGE = 10 * DEG;
 const PINCH_MIN = 0.88;
 const PINCH_MAX = 1.12;
