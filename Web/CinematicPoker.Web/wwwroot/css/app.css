@@ -855,27 +855,43 @@ html.scene-street .boot-screen {
 
 .hud-winner .hud-card { width: 36px; }
 
+/* Hand-compare stage: centers the strip in the playable area between the
+   top bar and the bottom action row. Top/bottom insets keep either edge
+   from leaving the visible screen, even when many seats wrap to extra rows. */
+.showdown-layer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(52px + env(safe-area-inset-top, 0px));
+    bottom: calc(96px + max(16px, env(safe-area-inset-bottom, 0px)));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Above the dim veil (6), below .hud-bottom (8) so NEXT HAND stays
+       tappable if a short viewport ever squeezes the two together. */
+    z-index: 7;
+    pointer-events: none;
+}
+
 /* Hand-compare window: 1.5x the previous size (cards + type) so the
-   YOU-vs-them read is obvious, but still capped and kept inside
-   .hud-bottom's flow column so it stacks above the action bar instead of
-   covering NEXT HAND. */
+   YOU-vs-them read is obvious. Height is capped to the stage so a 4+
+   seat wrap scrolls inside the frame instead of clipping off-screen. */
 .showdown-strip {
-    align-self: center;
-    /* Keep the comparison window close to the action row. The old 12px
-       lift made its top border disappear behind the viewport on short
-       landscape screens. */
-    margin-bottom: 0;
-    transform: translateY(10px);
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: 27px;
     max-width: min(840px, 92vw);
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 21px 27px;
     background: rgba(8, 5, 3, 0.86);
     border: 1px solid var(--line);
     border-radius: 18px;
-    pointer-events: none;
+    /* Scroll when clamped; otherwise the stage stays click-through. */
+    pointer-events: auto;
 }
 
 .showdown-seat {
@@ -918,10 +934,10 @@ html.scene-street .boot-screen {
 
 /* ------------------------------------------------------------- actions */
 
-/* One flow column pinned to the bottom edge: showdown strip, then the
-   advisor + actor-card row, then the action bar. Because they stack in
-   normal flow, none of these windows can ever sit on top of another —
-   whatever height each one happens to have. */
+/* One flow column pinned to the bottom edge: advisor + actor-card row,
+   then the action bar. Because they stack in normal flow, none of these
+   windows can ever sit on top of another — whatever height each one
+   happens to have. The hand-compare strip lives in .showdown-layer. */
 .hud-bottom {
     position: absolute;
     left: 0;
@@ -1928,6 +1944,10 @@ html.scene-street .boot-screen {
     .banner-line { font-size: 18px; }
     .banner-cards .hud-card { width: 63px; }
     .hud-winner .hud-card { width: 30px; }
+    .showdown-layer {
+        top: calc(72px + env(safe-area-inset-top, 0px));
+        bottom: calc(110px + max(16px, env(safe-area-inset-bottom, 0px)));
+    }
     .showdown-strip { gap: 18px; padding: 15px 18px; max-width: min(630px, 94vw); }
     .showdown-seat { min-width: 132px; padding: 9px 12px; gap: 8px; }
     .showdown-cards .hud-card { width: 69px; }
@@ -1982,6 +2002,11 @@ html.scene-street .boot-screen {
     .banner-cards { margin: 9px 0 3px; gap: 8px; }
     .banner-cards .hud-card { width: 60px; }
     .hud-winner .hud-card { width: 28px; }
+    /* Compact chrome on short landscape so a 4+ seat wrap still centers. */
+    .showdown-layer {
+        top: calc(40px + env(safe-area-inset-top, 0px));
+        bottom: calc(72px + max(12px, env(safe-area-inset-bottom, 0px)));
+    }
     .showdown-strip { gap: 15px; padding: 12px 15px; max-width: min(570px, 90vw); }
     .showdown-seat { min-width: 120px; padding: 8px 12px; gap: 6px; }
     .showdown-cards .hud-card { width: 63px; }
@@ -2040,6 +2065,7 @@ html.scene-street .boot-screen {
 .game3d.coach-open .ai-advice,
 .game3d.coach-open .banner,
 .game3d.coach-open .result-dim,
+.game3d.coach-open .showdown-layer,
 .game3d.coach-open .showdown-strip,
 .game3d.coach-open .table-chat,
 .game3d.coach-open .friend-seat-pill,
