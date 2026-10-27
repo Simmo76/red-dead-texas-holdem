@@ -2745,10 +2745,20 @@ function syncPokerCameraAspect() {
   if (!w || !h) return;
   // Aspect only. The seated camera position is left where the player had it.
   state.camera.aspect = w / h;
-  state.camera.fov = state.baseFov || 60;
+  state.camera.fov = cameraFovForViewport(w, h);
   state.camera.updateProjectionMatrix();
   lastW = w;
   lastH = h;
+}
+
+// Very wide, short landscape viewports (notably iPhone Safari in landscape)
+// have less vertical room than the desktop composition was framed for. Keep
+// the normal lens on desktop, but widen it slightly on those viewports so
+// the opponent cards at the top of the table do not leave the screen.
+function cameraFovForViewport(w, h) {
+  const aspect = w / h;
+  const wideViewportAdjustment = THREE.MathUtils.clamp((aspect - 1.8) * 25, 0, 12);
+  return (state.baseFov || 60) + wideViewportAdjustment;
 }
 
 function resizeIfNeeded(canvas, renderer, camera) {
@@ -2762,7 +2772,7 @@ function resizeIfNeeded(canvas, renderer, camera) {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   state.baseFov = 60;
-  camera.fov = state.baseFov;
+  camera.fov = cameraFovForViewport(w, h);
   camera.updateProjectionMatrix();
   if (state.applyCameraHome) state.applyCameraHome();
 }
