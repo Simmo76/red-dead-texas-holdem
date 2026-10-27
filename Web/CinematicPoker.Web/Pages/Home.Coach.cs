@@ -246,8 +246,9 @@ namespace CinematicPoker.Web.Pages
             _coachOffer = null;
         }
 
-        // Solo, on request: the review opens itself once the hand is over and
-        // the table is holding for the next deal. Closing it does not reopen
+        // Solo, on request: auto-open the review after the first two hands
+        // while the table holds for the next deal. From the third hand on,
+        // the player opens Poker Coach themselves. Closing does not reopen
         // the same hand. Notable mode keeps the tip chip. Off stays quiet.
         private async Task OpenCoachAfterHand()
         {
@@ -255,6 +256,7 @@ namespace CinematicPoker.Web.Pages
             if (_coachMode != CoachMode.OnRequest || _coachOpen || _awaitingHuman) return;
             CompletedHandRecord hand = _coachRecorder?.LastCompleted;
             if (hand == null || !hand.Complete || hand.HandId == _coachAutoOpenedHandId) return;
+            if (hand.HandNumber > 2) return;
             _coachAutoOpenedHandId = hand.HandId;
             await OpenCoachReview();
         }

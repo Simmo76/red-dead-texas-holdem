@@ -2092,6 +2092,12 @@ html.scene-street .boot-screen {
     min-height: 44px;
 }
 
+/* Same gold pulse as the "click to expand" board hint, so the coach
+   control still reads as the next thing to try after a hand. */
+.actionbar .review-hand {
+    animation: board-hint-pulse 2s ease-in-out infinite;
+}
+
 .game3d.coach-open:not(.coach-live) .actionbar {
     visibility: hidden;
 }
@@ -2387,5 +2393,6 @@ html.scene-street .boot-screen {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .coach-layer, .coach-panel, .coach-tip { animation: none !important; transition: none !important; }
+    .coach-layer, .coach-panel, .coach-tip,
+    .actionbar .review-hand { animation: none !important; transition: none !important; }
 }
