@@ -472,7 +472,9 @@ html.scene-street .boot-screen {
 
 .hud-meters {
     position: absolute;
-    top: calc(56px + env(safe-area-inset-top));
+    /* Keep the pot below the top navigation, including its 40px touch
+       target and the topbar's vertical padding. */
+    top: calc(68px + env(safe-area-inset-top));
     left: 50%;
     /* Offset left of centre so a 3-4 figure pot never slides under the
        board panel pinned top-right (worst case: phone landscape). */
@@ -1954,7 +1956,9 @@ html.scene-street .boot-screen {
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; }
 
-    .hud-meters { top: 42px; gap: 8px; }
+    /* The topbar buttons are still visible in short landscape mode; the
+       old 42px position put the pot directly underneath them. */
+    .hud-meters { top: calc(68px + env(safe-area-inset-top)); gap: 8px; }
     .hud-pot { font-size: 16px; padding: 6px 14px; }
     .hud-stack { font-size: 22px; padding: 7px 16px; }
     .hud-stack-icon { width: 22px; height: 22px; flex-basis: 22px; }
