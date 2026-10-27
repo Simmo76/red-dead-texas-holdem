@@ -861,7 +861,11 @@ html.scene-street .boot-screen {
    covering NEXT HAND. */
 .showdown-strip {
     align-self: center;
-    margin-bottom: 12px;
+    /* Keep the comparison window close to the action row. The old 12px
+       lift made its top border disappear behind the viewport on short
+       landscape screens. */
+    margin-bottom: 0;
+    transform: translateY(10px);
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
