@@ -58,8 +58,8 @@
         <div class="topbar-right">
             @if (CanReview && !_awaitingNextHand)
             {
-                <button class="chip-btn review-hand" @onclick="OpenCoachReview" title="Review the last hand">
-                    REVIEW
+                <button class="chip-btn review-hand" @onclick="OpenCoachReview" title="Ask the poker coach about the last hand">
+                    POKER COACH
                 </button>
             }
             <button class="chip-btn" @onclick="OpenHandRankings" title="Poker hand rankings">
@@ -608,7 +608,7 @@
     {
         <div class="coach-tip" role="status" @onclick:stopPropagation="true">
             <span>@CoachDisplayName has a tip</span>
-            <button type="button" @onclick="OpenCoachReview">REVIEW</button>
+            <button type="button" @onclick="OpenCoachReview">POKER COACH</button>
             <button type="button" class="dismiss" @onclick="DismissCoachTip" aria-label="Dismiss tip">×</button>
         </div>
     }
