@@ -54,6 +54,23 @@
         return '';
     }
 
+    // A guest promoted to host owns the table now: remember the room like a
+    // host would (so a reload re-opens it) and drop ?room= from the address
+    // bar so this tab stops booting as a guest of its own table.
+    function adoptRoom(room) {
+        try {
+            sessionStorage.setItem(ROOM_KEY, room);
+            sessionStorage.setItem(HOSTING_KEY, '1');
+        } catch (e) { }
+        try {
+            var url = new URL(w.location.href);
+            if (url.searchParams.has('room')) {
+                url.searchParams.delete('room');
+                w.history.replaceState(null, '', url.toString());
+            }
+        } catch (e) { }
+    }
+
     var SCENE_KEY = 'cinematic-poker-table-scene';
 
     function scene() {
@@ -125,6 +142,7 @@
     w.pokerInvite = {
         goHome: goHome,
         markHosting: markHosting,
+        adoptRoom: adoptRoom,
         hostedRoom: hostedRoom,
         scene: scene,
         followScene: followScene,

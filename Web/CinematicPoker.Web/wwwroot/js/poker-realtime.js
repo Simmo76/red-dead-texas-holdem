@@ -62,6 +62,7 @@
         connection.on('HostMsg', function (payload) { notify('OnHostMessage', payload); });
         connection.on('HostGone', function () { notify('OnHostGone'); });
         connection.on('HostBack', function () { notify('OnHostBack'); });
+        connection.on('BecomeHost', function () { notify('OnBecomeHost'); });
         connection.onreconnecting(function () { notify('OnLinkState', 'reconnecting'); });
         connection.onreconnected(async function () {
             try {
@@ -109,6 +110,25 @@
         await connect();
         var result = await connection.invoke('JoinRoom', room, playerId, currentName);
         return JSON.stringify(result);
+    }
+
+    // The relay asked this guest to take over a table whose host left. On
+    // success the hub frees our guest seat and routes friends' messages here,
+    // and this connection behaves as the host from now on (including
+    // automatic re-hosting after a reconnect).
+    async function claimHost(hostName) {
+        if (!connection || role !== 'guest') return JSON.stringify({ ok: false });
+        var result;
+        try {
+            result = await connection.invoke('ClaimHost', currentRoom);
+        } catch (e) {
+            return JSON.stringify({ ok: false });
+        }
+        if (result && result.ok) {
+            role = 'host';
+            currentHostName = hostName || currentName || 'Player';
+        }
+        return JSON.stringify(result || { ok: false });
     }
 
     // Tell the relay (and Render logs) that the host sent an invite link.
@@ -160,7 +180,7 @@
     }
 
     w.pokerRealtime = {
-        host: host, join: join, reportInvite: reportInvite,
+        host: host, join: join, claimHost: claimHost, reportInvite: reportInvite,
         toHost: toHost, toGuest: toGuest,
         leave: leave, stop: stop, isLive: isLive, scrollChat: scrollChat
     };
