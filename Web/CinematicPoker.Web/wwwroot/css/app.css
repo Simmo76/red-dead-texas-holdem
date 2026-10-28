@@ -42,7 +42,7 @@ html, body {
     /* Same one-sheet as the Blazor intro so loading never flashes a
        different title card. Painted title lives in the art. */
     /* Paths are relative to this stylesheet (css/), not the page. */
-    background: #1a0c08 url("../img/intro-splash.jpg?v=2") center / cover no-repeat;
+    background: #1a0c08 url("../img/intro-splash.jpg?v=3") center / cover no-repeat;
 }
 
 /* Desktops narrower than the one-sheet (about 2.16:1) but still wide
@@ -55,7 +55,7 @@ html, body {
 /* Octagon scene keeps its own one-sheet. The class is set from
    localStorage before first paint so the boot card matches the level. */
 html.scene-street .boot-screen {
-    background-image: url("../img/intro-splash-street.jpg?v=1");
+    background-image: url("../img/intro-splash-street.jpg?v=2");
 }
 
 .boot-title,
@@ -258,12 +258,12 @@ html.scene-street .boot-screen {
     transform: translate(-50%, -50%);
     width: max(100%, calc(100dvh * 1844 / 853));
     height: max(100%, calc(100vw * 853 / 1844));
-    background: url("../img/intro-splash.jpg?v=2") center / 100% 100% no-repeat;
+    background: url("../img/intro-splash.jpg?v=3") center / 100% 100% no-repeat;
 }
 
 /* Same frame as the saloon sheet (both are 1844×853). Only the painting changes. */
 .intro-overlay > .intro-splash-art.street {
-    background-image: url("../img/intro-splash-street.jpg?v=1");
+    background-image: url("../img/intro-splash-street.jpg?v=2");
 }
 
 /* The octagon plate sits lower than the saloon one, under the fighters. */
