@@ -475,10 +475,10 @@ html.scene-street .boot-screen {
     /* Keep the pot below the top navigation, including its 40px touch
        target and the topbar's vertical padding. */
     top: calc(68px + env(safe-area-inset-top));
-    left: 50%;
-    /* Offset left of centre so a 3-4 figure pot never slides under the
-       board panel pinned top-right (worst case: phone landscape). */
-    transform: translateX(calc(-50% - 70px));
+    /* Pinned to the top-left corner (under the title) in EVERY state, so
+       the pot never drifts towards the centre of the screen. The friend
+       pill below starts at 104px, clearing this row. */
+    left: calc(18px + env(safe-area-inset-left));
     display: flex;
     align-items: center;
     gap: 10px;
@@ -608,12 +608,10 @@ html.scene-street .boot-screen {
     transform-origin: top right;
 }
 
-/* The enlarged close-up owns the top-right corner: tuck the stack/pot
-   meters against the left edge and shrink them a notch so the two can
-   never collide. */
+/* The enlarged close-up owns the top-right corner: the meters already sit
+   on the left edge; stack them vertically and shrink them a notch so the
+   two can never collide. */
 .board-expanded .hud-meters {
-    left: calc(18px + env(safe-area-inset-left));
-    transform: none;
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
