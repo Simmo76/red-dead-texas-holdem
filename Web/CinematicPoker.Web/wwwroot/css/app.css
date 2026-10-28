@@ -472,9 +472,11 @@ html.scene-street .boot-screen {
 
 .hud-meters {
     position: absolute;
-    /* Keep the pot below the top navigation, including its 40px touch
-       target and the topbar's vertical padding. */
-    top: calc(68px + env(safe-area-inset-top));
+    /* Clamped directly under the "DEAD MAN'S HAND" title: the brand text
+       is centred in the topbar's 40px button row (10px padding above), so
+       its bottom edge lands around 46px. The topbar buttons live on the
+       right, leaving this left column clear. */
+    top: calc(46px + env(safe-area-inset-top));
     /* Pinned to the top-left corner (under the title) in EVERY state, so
        the pot never drifts towards the centre of the screen. The friend
        pill below starts at 104px, clearing this row. */
@@ -1924,8 +1926,9 @@ html.scene-street .boot-screen {
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; }
 
-    /* Left-aligned: the wrapped second row of topbar buttons owns the right. */
-    .hud-meters { top: calc(54px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); transform: none; flex-direction: column; align-items: flex-start; gap: 6px; }
+    /* Left-aligned just under the title: the wrapped second row of topbar
+       buttons owns the right, so the pot can hug the brand's baseline. */
+    .hud-meters { top: calc(40px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); transform: none; flex-direction: column; align-items: flex-start; gap: 6px; }
     .hud-pot { font-size: 15px; padding: 6px 14px; }
     .hud-stack { font-size: 20px; padding: 7px 14px; }
     .hud-stack-icon { width: 20px; height: 20px; flex-basis: 20px; }
@@ -1978,9 +1981,10 @@ html.scene-street .boot-screen {
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; }
 
-    /* The topbar buttons are still visible in short landscape mode; the
-       old 42px position put the pot directly underneath them. */
-    .hud-meters { top: calc(68px + env(safe-area-inset-top)); gap: 8px; }
+    /* Clamped just under the compact brand text (bottom edge ~28px in the
+       6px-padded 32px topbar row). The topbar buttons sit on the right, so
+       they can never collide with this left-pinned pill. */
+    .hud-meters { top: calc(34px + env(safe-area-inset-top)); gap: 8px; }
     .hud-pot { font-size: 16px; padding: 6px 14px; }
     .hud-stack { font-size: 22px; padding: 7px 16px; }
     .hud-stack-icon { width: 22px; height: 22px; flex-basis: 22px; }
