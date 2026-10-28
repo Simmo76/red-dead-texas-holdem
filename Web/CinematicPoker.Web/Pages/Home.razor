@@ -2327,6 +2327,7 @@
         public bool[] outs;
         public string[] names;
         public bool[] humans;
+        public int[] hubs;        // state | hand | roster: relay routing seat per game seat (0 = none)
         public PokerRoundSnapshot round;
         public string text;
         public string scene;      // state | hand: the host's table scene, which friends follow
@@ -2756,6 +2757,22 @@
             m.names[j] = p.Seat == 0 ? PlayerName : NameOf(p.Seat);
             m.humans[j] = IsHumanSeat(p.Seat);
         }
+        m.hubs = HubSeatMapFor(guest);
+    }
+
+    // Which relay seat routes to each game seat, in the receiving guest's own
+    // numbering. Guests remember this so that one of them, if promoted, can
+    // re-map the remaining friends exactly — relay seats stop matching game
+    // seats after the first takeover.
+    private int[] HubSeatMapFor(int guest)
+    {
+        var hubs = new int[TableSeats];
+        foreach (KeyValuePair<int, RemoteSeat> kv in _remote)
+        {
+            int j = Rot(kv.Key, guest);
+            if (j >= 0 && j < TableSeats) hubs[j] = kv.Value.HubSeat;
+        }
+        return hubs;
     }
 
     private void BroadcastHand()
@@ -2962,12 +2979,15 @@
 
     private async Task PromoteSelfToHost(ClaimRow claim)
     {
-        int myOldSeat = claim.Seat > 0 ? claim.Seat : _guestRot;
+        // My rotation in the departed host's frame. The relay seat only
+        // matches it until the first takeover, so prefer what the host told
+        // us; the relay seat covers the never-synced case.
+        int myRot = _guestRot != 0 ? _guestRot : claim.Seat;
         ++_loopToken; // stop the guest replay loop
         FastForwardGuestInbox();
 
-        // In my (rotated) numbering the departed host sat at Rot(0, mySeat).
-        _seatNames.TryGetValue(Rot(0, myOldSeat), out string oldHostName);
+        // In my (rotated) numbering the departed host sat at Rot(0, myRot).
+        _seatNames.TryGetValue(Rot(0, myRot), out string oldHostName);
 
         _isGuest = false;
         _hosting = true;
@@ -2986,9 +3006,11 @@
         _gameSeatByPlayerId.Clear();
         _chatHeardAt.Clear();
         _guestHumanSeats.Clear();
+        var hubSeatMap = new Dictionary<int, int>(_guestHubSeats);
+        _guestHubSeats.Clear();
         foreach (GuestRow row in claim.Guests ?? new List<GuestRow>())
         {
-            int gameSeat = Rot(row.Seat, myOldSeat);
+            int gameSeat = GameSeatForClaimedGuest(hubSeatMap, row.Seat, myRot);
             if (gameSeat < 1 || gameSeat >= TableSeats) continue;
             _gameSeatByPlayerId[row.PlayerId] = gameSeat;
             if (!row.Connected) continue;
@@ -3021,6 +3043,17 @@
         StateHasChanged();
         int token = ++_loopToken;
         _ = ResumeAsHostLoop(token);
+    }
+
+    // Where does the friend routed at this relay seat sit, in my numbering?
+    // The host's roster map answers exactly; falling back to plain rotation
+    // is only correct while relay seats still match game seats (no takeover
+    // has happened yet).
+    private static int GameSeatForClaimedGuest(Dictionary<int, int> hubSeatMap, int hubSeat, int myRot)
+    {
+        foreach (KeyValuePair<int, int> kv in hubSeatMap)
+            if (kv.Value == hubSeat) return kv.Key;
+        return Rot(hubSeat, myRot);
     }
 
     // Apply any relayed actions still queued for presentation, without the
@@ -3149,7 +3182,13 @@
                     humans[j] = true;
                 }
             }
-            SendToGuest(guest, new MpMessage { t = "roster", names = names, humans = humans });
+            SendToGuest(guest, new MpMessage
+            {
+                t = "roster",
+                names = names,
+                humans = humans,
+                hubs = HubSeatMapFor(guest)
+            });
         }
     }
 
@@ -3164,6 +3203,7 @@
                 _seatNames[j] = m.names[j];
             if (m.humans[j]) _guestHumanSeats.Add(j);
         }
+        RememberHubSeats(m);
         SuppressAdviceForCompany();
         // The placeholder solo game is still on screen until the host's
         // first state arrives (_guestRot stays 0). Don't paint that over
@@ -3361,9 +3401,23 @@
             _seatNames[j] = m.names[j];
             if (m.humans[j]) _guestHumanSeats.Add(j);
         }
+        RememberHubSeats(m);
         SuppressAdviceForCompany();
         // Seat (6 - guest) % 6 in this view is the host's real seat 0.
         _mpPill = $"PLAYING AT {m.names[Rot(0, _guestRot)].ToUpperInvariant()}'S TABLE";
+    }
+
+    // My-frame game seat -> relay routing seat, as last told by the host.
+    // Only consulted if this guest is promoted and must re-map the others.
+    private readonly Dictionary<int, int> _guestHubSeats = new();
+
+    private void RememberHubSeats(MpMessage m)
+    {
+        if (m.hubs == null) return;
+        _guestHubSeats.Clear();
+        int limit = Math.Min(TableSeats, m.hubs.Length);
+        for (int j = 1; j < limit; j++)
+            if (m.hubs[j] > 0) _guestHubSeats[j] = m.hubs[j];
     }
 
     private void ApplyGuestState(MpMessage m)
