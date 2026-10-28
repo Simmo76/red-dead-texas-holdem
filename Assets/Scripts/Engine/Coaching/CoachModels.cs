@@ -29,7 +29,8 @@ namespace CinematicPoker.Engine.Coaching
     {
         Off = 0,
         OnRequest = 1,
-        Notable = 2
+        Notable = 2,
+        EveryHand = 3
     }
 
     public enum ReviewStatus

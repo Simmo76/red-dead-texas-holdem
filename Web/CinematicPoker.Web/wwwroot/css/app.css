@@ -2335,6 +2335,21 @@ html.scene-street .boot-screen {
     font-size: 14px;
 }
 
+.coach-handoff {
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    border: 1px solid rgba(196, 164, 96, 0.55);
+    border-radius: 10px;
+    background: rgba(196, 164, 96, 0.14);
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.coach-handoff b {
+    color: var(--gold);
+    letter-spacing: 1px;
+}
+
 .coach-tip {
     position: absolute;
     z-index: 23;
