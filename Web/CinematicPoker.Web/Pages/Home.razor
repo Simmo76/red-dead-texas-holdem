@@ -4087,6 +4087,17 @@
             return;
         }
 
+        // Any seat — the player, an NPC, or a friend at the table.
+        if (evt is PlayerChecked)
+        {
+            if (!_muted)
+            {
+                try { _ = JS.InvokeVoidAsync("pokerAudio.check"); }
+                catch (JSException) { }
+            }
+            return;
+        }
+
         string group = evt switch
         {
             HandStarted _ => "shuffle",
