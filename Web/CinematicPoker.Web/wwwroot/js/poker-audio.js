@@ -32,6 +32,13 @@ window.pokerAudio = (function () {
     let sliderAudioFinished = false;
     let victoryPending = false;
     let playerLossPending = false;
+    let checkPending = false;
+    let lastCheckAt = 0;
+    // 16-bit PCM, same family as the other owner one-shots. The supplied file
+    // was a quiet m4a-derived MP3; this copy is level-matched so it reads
+    // over the table bed and the CHECK button click.
+    const CHECK_URL = 'audio/poker-check-sfx.wav';
+    const CHECK_VOLUME = 1.1;
 
     // Owner-supplied outlaw VO pools (renamed from the Dropbox zip).
     const WIN_CLIPS = 15;
@@ -51,7 +58,7 @@ window.pokerAudio = (function () {
     }
 
     function flushPendingResultAudio() {
-        if (muted || (!victoryPending && !playerLossPending)) return;
+        if (muted || (!victoryPending && !playerLossPending && !checkPending)) return;
         const c = ensureCtx();
         if (!c || c.state !== 'running') return;
         if (victoryPending) {
@@ -61,6 +68,10 @@ window.pokerAudio = (function () {
         if (playerLossPending) {
             playerLossPending = false;
             playBuffer('audio/player-loss.wav', 2.25, 1);
+        }
+        if (checkPending) {
+            checkPending = false;
+            playBuffer(CHECK_URL, CHECK_VOLUME, 1);
         }
     }
 
@@ -122,12 +133,22 @@ window.pokerAudio = (function () {
         playBuffer('audio/' + name + '.mp3', 0.55, 0.92 + Math.random() * 0.16);
     }
 
-    // Owner-supplied check tap. Steady pitch: the clip is one designed hit,
-    // and a detuned copy is immediately obvious. Same WebAudio path as the
-    // other action sounds, so NPC checks still play after the first tap.
+    // Owner-supplied check tap. Steady pitch. A check on the unlocking tap
+    // (the CHECK button itself) can arrive while resume() is still in flight;
+    // hold it and play on the same gesture instead of dropping it.
     function check() {
         if (muted) return;
-        playBuffer('audio/poker-check-sfx.mp3', 0.55, 1);
+        const now = Date.now();
+        // The CHECK button starts the clip on the tap; the engine event
+        // follows a moment later. One play per check.
+        if (now - lastCheckAt < 500) return;
+        lastCheckAt = now;
+        const c = ensureCtx();
+        if (!c || c.state !== 'running') {
+            checkPending = true;
+            return;
+        }
+        playBuffer(CHECK_URL, CHECK_VOLUME, 1);
     }
 
     const BUTTON_SOUND_URL = 'audio/ui-click.wav';
@@ -344,8 +365,14 @@ window.pokerAudio = (function () {
             ? target.closest('button, [role="button"], .hud-board') : null;
         const playButton = buttonEl
             && !(buttonEl.tagName === 'BUTTON' && buttonEl.disabled);
+        const checkButton = playButton && buttonEl.classList
+            && buttonEl.classList.contains('act')
+            && buttonEl.classList.contains('check');
         flushPendingResultAudio();
         startMusic();
+        // Player check: start the clip inside the tap. NPC checks arrive
+        // later through pokerAudio.check, once the context is already running.
+        if (checkButton) check();
         if (playButton) {
             if (c && c.state === 'suspended') {
                 const p = c.resume();
@@ -562,6 +589,7 @@ window.pokerAudio = (function () {
             if (m) {
                 victoryPending = false;
                 playerLossPending = false;
+                checkPending = false;
             }
             if (m) stopMusic();
             else if (!m) startMusic();
