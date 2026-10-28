@@ -52,6 +52,8 @@ namespace CinematicPoker.Web.Pages
         private bool _coachKeyTracked;
         private bool _coachHighlight;
         private bool _coachTipVisible;
+        private bool _coachIntroNote;
+        private bool _coachIntroNotePending;
         private bool _coachPreview;
         private bool _coachPreviewOpened;
         private bool _coachLoaded;
@@ -89,6 +91,7 @@ namespace CinematicPoker.Web.Pages
         {
             CoachMode.Off => "OFF",
             CoachMode.Notable => "NOTABLE",
+            CoachMode.EveryHand => "EVERY HAND",
             _ => "ON REQUEST"
         };
 
@@ -117,6 +120,7 @@ namespace CinematicPoker.Web.Pages
         {
             CoachMode.Off => "off",
             CoachMode.Notable => "notable",
+            CoachMode.EveryHand => "every",
             _ => "request"
         };
 
@@ -140,6 +144,7 @@ namespace CinematicPoker.Web.Pages
                 {
                     "off" => CoachMode.Off,
                     "notable" => CoachMode.Notable,
+                    "every" => CoachMode.EveryHand,
                     _ => CoachMode.OnRequest
                 };
                 string tip = await JS.InvokeAsync<string>("pokerCoachStore.loadTip");
@@ -247,17 +252,23 @@ namespace CinematicPoker.Web.Pages
         }
 
         // Solo, on request: auto-open the review after the first two hands
-        // while the table holds for the next deal. From the third hand on,
-        // the player opens Poker Coach themselves. Closing does not reopen
-        // the same hand. Notable mode keeps the tip chip. Off stays quiet.
+        // while the table holds for the next deal. The second visit tells the
+        // player how to call the coach themselves (POKER COACH button) or keep
+        // the automatic visits (EVERY HAND in settings). From the third hand
+        // on, the player decides. Closing does not reopen the same hand.
+        // Every-hand mode keeps auto-opening. Notable keeps the tip chip.
+        // Off stays quiet.
         private async Task OpenCoachAfterHand()
         {
             if (_isGuest || _coachPreview || _remote.Count > 0) return;
-            if (_coachMode != CoachMode.OnRequest || _coachOpen || _awaitingHuman) return;
+            if (_coachOpen || _awaitingHuman) return;
+            if (_coachMode != CoachMode.OnRequest && _coachMode != CoachMode.EveryHand) return;
             CompletedHandRecord hand = _coachRecorder?.LastCompleted;
             if (hand == null || !hand.Complete || hand.HandId == _coachAutoOpenedHandId) return;
-            if (hand.HandNumber > 2) return;
+            bool intro = _coachMode == CoachMode.OnRequest;
+            if (intro && hand.HandNumber > 2) return;
             _coachAutoOpenedHandId = hand.HandId;
+            _coachIntroNotePending = intro && hand.HandNumber == 2;
             await OpenCoachReview();
         }
 
@@ -284,7 +295,8 @@ namespace CinematicPoker.Web.Pages
             _coachMode = _coachMode switch
             {
                 CoachMode.Off => CoachMode.OnRequest,
-                CoachMode.OnRequest => CoachMode.Notable,
+                CoachMode.OnRequest => CoachMode.EveryHand,
+                CoachMode.EveryHand => CoachMode.Notable,
                 _ => CoachMode.Off
             };
             if (_coachMode != CoachMode.Notable)
@@ -318,6 +330,8 @@ namespace CinematicPoker.Web.Pages
             _coachModel = null;
             _coachClip = null;
             _coachTipVisible = false;
+            _coachIntroNote = _coachIntroNotePending;
+            _coachIntroNotePending = false;
             _coachUseScene = _remote.Count == 0;
             _coach3dOk = _coachUseScene ? (bool?)null : false;
             if (!_coachUseScene)
@@ -382,6 +396,7 @@ namespace CinematicPoker.Web.Pages
             _coachKeyOpen = false;
             _coachHighlight = false;
             _coachShownHand = null;
+            _coachIntroNote = false;
             _coachFaces.Clear();
             ReplaceCts();
             await TrackCoach(CoachAnalytics.Closed("local", _coachSessionId, NextSeq(), handId, mode, viewSeconds));
@@ -468,6 +483,8 @@ namespace CinematicPoker.Web.Pages
             _coachShownHand = null;
             _coachFaces.Clear();
             _coachTipVisible = false;
+            _coachIntroNote = false;
+            _coachIntroNotePending = false;
             _coachOffer = null;
             ReplaceCts();
             if (wasOpen)

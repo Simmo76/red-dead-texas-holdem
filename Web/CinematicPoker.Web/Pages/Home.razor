@@ -636,6 +636,16 @@
                 <h2 class="coach-name">@CoachDisplayNameUpper</h2>
                 <p class="coach-role">YOUR TABLE COACH</p>
                 <hr class="coach-rule" />
+                @if (_coachIntroNote)
+                {
+                    <p class="coach-handoff" role="note">
+                        That's my last automatic visit, so the game keeps moving.
+                        Tap <b>POKER COACH</b> at the top of the table whenever you
+                        want a hand reviewed, or set <b>POST-HAND COACH</b> to
+                        <b>EVERY HAND</b> in Settings and I'll keep appearing after
+                        every hand.
+                    </p>
+                }
                 <h3 class="coach-section-title">HAND REVIEW</h3>
                 <div class="coach-block">
                     <div class="coach-mark" aria-hidden="true">♠</div>
