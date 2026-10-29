@@ -935,8 +935,6 @@
     private bool _humanLost;
     private bool _humanWon;
     private bool _hudBoardExpanded;
-    private bool _hudBoardExpandClicked;
-    private bool _hudBoardMinimizeClicked;
     private bool _exportOpen;
     private string _exportNote = "";
     private string _sessionOverMessage = "";
@@ -1211,20 +1209,21 @@
         if (_isGuest && !_guestJoined) await ConnectGuestAsync();
     }
 
-    // -------------------------------- first-two-hands community-cards hint
+    // ------------------------------- first-five-hands community-cards hint
 
     // Keep this prompt tied to the opening hands rather than local storage:
-    // every fresh game gets the same short onboarding cue, and it disappears
-    // once the player has tried both directions.
+    // every fresh game gets the same short onboarding cue. It stays through
+    // the first five hands even after the player tries it, so new players
+    // get plenty of reminders before it retires.
+    private const int EnlargeHintLastHand = 5;
+
     private bool ShowEnlargeHint =>
         _introStarted
-        && _game?.HandNumber is >= 1 and <= 2
-        && !(_hudBoardExpandClicked && _hudBoardMinimizeClicked);
+        && _game?.HandNumber is >= 1 and <= EnlargeHintLastHand;
 
     private bool ShowCardWindowGlow =>
         _introStarted
-        && _game?.HandNumber is >= 1 and <= 2
-        && !(_hudBoardExpandClicked && _hudBoardMinimizeClicked);
+        && _game?.HandNumber is >= 1 and <= EnlargeHintLastHand;
 
     private Task MaybeShowBoardHint()
     {
@@ -1604,8 +1603,6 @@
         _humanWon = false;
         _awaitingHuman = false;
         _showSlider = false;
-        _hudBoardExpandClicked = false;
-        _hudBoardMinimizeClicked = false;
         _advice = null;
         _skipRequested = false;
         _skipToNextHand = false;
@@ -2054,10 +2051,6 @@
     // over-the-shoulder view, so it doubles as a "back to my seat" button.
     private async Task ToggleHudBoard()
     {
-        if (_hudBoardExpanded)
-            _hudBoardMinimizeClicked = true;
-        else
-            _hudBoardExpandClicked = true;
         _hudBoardExpanded = !_hudBoardExpanded;
         await DismissBoardHint();
         if (!_sceneReady) return;
