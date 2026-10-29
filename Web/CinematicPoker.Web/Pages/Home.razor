@@ -2274,6 +2274,12 @@
     // always seat 0 (same camera, controls and HUD as the host) using the deck
     // order and actions relayed by the host. The SignalR hub only forwards
     // messages and never looks at cards.
+    //
+    // Because every guest replays the full game, the table survives the host
+    // leaving: when they stay away past the hub's grace period, the hub asks
+    // one remaining friend to take over ("BecomeHost"). That friend's replica
+    // becomes the real table — the departed host's seat goes back to its NPC
+    // brain — and everyone else re-syncs to the new host's numbering.
 
     private const int TableSeats = 6;
     private const int RemoteTurnTimeoutSeconds = 60;
@@ -2296,6 +2302,10 @@
     {
         public string PlayerId;
         public string Name;
+        // The relay's seat number for this friend (how messages are routed).
+        // It matches the game seat until a takeover re-labels the table into
+        // the promoted host's own numbering.
+        public int HubSeat;
     }
 
     private sealed class GuestRow
@@ -2327,6 +2337,7 @@
         public bool[] outs;
         public string[] names;
         public bool[] humans;
+        public int[] hubs;        // state | hand | roster: relay routing seat per game seat (0 = none)
         public PokerRoundSnapshot round;
         public string text;
         public string scene;      // state | hand: the host's table scene, which friends follow
@@ -2350,6 +2361,18 @@
     private readonly Dictionary<int, string> _seatNames = new();
     private readonly HashSet<int> _guestHumanSeats = new();
     private bool _tableLinkDown;
+
+    // Which game seat each friend holds, remembered across disconnects so a
+    // returning friend sits back down where they were — including after a
+    // takeover, when relay seats and game seats no longer line up.
+    private readonly Dictionary<string, int> _gameSeatByPlayerId = new();
+
+    private int GameSeatOfHub(int hubSeat)
+    {
+        foreach (KeyValuePair<int, RemoteSeat> kv in _remote)
+            if (kv.Value.HubSeat == hubSeat) return kv.Key;
+        return -1;
+    }
 
     // --------------------------------------------------------------- table chat
     //
@@ -2557,6 +2580,14 @@
         catch (JSException ex)
         {
             Console.Error.WriteLine($"Could not resume hosting: {ex.Message}");
+            // Away too long: a friend took the table over and it carried on.
+            // This browser keeps its own (solo) game; the invite link still
+            // leads to the live table as a guest.
+            if (ex.Message.Contains("already hosting", StringComparison.OrdinalIgnoreCase))
+            {
+                _mpPill = "YOUR FRIENDS KEPT THE TABLE GOING — OPEN YOUR INVITE LINK TO REJOIN";
+                _ = InvokeAsync(StateHasChanged);
+            }
         }
     }
 
@@ -2569,13 +2600,15 @@
             if (row.Connected) AddRemote(row.Seat, row.Name, row.PlayerId);
     }
 
-    private void AddRemote(int seat, string name, string playerId)
+    private void AddRemote(int hubSeat, string name, string playerId)
     {
+        int seat = ResolveGameSeat(hubSeat, playerId);
         if (seat < 1 || seat >= TableSeats) return;
         string shown = SanitizeName(name, allowEmpty: true);
         if (shown.Length == 0) shown = "Friend";
-        bool already = _remote.ContainsKey(seat);
-        _remote[seat] = new RemoteSeat { PlayerId = playerId, Name = shown };
+        bool already = _remote.TryGetValue(seat, out RemoteSeat seated) && seated.PlayerId == playerId;
+        _remote[seat] = new RemoteSeat { PlayerId = playerId, Name = shown, HubSeat = hubSeat };
+        _gameSeatByPlayerId[playerId] = seat;
         _seatNames[seat] = shown;
         _remoteActions.Remove(seat);
         RefreshHostPill();
@@ -2592,11 +2625,36 @@
         _ = InvokeAsync(StateHasChanged);
     }
 
-    private void RemoveRemote(int seat)
+    // Until a takeover the relay seat IS the game seat. After one, a
+    // returning friend keeps the seat remembered for them in this host's
+    // numbering, and a brand-new friend takes the lowest seat nobody holds
+    // or is remembered at.
+    private int ResolveGameSeat(int hubSeat, string playerId)
+    {
+        if (_gameSeatByPlayerId.TryGetValue(playerId, out int known)
+            && known >= 1 && known < TableSeats
+            && (!_remote.TryGetValue(known, out RemoteSeat occupant) || occupant.PlayerId == playerId))
+            return known;
+
+        bool Taken(int seat) =>
+            _remote.ContainsKey(seat)
+            || _gameSeatByPlayerId.Any(kv => kv.Value == seat && kv.Key != playerId);
+
+        if (hubSeat >= 1 && hubSeat < TableSeats && !Taken(hubSeat)) return hubSeat;
+        for (int seat = 1; seat < TableSeats; seat++)
+            if (!Taken(seat)) return seat;
+        // Every free seat is merely remembered for someone who left: reuse one.
+        for (int seat = 1; seat < TableSeats; seat++)
+            if (!_remote.ContainsKey(seat)) return seat;
+        return -1;
+    }
+
+    private void RemoveRemote(int seat, bool permanent)
     {
         if (!_remote.TryGetValue(seat, out RemoteSeat remote)) return;
         string name = remote.Name;
         _remote.Remove(seat);
+        if (permanent) _gameSeatByPlayerId.Remove(remote.PlayerId);
         _seatNames.Remove(seat);
         _remoteActions.Remove(seat);
         _chatHeardAt.Remove(seat);
@@ -2618,7 +2676,11 @@
     public void OnGuestJoined(int seat, string name, string playerId) => AddRemote(seat, name, playerId);
 
     [JSInvokable]
-    public void OnGuestLeft(int seat, bool permanent) => RemoveRemote(seat);
+    public void OnGuestLeft(int seat, bool permanent)
+    {
+        int gameSeat = GameSeatOfHub(seat);
+        if (gameSeat > 0) RemoveRemote(gameSeat, permanent);
+    }
 
     [JSInvokable]
     public void OnHostReattached(string guestsJson)
@@ -2633,33 +2695,40 @@
         if (_isGuest) return;
         MpMessage m = Decode(payload);
         if (m == null) return;
+        // The relay hands us its own seat number; everything below works in
+        // game seats.
+        int gameSeat = GameSeatOfHub(seat);
+        if (gameSeat < 1) return;
         if (m.t == "chat")
         {
-            ReceiveGuestChat(seat, m);
+            ReceiveGuestChat(gameSeat, m);
             return;
         }
         if (m.t == "rename")
         {
-            ApplyRemoteRename(seat, m.who);
+            ApplyRemoteRename(gameSeat, m.who);
             return;
         }
-        if (_game == null || !IsRemote(seat)) return;
+        if (_game == null) return;
         if (m.t == "act")
         {
-            if (_game.Phase == GamePhase.HandInProgress && _game.CurrentSeat == seat
+            if (_game.Phase == GamePhase.HandInProgress && _game.CurrentSeat == gameSeat
                 && TryDecodeAction(m, out PlayerAction action))
-                _remoteActions[seat] = action;
+                _remoteActions[gameSeat] = action;
             else
-                SendState(seat);
+                SendState(gameSeat);
         }
         else if (m.t == "sync")
         {
-            SendState(seat);
+            SendState(gameSeat);
         }
     }
 
-    private void SendToGuest(int seat, MpMessage message) =>
-        _ = SafeInvoke("pokerRealtime.toGuest", seat, Encode(message));
+    private void SendToGuest(int seat, MpMessage message)
+    {
+        if (!_remote.TryGetValue(seat, out RemoteSeat remote)) return;
+        _ = SafeInvoke("pokerRealtime.toGuest", remote.HubSeat, Encode(message));
+    }
 
     private void BroadcastToAll(MpMessage message)
     {
@@ -2698,6 +2767,22 @@
             m.names[j] = p.Seat == 0 ? PlayerName : NameOf(p.Seat);
             m.humans[j] = IsHumanSeat(p.Seat);
         }
+        m.hubs = HubSeatMapFor(guest);
+    }
+
+    // Which relay seat routes to each game seat, in the receiving guest's own
+    // numbering. Guests remember this so that one of them, if promoted, can
+    // re-map the remaining friends exactly — relay seats stop matching game
+    // seats after the first takeover.
+    private int[] HubSeatMapFor(int guest)
+    {
+        var hubs = new int[TableSeats];
+        foreach (KeyValuePair<int, RemoteSeat> kv in _remote)
+        {
+            int j = Rot(kv.Key, guest);
+            if (j >= 0 && j < TableSeats) hubs[j] = kv.Value.HubSeat;
+        }
+        return hubs;
     }
 
     private void BroadcastHand()
@@ -2847,7 +2932,7 @@
     {
         if (!_isGuest) return;
         _tableLinkDown = true;
-        _mpPill = "HOST AWAY — WAITING FOR THEM TO RETURN…";
+        _mpPill = "HOST AWAY — THE TABLE CARRIES ON IF THEY DON'T RETURN…";
         _ = InvokeAsync(StateHasChanged);
     }
 
@@ -2859,6 +2944,186 @@
         _mpPill = "HOST IS BACK";
         RequestSync();
         _ = InvokeAsync(StateHasChanged);
+    }
+
+    // ------------------------------------------------------------- takeover
+    //
+    // The host left and stayed away: the relay offers their table to one of
+    // the remaining friends. This guest's replica already holds the whole
+    // game — every stack, the live hand, the deck — so it becomes the real
+    // table and everyone else simply re-syncs against it.
+
+    private sealed class ClaimRow
+    {
+        public bool Ok { get; set; }
+        public int Seat { get; set; }
+        public List<GuestRow> Guests { get; set; }
+    }
+
+    private bool _claimingHost;
+
+    [JSInvokable]
+    public async Task OnBecomeHost()
+    {
+        if (!_isGuest || _claimingHost) return;
+        _claimingHost = true;
+        try
+        {
+            string json = await JS.InvokeAsync<string>("pokerRealtime.claimHost", PlayerName);
+            ClaimRow claim = null;
+            try { claim = JsonSerializer.Deserialize<ClaimRow>(json, MpRead); }
+            catch (JsonException) { }
+            // Not ok: the host came back, or another friend claimed first.
+            if (claim == null || !claim.Ok) return;
+            await PromoteSelfToHost(claim);
+        }
+        catch (JSException ex)
+        {
+            Console.Error.WriteLine($"Takeover claim failed: {ex.Message}");
+        }
+        finally
+        {
+            _claimingHost = false;
+        }
+    }
+
+    private async Task PromoteSelfToHost(ClaimRow claim)
+    {
+        // My rotation in the departed host's frame. The relay seat only
+        // matches it until the first takeover, so prefer what the host told
+        // us; the relay seat covers the never-synced case.
+        int myRot = _guestRot != 0 ? _guestRot : claim.Seat;
+        ++_loopToken; // stop the guest replay loop
+        FastForwardGuestInbox();
+
+        // In my (rotated) numbering the departed host sat at Rot(0, myRot).
+        _seatNames.TryGetValue(Rot(0, myRot), out string oldHostName);
+
+        _isGuest = false;
+        _hosting = true;
+        _guestJoined = false;
+        _guestConnecting = false;
+        _tableLinkDown = false;
+        _guestError = "";
+        _guestRot = 0;
+
+        // Re-label every remaining friend from the old host's seat numbers
+        // into mine. Disconnected friends keep a reserved seat so they come
+        // back to their own stack.
+        _remote.Clear();
+        _remoteActions.Clear();
+        _seatNames.Clear();
+        _gameSeatByPlayerId.Clear();
+        _chatHeardAt.Clear();
+        _guestHumanSeats.Clear();
+        var hubSeatMap = new Dictionary<int, int>(_guestHubSeats);
+        _guestHubSeats.Clear();
+        foreach (GuestRow row in claim.Guests ?? new List<GuestRow>())
+        {
+            int gameSeat = GameSeatForClaimedGuest(hubSeatMap, row.Seat, myRot);
+            if (gameSeat < 1 || gameSeat >= TableSeats) continue;
+            _gameSeatByPlayerId[row.PlayerId] = gameSeat;
+            if (!row.Connected) continue;
+            string shown = SanitizeName(row.Name, allowEmpty: true);
+            if (shown.Length == 0) shown = "Friend";
+            _remote[gameSeat] = new RemoteSeat { PlayerId = row.PlayerId, Name = shown, HubSeat = row.Seat };
+            _seatNames[gameSeat] = shown;
+        }
+
+        if (_game == null)
+        {
+            // The host vanished before any deal reached us: open a fresh
+            // table for everyone instead of resuming one.
+            StartSessionCore(run: false);
+        }
+        else
+        {
+            RebuildGameForHosting();
+        }
+
+        await SafeInvoke("pokerInvite.adoptRoom", _roomCode);
+        EnsureCoachRecorder();
+        RefreshHostPill();
+        string gone = string.IsNullOrEmpty(oldHostName) ? "The host" : oldHostName;
+        Announce($"{gone} left — {PlayerName} now runs the table.");
+        foreach (int seat in _remote.Keys.ToList()) SendState(seat);
+        BroadcastRoster();
+        await PersistWebSession();
+        _statusLine = "You run the table now.";
+        StateHasChanged();
+        int token = ++_loopToken;
+        _ = ResumeAsHostLoop(token);
+    }
+
+    // Where does the friend routed at this relay seat sit, in my numbering?
+    // The host's roster map answers exactly; falling back to plain rotation
+    // is only correct while relay seats still match game seats (no takeover
+    // has happened yet).
+    private static int GameSeatForClaimedGuest(Dictionary<int, int> hubSeatMap, int hubSeat, int myRot)
+    {
+        foreach (KeyValuePair<int, int> kv in hubSeatMap)
+            if (kv.Value == hubSeat) return kv.Key;
+        return Rot(hubSeat, myRot);
+    }
+
+    // Apply any relayed actions still queued for presentation, without the
+    // cinematic pacing, so the promoted table resumes from the latest state
+    // the old host actually sent.
+    private void FastForwardGuestInbox()
+    {
+        while (_guestInbox.Count > 0)
+        {
+            MpMessage m = _guestInbox.Dequeue();
+            if (m.t == "hand")
+            {
+                if (!ApplyGuestHand(m)) break;
+            }
+            else if (m.t == "act")
+            {
+                if (_game == null || _game.Phase != GamePhase.HandInProgress
+                    || _game.CurrentSeat != m.seat || !TryDecodeAction(m, out PlayerAction action))
+                    continue;
+                try { _game.SubmitAction(action); }
+                catch (IllegalActionException) { break; }
+            }
+        }
+        _guestInbox.Clear();
+    }
+
+    // The guest replica deals from the deck the old host relayed. Re-house
+    // the same players (and the live hand, if any) in a game that shuffles
+    // its own decks, since this browser deals every hand from here on.
+    private void RebuildGameForHosting()
+    {
+        PokerRoundSnapshot live = Round is { IsComplete: false } ? Round.Capture() : null;
+        int handNumber = _game.HandNumber;
+        int dealerSeat = _game.DealerSeat;
+        List<PokerPlayer> players = _game.Players.ToList();
+        _game.EventEmitted -= OnEngineEvent;
+        try
+        {
+            var game = new PokerGame(TableRules.Default, players, _rng.Next());
+            game.RestoreProgress(handNumber, dealerSeat);
+            if (live != null) game.RestoreRound(live);
+            game.EventEmitted += OnEngineEvent;
+            _game = game;
+        }
+        catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException)
+        {
+            // Keep the replica; its stale relayed deck still deals, which
+            // beats dropping the table.
+            Console.Error.WriteLine($"Takeover game rebuild failed: {ex.Message}");
+            _game.EventEmitted += OnEngineEvent;
+        }
+    }
+
+    // Present whatever the fast-forward queued, then drive the table exactly
+    // like a host that resumed after a reload.
+    private async Task ResumeAsHostLoop(int token)
+    {
+        await DrainEvents(token);
+        if (token != _loopToken) return;
+        await RunLoop(token);
     }
 
     [JSInvokable]
@@ -2927,7 +3192,13 @@
                     humans[j] = true;
                 }
             }
-            SendToGuest(guest, new MpMessage { t = "roster", names = names, humans = humans });
+            SendToGuest(guest, new MpMessage
+            {
+                t = "roster",
+                names = names,
+                humans = humans,
+                hubs = HubSeatMapFor(guest)
+            });
         }
     }
 
@@ -2942,6 +3213,7 @@
                 _seatNames[j] = m.names[j];
             if (m.humans[j]) _guestHumanSeats.Add(j);
         }
+        RememberHubSeats(m);
         SuppressAdviceForCompany();
         // The placeholder solo game is still on screen until the host's
         // first state arrives (_guestRot stays 0). Don't paint that over
@@ -3139,14 +3411,31 @@
             _seatNames[j] = m.names[j];
             if (m.humans[j]) _guestHumanSeats.Add(j);
         }
+        RememberHubSeats(m);
         SuppressAdviceForCompany();
         // Seat (6 - guest) % 6 in this view is the host's real seat 0.
         _mpPill = $"PLAYING AT {m.names[Rot(0, _guestRot)].ToUpperInvariant()}'S TABLE";
     }
 
+    // My-frame game seat -> relay routing seat, as last told by the host.
+    // Only consulted if this guest is promoted and must re-map the others.
+    private readonly Dictionary<int, int> _guestHubSeats = new();
+
+    private void RememberHubSeats(MpMessage m)
+    {
+        if (m.hubs == null) return;
+        _guestHubSeats.Clear();
+        int limit = Math.Min(TableSeats, m.hubs.Length);
+        for (int j = 1; j < limit; j++)
+            if (m.hubs[j] > 0) _guestHubSeats[j] = m.hubs[j];
+    }
+
     private void ApplyGuestState(MpMessage m)
     {
         _guestRot = m.rot;
+        // A full state only ever comes from a live host (the original or a
+        // promoted friend), so the link is demonstrably up again.
+        _tableLinkDown = false;
         ResetGuestPresentation();
         ApplySeatInfo(m);
         var players = new List<PokerPlayer>();
