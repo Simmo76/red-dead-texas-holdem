@@ -416,6 +416,56 @@ function makeCard(path, w = 0.18, unlit = false) {
 const CARD_W = 0.128;
 const BOARD_W = 0.205;
 
+// ---- tap-to-zoom glow frames ----
+// Every card group a tap can fly the camera to (the community board, the
+// player's held pair, an opponent's cards on the felt) wears a thin gold
+// frame that throbs with the same pulse as the actor outline, so "glowing
+// outline = you can zoom in on this" reads everywhere. One shared frame
+// geometry per card width and one shared material: clearGroupChildren only
+// disposes the card's own material, so removing a card (frame riding along
+// as its child) never leaks GPU resources.
+const _glowFrameGeos = new Map();
+function glowFrameGeometry(w) {
+  let geo = _glowFrameGeos.get(w);
+  if (!geo) {
+    const h = w * 190 / 140;
+    const t = Math.max(0.0045, w * 0.05); // frame thickness, world units
+    const shape = new THREE.Shape()
+      .moveTo(-w / 2 - t, -h / 2 - t).lineTo(w / 2 + t, -h / 2 - t)
+      .lineTo(w / 2 + t, h / 2 + t).lineTo(-w / 2 - t, h / 2 + t);
+    const hole = new THREE.Path()
+      .moveTo(-w / 2, -h / 2).lineTo(w / 2, -h / 2)
+      .lineTo(w / 2, h / 2).lineTo(-w / 2, h / 2);
+    shape.holes.push(hole);
+    geo = new THREE.ShapeGeometry(shape);
+    _glowFrameGeos.set(w, geo);
+  }
+  return geo;
+}
+
+const CARD_GLOW_OPACITY_MIN = 0.3;
+const CARD_GLOW_OPACITY_MAX = 0.85;
+let _cardGlowFade = 1; // eased 0..1, fades the frames out while zoomed
+let _cardGlowMat = null;
+function cardGlowMaterial() {
+  if (_cardGlowMat) return _cardGlowMat;
+  _cardGlowMat = new THREE.MeshBasicMaterial({
+    color: 0xffd87a, transparent: true, opacity: CARD_GLOW_OPACITY_MAX,
+    side: THREE.DoubleSide, depthWrite: false
+  });
+  return _cardGlowMat;
+}
+
+function addZoomGlow(card) {
+  const frame = new THREE.Mesh(
+    glowFrameGeometry(card.geometry.parameters.width), cardGlowMaterial());
+  frame.name = 'ZoomGlow';
+  // Just off the card face so neither the card nor the felt can z-fight it.
+  frame.position.z = 0.0015;
+  frame.renderOrder = card.renderOrder;
+  card.add(frame);
+}
+
 // Table cards lie flat on the felt in world space, like real dealt cards.
 function placeTableCard(mesh, x, z, lean = 0, yaw = 0) {
   const h = mesh.geometry.parameters.height;
@@ -2214,13 +2264,26 @@ async function buildScene(canvas) {
     // The actor's outline glows and throbs: one shared pulse drives the
     // hull's pixel thickness, its opacity, and a dim-ember-to-bright-gold
     // colour swing, so the stencil swells and flares, then fades back.
-    if (_outlineMat) {
+    if (_outlineMat || _cardGlowMat) {
       const pulse = 0.5 + 0.5 * Math.sin(t * OUTLINE_PULSE_HZ * 2 * Math.PI);
-      _outlineUniforms.uOutlinePx.value =
-        OUTLINE_PX_MIN + (OUTLINE_PX_MAX - OUTLINE_PX_MIN) * pulse;
-      _outlineMat.opacity =
-        OUTLINE_OPACITY_MIN + (OUTLINE_OPACITY_MAX - OUTLINE_OPACITY_MIN) * pulse;
-      _outlineMat.color.lerpColors(_outlineColorDim, _outlineColorHot, pulse);
+      if (_outlineMat) {
+        _outlineUniforms.uOutlinePx.value =
+          OUTLINE_PX_MIN + (OUTLINE_PX_MAX - OUTLINE_PX_MIN) * pulse;
+        _outlineMat.opacity =
+          OUTLINE_OPACITY_MIN + (OUTLINE_OPACITY_MAX - OUTLINE_OPACITY_MIN) * pulse;
+        _outlineMat.color.lerpColors(_outlineColorDim, _outlineColorHot, pulse);
+      }
+      // The tap-to-zoom card frames share the same ember-to-gold throb.
+      // While a close-up is active another tap exits rather than zooms, so
+      // the "you can zoom in on this" cue fades out with the flight.
+      if (_cardGlowMat) {
+        _cardGlowFade +=
+          ((state.zoom.active ? 0 : 1) - _cardGlowFade) * Math.min(1, dt * 6);
+        _cardGlowMat.opacity = _cardGlowFade
+          * (CARD_GLOW_OPACITY_MIN
+            + (CARD_GLOW_OPACITY_MAX - CARD_GLOW_OPACITY_MIN) * pulse);
+        _cardGlowMat.color.lerpColors(_outlineColorDim, _outlineColorHot, pulse);
+      }
     }
 
     // Press-and-hold magnifier: the held community card eases to 2x and
@@ -2984,6 +3047,7 @@ function updateBoard(paths) {
     const card = makeCard(paths[i], BOARD_W, true);
     // Flat on the felt, upright when read from the player's seat.
     placeTableCard(card, (i - (n - 1) / 2) * spacing, 0.34, 0, 0);
+    addZoomGlow(card);
     state.boardCards.push(card);
     state.scene.add(card);
   }
@@ -3099,6 +3163,7 @@ function updateHole(paths) {
     card.material.stencilRef = HELD_CARD_STENCIL_REF;
     card.material.stencilFunc = THREE.AlwaysStencilFunc;
     card.material.stencilZPass = THREE.ReplaceStencilOp;
+    addZoomGlow(card);
     state.holeCards.push(card);
   }
   layoutHoleCards();
@@ -3236,6 +3301,7 @@ function updateSeatCards(seat, i, data) {
       card.rotateZ(dir * 0.1);
       card.translateX(dir * 0.075);
       card.translateZ(0.006 * (c + 1));
+      addZoomGlow(card);
       seat.cards.push(card);
       state.scene.add(card);
     }
@@ -3257,6 +3323,7 @@ function updateSeatCards(seat, i, data) {
     const card = makeCard('img/cards/back.png', cardW);
     const offset = (c === 0 ? -1 : 1) * (cardW / 2 + 0.006);
     placeTableCard(card, basePos.x + tx * offset, basePos.z + tz * offset, 0, yaw);
+    addZoomGlow(card);
     seat.cards.push(card);
     state.scene.add(card);
   }
