@@ -543,7 +543,9 @@ html.scene-street .boot-screen {
 }
 
 /* Community cards pinned top-right (player's pair beneath), so the whole
-   hand reads without zooming. */
+   hand reads without zooming. The window is always clickable (expand /
+   minimise), so its outline carries the same gold pulse as the "click to
+   expand" hint — only the border and glow animate, never the cards inside. */
 .hud-board {
     position: absolute;
     top: calc(56px + env(safe-area-inset-top));
@@ -555,10 +557,34 @@ html.scene-street .boot-screen {
     gap: 5px;
     padding: 5px 7px;
     background: rgba(8, 5, 3, 0.55);
-    border: 1px solid var(--line);
+    border: 1px solid rgba(216, 178, 92, 0.55);
     border-radius: 8px;
     z-index: 5;
     cursor: pointer;
+    animation: board-window-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hud-board {
+        animation: none;
+        border-color: rgba(216, 178, 92, 0.6);
+        box-shadow: 0 0 8px rgba(216, 178, 92, 0.4);
+    }
+}
+
+/* Same colours and 2s cadence as board-hint-pulse, but confined to the
+   border and outer glow so the window contents hold steady. */
+@keyframes board-window-pulse {
+    0%, 100% {
+        border-color: rgba(216, 178, 92, 0.45);
+        box-shadow: 0 0 5px rgba(216, 178, 92, 0.25),
+                    0 0 0 0 rgba(216, 178, 92, 0);
+    }
+    50% {
+        border-color: rgba(243, 215, 138, 0.95);
+        box-shadow: 0 0 14px rgba(216, 178, 92, 0.78),
+                    0 0 0 4px rgba(216, 178, 92, 0.12);
+    }
 }
 
 .hud-row { display: flex; gap: 4px; }
