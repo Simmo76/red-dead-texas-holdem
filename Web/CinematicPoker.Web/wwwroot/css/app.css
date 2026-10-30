@@ -666,37 +666,47 @@ html.scene-street .boot-screen {
 
 .hud-card.facedown { opacity: 0.35; }
 
-/* Opening-hands tutorial callout: sits directly to the right of the
-   player's two cards in the lower row. See ShowEnlargeHint in Home.razor. */
+/* Opening-hands tutorial expand/minimise icon button: sits to the left of
+   the player's two cards in the lower row. See ShowEnlargeHint in
+   Home.razor. White four-arrow glyph on a rounded dark square, with the
+   same gold pulse the old text hint used. */
 .board-hint {
     position: absolute;
     left: 8px;
     bottom: 8px;
     z-index: 1;
-    width: max-content;
-    max-width: min(240px, 72vw);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
     margin: 0;
-    padding: 6px 12px;
+    padding: 0;
     background: rgba(8, 5, 3, 0.94);
     border: 1px solid rgba(216, 178, 92, 0.78);
-    border-radius: 999px;
-    color: #f3d78a;
-    font-size: 11px;
-    line-height: 1.2;
-    letter-spacing: 1.2px;
-    text-align: left;
-    white-space: nowrap;
-    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.9);
+    border-radius: 10px;
+    color: #fff;
     box-shadow: 0 0 0 rgba(216, 178, 92, 0);
     animation: board-hint-pulse 2s ease-in-out infinite;
     pointer-events: auto;
     cursor: pointer;
 }
 
+.board-hint-icon {
+    display: block;
+    width: 20px;
+    height: 20px;
+}
+
 .board-hint.expanded {
-    padding: 9px 16px;
-    font-size: 16px;
-    letter-spacing: 1.6px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+}
+
+.board-hint.expanded .board-hint-icon {
+    width: 26px;
+    height: 26px;
 }
 
 @keyframes board-hint-pulse {
@@ -2120,7 +2130,7 @@ html.scene-street .boot-screen {
     min-height: 44px;
 }
 
-/* Same gold pulse as the "click to expand" board hint, so the coach
+/* Same gold pulse as the board expand hint icon, so the coach
    control still reads as the next thing to try after a hand. */
 .actionbar .review-hand {
     animation: board-hint-pulse 2s ease-in-out infinite;
