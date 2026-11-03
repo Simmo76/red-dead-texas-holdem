@@ -3,8 +3,8 @@
 // own scene graph and camera. The poker scene's render loop is the only
 // requestAnimationFrame.
 //
-// Saloon: Bandit.glb (SK_Cowboy_2), eye-patch bandage, hat off in this
-// close framing, IdleTableObserveLeftRight01 from mighty-cat.glb.
+// Saloon: Bandit.glb (SK_Cowboy_2), eye-patch bandage, hat on,
+// IdleTableObserveLeftRight01 from mighty-cat.glb.
 // Octagon: Fighter1.glb (the bald fighter in the purple gi), same idle baked
 // on that rig, street-arena.glb. He reviews as Tommy Gunn, a name already
 // on the table roster. Maximilian stays the saloon coach.
@@ -21,11 +21,10 @@ export const SALOON_COACH_SCENE = {
   displayName: 'Maximilian',
   model: 'models/characters/western/Bandit.glb?v=10',
   modelId: 'SK_Cowboy_2',
-  // null keeps the baked outfit, including the Bandage eye patch.
+  // null keeps the baked outfit, including the Bandage eye patch and hat.
   look: null,
-  // The hat brim hides the patch in this close framing.
-  hide: ['Hat__1'],
-  scale: 1.098,
+  hide: [],
+  scale: 1.65,
   idleClip: IDLE_CLIP,
   idleFallbacks: IDLE_FALLBACKS,
   roomKind: 'saloon',
@@ -42,7 +41,7 @@ export const OCTAGON_COACH_SCENE = {
   modelId: 'Fighter1',
   look: null,
   hide: [],
-  scale: 1,
+  scale: 1.5,
   idleClip: IDLE_CLIP,
   idleFallbacks: IDLE_FALLBACKS,
   roomKind: 'octagon',
@@ -61,6 +60,10 @@ export function coachSceneFor(sceneId) {
 const WESTERN_SCALE = 1.098;
 const ARENA_SCALE = 2.2;
 const TABLE_TOP = 0.78;
+// Seat centre for the coach, outside the table rail (outer radius ~1.28)
+// so his body sits behind the table instead of intersecting the felt.
+const SEAT_X = -0.58;
+const SEAT_Z = -1.38;
 
 function westernMeshNames(look) {
   const names = new Set(['Boots', 'Hands_Optimized', 'Hair_cap']);
@@ -86,6 +89,14 @@ function findBone(root, names) {
   return found;
 }
 
+// Rotate a bone by a world-space quaternion: Ql' = Qp^-1 * R * Qp * Ql.
+function rotateBoneWorld(bone, worldRot, tmpQ) {
+  const parentQ = bone.parent.getWorldQuaternion(tmpQ);
+  bone.quaternion.premultiply(
+    parentQ.clone().invert().multiply(worldRot).multiply(parentQ)
+  );
+}
+
 export function createCoachController(deps) {
   const loadGlb = deps.loadGlb;
   const getRenderer = deps.getRenderer;
@@ -108,6 +119,7 @@ export function createCoachController(deps) {
   let buildPromise = null;
   let failedReason = '';
   let active = SALOON_COACH_SCENE;
+  let armRig = null;
 
   const texLoader = new THREE.TextureLoader();
   const textures = new Map();
@@ -178,10 +190,11 @@ export function createCoachController(deps) {
     scene.background = new THREE.Color(octagon ? 0x0a0610 : 0x140e0a);
     scene.fog = new THREE.Fog(octagon ? 0x0a0610 : 0x140e0a, octagon ? 8 : 7.5, octagon ? 32 : 26);
 
-    // Frame the seated coach in the left half. The advice card covers the right.
+    // Frame the seated coach in the left half. The advice card covers the
+    // right. Aim high enough that the 1.5x coach keeps his hat in frame.
     camera = new THREE.PerspectiveCamera(40, 1, 0.05, octagon ? 120 : 80);
-    camera.position.set(0.08, 1.52, 1.88);
-    camera.lookAt(0.22, 1.16, -0.3);
+    camera.position.set(0.08, 1.66, 1.88);
+    camera.lookAt(0.22, 1.36, -0.3);
 
     if (octagon) {
       scene.add(own(new THREE.AmbientLight(0xc8b8d8, 0.42)));
@@ -314,9 +327,8 @@ export function createCoachController(deps) {
     root = cloneSkinned(jacob.scene);
     root.scale.setScalar(active.scale || WESTERN_SCALE);
     // Jacob ships every outfit in one file, so a look drops the extras.
-    // Bandit is already one outfit; filtering him would remove the eye patch.
-    // The hat brim hides that patch in this close framing, so the saloon
-    // coach leaves the hat off and keeps the bandage. The fighter has no hat.
+    // Bandit is already one outfit; filtering him would remove the eye patch,
+    // so the saloon coach keeps everything baked, hat included.
     const hide = new Set(active.hide || []);
     const look = active.look;
     if (look) {
@@ -373,7 +385,7 @@ export function createCoachController(deps) {
     action.play();
     mixer.update(0.05);
 
-    root.position.set(-0.58, 0, -0.36);
+    root.position.set(SEAT_X, 0, SEAT_Z);
     root.updateMatrixWorld(true);
     const lFoot = findBone(root, ['L_ankle', 'foot_l']);
     const rFoot = findBone(root, ['R_ankle', 'foot_r']);
@@ -406,13 +418,129 @@ export function createCoachController(deps) {
     }
     planted.copy(root.position);
     scene.add(root);
+
+    armRig = { pelvis: findBone(root, ['pelvis', 'hips']), sides: [] };
+    for (const s of ['l', 'r']) {
+      const upper = findBone(root, [`upperarm_${s}`]);
+      const lower = findBone(root, [`lowerarm_${s}`]);
+      const hand = findBone(root, [`hand_${s}`]);
+      const finger = findBone(root, [`index_01_${s}`, `middle_01_${s}`]);
+      if (upper && lower && hand) {
+        armRig.sides.push({
+          upper, lower, hand, finger,
+          sPos: new THREE.Vector3(),
+          ePos: new THREE.Vector3(),
+          bend: new THREE.Vector3(),
+          hasBend: false,
+        });
+      }
+    }
+    poseArmsFolded();
     return root;
+  }
+
+  // The table-observe idle rests the coach's hands on the felt, which reads
+  // wrong now that he sits behind the table. After every animation update the
+  // arm bones are re-aimed in world space into folded arms: elbows tucked
+  // slightly forward, forearms crossed over the chest, the left forearm
+  // layered in front of the right so the two never intersect.
+  const poseV = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(),
+    new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(),
+    new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+  const poseQ = [new THREE.Quaternion(), new THREE.Quaternion()];
+
+  function aimBone(bone, child, wantDir) {
+    const from = bone.getWorldPosition(poseV[0]);
+    const cur = child.getWorldPosition(poseV[1]).sub(from);
+    if (cur.lengthSq() < 1e-8 || wantDir.lengthSq() < 1e-8) return;
+    const rot = poseQ[0].setFromUnitVectors(cur.normalize(), wantDir.normalize());
+    rotateBoneWorld(bone, rot, poseQ[1]);
+    bone.updateMatrixWorld(true);
+  }
+
+  function poseArmsFolded() {
+    if (!armRig || !root || armRig.sides.length < 2) return;
+    root.updateMatrixWorld(true);
+    const fwd = poseV[2].set(0, 0, 1).applyQuaternion(root.quaternion);
+    const right = poseV[3].set(fwd.z, 0, -fwd.x).normalize();
+
+    // Pass one: hang the upper arms with the elbows drawn forward and in,
+    // so each forearm can reach across to the opposite arm like a real
+    // fold. The sideways sign comes from where the shoulder sits relative
+    // to the body centre; the animated pose cannot be used because the
+    // idle reaches both arms forward onto the table.
+    for (let i = 0; i < 2; i++) {
+      const side = armRig.sides[i];
+      const shoulder = side.upper.getWorldPosition(side.sPos);
+      const elbow = side.lower.getWorldPosition(poseV[1]);
+      const upDir = poseV[5].copy(elbow).sub(shoulder).normalize();
+
+      // Remember which way the rig's elbow hinge folds in the animated
+      // pose, stored in the upper arm's local frame.
+      const bend = side.hand.getWorldPosition(side.bend).sub(elbow);
+      bend.addScaledVector(upDir, -bend.dot(upDir));
+      side.hasBend = bend.lengthSq() > 1e-6;
+      if (side.hasBend) {
+        bend.normalize()
+          .applyQuaternion(side.upper.getWorldQuaternion(poseQ[1]).invert());
+      }
+
+      const sgn = right.dot(poseV[8].copy(shoulder).sub(root.position)) < 0 ? -1 : 1;
+      const wantUpper = poseV[4].copy(right).multiplyScalar(sgn * -0.15)
+        .addScaledVector(fwd, 0.42);
+      wantUpper.y = -1;
+      aimBone(side.upper, side.lower, wantUpper);
+      side.lower.getWorldPosition(side.ePos);
+    }
+
+    // Pass two: fold each forearm across onto the opposite biceps.
+    // sides[0] is the left arm: it crosses above and in front of the right
+    // one so the stacked forearms never intersect.
+    for (let i = 0; i < 2; i++) {
+      const side = armRig.sides[i];
+      const other = armRig.sides[1 - i];
+      const front = i === 0;
+      const target = poseV[4].copy(other.sPos).multiplyScalar(0.3)
+        .addScaledVector(other.ePos, 0.7)
+        .addScaledVector(fwd, front ? 0.12 : 0.03);
+      target.y += front ? 0.02 : -0.06;
+      const wantLower = target.sub(side.ePos);
+
+      // Twist the upper arm about its own axis so the elbow hinge faces the
+      // fold. Without this the elbows keep the hands-on-the-table twist and
+      // look like they bend the wrong way.
+      if (side.hasBend) {
+        const newUp = poseV[5].copy(side.ePos).sub(side.sPos).normalize();
+        const want = poseV[8].copy(wantLower);
+        want.addScaledVector(newUp, -want.dot(newUp));
+        const bendNow = side.bend
+          .applyQuaternion(side.upper.getWorldQuaternion(poseQ[1]));
+        bendNow.addScaledVector(newUp, -bendNow.dot(newUp));
+        if (want.lengthSq() > 1e-6 && bendNow.lengthSq() > 1e-6) {
+          want.normalize();
+          bendNow.normalize();
+          const cross = poseV[1].crossVectors(bendNow, want);
+          const angle = Math.atan2(cross.dot(newUp), bendNow.dot(want));
+          rotateBoneWorld(side.upper, poseQ[0].setFromAxisAngle(newUp, angle), poseQ[1]);
+          side.upper.updateMatrixWorld(true);
+        }
+      }
+
+      aimBone(side.lower, side.hand, wantLower);
+      // Hand: tuck the fingers down and back into the fold, hidden between
+      // the crossed forearms and the chest, like a snug arm cross.
+      if (side.finger) {
+        wantLower.addScaledVector(fwd, -0.45);
+        wantLower.y = -0.4;
+        aimBone(side.hand, side.finger, wantLower);
+      }
+    }
   }
 
   function addChair(chairGltf, character) {
     const chair = chairGltf.scene.clone(true);
     const hips = findBone(character, ['hips', 'pelvis']);
-    const anchor = new THREE.Vector3(-0.58, TABLE_TOP, -0.36);
+    const anchor = new THREE.Vector3(SEAT_X, TABLE_TOP, SEAT_Z);
     if (hips) hips.getWorldPosition(anchor);
     chair.scale.setScalar(1);
     chair.rotation.y = character.rotation.y;
@@ -504,6 +632,7 @@ export function createCoachController(deps) {
       mixer.update(0.04);
       action.paused = true;
     }
+    poseArmsFolded();
   }
 
   const api = {
@@ -557,6 +686,7 @@ export function createCoachController(deps) {
       if (document.hidden || step <= 0) return;
       mixer.update(step);
       root.position.copy(planted);
+      poseArmsFolded();
     },
 
     debug() {
