@@ -36,6 +36,39 @@ Then in Xcode:
 3. First run on a device: the phone will ask you to trust the developer
    certificate (Settings → General → VPN & Device Management).
 
+## Testing on two phones before submitting
+
+**Your own phone** needs nothing beyond the steps above — a free Apple ID
+and a cable.
+
+**Someone else's phone** (a remote friend) needs **TestFlight**, which
+requires the paid Apple Developer Program ($99/yr). A free Apple ID cannot
+distribute remotely — it only installs onto devices physically plugged into
+your Mac, and those installs expire after 7 days. Ad hoc `.ipa` distribution
+also requires the paid program and is more hassle than TestFlight. Since the
+program is required for the App Store submission anyway, enrol as soon as
+testing with others begins — enrolment is the long-lead item.
+
+Once enrolled:
+
+1. In Xcode: set the Team to the paid account, **Product → Archive**, then
+   *Distribute App → App Store Connect* (create the app record first at
+   [appstoreconnect.apple.com](https://appstoreconnect.apple.com) with
+   bundle id `com.cinematicpoker.app` if it does not exist yet).
+2. In App Store Connect → **TestFlight**: once the build finishes
+   processing (minutes to an hour), add your friend as an **internal
+   tester** (invite his Apple ID email; no review needed, available
+   immediately) — or create an external-testing public link (first build
+   goes through a light beta review, usually under 24 h).
+3. Your friend installs the **TestFlight app** from the App Store, opens
+   the invite, and taps Install. Every new build you upload reaches him
+   automatically. Builds expire after 90 days.
+
+**Before the paid account exists**, a remote friend can already playtest
+the game itself in Safari via the GitHub Pages deployment ("Add to Home
+Screen" runs it fullscreen). That is the same WebKit engine and the same
+game code the wrapper ships — it just doesn't exercise the native shell.
+
 ## Updating after game changes
 
 Whenever the web game changes, re-stage and re-sync:
