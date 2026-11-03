@@ -1,0 +1,9 @@
+{
+  "appId": "com.cinematicpoker.app",
+  "appName": "Cinematic Poker",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0b0d12"
+  }
+}

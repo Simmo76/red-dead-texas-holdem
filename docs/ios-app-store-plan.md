@@ -151,23 +151,26 @@ of them are cheap to fix now.
 
 ### Track B — packaged web version
 
-1. **Create a .NET MAUI Blazor Hybrid app** (`dotnet new maui-blazor`) in a
-   new `Mobile/` folder. Reference the same engine sources the web project
-   uses and move the Razor components into a shared Razor class library so
-   `Web/` and `Mobile/` consume identical UI. The three.js scene runs inside
-   the `BlazorWebView` (WKWebView) exactly as it does in mobile Safari — the
-   web version already works there, which de-risks this heavily.
-   - Alternative: **Capacitor** wrapping the published WASM output
-     (`dotnet publish` → copy `wwwroot` into a Capacitor iOS shell). Less
-     .NET plumbing, but you lose the shared-component story and debugging is
-     clunkier. Pick one; MAUI is the better fit for this codebase.
-2. All assets (models, audio, textures) must be **bundled, not fetched** —
-   they already live in `wwwroot`, so the app is genuinely offline-first,
-   which is both the product promise and your guideline 4.2 defence.
-3. Bundle id, icon, launch screen, `ITSAppUsesNonExemptEncryption`,
-   landscape-lock: same requirements as Track A, configured in the MAUI
-   project (`Platforms/iOS/Info.plist`).
-4. **Device performance pass**: three.js + WASM in WKWebView on the oldest
+> **Implemented:** a Capacitor wrapper now lives in
+> [`Mobile/ios-wrapper/`](../Mobile/ios-wrapper/README.md). It stages the
+> published Blazor WASM output (`npm run build:www`) as the bundled web
+> assets of a native iOS shell — Capacitor was chosen over .NET MAUI Blazor
+> Hybrid because it required zero restructuring of the web project and the
+> whole native project scaffolds without a Mac. The staged bundle has been
+> smoke-tested end to end (boots, title screen, 3D table, actions respond).
+> Only the Xcode build/run steps remain Mac-side — see the wrapper README.
+
+1. The wrapper packages the published `wwwroot` output; all assets (models,
+   audio, textures, the WASM engine) are **bundled, not fetched**, so the app
+   is genuinely offline-first — both the product promise and the
+   guideline 4.2 defence. (One exception: the Google Fonts display face
+   falls back to a system font offline; vendor the font before submission.)
+2. Bundle id (`com.cinematicpoker.app`), landscape-only lock, hidden status
+   bar, `UIRequiresFullScreen` and `ITSAppUsesNonExemptEncryption=NO` are
+   already configured in `Mobile/ios-wrapper/ios/App/App/Info.plist`.
+   Still to do before a store submission: real app icon and launch screen
+   (`npx @capacitor/assets generate` from one 1024×1024 image).
+3. **Device performance pass**: three.js + WASM in WKWebView on the oldest
    target iPhone. Check load time (meshopt backdrop + character GLBs),
    memory (WKWebView gets killed around 1.5 GB on older devices), and audio
    unlock behaviour (already handled for iOS Safari per `ASSET_LICENSES.md`
