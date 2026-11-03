@@ -24,7 +24,7 @@ export const SALOON_COACH_SCENE = {
   // null keeps the baked outfit, including the Bandage eye patch and hat.
   look: null,
   hide: [],
-  scale: 1.098,
+  scale: 1.65,
   idleClip: IDLE_CLIP,
   idleFallbacks: IDLE_FALLBACKS,
   roomKind: 'saloon',
@@ -41,7 +41,7 @@ export const OCTAGON_COACH_SCENE = {
   modelId: 'Fighter1',
   look: null,
   hide: [],
-  scale: 1,
+  scale: 1.5,
   idleClip: IDLE_CLIP,
   idleFallbacks: IDLE_FALLBACKS,
   roomKind: 'octagon',
@@ -190,10 +190,11 @@ export function createCoachController(deps) {
     scene.background = new THREE.Color(octagon ? 0x0a0610 : 0x140e0a);
     scene.fog = new THREE.Fog(octagon ? 0x0a0610 : 0x140e0a, octagon ? 8 : 7.5, octagon ? 32 : 26);
 
-    // Frame the seated coach in the left half. The advice card covers the right.
+    // Frame the seated coach in the left half. The advice card covers the
+    // right. Aim high enough that the 1.5x coach keeps his hat in frame.
     camera = new THREE.PerspectiveCamera(40, 1, 0.05, octagon ? 120 : 80);
-    camera.position.set(0.08, 1.52, 1.88);
-    camera.lookAt(0.22, 1.16, -0.3);
+    camera.position.set(0.08, 1.66, 1.88);
+    camera.lookAt(0.22, 1.36, -0.3);
 
     if (octagon) {
       scene.add(own(new THREE.AmbientLight(0xc8b8d8, 0.42)));
