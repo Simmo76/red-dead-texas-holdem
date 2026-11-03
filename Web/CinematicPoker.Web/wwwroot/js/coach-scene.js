@@ -86,6 +86,14 @@ function findBone(root, names) {
   return found;
 }
 
+// Rotate a bone by a world-space quaternion: Ql' = Qp^-1 * R * Qp * Ql.
+function rotateBoneWorld(bone, worldRot, tmpQ) {
+  const parentQ = bone.parent.getWorldQuaternion(tmpQ);
+  bone.quaternion.premultiply(
+    parentQ.clone().invert().multiply(worldRot).multiply(parentQ)
+  );
+}
+
 export function createCoachController(deps) {
   const loadGlb = deps.loadGlb;
   const getRenderer = deps.getRenderer;
@@ -108,6 +116,7 @@ export function createCoachController(deps) {
   let buildPromise = null;
   let failedReason = '';
   let active = SALOON_COACH_SCENE;
+  let armRig = null;
 
   const texLoader = new THREE.TextureLoader();
   const textures = new Map();
@@ -406,7 +415,58 @@ export function createCoachController(deps) {
     }
     planted.copy(root.position);
     scene.add(root);
+
+    armRig = { pelvis: findBone(root, ['pelvis', 'hips']), sides: [] };
+    for (const s of ['l', 'r']) {
+      const upper = findBone(root, [`upperarm_${s}`]);
+      const lower = findBone(root, [`lowerarm_${s}`]);
+      const hand = findBone(root, [`hand_${s}`]);
+      if (upper && lower && hand) armRig.sides.push({ upper, lower, hand });
+    }
+    poseArmsInLap();
     return root;
+  }
+
+  // The table-observe idle rests the coach's hands on the felt. This review
+  // frames him chest-up behind the table, so after every animation update the
+  // arms are re-aimed in world space: upper arms hang at his sides, forearms
+  // fold into the lap. Everything below the elbow stays under the felt line
+  // (TABLE_TOP), so no hand or forearm can poke through the table top.
+  const poseV = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(),
+    new THREE.Vector3(), new THREE.Vector3()];
+  const poseQ = [new THREE.Quaternion(), new THREE.Quaternion()];
+
+  function aimBone(bone, child, wantDir) {
+    const from = bone.getWorldPosition(poseV[0]);
+    const cur = child.getWorldPosition(poseV[1]).sub(from);
+    if (cur.lengthSq() < 1e-8 || wantDir.lengthSq() < 1e-8) return;
+    const rot = poseQ[0].setFromUnitVectors(cur.normalize(), wantDir.normalize());
+    rotateBoneWorld(bone, rot, poseQ[1]);
+    bone.updateMatrixWorld(true);
+  }
+
+  function poseArmsInLap() {
+    if (!armRig || !root || !armRig.sides.length) return;
+    root.updateMatrixWorld(true);
+    const fwd = poseV[2].set(0, 0, 1).applyQuaternion(root.quaternion);
+    for (const side of armRig.sides) {
+      // Keep each arm on its own side: reuse the animated pose's horizontal
+      // lean, but point the upper arm almost straight down, hugging the body.
+      const shoulder = side.upper.getWorldPosition(poseV[0]);
+      const out = side.lower.getWorldPosition(poseV[1]).sub(shoulder);
+      out.y = 0;
+      if (out.lengthSq() < 1e-6) out.copy(fwd);
+      const wantUpper = poseV[4].copy(out.normalize()).multiplyScalar(0.18)
+        .addScaledVector(fwd, 0.04);
+      wantUpper.y = -1;
+      aimBone(side.upper, side.lower, wantUpper);
+      // Forearm nearly straight down with a slight fold toward the thighs.
+      // The steep drop keeps the whole hand (fingers included) well below
+      // the felt at TABLE_TOP, so nothing pokes up through the table.
+      const wantLower = poseV[4].copy(fwd).multiplyScalar(0.3);
+      wantLower.y = -1;
+      aimBone(side.lower, side.hand, wantLower);
+    }
   }
 
   function addChair(chairGltf, character) {
@@ -504,6 +564,7 @@ export function createCoachController(deps) {
       mixer.update(0.04);
       action.paused = true;
     }
+    poseArmsInLap();
   }
 
   const api = {
@@ -557,6 +618,7 @@ export function createCoachController(deps) {
       if (document.hidden || step <= 0) return;
       mixer.update(step);
       root.position.copy(planted);
+      poseArmsInLap();
     },
 
     debug() {
