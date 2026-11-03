@@ -424,7 +424,15 @@ export function createCoachController(deps) {
       const lower = findBone(root, [`lowerarm_${s}`]);
       const hand = findBone(root, [`hand_${s}`]);
       const finger = findBone(root, [`index_01_${s}`, `middle_01_${s}`]);
-      if (upper && lower && hand) armRig.sides.push({ upper, lower, hand, finger });
+      if (upper && lower && hand) {
+        armRig.sides.push({
+          upper, lower, hand, finger,
+          sPos: new THREE.Vector3(),
+          ePos: new THREE.Vector3(),
+          bend: new THREE.Vector3(),
+          hasBend: false,
+        });
+      }
     }
     poseArmsFolded();
     return root;
@@ -450,58 +458,61 @@ export function createCoachController(deps) {
   }
 
   function poseArmsFolded() {
-    if (!armRig || !root || !armRig.sides.length) return;
+    if (!armRig || !root || armRig.sides.length < 2) return;
     root.updateMatrixWorld(true);
     const fwd = poseV[2].set(0, 0, 1).applyQuaternion(root.quaternion);
     const right = poseV[3].set(fwd.z, 0, -fwd.x).normalize();
-    for (let i = 0; i < armRig.sides.length; i++) {
+
+    // Pass one: hang the upper arms with the elbows drawn forward and in,
+    // so each forearm can reach across to the opposite arm like a real
+    // fold. The sideways sign comes from where the shoulder sits relative
+    // to the body centre; the animated pose cannot be used because the
+    // idle reaches both arms forward onto the table.
+    for (let i = 0; i < 2; i++) {
       const side = armRig.sides[i];
-      // sides[0] is the left arm: it crosses above and in front of the
-      // right one so the folded forearms never intersect.
-      const layer = i === 0 ? 0.5 : 0.18;
-      const lift = i === 0 ? 0.2 : 0.02;
-      const shoulder = side.upper.getWorldPosition(poseV[0]);
+      const shoulder = side.upper.getWorldPosition(side.sPos);
       const elbow = side.lower.getWorldPosition(poseV[1]);
       const upDir = poseV[5].copy(elbow).sub(shoulder).normalize();
 
       // Remember which way the rig's elbow hinge folds in the animated
       // pose, stored in the upper arm's local frame.
-      const bend = side.hand.getWorldPosition(poseV[6]).sub(elbow);
+      const bend = side.hand.getWorldPosition(side.bend).sub(elbow);
       bend.addScaledVector(upDir, -bend.dot(upDir));
-      const hasBend = bend.lengthSq() > 1e-6;
-      if (hasBend) {
+      side.hasBend = bend.lengthSq() > 1e-6;
+      if (side.hasBend) {
         bend.normalize()
           .applyQuaternion(side.upper.getWorldQuaternion(poseQ[1]).invert());
       }
 
-      // Each arm's sideways direction comes from where the shoulder sits
-      // relative to the body centre. The animated pose cannot be used here:
-      // the idle reaches both arms forward onto the table, so its horizontal
-      // lean is "forward", which would fold the forearms backwards into the
-      // torso.
       const sgn = right.dot(poseV[8].copy(shoulder).sub(root.position)) < 0 ? -1 : 1;
-      const out = poseV[7].copy(right).multiplyScalar(sgn);
-      // Upper arm: down with the elbow tucked a little forward so the
-      // crossed forearms clear the chest.
-      const wantUpper = poseV[4].copy(out).multiplyScalar(0.14)
-        .addScaledVector(fwd, 0.22);
+      const wantUpper = poseV[4].copy(right).multiplyScalar(sgn * -0.15)
+        .addScaledVector(fwd, 0.42);
       wantUpper.y = -1;
       aimBone(side.upper, side.lower, wantUpper);
-      // Forearm: across the body toward the opposite elbow, almost level,
-      // held in front of the torso where it is slimmer than the chest.
-      const wantLower = poseV[4].copy(out).multiplyScalar(-1)
-        .addScaledVector(fwd, layer);
-      wantLower.y = lift;
+      side.lower.getWorldPosition(side.ePos);
+    }
+
+    // Pass two: fold each forearm across onto the opposite biceps.
+    // sides[0] is the left arm: it crosses above and in front of the right
+    // one so the stacked forearms never intersect.
+    for (let i = 0; i < 2; i++) {
+      const side = armRig.sides[i];
+      const other = armRig.sides[1 - i];
+      const front = i === 0;
+      const target = poseV[4].copy(other.sPos).multiplyScalar(0.3)
+        .addScaledVector(other.ePos, 0.7)
+        .addScaledVector(fwd, front ? 0.12 : 0.03);
+      target.y += front ? 0.02 : -0.06;
+      const wantLower = target.sub(side.ePos);
 
       // Twist the upper arm about its own axis so the elbow hinge faces the
       // fold. Without this the elbows keep the hands-on-the-table twist and
       // look like they bend the wrong way.
-      if (hasBend) {
-        const newUp = poseV[5]
-          .copy(side.lower.getWorldPosition(poseV[1])).sub(shoulder).normalize();
+      if (side.hasBend) {
+        const newUp = poseV[5].copy(side.ePos).sub(side.sPos).normalize();
         const want = poseV[8].copy(wantLower);
         want.addScaledVector(newUp, -want.dot(newUp));
-        const bendNow = bend
+        const bendNow = side.bend
           .applyQuaternion(side.upper.getWorldQuaternion(poseQ[1]));
         bendNow.addScaledVector(newUp, -bendNow.dot(newUp));
         if (want.lengthSq() > 1e-6 && bendNow.lengthSq() > 1e-6) {
@@ -515,10 +526,11 @@ export function createCoachController(deps) {
       }
 
       aimBone(side.lower, side.hand, wantLower);
-      // Hand: keep following the fold, dipping to wrap around the
-      // opposite arm instead of pointing up.
+      // Hand: tuck the fingers down and back into the fold, hidden between
+      // the crossed forearms and the chest, like a snug arm cross.
       if (side.finger) {
-        wantLower.y = -0.18;
+        wantLower.addScaledVector(fwd, -0.45);
+        wantLower.y = -0.4;
         aimBone(side.hand, side.finger, wantLower);
       }
     }
