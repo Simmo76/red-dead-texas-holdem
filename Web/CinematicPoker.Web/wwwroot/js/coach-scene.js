@@ -436,7 +436,8 @@ export function createCoachController(deps) {
   // slightly forward, forearms crossed over the chest, the left forearm
   // layered in front of the right so the two never intersect.
   const poseV = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(),
-    new THREE.Vector3(), new THREE.Vector3()];
+    new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(),
+    new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
   const poseQ = [new THREE.Quaternion(), new THREE.Quaternion()];
 
   function aimBone(bone, child, wantDir) {
@@ -452,15 +453,34 @@ export function createCoachController(deps) {
     if (!armRig || !root || !armRig.sides.length) return;
     root.updateMatrixWorld(true);
     const fwd = poseV[2].set(0, 0, 1).applyQuaternion(root.quaternion);
+    const right = poseV[3].set(fwd.z, 0, -fwd.x).normalize();
     for (let i = 0; i < armRig.sides.length; i++) {
       const side = armRig.sides[i];
-      // sides[0] is the left arm: it crosses in front of the right one.
-      const layer = i === 0 ? 0.46 : 0.28;
+      // sides[0] is the left arm: it crosses above and in front of the
+      // right one so the folded forearms never intersect.
+      const layer = i === 0 ? 0.5 : 0.18;
+      const lift = i === 0 ? 0.2 : 0.02;
       const shoulder = side.upper.getWorldPosition(poseV[0]);
-      const out = side.lower.getWorldPosition(poseV[1]).sub(shoulder);
-      out.y = 0;
-      if (out.lengthSq() < 1e-6) out.copy(fwd);
-      out.normalize();
+      const elbow = side.lower.getWorldPosition(poseV[1]);
+      const upDir = poseV[5].copy(elbow).sub(shoulder).normalize();
+
+      // Remember which way the rig's elbow hinge folds in the animated
+      // pose, stored in the upper arm's local frame.
+      const bend = side.hand.getWorldPosition(poseV[6]).sub(elbow);
+      bend.addScaledVector(upDir, -bend.dot(upDir));
+      const hasBend = bend.lengthSq() > 1e-6;
+      if (hasBend) {
+        bend.normalize()
+          .applyQuaternion(side.upper.getWorldQuaternion(poseQ[1]).invert());
+      }
+
+      // Each arm's sideways direction comes from where the shoulder sits
+      // relative to the body centre. The animated pose cannot be used here:
+      // the idle reaches both arms forward onto the table, so its horizontal
+      // lean is "forward", which would fold the forearms backwards into the
+      // torso.
+      const sgn = right.dot(poseV[8].copy(shoulder).sub(root.position)) < 0 ? -1 : 1;
+      const out = poseV[7].copy(right).multiplyScalar(sgn);
       // Upper arm: down with the elbow tucked a little forward so the
       // crossed forearms clear the chest.
       const wantUpper = poseV[4].copy(out).multiplyScalar(0.14)
@@ -471,7 +491,29 @@ export function createCoachController(deps) {
       // held in front of the torso where it is slimmer than the chest.
       const wantLower = poseV[4].copy(out).multiplyScalar(-1)
         .addScaledVector(fwd, layer);
-      wantLower.y = i === 0 ? 0.14 : 0.08;
+      wantLower.y = lift;
+
+      // Twist the upper arm about its own axis so the elbow hinge faces the
+      // fold. Without this the elbows keep the hands-on-the-table twist and
+      // look like they bend the wrong way.
+      if (hasBend) {
+        const newUp = poseV[5]
+          .copy(side.lower.getWorldPosition(poseV[1])).sub(shoulder).normalize();
+        const want = poseV[8].copy(wantLower);
+        want.addScaledVector(newUp, -want.dot(newUp));
+        const bendNow = bend
+          .applyQuaternion(side.upper.getWorldQuaternion(poseQ[1]));
+        bendNow.addScaledVector(newUp, -bendNow.dot(newUp));
+        if (want.lengthSq() > 1e-6 && bendNow.lengthSq() > 1e-6) {
+          want.normalize();
+          bendNow.normalize();
+          const cross = poseV[1].crossVectors(bendNow, want);
+          const angle = Math.atan2(cross.dot(newUp), bendNow.dot(want));
+          rotateBoneWorld(side.upper, poseQ[0].setFromAxisAngle(newUp, angle), poseQ[1]);
+          side.upper.updateMatrixWorld(true);
+        }
+      }
+
       aimBone(side.lower, side.hand, wantLower);
       // Hand: keep following the fold, dipping to wrap around the
       // opposite arm instead of pointing up.
