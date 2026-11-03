@@ -3,8 +3,8 @@
 // own scene graph and camera. The poker scene's render loop is the only
 // requestAnimationFrame.
 //
-// Saloon: Bandit.glb (SK_Cowboy_2), eye-patch bandage, hat off in this
-// close framing, IdleTableObserveLeftRight01 from mighty-cat.glb.
+// Saloon: Bandit.glb (SK_Cowboy_2), eye-patch bandage, hat on,
+// IdleTableObserveLeftRight01 from mighty-cat.glb.
 // Octagon: Fighter1.glb (the bald fighter in the purple gi), same idle baked
 // on that rig, street-arena.glb. He reviews as Tommy Gunn, a name already
 // on the table roster. Maximilian stays the saloon coach.
@@ -21,10 +21,9 @@ export const SALOON_COACH_SCENE = {
   displayName: 'Maximilian',
   model: 'models/characters/western/Bandit.glb?v=10',
   modelId: 'SK_Cowboy_2',
-  // null keeps the baked outfit, including the Bandage eye patch.
+  // null keeps the baked outfit, including the Bandage eye patch and hat.
   look: null,
-  // The hat brim hides the patch in this close framing.
-  hide: ['Hat__1'],
+  hide: [],
   scale: 1.098,
   idleClip: IDLE_CLIP,
   idleFallbacks: IDLE_FALLBACKS,
@@ -61,6 +60,10 @@ export function coachSceneFor(sceneId) {
 const WESTERN_SCALE = 1.098;
 const ARENA_SCALE = 2.2;
 const TABLE_TOP = 0.78;
+// Seat centre for the coach, outside the table rail (outer radius ~1.28)
+// so his body sits behind the table instead of intersecting the felt.
+const SEAT_X = -0.58;
+const SEAT_Z = -1.38;
 
 function westernMeshNames(look) {
   const names = new Set(['Boots', 'Hands_Optimized', 'Hair_cap']);
@@ -323,9 +326,8 @@ export function createCoachController(deps) {
     root = cloneSkinned(jacob.scene);
     root.scale.setScalar(active.scale || WESTERN_SCALE);
     // Jacob ships every outfit in one file, so a look drops the extras.
-    // Bandit is already one outfit; filtering him would remove the eye patch.
-    // The hat brim hides that patch in this close framing, so the saloon
-    // coach leaves the hat off and keeps the bandage. The fighter has no hat.
+    // Bandit is already one outfit; filtering him would remove the eye patch,
+    // so the saloon coach keeps everything baked, hat included.
     const hide = new Set(active.hide || []);
     const look = active.look;
     if (look) {
@@ -382,7 +384,7 @@ export function createCoachController(deps) {
     action.play();
     mixer.update(0.05);
 
-    root.position.set(-0.58, 0, -0.36);
+    root.position.set(SEAT_X, 0, SEAT_Z);
     root.updateMatrixWorld(true);
     const lFoot = findBone(root, ['L_ankle', 'foot_l']);
     const rFoot = findBone(root, ['R_ankle', 'foot_r']);
@@ -421,17 +423,18 @@ export function createCoachController(deps) {
       const upper = findBone(root, [`upperarm_${s}`]);
       const lower = findBone(root, [`lowerarm_${s}`]);
       const hand = findBone(root, [`hand_${s}`]);
-      if (upper && lower && hand) armRig.sides.push({ upper, lower, hand });
+      const finger = findBone(root, [`index_01_${s}`, `middle_01_${s}`]);
+      if (upper && lower && hand) armRig.sides.push({ upper, lower, hand, finger });
     }
-    poseArmsInLap();
+    poseArmsFolded();
     return root;
   }
 
-  // The table-observe idle rests the coach's hands on the felt. This review
-  // frames him chest-up behind the table, so after every animation update the
-  // arms are re-aimed in world space: upper arms hang at his sides, forearms
-  // fold into the lap. Everything below the elbow stays under the felt line
-  // (TABLE_TOP), so no hand or forearm can poke through the table top.
+  // The table-observe idle rests the coach's hands on the felt, which reads
+  // wrong now that he sits behind the table. After every animation update the
+  // arm bones are re-aimed in world space into folded arms: elbows tucked
+  // slightly forward, forearms crossed over the chest, the left forearm
+  // layered in front of the right so the two never intersect.
   const poseV = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(),
     new THREE.Vector3(), new THREE.Vector3()];
   const poseQ = [new THREE.Quaternion(), new THREE.Quaternion()];
@@ -445,34 +448,44 @@ export function createCoachController(deps) {
     bone.updateMatrixWorld(true);
   }
 
-  function poseArmsInLap() {
+  function poseArmsFolded() {
     if (!armRig || !root || !armRig.sides.length) return;
     root.updateMatrixWorld(true);
     const fwd = poseV[2].set(0, 0, 1).applyQuaternion(root.quaternion);
-    for (const side of armRig.sides) {
-      // Keep each arm on its own side: reuse the animated pose's horizontal
-      // lean, but point the upper arm almost straight down, hugging the body.
+    for (let i = 0; i < armRig.sides.length; i++) {
+      const side = armRig.sides[i];
+      // sides[0] is the left arm: it crosses in front of the right one.
+      const layer = i === 0 ? 0.46 : 0.28;
       const shoulder = side.upper.getWorldPosition(poseV[0]);
       const out = side.lower.getWorldPosition(poseV[1]).sub(shoulder);
       out.y = 0;
       if (out.lengthSq() < 1e-6) out.copy(fwd);
-      const wantUpper = poseV[4].copy(out.normalize()).multiplyScalar(0.18)
-        .addScaledVector(fwd, 0.04);
+      out.normalize();
+      // Upper arm: down with the elbow tucked a little forward so the
+      // crossed forearms clear the chest.
+      const wantUpper = poseV[4].copy(out).multiplyScalar(0.14)
+        .addScaledVector(fwd, 0.22);
       wantUpper.y = -1;
       aimBone(side.upper, side.lower, wantUpper);
-      // Forearm nearly straight down with a slight fold toward the thighs.
-      // The steep drop keeps the whole hand (fingers included) well below
-      // the felt at TABLE_TOP, so nothing pokes up through the table.
-      const wantLower = poseV[4].copy(fwd).multiplyScalar(0.3);
-      wantLower.y = -1;
+      // Forearm: across the body toward the opposite elbow, almost level,
+      // held in front of the torso where it is slimmer than the chest.
+      const wantLower = poseV[4].copy(out).multiplyScalar(-1)
+        .addScaledVector(fwd, layer);
+      wantLower.y = i === 0 ? 0.14 : 0.08;
       aimBone(side.lower, side.hand, wantLower);
+      // Hand: keep following the fold, dipping to wrap around the
+      // opposite arm instead of pointing up.
+      if (side.finger) {
+        wantLower.y = -0.18;
+        aimBone(side.hand, side.finger, wantLower);
+      }
     }
   }
 
   function addChair(chairGltf, character) {
     const chair = chairGltf.scene.clone(true);
     const hips = findBone(character, ['hips', 'pelvis']);
-    const anchor = new THREE.Vector3(-0.58, TABLE_TOP, -0.36);
+    const anchor = new THREE.Vector3(SEAT_X, TABLE_TOP, SEAT_Z);
     if (hips) hips.getWorldPosition(anchor);
     chair.scale.setScalar(1);
     chair.rotation.y = character.rotation.y;
@@ -564,7 +577,7 @@ export function createCoachController(deps) {
       mixer.update(0.04);
       action.paused = true;
     }
-    poseArmsInLap();
+    poseArmsFolded();
   }
 
   const api = {
@@ -618,7 +631,7 @@ export function createCoachController(deps) {
       if (document.hidden || step <= 0) return;
       mixer.update(step);
       root.position.copy(planted);
-      poseArmsInLap();
+      poseArmsFolded();
     },
 
     debug() {
