@@ -69,6 +69,44 @@ the game itself in Safari via the GitHub Pages deployment ("Add to Home
 Screen" runs it fullscreen). That is the same WebKit engine and the same
 game code the wrapper ships — it just doesn't exercise the native shell.
 
+## TestFlight builds from CI (no Mac in the loop)
+
+The [`iOS TestFlight Build`](../../.github/workflows/ios-testflight.yml)
+workflow builds, signs and uploads the wrapper to TestFlight on a GitHub
+macOS runner — trigger it from the repo's **Actions** tab. One-time setup:
+
+1. **Apple Developer Program** membership active.
+2. **Create the app record** in
+   [App Store Connect](https://appstoreconnect.apple.com) → My Apps → ＋ →
+   New App, with bundle id `com.cinematicpoker.app` (register the bundle id
+   at [developer.apple.com/account](https://developer.apple.com/account) →
+   Identifiers if it is not offered in the dropdown).
+3. **App Store Connect API key**: Users and Access → Integrations →
+   App Store Connect API → ＋. Role: App Manager. Note the **Key ID** and
+   **Issuer ID**, download the `.p8` file (one chance only).
+4. **Apple Distribution certificate**: on any Mac, Xcode → Settings →
+   Accounts → your team → Manage Certificates → ＋ → Apple Distribution,
+   then export it from Keychain Access as a password-protected `.p12`
+   (Keychain Access → My Certificates → right-click the certificate →
+   Export). No Mac at all? `fastlane cert` on a borrowed machine or a
+   one-off cloud Mac works too.
+5. Add **repository secrets** (Settings → Secrets and variables → Actions):
+
+   | Secret | Value |
+   |---|---|
+   | `APPLE_TEAM_ID` | Team ID from the developer account membership page |
+   | `ASC_KEY_ID` | API key ID from step 3 |
+   | `ASC_ISSUER_ID` | Issuer ID from step 3 |
+   | `ASC_KEY_P8_BASE64` | `base64 -i AuthKey_XXXX.p8` |
+   | `DIST_CERT_P12_BASE64` | `base64 -i certificate.p12` |
+   | `DIST_CERT_PASSWORD` | The `.p12` export password |
+
+6. Run the workflow. It publishes the Blazor app, syncs the iOS project,
+   fetches/creates the App Store provisioning profile automatically, builds
+   a signed `.ipa` (build number = run number), and uploads it to
+   TestFlight. After Apple's processing (minutes to an hour), add testers
+   in App Store Connect → TestFlight and install via the TestFlight app.
+
 ## Updating after game changes
 
 Whenever the web game changes, re-stage and re-sync:
