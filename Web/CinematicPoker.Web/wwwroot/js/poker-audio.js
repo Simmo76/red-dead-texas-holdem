@@ -2,8 +2,7 @@
 // (bundled Wikimedia Commons saloon music + OpenGameArt CC0 beach/western/disco beds),
 // owner-supplied outlaw table voice packs (win / fold-or-lose / random banter),
 // and owner-supplied Octagon announcer one-liners,
-// a short dealer call for the player's winning hand (B. Patrick pack),
-// and an owner-supplied tap played whenever any seat checks.
+// and a short dealer call for the player's winning hand (B. Patrick pack).
 // Short clips are MP3 or PCM WAV (both are supported by iOS Safari) and
 // play through WebAudio: once the context is unlocked by the first tap,
 // timer-driven sounds (NPC chatter, opponent actions) keep
@@ -32,18 +31,11 @@ window.pokerAudio = (function () {
     let sliderAudioFinished = false;
     let victoryPending = false;
     let playerLossPending = false;
-    let checkPending = false;
-    let lastCheckAt = 0;
-    // 16-bit PCM, same family as the other owner one-shots. The supplied file
-    // was a quiet m4a-derived MP3; this copy is level-matched so it reads
-    // over the table bed and the CHECK button click.
-    const CHECK_URL = 'audio/poker-check-sfx.wav';
-    const CHECK_VOLUME = 1.1;
 
     // Owner-supplied outlaw VO pools (renamed from the Dropbox zip).
     const WIN_CLIPS = 15;
     const LOSE_CLIPS = 14;
-    const RANDOM_CLIPS = 22;
+    const RANDOM_CLIPS = 21;
     const STREET_VOICE_CLIPS = Array.from({ length: 16 }, function (_, i) {
         const n = i + 1 < 10 ? '0' + (i + 1) : String(i + 1);
         return 'audio/street/voices/street-voice-' + n + '.wav';
@@ -58,7 +50,7 @@ window.pokerAudio = (function () {
     }
 
     function flushPendingResultAudio() {
-        if (muted || (!victoryPending && !playerLossPending && !checkPending)) return;
+        if (muted || (!victoryPending && !playerLossPending)) return;
         const c = ensureCtx();
         if (!c || c.state !== 'running') return;
         if (victoryPending) {
@@ -68,10 +60,6 @@ window.pokerAudio = (function () {
         if (playerLossPending) {
             playerLossPending = false;
             playBuffer('audio/player-loss.wav', 2.25, 1);
-        }
-        if (checkPending) {
-            checkPending = false;
-            playBuffer(CHECK_URL, CHECK_VOLUME, 1);
         }
     }
 
@@ -131,24 +119,6 @@ window.pokerAudio = (function () {
         if (delayMs) { setTimeout(function () { play(name, 0); }, delayMs); return; }
         // Slight pitch variance so repeated chip/card sounds don't feel mechanical.
         playBuffer('audio/' + name + '.mp3', 0.55, 0.92 + Math.random() * 0.16);
-    }
-
-    // Owner-supplied check tap. Steady pitch. A check on the unlocking tap
-    // (the CHECK button itself) can arrive while resume() is still in flight;
-    // hold it and play on the same gesture instead of dropping it.
-    function check() {
-        if (muted) return;
-        const now = Date.now();
-        // The CHECK button starts the clip on the tap; the engine event
-        // follows a moment later. One play per check.
-        if (now - lastCheckAt < 500) return;
-        lastCheckAt = now;
-        const c = ensureCtx();
-        if (!c || c.state !== 'running') {
-            checkPending = true;
-            return;
-        }
-        playBuffer(CHECK_URL, CHECK_VOLUME, 1);
     }
 
     const BUTTON_SOUND_URL = 'audio/ui-click.wav';
@@ -365,14 +335,8 @@ window.pokerAudio = (function () {
             ? target.closest('button, [role="button"], .hud-board') : null;
         const playButton = buttonEl
             && !(buttonEl.tagName === 'BUTTON' && buttonEl.disabled);
-        const checkButton = playButton && buttonEl.classList
-            && buttonEl.classList.contains('act')
-            && buttonEl.classList.contains('check');
         flushPendingResultAudio();
         startMusic();
-        // Player check: start the clip inside the tap. NPC checks arrive
-        // later through pokerAudio.check, once the context is already running.
-        if (checkButton) check();
         if (playButton) {
             if (c && c.state === 'suspended') {
                 const p = c.resume();
@@ -527,7 +491,6 @@ window.pokerAudio = (function () {
 
     return {
         play: play,
-        check: check,
         button: button,
         voice: voice,
         dealer: dealer,
@@ -589,7 +552,6 @@ window.pokerAudio = (function () {
             if (m) {
                 victoryPending = false;
                 playerLossPending = false;
-                checkPending = false;
             }
             if (m) stopMusic();
             else if (!m) startMusic();
