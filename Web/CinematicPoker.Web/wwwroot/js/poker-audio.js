@@ -35,7 +35,7 @@ window.pokerAudio = (function () {
     // Owner-supplied outlaw VO pools (renamed from the Dropbox zip).
     const WIN_CLIPS = 15;
     const LOSE_CLIPS = 14;
-    const RANDOM_CLIPS = 22;
+    const RANDOM_CLIPS = 21;
     const STREET_VOICE_CLIPS = Array.from({ length: 16 }, function (_, i) {
         const n = i + 1 < 10 ? '0' + (i + 1) : String(i + 1);
         return 'audio/street/voices/street-voice-' + n + '.wav';
