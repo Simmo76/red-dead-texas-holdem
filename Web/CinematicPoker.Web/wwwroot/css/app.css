@@ -212,6 +212,52 @@ html.scene-street .boot-screen {
     box-shadow: 0 0 8px var(--gold);
 }
 
+/* Voice-actions status: floats above the action bar so the player can see
+   the mic is live (and what it heard) without looking away from the table. */
+.voice-pill {
+    position: absolute;
+    bottom: calc(96px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    max-width: calc(100vw - 36px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 1px solid rgba(216, 178, 92, 0.45);
+    border-radius: 20px;
+    background: rgba(12, 8, 5, 0.82);
+    color: var(--gold);
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.voice-pill.heard {
+    border-color: var(--gold);
+    color: var(--text);
+}
+
+.voice-dot {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+}
+
+.voice-dot.live {
+    background: #d64545;
+    animation: voice-dot-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes voice-dot-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
 .friend-seat-pill button {
     border: 0;
     background: transparent;

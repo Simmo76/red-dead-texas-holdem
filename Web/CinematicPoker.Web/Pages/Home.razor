@@ -62,6 +62,10 @@
                     POKER COACH
                 </button>
             }
+            <button class="chip-btn @(_voiceOn ? "active" : "")" @onclick="ToggleVoice"
+                    title="Voice actions (experimental): say CHECK, CALL, RAISE, FOLD or ALL IN on your turn">
+                <span class="chip-gear" aria-hidden="true">🎤</span> VOICE
+            </button>
             <button class="chip-btn" @onclick="OpenHandRankings" title="Poker hand rankings">
                 <span class="chip-gear" aria-hidden="true">♠</span> HANDS
             </button>
@@ -82,6 +86,26 @@
         <div class="friend-seat-pill" role="status">
             <span class="friend-seat-dot"></span>
             <span>@_mpPill</span>
+        </div>
+    }
+
+    @if (_voiceOn || !string.IsNullOrEmpty(_voiceError))
+    {
+        <div class="voice-pill @(_voiceHeard != "" ? "heard" : "")" role="status" aria-live="polite">
+            @if (!string.IsNullOrEmpty(_voiceError))
+            {
+                <span>@_voiceError</span>
+            }
+            else if (_voiceHeard != "")
+            {
+                <span class="voice-dot live"></span>
+                <span>HEARD: <b>@_voiceHeard.ToUpperInvariant()</b></span>
+            }
+            else
+            {
+                <span class="voice-dot @(_voiceListening ? "live" : "")"></span>
+                <span>@(_voiceListening ? "LISTENING — SAY CHECK · CALL · RAISE · FOLD" : "STARTING MIC…")</span>
+            }
         </div>
     }
 
@@ -2062,6 +2086,115 @@
         if (amount >= _legal.MaxBetOrRaiseTo) await Act(PlayerAction.AllIn());
         else if (_legal.CanBet) await Act(PlayerAction.Bet(amount));
         else await Act(PlayerAction.Raise(amount));
+    }
+
+    // ------------------------------------------- voice actions (experimental)
+    // A mic toggle in the top bar starts the Web Speech API recogniser
+    // (js/poker-voice.js). Spoken keywords arrive through OnVoiceCommand and
+    // go through exactly the same Act() pipeline as the buttons, so the
+    // engine's legality rules still decide what is allowed. A spoken "raise"
+    // places the minimum raise (or minimum bet) — no slider involved — which
+    // is enough to test whether voice control feels right at the table.
+
+    private bool _voiceOn;
+    private bool _voiceListening;
+    private string _voiceHeard = "";
+    private string _voiceError = "";
+    private int _voiceHeardToken;
+
+    private async Task ToggleVoice()
+    {
+        if (_voiceOn)
+        {
+            _voiceOn = false;
+            _voiceListening = false;
+            _voiceHeard = "";
+            _voiceError = "";
+            try { await JS.InvokeVoidAsync("pokerVoice.stop"); }
+            catch (JSException) { }
+            return;
+        }
+        _selfRef ??= DotNetObjectReference.Create(this);
+        _voiceOn = true;
+        _voiceError = "";
+        _voiceHeard = "";
+        try { await JS.InvokeVoidAsync("pokerVoice.start", _selfRef); }
+        catch (JSException)
+        {
+            _voiceOn = false;
+            _voiceError = "VOICE NOT AVAILABLE IN THIS BROWSER";
+        }
+    }
+
+    [JSInvokable]
+    public void OnVoiceState(string state)
+    {
+        switch (state)
+        {
+            case "listening":
+                _voiceListening = true;
+                _voiceError = "";
+                break;
+            case "off":
+                _voiceOn = false;
+                _voiceListening = false;
+                break;
+            case "denied":
+                _voiceOn = false;
+                _voiceListening = false;
+                _voiceError = "MICROPHONE ACCESS DENIED — CHECK BROWSER PERMISSIONS";
+                break;
+            case "unsupported":
+                _voiceOn = false;
+                _voiceListening = false;
+                _voiceError = "VOICE NOT SUPPORTED IN THIS BROWSER";
+                break;
+        }
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnVoiceCommand(string command)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            _ = FlashVoiceHeard(command);
+            if (!_awaitingHuman || _legal == null) return;
+            switch (command)
+            {
+                case "fold" when _legal.CanFold:
+                    await Act(PlayerAction.Fold());
+                    break;
+                case "check" when _legal.CanCheck:
+                    await Act(PlayerAction.Check());
+                    break;
+                case "call" when _legal.CanCall:
+                    await Act(PlayerAction.Call());
+                    break;
+                case "raise" when _legal.CanRaise:
+                    await Act(PlayerAction.Raise(_legal.MinBetOrRaiseTo));
+                    break;
+                case "raise" when _legal.CanBet:
+                    await Act(PlayerAction.Bet(_legal.MinBetOrRaiseTo));
+                    break;
+                case "allin" when _legal.CanAllIn:
+                    await Act(PlayerAction.AllIn());
+                    break;
+            }
+        });
+    }
+
+    // Shows "HEARD: CHECK" in the voice pill for a couple of seconds so the
+    // player gets feedback even when the word wasn't legal right then.
+    private async Task FlashVoiceHeard(string command)
+    {
+        _voiceHeard = command == "allin" ? "all in" : command;
+        int token = ++_voiceHeardToken;
+        StateHasChanged();
+        await Task.Delay(2000);
+        if (token != _voiceHeardToken) return;
+        _voiceHeard = "";
+        StateHasChanged();
     }
 
     private void ToggleMode() => _quickMode = !_quickMode;
