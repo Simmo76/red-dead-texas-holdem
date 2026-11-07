@@ -8,7 +8,13 @@
 // no implementation, so the mic button reports "unsupported" there.
 // Recognition sessions end on their own after silence — onend restarts the
 // session while the feature is switched on.
+//
+// The on/off choice is remembered in localStorage so a player who liked the
+// feature gets it re-armed automatically on the next visit (started from the
+// first tap on the title card, which doubles as the activation gesture).
 window.pokerVoice = (function () {
+    const SAVE_KEY = "cinematic-poker-voice-on";
+
     let recognition = null;
     let dotnetRef = null;
     let enabled = false;
@@ -29,9 +35,25 @@ window.pokerVoice = (function () {
         return window.SpeechRecognition || window.webkitSpeechRecognition || null;
     }
 
+    function save(on) {
+        try { localStorage.setItem(SAVE_KEY, on ? "1" : "0"); } catch (e) { }
+    }
+
+    function savedOn() {
+        try { return localStorage.getItem(SAVE_KEY) === "1"; } catch (e) { return false; }
+    }
+
     function report(state) {
         if (!dotnetRef) return;
         try { dotnetRef.invokeMethodAsync("OnVoiceState", state); } catch (e) { }
+    }
+
+    // Silent cleanup: used inside start() where a stop() report("off") would
+    // race the fresh session's "listening" and flip the Blazor toggle back.
+    function teardown() {
+        if (!recognition) return;
+        try { recognition.onend = null; recognition.stop(); } catch (e) { }
+        recognition = null;
     }
 
     function matchCommand(transcript) {
@@ -68,8 +90,8 @@ window.pokerVoice = (function () {
 
     function start(ref) {
         const R = Recogniser();
-        if (!R) { dotnetRef = ref; report("unsupported"); return false; }
-        stop();
+        if (!R) { dotnetRef = ref; save(false); report("unsupported"); return false; }
+        teardown();
         dotnetRef = ref;
         enabled = true;
 
@@ -84,6 +106,7 @@ window.pokerVoice = (function () {
         recognition.onerror = function (e) {
             if (e.error === "not-allowed" || e.error === "service-not-allowed") {
                 enabled = false;
+                save(false);
                 report("denied");
             }
             // "no-speech"/"aborted"/"network" fall through; onend restarts.
@@ -98,22 +121,22 @@ window.pokerVoice = (function () {
 
         try { recognition.start(); }
         catch (e) { enabled = false; report("off"); return false; }
+        save(true);
         return true;
     }
 
     function stop() {
         enabled = false;
-        if (recognition) {
-            try { recognition.onend = null; recognition.stop(); } catch (e) { }
-            recognition = null;
-        }
+        teardown();
         lastHeard = "";
+        save(false);
         report("off");
     }
 
     return {
         start: start,
         stop: stop,
+        savedOn: savedOn,
         supported: function () { return !!Recogniser(); },
     };
 })();

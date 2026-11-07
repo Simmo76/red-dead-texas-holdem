@@ -1095,6 +1095,45 @@ html.scene-street .boot-screen {
 .act.bet   { background: #8a6a2a; }
 .act.allin { background: #7d2430; }
 
+/* Mic toggle lives on the action bar itself so voice control is one tap
+   away while playing. Greyed out when off; gold halo + red dot when live. */
+.act.voice-mic {
+    position: relative;
+    padding: 12px 15px;
+    font-size: 21px;
+    line-height: 1;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1px solid var(--line);
+}
+
+.act.voice-mic span {
+    filter: grayscale(1) brightness(0.85);
+}
+
+.act.voice-mic.on {
+    border-color: var(--gold);
+    background: rgba(35, 26, 12, 0.9);
+    box-shadow: 0 0 0 2px rgba(216, 178, 92, 0.25), 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+.act.voice-mic.on span {
+    filter: none;
+}
+
+.act.voice-mic.on::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #d64545;
+    border: 1px solid rgba(0, 0, 0, 0.5);
+    animation: voice-dot-pulse 1.4s ease-in-out infinite;
+}
+
 /* Fast-forward through the rest of the hand after you've folded. */
 .act.ff {
     background: var(--panel);

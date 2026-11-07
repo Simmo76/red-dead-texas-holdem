@@ -371,6 +371,11 @@
                 <span class="hud-stack-name" style="color:@SeatColor(0)">@PlayerName.ToUpperInvariant()</span>
                 <b>$@ShownStack(0)</b>
             </div>
+            <button class="act voice-mic @(_voiceOn ? "on" : "")" @onclick="ToggleVoice"
+                    aria-pressed="@_voiceOn"
+                    title="@(_voiceOn ? "Voice control is ON — tap to turn off" : "Tap to play by voice: say CHECK, CALL, RAISE, FOLD or ALL IN on your turn")">
+                <span aria-hidden="true">🎤</span>
+            </button>
         }
         @if (_awaitingHuman && _legal != null && !_showSlider)
         {
@@ -1209,6 +1214,9 @@
         _introRequested = true; // the tap doubles as the audio-unlock gesture
         _sceneLoading = true;
         StateHasChanged();
+        // The same tap is the activation gesture for the mic: players who had
+        // voice control on last visit get it re-armed without touching a thing.
+        await MaybeAutoStartVoice();
         // Hold the title card up — with a visible loading notice — until the
         // whole scene (table, characters AND the saloon backdrop) is in
         // memory. The old 6-second cap dropped slow connections onto a table
@@ -2101,9 +2109,11 @@
     private string _voiceHeard = "";
     private string _voiceError = "";
     private int _voiceHeardToken;
+    private int _voiceErrorToken;
 
     private async Task ToggleVoice()
     {
+        _voiceErrorToken++; // cancel any fading error message
         if (_voiceOn)
         {
             _voiceOn = false;
@@ -2122,8 +2132,26 @@
         catch (JSException)
         {
             _voiceOn = false;
-            _voiceError = "VOICE NOT AVAILABLE IN THIS BROWSER";
+            _ = FlashVoiceError("VOICE NOT AVAILABLE IN THIS BROWSER");
         }
+    }
+
+    // Players who switched voice control on last visit get it re-armed from
+    // the same tap that starts the game (the tap is the activation gesture
+    // some browsers require before the mic may be opened). Quietly does
+    // nothing when the preference is off or the browser can't do it.
+    private async Task MaybeAutoStartVoice()
+    {
+        if (_voiceOn || _coachPreview) return;
+        try
+        {
+            if (!await JS.InvokeAsync<bool>("pokerVoice.savedOn")) return;
+            _selfRef ??= DotNetObjectReference.Create(this);
+            _voiceOn = true;
+            await JS.InvokeVoidAsync("pokerVoice.start", _selfRef);
+        }
+        catch (JSException) { _voiceOn = false; }
+        catch (InvalidOperationException) { _voiceOn = false; }
     }
 
     [JSInvokable]
@@ -2132,6 +2160,7 @@
         switch (state)
         {
             case "listening":
+                _voiceOn = true; // JS is the source of truth for the mic
                 _voiceListening = true;
                 _voiceError = "";
                 break;
@@ -2142,15 +2171,28 @@
             case "denied":
                 _voiceOn = false;
                 _voiceListening = false;
-                _voiceError = "MICROPHONE ACCESS DENIED — CHECK BROWSER PERMISSIONS";
+                _ = FlashVoiceError("MICROPHONE ACCESS DENIED — CHECK BROWSER PERMISSIONS");
                 break;
             case "unsupported":
                 _voiceOn = false;
                 _voiceListening = false;
-                _voiceError = "VOICE NOT SUPPORTED IN THIS BROWSER";
+                _ = FlashVoiceError("VOICE NOT SUPPORTED IN THIS BROWSER");
                 break;
         }
         _ = InvokeAsync(StateHasChanged);
+    }
+
+    // Error messages fade out on their own; the old sticky pill needed
+    // another trip through the mic toggle to go away.
+    private async Task FlashVoiceError(string message)
+    {
+        _voiceError = message;
+        int token = ++_voiceErrorToken;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(6000);
+        if (token != _voiceErrorToken) return;
+        _voiceError = "";
+        await InvokeAsync(StateHasChanged);
     }
 
     [JSInvokable]
