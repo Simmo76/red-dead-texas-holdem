@@ -104,10 +104,19 @@ window.pokerVoice = (function () {
         recognition.onstart = function () { report("listening"); };
         recognition.onresult = handleResults;
         recognition.onerror = function (e) {
-            if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+            try { console.warn("pokerVoice: recognition error:", e.error, e.message || ""); } catch (x) { }
+            if (e.error === "not-allowed") {
+                // The mic permission itself was refused (or auto-blocked
+                // because it was refused before).
                 enabled = false;
                 save(false);
                 report("denied");
+            } else if (e.error === "service-not-allowed") {
+                // The mic is fine but the recognition service is off — on
+                // iPhone/iPad this is Siri & Dictation being disabled.
+                enabled = false;
+                save(false);
+                report("service-denied");
             }
             // "no-speech"/"aborted"/"network" fall through; onend restarts.
         };

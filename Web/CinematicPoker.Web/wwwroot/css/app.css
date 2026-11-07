@@ -232,7 +232,9 @@ html.scene-street .boot-screen {
     font-size: 10px;
     letter-spacing: 1.2px;
     pointer-events: none;
-    white-space: nowrap;
+    /* Permission-help messages run long; wrap instead of spilling off-screen. */
+    text-align: center;
+    line-height: 1.5;
 }
 
 .voice-pill.heard {

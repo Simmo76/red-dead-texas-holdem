@@ -2171,7 +2171,12 @@
             case "denied":
                 _voiceOn = false;
                 _voiceListening = false;
-                _ = FlashVoiceError("MICROPHONE ACCESS DENIED — CHECK BROWSER PERMISSIONS");
+                _ = FlashVoiceError("MIC BLOCKED — TAP THE ᴀA / PADLOCK ICON BY THE ADDRESS BAR AND ALLOW THE MICROPHONE, THEN RELOAD");
+                break;
+            case "service-denied":
+                _voiceOn = false;
+                _voiceListening = false;
+                _ = FlashVoiceError("SPEECH RECOGNITION IS OFF ON THIS DEVICE — iPHONE: SETTINGS → GENERAL → KEYBOARD → ENABLE DICTATION");
                 break;
             case "unsupported":
                 _voiceOn = false;
@@ -2189,7 +2194,8 @@
         _voiceError = message;
         int token = ++_voiceErrorToken;
         await InvokeAsync(StateHasChanged);
-        await Task.Delay(6000);
+        // Long enough to actually read the how-to-fix instructions.
+        await Task.Delay(12000);
         if (token != _voiceErrorToken) return;
         _voiceError = "";
         await InvokeAsync(StateHasChanged);
