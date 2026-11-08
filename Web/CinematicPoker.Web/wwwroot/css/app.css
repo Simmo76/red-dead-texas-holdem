@@ -1783,18 +1783,45 @@ html.scene-street .boot-screen {
     max-width: min(760px, calc(100vw - 32px));
     max-height: calc(100vh - 24px);
     max-height: calc(100dvh - 24px);
-    overflow-y: auto;
+    overflow: hidden;
     padding: 20px 24px;
     gap: 14px;
+}
+
+/* Pinch-zoom + pan viewport: clips the scaled chart; CLOSE stays outside. */
+.hands-zoom {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    overflow: hidden;
+    touch-action: none;
+    cursor: grab;
+    border-radius: 12px;
+    overscroll-behavior: contain;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.hands-zoom.zoomed {
+    cursor: grab;
+}
+
+.hands-zoom:active {
+    cursor: grabbing;
 }
 
 .hands-chart {
     display: block;
     width: 100%;
-    /* Keep the chart plus the CLOSE button inside one screen. */
+    /* Keep the chart plus the CLOSE button inside one screen at 1x. */
     max-height: calc(100dvh - 140px);
     object-fit: contain;
     border-radius: 12px;
+    transform-origin: center center;
+    will-change: transform;
+    pointer-events: none;
+    -webkit-user-drag: none;
 }
 
 /* ----------------------------------------------------------- how to play */
