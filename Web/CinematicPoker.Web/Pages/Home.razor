@@ -62,6 +62,9 @@
                     POKER COACH
                 </button>
             }
+            <button class="chip-btn" @onclick="OpenRules" title="How to play Texas Hold'em">
+                <span class="chip-gear" aria-hidden="true">?</span> RULES
+            </button>
             <button class="chip-btn" @onclick="OpenHandRankings" title="Poker hand rankings">
                 <span class="chip-gear" aria-hidden="true">♠</span> HANDS
             </button>
@@ -539,6 +542,66 @@
                         <button class="act allin settings-restart" @onclick="RestartFromSettings">RESTART</button>
                     }
                     <button class="act small" @onclick="CloseSettings">CLOSE</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_rulesOpen)
+    {
+        <div class="overlay" @onclick="CloseRules">
+            <div class="overlay-box rules-box" @onclick:stopPropagation="true">
+                <div class="overlay-title">HOW TO PLAY</div>
+                <div class="rules-scroll">
+                    <p class="rules-lede">
+                        Texas Hold’em. Make the best five-card hand from your two private cards
+                        and the five shared cards on the table. Last player standing — or the
+                        strongest hand at showdown — takes the pot.
+                    </p>
+
+                    <section class="rules-section">
+                        <h3 class="rules-heading">THE DEAL</h3>
+                        <ul class="rules-list">
+                            <li>Each hand starts with blinds: the two seats left of the dealer post forced bets (small blind, then big blind).</li>
+                            <li>Everyone gets two hole cards face down — yours alone.</li>
+                            <li>Up to five community cards land face up in the middle for everyone to share.</li>
+                        </ul>
+                    </section>
+
+                    <section class="rules-section">
+                        <h3 class="rules-heading">THE STREETS</h3>
+                        <ol class="rules-steps">
+                            <li><strong>Preflop</strong> — bet on your hole cards alone.</li>
+                            <li><strong>Flop</strong> — three community cards, then another betting round.</li>
+                            <li><strong>Turn</strong> — fourth community card, then bet again.</li>
+                            <li><strong>River</strong> — fifth and final card, then the last betting round.</li>
+                        </ol>
+                    </section>
+
+                    <section class="rules-section">
+                        <h3 class="rules-heading">YOUR MOVES</h3>
+                        <ul class="rules-list">
+                            <li><strong>Fold</strong> — toss the hand; you’re out of this pot.</li>
+                            <li><strong>Check</strong> — pass when nothing is owed (no bet in front of you).</li>
+                            <li><strong>Call</strong> — match the current bet to stay in.</li>
+                            <li><strong>Bet / Raise</strong> — put chips in or bump the price.</li>
+                            <li><strong>All-in</strong> — shove your whole stack.</li>
+                        </ul>
+                    </section>
+
+                    <section class="rules-section">
+                        <h3 class="rules-heading">SHOWDOWN</h3>
+                        <p class="rules-copy">
+                            If two or more players remain after the river, cards are shown.
+                            Best five-card hand wins — use any mix of your holes and the board.
+                            If everyone else folds, you win without showing. Tap
+                            <strong>HANDS</strong> in the top bar for the ranking chart from
+                            royal flush down to high card.
+                        </p>
+                    </section>
+                </div>
+                <div class="overlay-actions">
+                    <button class="act small" @onclick="CloseRules">CLOSE</button>
                 </div>
             </div>
         </div>
@@ -1638,6 +1701,7 @@
         _exportNote = "";
         _settingsOpen = false;
         _handRankingsOpen = false;
+        _rulesOpen = false;
         try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
         catch (InvalidOperationException) { }
         catch (JSException) { }
@@ -2258,11 +2322,36 @@
             advice.ActionLabel = $"RAISE TO ${to}";
     }
 
+    // -------------------------------------------------------- how to play
+
+    private bool _rulesOpen;
+
+    private void OpenRules()
+    {
+        _handRankingsOpen = false;
+        _settingsOpen = false;
+        _rulesOpen = true;
+    }
+
+    private async Task CloseRules()
+    {
+        _rulesOpen = false;
+        if (_sceneReady)
+        {
+            try { await JS.InvokeVoidAsync("pokerScene.healGraphics"); }
+            catch (JSException) { }
+        }
+    }
+
     // -------------------------------------------------------- hand rankings
 
     private bool _handRankingsOpen;
 
-    private void OpenHandRankings() => _handRankingsOpen = true;
+    private void OpenHandRankings()
+    {
+        _rulesOpen = false;
+        _handRankingsOpen = true;
+    }
 
     private async Task CloseHandRankings()
     {
@@ -3672,6 +3761,8 @@
     {
         _settingsNameDraft = PlayerName;
         _settingsNameNote = "";
+        _rulesOpen = false;
+        _handRankingsOpen = false;
         _settingsOpen = true;
     }
 
