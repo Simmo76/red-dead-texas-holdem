@@ -157,13 +157,25 @@ window.addEventListener('pagehide', () => setBootFlag(false));
 const GFX_LITE = GFX_TIER >= 1;       // no MSAA / shadows, smaller backbuffer
 const GFX_ULTRA_LITE = GFX_TIER >= 2; // + skip Sheriff/Bandit (saloon still loads)
 
+// Touch-first devices (phones/tablets) are viewed at arm's length, where a
+// 1.5x backbuffer is visually near-identical to 2x but shades ~44% fewer
+// pixels — a straight win for heat and battery. Capability check, not UA
+// sniffing, matching the rest of this file.
+const COARSE_POINTER = (() => {
+  try { return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); }
+  catch (e) { return false; }
+})();
+
 // Backbuffer budget (rendered pixels). MSAA multiplies the real cost, so the
 // lite tiers keep well under what a struggling GPU can page in.
 function cappedPixelRatio(canvas) {
-  const dpr = Math.min(window.devicePixelRatio || 1, GFX_LITE ? 1.5 : 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, (GFX_LITE || COARSE_POINTER) ? 1.5 : 2);
   const w = canvas.clientWidth || 1;
   const h = canvas.clientHeight || 1;
-  const budget = GFX_ULTRA_LITE ? 1.2e6 : GFX_LITE ? 1.8e6 : 3.4e6;
+  const budget = GFX_ULTRA_LITE ? 1.2e6
+    : GFX_LITE ? 1.8e6
+    : COARSE_POINTER ? 2.2e6
+    : 3.4e6;
   return Math.max(1, Math.min(dpr, Math.sqrt(budget / (w * h))));
 }
 
@@ -276,6 +288,8 @@ const _introLook = new THREE.Vector3(0, 0.95, 0);
 
 function endIntro() {
   if (state.intro) state.intro.active = false;
+  // The camera still has to ease from the aerial sweep into the seat view.
+  markActivity();
 }
 
 const state = {
@@ -293,8 +307,36 @@ const state = {
   tableScene: TABLE_SCENE,
   eyeHeight: EYE_HEIGHT,
   lastJson: '',
-  lastActorSeat: -2
+  lastActorSeat: -2,
+  lastActivity: 0       // performance.now() of the last input/game-state event
 };
+
+// ------------------------------------------------------------------ frame governor
+// Poker is mostly a static scene, yet an uncapped setAnimationLoop renders at
+// the display's native refresh rate (up to 120 fps), which cooks phones.
+// Render at most ACTIVE_FPS while something is happening, and drop to
+// IDLE_FPS once the table has been quiet for IDLE_AFTER_MS. Frame deltas are
+// accumulated, never dropped, so animation speed is unchanged.
+const ACTIVE_FPS = 30;
+const IDLE_FPS = 15;
+const IDLE_AFTER_MS = 2000;
+
+// Wake flag: when input or a game-state change arrives while idling, the very
+// next rAF tick renders instead of waiting out the rest of a 15 fps window,
+// so interaction never feels laggy.
+let _renderNow = false;
+
+function markActivity() {
+  state.lastActivity = performance.now();
+  _renderNow = true;
+}
+
+function sceneBusy() {
+  return !!(state.intro && state.intro.active)
+    || !!(state.zoom && state.zoom.active)
+    || (state.fx && state.fx.length > 0)
+    || performance.now() - state.lastActivity < IDLE_AFTER_MS;
+}
 
 function texture(path) {
   let tex = state.textures.get(path);
@@ -2157,9 +2199,26 @@ async function buildScene(canvas) {
   adoptChipMesh(await chipMeshPromise);
   preloadCardTextures();
 
+  // Accumulated real time since the last rendered frame. The governor skips
+  // rAF ticks until a frame budget's worth has built up, then runs the loop
+  // body with the whole accumulated delta, so animations play at normal speed
+  // at any cap. The intro cinematic is wall-clock driven (see below) and the
+  // camera-easing lerps are frame-rate independent, so both are safe at the
+  // reduced rates.
+  let frameAccum = 0;
+
   renderer.setAnimationLoop(() => {
-    const rawDt = state.clock.getDelta();
-    if (coachControl && coachControl.api.presenting) {
+    frameAccum += state.clock.getDelta();
+    const presenting = !!(coachControl && coachControl.api.presenting);
+    const budget = 1 / ((presenting || sceneBusy()) ? ACTIVE_FPS : IDLE_FPS);
+    if (!_renderNow && frameAccum < budget) return;
+    _renderNow = false;
+    const rawDt = frameAccum;
+    // Carry the overshoot so the real rate stays close to the cap instead of
+    // beating against the display rate; clamp the carry so one long stall
+    // (tab hidden, GC pause) cannot queue a burst of back-to-back frames.
+    frameAccum = Math.min(Math.max(frameAccum - budget, 0), budget);
+    if (presenting) {
       const coachDt = Math.min(rawDt, 0.05);
       if (coachControl.api.ready && coachControl.api.scene()) {
         if (!document.hidden) coachControl.api.tick(coachDt);
@@ -2389,6 +2448,7 @@ function setupLookControls(canvas, view) {
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     if (coachBlockingInput() || !state.view || state.zoom.active) return;
+    markActivity();
     view.targetDistScale *= (1 + Math.sign(e.deltaY) * 0.04);
     clampLook(view);
   }, { passive: false });
@@ -2398,6 +2458,7 @@ function setupLookControls(canvas, view) {
 
   canvas.addEventListener('pointerdown', (e) => {
     if (coachBlockingInput()) return;
+    markActivity();
     if (e.pointerType !== 'mouse') {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.size === 2) {
@@ -2429,6 +2490,9 @@ function setupLookControls(canvas, view) {
 
   canvas.addEventListener('pointermove', (e) => {
     if (coachBlockingInput()) return;
+    // Only a live drag/pinch counts as activity; a mouse merely hovering the
+    // canvas must not hold the idle throttle off.
+    if (e.pointerId === activePointer || touches.has(e.pointerId)) markActivity();
     const touch = touches.get(e.pointerId);
     if (touch) { touch.x = e.clientX; touch.y = e.clientY; }
     if (touch && touches.size >= 2) {
@@ -2474,6 +2538,7 @@ function setupLookControls(canvas, view) {
   const release = (e) => {
     touches.delete(e.pointerId);
     if (e.pointerId !== activePointer) return;
+    markActivity();
     activePointer = -1;
     cancelHold();
     if (touches.size) {
@@ -3617,6 +3682,7 @@ window.pokerScene = {
   // Snap back to the 10°/10° table-centre home (cancels card close-up too).
   resetCamera() {
     if (!state.ready) return;
+    markActivity();
     this.endBetPreview();
     state.zoom.active = false;
     if (state.applyCameraHome) state.applyCameraHome(true);
@@ -3628,6 +3694,7 @@ window.pokerScene = {
     if (!state.ready) return;
     const target = seatCardZoom(seatIndex);
     if (!target) return;
+    markActivity();
     this.endBetPreview();
     state.zoom.active = true;
     state.zoom.kind = target.kind;
@@ -3645,6 +3712,7 @@ window.pokerScene = {
   // chip scale as real committed bets, so what you see is what lands.
   betPreview(amount) {
     if (!state.ready) return;
+    markActivity();
     const amt = Math.max(0, Math.floor(amount || 0));
     state.zoom.active = true;
     state.zoom.kind = 'bet';
@@ -3666,6 +3734,7 @@ window.pokerScene = {
   // chips, and let the camera ease back to the seat view.
   endBetPreview() {
     if (!state.ready) return;
+    markActivity();
     if (state.betPreview && state.betPreview.group) {
       state.scene.remove(state.betPreview.group);
     }
@@ -3754,6 +3823,9 @@ window.pokerScene = {
   update(snapshot) {
     if (!state.ready) { state.pendingUpdate = snapshot; return; }
     const json = JSON.stringify(snapshot);
+    // A changed snapshot means cards/chips/gestures are about to move: wake
+    // the frame governor so the update renders at the active rate at once.
+    if (json !== state.lastJson) markActivity();
     const prev = state.lastJson ? JSON.parse(state.lastJson) : null;
 
     // Do not return early when the snapshot is unchanged. Card and chip
@@ -3891,7 +3963,10 @@ window.pokerScene = {
   talk(seatIndex) {
     if (!state.ready) return;
     const seat = state.seats[seatIndex];
-    if (seat && seat.char && !seat.char.dead) seat.char.playOnce('Talk', 2.8);
+    if (seat && seat.char && !seat.char.dead) {
+      markActivity();
+      seat.char.playOnce('Talk', 2.8);
+    }
   },
 
   // Mighty Cat seated poker takes (Player_01 bet, Player_02 check, Player_03 fold).
@@ -3899,6 +3974,7 @@ window.pokerScene = {
     if (!state.ready) return;
     const seat = state.seats[seatIndex];
     if (!seat || !seat.char || seat.char.dead) return;
+    markActivity();
     // Snapshot can mark folded before this gesture fires; still play Fold /
     // FoldShake so the arms-folded hold is the settle, not the only beat.
     if (seat.char.folded && kind !== 'fold') return;
@@ -3948,6 +4024,7 @@ window.pokerScene = {
   // seated table camera so opponent hole cards remain readable.
   celebrate() {
     if (!state.ready) return;
+    markActivity();
     launchCelebration();
     const char = state.seats[0] && state.seats[0].char;
     if (char) {
@@ -3970,6 +4047,7 @@ window.pokerScene = {
     if (!state.ready) return;
     const seat = state.seats[seatIndex];
     if (seat && seat.char && !seat.char.dead && seat.char.playEmotion) {
+      markActivity();
       seat.char.playEmotion(mood, intensity);
     }
     if (speak && window.pokerAudio && (mood === 'win' || mood === 'lose')) {
