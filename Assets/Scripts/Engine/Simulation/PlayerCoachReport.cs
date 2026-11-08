@@ -49,6 +49,40 @@ namespace CinematicPoker.Engine.Simulation
             return report;
         }
 
+        /// <summary>
+        /// Builds the same report from archived hands (full device history):
+        /// the per-hand numbers were captured by the event analysis above when
+        /// each hand settled, so this just aggregates them and writes advice.
+        /// </summary>
+        public static PlayerCoachReport BuildFromArchive(IReadOnlyList<HandSequenceLog.ArchivedHand> hands)
+        {
+            var report = new PlayerCoachReport();
+            foreach (HandSequenceLog.ArchivedHand hand in hands)
+            {
+                if (hand == null || !hand.Analysed) continue;
+                report.HandsAnalysed++;
+                if (hand.Vpip) report.VoluntaryPreflopHands++;
+                if (hand.Pfr) report.PreflopRaiseHands++;
+                report.PostflopAggressiveActions += hand.PostflopAggressive;
+                report.PostflopCalls += hand.PostflopCalls;
+                if (hand.Won) report.HandsWon++;
+                if (hand.Won && hand.WonByFolds) report.PotsWonWithoutShowdown++;
+                if (hand.ReachedShowdown)
+                {
+                    report.ShowdownsReached++;
+                    if (hand.Won) report.ShowdownsWon++;
+                }
+                report.NetProfit += hand.StackChange;
+                if (hand.StackChange < report.BiggestLoss)
+                {
+                    report.BiggestLoss = hand.StackChange;
+                    report.BiggestLossHand = hand.Number;
+                }
+            }
+            report.WriteAdvice();
+            return report;
+        }
+
         private void AnalyseHand(HandSequenceLog.HandRecord hand, int seat)
         {
             bool preflop = true;

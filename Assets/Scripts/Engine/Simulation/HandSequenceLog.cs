@@ -14,20 +14,30 @@ namespace CinematicPoker.Engine.Simulation
     /// </summary>
     public sealed class HandSequenceLog
     {
+        /// <summary>Oldest archived hands are dropped past this, so the
+        /// stored history can't grow without bound in browser storage.</summary>
+        public const int MaxArchivedHands = 1000;
+
         private readonly List<SessionHeader> _sessions = new List<SessionHeader>();
         private readonly List<HandRecord> _hands = new List<HandRecord>();
+        private readonly List<ArchivedHand> _archivedHands = new List<ArchivedHand>();
         private SessionHeader _currentSession;
         private HandRecord _currentHand;
         private int _sequentialHandNumber;
 
         public IReadOnlyList<HandRecord> Hands => _hands;
 
-        /// <summary>Hands that have reached HandCompleted (safe to export).</summary>
+        /// <summary>Settled hands folded into the durable archive (hands from
+        /// earlier tables / page visits that the player CSV still exports).</summary>
+        public IReadOnlyList<ArchivedHand> ArchivedHands => _archivedHands;
+
+        /// <summary>Hands that have reached HandCompleted (safe to export),
+        /// including hands already moved into the archive.</summary>
         public int CompletedHandCount
         {
             get
             {
-                int n = 0;
+                int n = _archivedHands.Count;
                 foreach (HandRecord hand in _hands)
                 {
                     if (hand.StackChanges != null && hand.StackChanges.Count > 0)
@@ -35,6 +45,60 @@ namespace CinematicPoker.Engine.Simulation
                 }
                 return n;
             }
+        }
+
+        /// <summary>
+        /// Seeds the archive with previously exported-able hands (restored from
+        /// durable storage) so a fresh log keeps the full history. New hands
+        /// continue numbering after the archived ones.
+        /// </summary>
+        public void LoadArchive(IEnumerable<ArchivedHand> hands)
+        {
+            _archivedHands.Clear();
+            if (hands != null)
+            {
+                foreach (ArchivedHand hand in hands)
+                {
+                    if (hand != null)
+                        _archivedHands.Add(hand);
+                }
+            }
+            TrimArchive();
+            foreach (ArchivedHand hand in _archivedHands)
+            {
+                if (hand.Number > _sequentialHandNumber)
+                    _sequentialHandNumber = hand.Number;
+            }
+        }
+
+        /// <summary>
+        /// Moves every settled hand from the live log into the archive (a hand
+        /// still in progress stays live). Returns how many hands moved; call
+        /// <see cref="ArchivedHands"/> afterwards to persist the full history.
+        /// </summary>
+        public int ArchiveCompletedHands(int humanSeat)
+        {
+            int moved = 0;
+            for (int i = 0; i < _hands.Count;)
+            {
+                HandRecord hand = _hands[i];
+                if (hand.StackChanges == null || hand.StackChanges.Count == 0)
+                {
+                    i++;
+                    continue;
+                }
+                _archivedHands.Add(ToArchivedHand(hand, humanSeat));
+                _hands.RemoveAt(i);
+                moved++;
+            }
+            if (moved > 0) TrimArchive();
+            return moved;
+        }
+
+        private void TrimArchive()
+        {
+            if (_archivedHands.Count > MaxArchivedHands)
+                _archivedHands.RemoveRange(0, _archivedHands.Count - MaxArchivedHands);
         }
 
         public void BeginSession(int sessionIndex, TableRules rules, IReadOnlyList<PokerPlayer> players)
@@ -131,32 +195,36 @@ namespace CinematicPoker.Engine.Simulation
         {
             if (writer == null) throw new ArgumentNullException(nameof(writer));
 
+            // Archived history first (earlier tables / page visits), then any
+            // settled hands still in the live log. A hand still in progress is
+            // excluded — export only settled ones.
+            var rows = new List<ArchivedHand>(_archivedHands);
+            foreach (HandRecord hand in _hands)
+            {
+                if (hand.StackChanges == null || hand.StackChanges.Count == 0)
+                    continue;
+                rows.Add(ToArchivedHand(hand, humanSeat));
+            }
+
             long handsWon = 0;
             long showdowns = 0;
             long biggestPotWon = 0;
             long netProfit = 0;
-            var completed = new List<HandRecord>();
-            foreach (HandRecord hand in _hands)
+            foreach (ArchivedHand row in rows)
             {
-                // Skip the live hand still in progress — export only settled ones.
-                if (hand.StackChanges == null || hand.StackChanges.Count == 0)
-                    continue;
-                completed.Add(hand);
-                if (hand.StackChanges.TryGetValue(humanSeat, out long delta))
-                    netProfit += delta;
-                if (PlayerWonHand(hand, humanSeat))
+                netProfit += row.StackChange;
+                if (row.Won)
                 {
                     handsWon++;
-                    long won = PlayerWonAmount(hand, humanSeat);
-                    if (won > biggestPotWon) biggestPotWon = won;
+                    if (row.WonAmount > biggestPotWon) biggestPotWon = row.WonAmount;
                 }
-                if (!hand.WonByFolds && hand.PotAwards.Count > 0)
+                if (row.WentToShowdown)
                     showdowns++;
             }
 
             writer.WriteLine("Section,Metric,Value");
             writer.WriteLine(CsvRow("Summary", "Exported At (UTC)", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")));
-            writer.WriteLine(CsvRow("Summary", "Hands Played", completed.Count.ToString()));
+            writer.WriteLine(CsvRow("Summary", "Hands Played", rows.Count.ToString()));
             writer.WriteLine(CsvRow("Summary", "Hands Won", handsWon.ToString()));
             writer.WriteLine(CsvRow("Summary", "Showdowns", showdowns.ToString()));
             writer.WriteLine(CsvRow("Summary", "Biggest Pot Won", biggestPotWon.ToString()));
@@ -178,7 +246,8 @@ namespace CinematicPoker.Engine.Simulation
 
             // Coach's corner: leak indicators plus what to work on, so the
             // export reads like a session review rather than a bare ledger.
-            PlayerCoachReport coach = BuildCoachReport(humanSeat);
+            // Built from the same merged rows so archived hands count too.
+            PlayerCoachReport coach = PlayerCoachReport.BuildFromArchive(rows);
             writer.WriteLine(CsvRow("Coaching", "Preflop Hands Played (VPIP)",
                 $"{(int)Math.Round(coach.VpipPercent)}% ({coach.VoluntaryPreflopHands} of {coach.HandsAnalysed})"));
             writer.WriteLine(CsvRow("Coaching", "Preflop Raise Rate (PFR)",
@@ -195,41 +264,74 @@ namespace CinematicPoker.Engine.Simulation
             writer.WriteLine();
 
             writer.WriteLine("Hand,Result,Your Cards,Board,Won Amount,Stack Change,Winning Hand,Won By Folds,Actions");
-            foreach (HandRecord hand in completed)
+            foreach (ArchivedHand row in rows)
             {
-                Func<int, string> nameOf = PlayerNameFor(hand);
-                string yourCards = hand.HoleCards.TryGetValue(humanSeat, out List<Card> hole)
-                    ? FormatCards(hole)
-                    : "";
-                string board = FormatCards(hand.Board);
-                bool won = PlayerWonHand(hand, humanSeat);
-                long wonAmount = PlayerWonAmount(hand, humanSeat);
-                long stackChange = 0;
-                hand.StackChanges.TryGetValue(humanSeat, out stackChange);
-                string result = won ? "Won" : PlayerFoldedHand(hand, humanSeat) ? "Folded" : "Lost";
-                string winningHand = "";
-                foreach (PotAwarded pa in hand.PotAwards)
-                {
-                    if (pa.WinnerSeats != null && pa.WinnerSeats.Contains(humanSeat) && pa.WinningHand.HasValue)
-                    {
-                        winningHand = pa.WinningHand.Value.Category.ToString();
-                        break;
-                    }
-                    if (string.IsNullOrEmpty(winningHand) && pa.WinningHand.HasValue)
-                        winningHand = pa.WinningHand.Value.Category.ToString();
-                }
-                string actions = string.Join("; ", DescribeActions(hand.Events, nameOf));
                 writer.WriteLine(string.Join(",",
-                    hand.SequentialNumber.ToString(),
-                    CsvEscape(result),
-                    CsvEscape(yourCards),
-                    CsvEscape(board),
-                    wonAmount.ToString(),
-                    stackChange.ToString(),
-                    CsvEscape(winningHand),
-                    hand.WonByFolds ? "True" : "False",
-                    CsvEscape(actions)));
+                    row.Number.ToString(),
+                    CsvEscape(row.Result),
+                    CsvEscape(row.YourCards),
+                    CsvEscape(row.Board),
+                    row.WonAmount.ToString(),
+                    row.StackChange.ToString(),
+                    CsvEscape(row.WinningHand),
+                    row.WonByFolds ? "True" : "False",
+                    CsvEscape(row.Actions)));
             }
+        }
+
+        /// <summary>
+        /// Flattens one settled hand into the durable, storage-friendly form
+        /// the player CSV exports: the row fields are precomputed (player
+        /// names resolved, actions described) and the coach inputs are kept
+        /// as plain numbers, so the archive survives the engine events being
+        /// discarded between page visits.
+        /// </summary>
+        public ArchivedHand ToArchivedHand(HandRecord hand, int humanSeat)
+        {
+            if (hand == null) throw new ArgumentNullException(nameof(hand));
+
+            Func<int, string> nameOf = PlayerNameFor(hand);
+            bool won = PlayerWonHand(hand, humanSeat);
+            long stackChange = 0;
+            hand.StackChanges?.TryGetValue(humanSeat, out stackChange);
+            string winningHand = "";
+            foreach (PotAwarded pa in hand.PotAwards)
+            {
+                if (pa.WinnerSeats != null && pa.WinnerSeats.Contains(humanSeat) && pa.WinningHand.HasValue)
+                {
+                    winningHand = pa.WinningHand.Value.Category.ToString();
+                    break;
+                }
+                if (string.IsNullOrEmpty(winningHand) && pa.WinningHand.HasValue)
+                    winningHand = pa.WinningHand.Value.Category.ToString();
+            }
+
+            // Reuse the coach's single-hand analysis so the archived numbers
+            // match what a live report would have counted for this hand.
+            PlayerCoachReport coach = PlayerCoachReport.Build(new[] { hand }, humanSeat);
+
+            return new ArchivedHand
+            {
+                Number = hand.SequentialNumber,
+                Result = won ? "Won" : PlayerFoldedHand(hand, humanSeat) ? "Folded" : "Lost",
+                YourCards = hand.HoleCards.TryGetValue(humanSeat, out List<Card> hole)
+                    ? FormatCards(hole)
+                    : "",
+                Board = FormatCards(hand.Board),
+                WonAmount = PlayerWonAmount(hand, humanSeat),
+                StackChange = stackChange,
+                WinningHand = winningHand,
+                WonByFolds = hand.WonByFolds,
+                Actions = string.Join("; ", DescribeActions(hand.Events, nameOf)),
+                WentToShowdown = !hand.WonByFolds && hand.PotAwards.Count > 0,
+                Won = won,
+                Analysed = coach.HandsAnalysed > 0,
+                Vpip = coach.VoluntaryPreflopHands > 0,
+                Pfr = coach.PreflopRaiseHands > 0,
+                PostflopAggressive = coach.PostflopAggressiveActions,
+                PostflopCalls = coach.PostflopCalls,
+                ReachedShowdown = coach.ShowdownsReached > 0
+            };
         }
 
         /// <summary>Coach-style leak analysis of the recorded hands for one seat.</summary>
@@ -508,6 +610,35 @@ namespace CinematicPoker.Engine.Simulation
             public readonly List<PotAwarded> PotAwards = new List<PotAwarded>();
             public bool WonByFolds;
             public Dictionary<int, long> StackChanges = new Dictionary<int, long>();
+        }
+
+        /// <summary>
+        /// One settled hand flattened for durable storage and the player CSV:
+        /// precomputed row fields plus the coach-report inputs. Plain public
+        /// fields keep it friendly to simple JSON serializers.
+        /// </summary>
+        public sealed class ArchivedHand
+        {
+            public int Number;
+            public string Result;
+            public string YourCards;
+            public string Board;
+            public long WonAmount;
+            public long StackChange;
+            public string WinningHand;
+            public bool WonByFolds;
+            public string Actions;
+            /// <summary>Anyone reached showdown (summary "Showdowns" metric).</summary>
+            public bool WentToShowdown;
+            public bool Won;
+            /// <summary>The player was dealt into this hand (coach sample).</summary>
+            public bool Analysed;
+            public bool Vpip;
+            public bool Pfr;
+            public int PostflopAggressive;
+            public int PostflopCalls;
+            /// <summary>The player themselves was still in at showdown.</summary>
+            public bool ReachedShowdown;
         }
 
         /// <summary>Optional session context attached to a player CSV export.</summary>
