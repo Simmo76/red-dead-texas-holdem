@@ -4,13 +4,16 @@
 // The settings panel can swap in the arcade boxing ring and its fighters.
 // That swap changes meshes only: the poker clips and the saloon music stay.
 // The player is always a random outfit of David Grette's Jacob cowboy.
-// NPC seats draw from Jacob outfits plus the Sheriff and Bandit characters
-// from the same Western series (baked web GLBs; see tools/bake_western_npc.py).
+// NPC seats draw from Jacob outfits plus the Sheriff, Bandit and Cowboy Girl
+// characters from the same Western series (baked web GLBs; see
+// tools/bake_western_npc.py and tools/bake_cowgirl_npc.py). The girl deals a
+// random skin tone every game (GIRL_SKIN_TONES) for a diverse table.
 // Check/bet/fold and all table mood idles (sit/observe/hold-cards/win/lose)
 // share one biped catalogue: Sheriff and Bandit GLBs are re-framed onto
-// Jacob's bone axes (tools/retarget_western_biped.mjs), so Jacob's body
-// clips and the shared mighty-cat mood clips drive all three rigs natively.
-// (see docs/mighty-cat-poker-animation-map.md).
+// Jacob's bone axes (tools/retarget_western_biped.mjs), and the girl onto his
+// bone axes with her own female joint positions (tools/retarget_cowgirl.mjs),
+// so Jacob's body clips and the shared mighty-cat mood clips drive all four
+// rigs natively (see docs/mighty-cat-poker-animation-map.md).
 // No third-party game content is copied from other titles.
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
@@ -34,7 +37,7 @@ import { createCoachController } from './coach-scene.js?v=8';
 // device):
 //   tier 0  full quality (default)
 //   tier 1  no antialiasing, no shadows, reduced render resolution
-//   tier 2  tier 1 + all-Jacob cast (skips the Sheriff/Bandit models)
+//   tier 2  tier 1 + all-Jacob cast (skips the Sheriff/Bandit/Cowboy Girl models)
 //           — the saloon GLB still loads; alternate backdrops are disabled
 //
 // The penalty is not forever: after enough consecutive clean visits at a
@@ -155,7 +158,7 @@ document.addEventListener('visibilitychange', () => setBootFlag(!document.hidden
 window.addEventListener('pagehide', () => setBootFlag(false));
 
 const GFX_LITE = GFX_TIER >= 1;       // no MSAA / shadows, smaller backbuffer
-const GFX_ULTRA_LITE = GFX_TIER >= 2; // + skip Sheriff/Bandit (saloon still loads)
+const GFX_ULTRA_LITE = GFX_TIER >= 2; // + skip Sheriff/Bandit/Cowboy Girl (saloon still loads)
 
 // Touch-first devices (phones/tablets) are viewed at arm's length, so they
 // take a lower backbuffer cap than desktop — ~23% fewer shaded pixels, a
@@ -249,6 +252,47 @@ const WESTERN_LOOKS = [
 // HUD paints that player's name in the same colour, so a name always points
 // at a hat around the table. Keep in sync with SeatColors in Pages/Home.razor.
 const SEAT_COLORS = [0xe0b84a, 0xd87a6a, 0x7aa5d8, 0x8cc47e, 0xc08ad8, 0x5ec8b8];
+
+// Skin tones for the Cowboy Girl NPC. Her GLB is baked with the LIGHTEST
+// (caucasian) neutral skin (tools/bake_cowgirl_npc.py), and every tone here
+// is a straight multiply on the skin/hair materials, so one download yields
+// a caucasian, asian, tan, black or dark seat — a different one each game.
+// Factors are linear-space ratios of the target tone to the baked base
+// (sRGB ratio ^ 2.2, because the multiply happens on linear texels).
+const GIRL_SKIN_TONES = [
+  { id: 'caucasian', skin: [1.0, 1.0, 1.0], hair: [1.0, 1.0, 1.0] },
+  { id: 'asian', skin: [1.07, 1.08, 0.86], hair: [0.35, 0.33, 0.33] },
+  { id: 'tan', skin: [0.68, 0.50, 0.35], hair: [0.55, 0.48, 0.42] },
+  { id: 'black', skin: [0.33, 0.20, 0.13], hair: [0.30, 0.28, 0.28] },
+  { id: 'dark', skin: [0.15, 0.085, 0.055], hair: [0.25, 0.23, 0.23] },
+];
+
+// Which of this character's materials a skin tone drives. The girl's bake
+// names her synthesised skin materials Skin_* and her hair/brow/lash
+// materials Hair_* precisely so this lookup can find them.
+function skinToneFor(tone, materialName) {
+  if (!tone) return null;
+  const n = materialName || '';
+  if (/^Skin_/.test(n)) return tone.skin;
+  if (/^Hair_/.test(n)) return tone.hair;
+  return null;
+}
+
+// The shared mood clips carry Jacob's male bone POSITIONS baked into every
+// track. Sheriff/Bandit share his joint positions so that is harmless, but
+// the girl keeps her female proportions by dropping every position track
+// except the pelvis (seat height) before the clips drive her rig — the
+// mirror of what tools/retarget_cowgirl.mjs does to her baked body clips.
+function stripClipPositions(clips) {
+  return (clips || []).map((clip) => {
+    const tracks = clip.tracks.filter((t) => {
+      if (!t.name.endsWith('.position')) return true;
+      const node = t.name.slice(0, t.name.lastIndexOf('.'));
+      return node === 'pelvis' || node === 'root';
+    });
+    return new THREE.AnimationClip(clip.name, clip.duration, tracks, clip.blendMode);
+  });
+}
 
 function westernMeshNames(look) {
   const names = new Set(['Boots', 'Hands_Optimized', 'Hair_cap']);
@@ -977,10 +1021,14 @@ window.pokerCoach = coachControl.api;
 // - uGrey: a fold grey-out on the final colour — while raised, the fragment
 //   collapses to a pale luminance, and with the material's opacity lowered the
 //   folded player reads as a muted grey ghost until the next hand.
-function characterMaterial(material, shirt, meshName, hatTint) {
+// - uMul: a plain multiply on the albedo (skin/hair materials only) — the
+//   Cowboy Girl is baked with the lightest neutral skin and each seat's
+//   skin-tone variant multiplies it down (GIRL_SKIN_TONES).
+function characterMaterial(material, shirt, meshName, hatTint, mul) {
   const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
   const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
   const tint = hatTint ? new THREE.Color(hatTint) : null;
+  const mulColor = mul ? new THREE.Color(mul[0], mul[1], mul[2]) : null;
   const m = material.clone();
   // Hair cards and lashes are thin shells and need both sides. The head meshes
   // do too: the iris and cornea are separate shells whose normals face inward
@@ -1002,13 +1050,14 @@ function characterMaterial(material, shirt, meshName, hatTint) {
     shader.uniforms.uSat = { value: sat };
     shader.uniforms.uTint = { value: tint || new THREE.Color(1, 1, 1) };
     shader.uniforms.uTintAmt = { value: tint ? 1.0 : 0 };
+    shader.uniforms.uMul = { value: mulColor || new THREE.Color(1, 1, 1) };
     shader.uniforms.uGrey = { value: m.userData.foldGrey || 0 };
-    shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\nuniform vec3 uTint;\nuniform float uTintAmt;\nuniform float uGrey;\n' +
+    shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\nuniform vec3 uTint;\nuniform float uTintAmt;\nuniform vec3 uMul;\nuniform float uGrey;\n' +
       shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
       {
         const vec3 kGrey = vec3(0.57735026919);
         float ca = cos(uHue), sa = sin(uHue);
-        vec3 c = diffuseColor.rgb;
+        vec3 c = diffuseColor.rgb * uMul;
         c = c * ca + cross(kGrey, c) * sa + kGrey * dot(kGrey, c) * (1.0 - ca);
         c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uSat);
         c = mix(c, uTint * (dot(c, vec3(0.299, 0.587, 0.114)) * 2.2 + 0.1), uTintAmt);
@@ -1018,7 +1067,7 @@ function characterMaterial(material, shirt, meshName, hatTint) {
         vec3(dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114)) * 0.6 + 0.3), uGrey);`);
     m.userData.foldShader = shader;
   };
-  m.customProgramCacheKey = () => `char-${hue.toFixed(3)}-${sat}-${hatTint || 0}`;
+  m.customProgramCacheKey = () => `char-${hue.toFixed(3)}-${sat}-${hatTint || 0}-${mul ? mul.join(',') : 1}`;
   return m;
 }
 
@@ -1111,7 +1160,8 @@ function makeCharacter(gltf, spec, extraClips) {
     const shirt = spec.shirt && obj.name === 'jimmy_body_top' ? spec.shirt : null;
     const hatTint = spec.hatColor && isHatMesh(obj) ? spec.hatColor : null;
     const srcMats = Array.isArray(obj.material) ? obj.material : [obj.material];
-    const made = srcMats.map((mat) => characterMaterial(mat, shirt, obj.name, hatTint));
+    const made = srcMats.map((mat) => characterMaterial(
+      mat, shirt, obj.name, hatTint, skinToneFor(spec.skinTone, mat.name)));
     obj.material = made.length === 1 ? made[0] : made;
     bodyMeshes.push(obj);
     bodyMats.push(...made);
@@ -1970,13 +2020,15 @@ async function buildScene(canvas) {
   state.seats = [];
   const charPromises = [];
 
-  // Saloon: Jacob outfits for every seat, plus Sheriff and Bandit as NPC draws.
+  // Saloon: Jacob outfits for every seat, plus Sheriff, Bandit and the
+  // Cowboy Girl (random skin tone per game) as NPC draws.
   // Street: the four arcade fighters, with the same poker clips baked on.
-  // Ultra-lite skips the extra bodies (Sheriff/Bandit, or the two variations).
+  // Ultra-lite skips the extra bodies (Sheriff/Bandit/Girl, or the two variations).
   const streetScene = TABLE_SCENE === 'street';
   const jacobModel = streetScene ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
   const sheriffModel = (streetScene || GFX_ULTRA_LITE) ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Sheriff.glb?v=10');
   const banditModel = (streetScene || GFX_ULTRA_LITE) ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Bandit.glb?v=10');
+  const girlModel = (streetScene || GFX_ULTRA_LITE) ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/CowboyGirl.glb?v=1');
   const mightyCatModel = streetScene ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=9');
   jacobModel.then((g) => { state.jacobGltf = g; });
   banditModel.then((g) => { state.banditGltf = g; });
@@ -1993,12 +2045,15 @@ async function buildScene(canvas) {
   const withHat = (look, i) => (look.hat ? look : { ...look, hat: 1 + (i % 2), hair: 'cut' });
   const jacobPool = shuffle(WESTERN_LOOKS.map((look, i) => ({ kind: 'jacob', look: withHat(look, i) })));
   const playerPick = jacobPool[0];
-  // Every table seats Sheriff and Bandit among the five NPCs (random chairs),
-  // with the other three NPC chairs filled from remaining Jacob outfits.
+  // Every table seats Sheriff, Bandit and the Cowboy Girl among the five
+  // NPCs (random chairs), with the other two NPC chairs filled from
+  // remaining Jacob outfits. The girl draws a random skin tone each game
+  // (caucasian / asian / tan / black / dark) so the table stays diverse.
   // Ultra-lite: all five NPC chairs are Jacob outfits (their GLBs never load).
   const specialNpcs = GFX_ULTRA_LITE ? [] : [
     { kind: 'sheriff', look: null },
     { kind: 'bandit', look: null },
+    { kind: 'girl', look: null, skinTone: GIRL_SKIN_TONES[Math.floor(Math.random() * GIRL_SKIN_TONES.length)] },
   ];
   const npcJacob = jacobPool.slice(1, 1 + (SEATS - 1 - specialNpcs.length));
   const npcPool = shuffle([...npcJacob, ...specialNpcs]);
@@ -2134,33 +2189,39 @@ async function buildScene(canvas) {
       seat.chair = chair;
     }
 
-    // Seat 0 is always Jacob; NPC seats may be Jacob, Sheriff, or Bandit.
-    // Hats are tinted in the seat's accent colour (the HUD paints that
-    // player's name in the same colour).
+    // Seat 0 is always Jacob; NPC seats may be Jacob, Sheriff, Bandit or
+    // the Cowboy Girl. Hats are tinted in the seat's accent colour (the HUD
+    // paints that player's name in the same colour).
     const pick = lineup[i];
     const spec = {
       look: pick.look, cards: i === 0,
       scale: pick.kind === 'fighter' ? FIGHTER_SCALE : WESTERN_SCALE,
-      hatColor: SEAT_COLORS[i % SEAT_COLORS.length]
+      hatColor: SEAT_COLORS[i % SEAT_COLORS.length],
+      skinTone: pick.skinTone || null
     };
     charPromises.push(Promise.all([
-      jacobModel, sheriffModel, banditModel, mightyCatModel, idleDeal,
+      jacobModel, sheriffModel, banditModel, girlModel, mightyCatModel, idleDeal,
       ...(streetScene ? fighterModels : [])
     ]).then((loaded) => {
       const jacob = loaded[0];
       const sheriff = loaded[1];
       const bandit = loaded[2];
-      const mc = loaded[3];
-      const deal = loaded[4];
-      const fighters = loaded.slice(5);
+      const girl = loaded[3];
+      const mc = loaded[4];
+      const deal = loaded[5];
+      const fighters = loaded.slice(6);
       spec.idleName = deal[i];
       const gltf = pick.kind === 'sheriff' ? sheriff
         : pick.kind === 'bandit' ? bandit
+        : pick.kind === 'girl' ? girl
         : pick.kind === 'fighter' ? fighters[pick.model]
         : jacob;
       // Fighters carry the retargeted poker catalogue on their own bones.
-      // Cowboys keep playing the shared mighty-cat clips.
-      const clips = pick.kind === 'fighter' ? (gltf && gltf.animations) : (mc && mc.animations);
+      // Cowboys keep playing the shared mighty-cat clips; the girl plays
+      // them with Jacob's male bone positions stripped so her female
+      // proportions survive (see stripClipPositions).
+      let clips = pick.kind === 'fighter' ? (gltf && gltf.animations) : (mc && mc.animations);
+      if (pick.kind === 'girl') clips = stripClipPositions(clips);
       const character = makeCharacter(gltf, spec, clips);
       if (!character) return;
       character.variant = i;
