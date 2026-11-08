@@ -628,7 +628,8 @@
             <div class="overlay-box export-box" @onclick:stopPropagation="true">
                 <div class="overlay-title">EXPORT STATS</div>
                 <p class="export-blurb">
-                    Send your session history and coaching notes as a .csv file via email or text
+                    Send your full hand history and coaching notes — every session saved on this
+                    device — as a .csv file via email or text
                     @if (_handLog.CompletedHandCount > 0)
                     {
                         <text> · @_handLog.CompletedHandCount hand@(_handLog.CompletedHandCount == 1 ? "" : "s")</text>
@@ -971,6 +972,9 @@
 
     private PokerGame _game;
     private HandSequenceLog _handLog = new();
+    // Durable hand history (every settled hand on this device) restored from
+    // localStorage so the stats export goes back as far as records exist.
+    private List<HandSequenceLog.ArchivedHand> _statsArchive = new();
     private readonly Random _rng = new();
     private bool _webSnapshotLoaded;
     private static readonly JsonSerializerOptions SnapshotJson =
@@ -1354,6 +1358,7 @@
         if (firstRender)
         {
             await LoadCoachPersistence();
+            await LoadStatsArchive();
             await BindCoachEscape();
             if (_coachPreview)
             {
@@ -1608,7 +1613,7 @@
                 _game.RestoreRound(saved.round);
                 _shownBoard.AddRange(_game.CurrentRound.Board);
             }
-            _handLog = new HandSequenceLog();
+            _handLog = NewHandLog();
             _handLog.BeginSession(0, TableRules.Default, players);
             _statusLine = saved.round == null || saved.round.phase == HandPhase.Complete ? "Dealing…" : "Resuming your hand…";
             EnsureCoachRecorder();
@@ -1677,7 +1682,7 @@
         _game.EventEmitted += OnEngineEvent;
         BeginCoachSession();
 
-        _handLog = new HandSequenceLog();
+        _handLog = NewHandLog();
         _handLog.BeginSession(0, rules, players);
 
         _revealed.Clear();
@@ -3614,7 +3619,7 @@
             RequestSync();
             return;
         }
-        _handLog = new HandSequenceLog();
+        _handLog = NewHandLog();
         _handLog.BeginSession(0, TableRules.Default, players);
         _ = GuestLoop(++_loopToken);
     }
@@ -3859,6 +3864,58 @@
 
     // ------------------------------------------------------------- export CSV
 
+    // Every new hand log (fresh table, restored table, guest table) is seeded
+    // with the device's archived history so exports keep the full record.
+    private HandSequenceLog NewHandLog()
+    {
+        var log = new HandSequenceLog();
+        log.LoadArchive(_statsArchive);
+        return log;
+    }
+
+    private async Task LoadStatsArchive()
+    {
+        try
+        {
+            string json = await JS.InvokeAsync<string>("pokerStats.load");
+            if (!string.IsNullOrEmpty(json))
+            {
+                var parsed = JsonSerializer.Deserialize<List<HandSequenceLog.ArchivedHand>>(json, SnapshotJson);
+                if (parsed != null)
+                    _statsArchive = parsed.Where(h => h != null).ToList();
+            }
+        }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+        catch (JsonException) { await ClearStatsArchiveStore(); }
+        _handLog.LoadArchive(_statsArchive);
+    }
+
+    private void ArchiveStatsHistory()
+    {
+        if (_handLog.ArchiveCompletedHands(humanSeat: 0) == 0) return;
+        _statsArchive = _handLog.ArchivedHands.ToList();
+        _ = PersistStatsArchive();
+    }
+
+    private async Task PersistStatsArchive()
+    {
+        try
+        {
+            string json = JsonSerializer.Serialize(_statsArchive, SnapshotJson);
+            await JS.InvokeVoidAsync("pokerStats.save", json);
+        }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+    }
+
+    private async Task ClearStatsArchiveStore()
+    {
+        try { await JS.InvokeVoidAsync("pokerStats.clear"); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+    }
+
     private void OpenExportPanel()
     {
         _exportNote = "";
@@ -3950,6 +4007,9 @@
     private void OnEngineEvent(PokerEvent evt)
     {
         _handLog.OnEvent(evt);
+        // Fold the settled hand into the durable archive right away so the
+        // export history survives restarts, reloads, and new tables.
+        if (evt is HandCompleted) ArchiveStatsHistory();
         ObserveCoach(evt);
         _pending.Enqueue(evt);
     }
