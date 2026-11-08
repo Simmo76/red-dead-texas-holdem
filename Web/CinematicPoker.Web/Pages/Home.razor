@@ -71,7 +71,7 @@
             <button class="chip-btn" @onclick="OpenSettings" title="Game settings">
                 <span class="chip-gear" aria-hidden="true">⚙</span> SETTINGS
             </button>
-            @if (!_isGuest)
+            @if (ShowInviteButton && !_isGuest)
             {
                 <button class="chip-btn invite-btn" @onclick="OpenInvite" title="Invite a friend to this table">
                     <span aria-hidden="true">♧</span> INVITE FRIEND
@@ -2390,6 +2390,10 @@
 
     private const int TableSeats = 6;
     private const int RemoteTurnTimeoutSeconds = 60;
+
+    // The invite button is hidden for now; the invite/multiplayer code below
+    // stays in place so it can come back as an in-app purchase later.
+    private static bool ShowInviteButton => false;
 
     private bool _isGuest;
     private bool _hosting;
