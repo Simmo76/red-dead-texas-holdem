@@ -6,8 +6,9 @@
 // The player is always a random outfit of David Grette's Jacob cowboy.
 // NPC seats draw from Jacob outfits plus the Sheriff, Bandit and Cowboy Girl
 // characters from the same Western series (baked web GLBs; see
-// tools/bake_western_npc.py and tools/bake_cowgirl_npc.py). The girl deals a
-// random skin tone every game (GIRL_SKIN_TONES) for a diverse table.
+// tools/bake_western_npc.py and tools/bake_cowgirl_npc.py). Two Cowboy Girls
+// sit at every table, dealt two different random skin tones each game
+// (GIRL_SKIN_TONES) for a diverse table.
 // Check/bet/fold and all table mood idles (sit/observe/hold-cards/win/lose)
 // share one biped catalogue: Sheriff and Bandit GLBs are re-framed onto
 // Jacob's bone axes (tools/retarget_western_biped.mjs), and the girl onto his
@@ -2045,15 +2046,17 @@ async function buildScene(canvas) {
   const withHat = (look, i) => (look.hat ? look : { ...look, hat: 1 + (i % 2), hair: 'cut' });
   const jacobPool = shuffle(WESTERN_LOOKS.map((look, i) => ({ kind: 'jacob', look: withHat(look, i) })));
   const playerPick = jacobPool[0];
-  // Every table seats Sheriff, Bandit and the Cowboy Girl among the five
-  // NPCs (random chairs), with the other two NPC chairs filled from
-  // remaining Jacob outfits. The girl draws a random skin tone each game
+  // Every table seats Sheriff, Bandit and two Cowboy Girls among the five
+  // NPCs (random chairs), with the last NPC chair filled from the remaining
+  // Jacob outfits. The girls draw two different random skin tones each game
   // (caucasian / asian / tan / black / dark) so the table stays diverse.
   // Ultra-lite: all five NPC chairs are Jacob outfits (their GLBs never load).
+  const girlTones = shuffle([...GIRL_SKIN_TONES]);
   const specialNpcs = GFX_ULTRA_LITE ? [] : [
     { kind: 'sheriff', look: null },
     { kind: 'bandit', look: null },
-    { kind: 'girl', look: null, skinTone: GIRL_SKIN_TONES[Math.floor(Math.random() * GIRL_SKIN_TONES.length)] },
+    { kind: 'girl', look: null, skinTone: girlTones[0] },
+    { kind: 'girl', look: null, skinTone: girlTones[1] },
   ];
   const npcJacob = jacobPool.slice(1, 1 + (SEATS - 1 - specialNpcs.length));
   const npcPool = shuffle([...npcJacob, ...specialNpcs]);
