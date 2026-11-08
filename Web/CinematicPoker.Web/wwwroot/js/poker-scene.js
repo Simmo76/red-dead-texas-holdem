@@ -157,10 +157,12 @@ window.addEventListener('pagehide', () => setBootFlag(false));
 const GFX_LITE = GFX_TIER >= 1;       // no MSAA / shadows, smaller backbuffer
 const GFX_ULTRA_LITE = GFX_TIER >= 2; // + skip Sheriff/Bandit (saloon still loads)
 
-// Touch-first devices (phones/tablets) are viewed at arm's length, where a
-// 1.5x backbuffer is visually near-identical to 2x but shades ~44% fewer
-// pixels — a straight win for heat and battery. Capability check, not UA
-// sniffing, matching the rest of this file.
+// Touch-first devices (phones/tablets) are viewed at arm's length, so they
+// take a lower backbuffer cap than desktop — ~23% fewer shaded pixels, a
+// straight win for heat and battery. 1.5x was tried first but visibly
+// aliased the chips (their fine printed detail relied on the old 2x
+// oversampling); 1.75x keeps them clean. Capability check, not UA sniffing,
+// matching the rest of this file.
 const COARSE_POINTER = (() => {
   try { return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); }
   catch (e) { return false; }
@@ -169,7 +171,7 @@ const COARSE_POINTER = (() => {
 // Backbuffer budget (rendered pixels). MSAA multiplies the real cost, so the
 // lite tiers keep well under what a struggling GPU can page in.
 function cappedPixelRatio(canvas) {
-  const dpr = Math.min(window.devicePixelRatio || 1, (GFX_LITE || COARSE_POINTER) ? 1.5 : 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, GFX_LITE ? 1.5 : COARSE_POINTER ? 1.75 : 2);
   const w = canvas.clientWidth || 1;
   const h = canvas.clientHeight || 1;
   const budget = GFX_ULTRA_LITE ? 1.2e6
@@ -338,12 +340,19 @@ function sceneBusy() {
     || performance.now() - state.lastActivity < IDLE_AFTER_MS;
 }
 
+// Hardware anisotropic-filtering limit, read off the renderer once it exists
+// (0 until then). Table-surface textures (felt, cards, chips) are seen nearly
+// edge-on from the seated camera, so they need real anisotropy or they
+// shimmer — especially since phones render at reduced DPR, which removed the
+// oversampling that used to hide the undersampled grazing angles.
+let _maxAnisotropy = 0;
+
 function texture(path) {
   let tex = state.textures.get(path);
   if (!tex) {
     tex = new THREE.TextureLoader().load(path);
     tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = GFX_LITE ? 1 : 4;
+    tex.anisotropy = GFX_LITE ? 1 : Math.min(8, _maxAnisotropy || 4);
     state.textures.set(path, tex);
   }
   return tex;
@@ -635,6 +644,11 @@ function chipTexture(path, srgb) {
   const tex = texture(path);
   tex.flipY = false;
   tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  // Chips lie flat on the felt and are viewed at the most grazing angle of
+  // anything on the table; their detailed colour/normal/roughness maps
+  // sparkle under camera motion without full anisotropy. They cover few
+  // pixels, so the max setting costs next to nothing.
+  if (!GFX_LITE) tex.anisotropy = Math.min(16, _maxAnisotropy || 4);
   return tex;
 }
 function chipMaterial(color) {
@@ -1579,6 +1593,7 @@ async function buildScene(canvas) {
   // Cost is nil: GPUs back depth24 with a packed depth24/stencil8 surface,
   // so requesting the stencil bits allocates no extra memory.
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !GFX_LITE, stencil: true });
+  _maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
   renderer.setPixelRatio(cappedPixelRatio(canvas));
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
