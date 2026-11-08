@@ -154,7 +154,7 @@ html.scene-street .boot-screen {
     touch-action: manipulation;
 }
 
-/* The HANDS/SETTINGS pills are primary touch targets: render them a
+/* The RULES/HANDS/SETTINGS pills are primary touch targets: render them a
    notch larger than the shared chip style used inside the settings panel. */
 .topbar .chip-btn {
     border-radius: 22px;
@@ -1797,6 +1797,84 @@ html.scene-street .boot-screen {
     border-radius: 12px;
 }
 
+/* ----------------------------------------------------------- how to play */
+
+.rules-box {
+    max-width: min(560px, calc(100vw - 32px));
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow: hidden;
+    padding: 24px 28px 20px;
+    gap: 16px;
+    text-align: left;
+}
+
+.rules-box .overlay-title {
+    text-align: center;
+}
+
+.rules-scroll {
+    overflow-y: auto;
+    max-height: calc(100dvh - 160px);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-right: 4px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.rules-lede {
+    margin: 0;
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.45;
+    letter-spacing: 0.2px;
+}
+
+.rules-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rules-heading {
+    margin: 0;
+    color: var(--gold);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+.rules-list,
+.rules-steps {
+    margin: 0;
+    padding-left: 1.2em;
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: 0.15px;
+}
+
+.rules-list li + li,
+.rules-steps li + li {
+    margin-top: 6px;
+}
+
+.rules-list strong,
+.rules-steps strong,
+.rules-copy strong {
+    color: var(--text);
+    font-weight: 700;
+}
+
+.rules-copy {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: 0.15px;
+}
+
 /* ------------------------------------------------------------- settings */
 
 .chip-gear { font-size: 16px; line-height: 1; }
@@ -2087,6 +2165,10 @@ html.scene-street .boot-screen {
     .invite-room { padding: 9px 12px; }
     .hands-box { padding: 12px 16px; gap: 8px; }
     .hands-chart { max-height: calc(100dvh - 100px); }
+    .rules-box { padding: 16px 18px 14px; gap: 12px; }
+    .rules-scroll { max-height: calc(100dvh - 120px); gap: 12px; }
+    .rules-lede { font-size: 13px; }
+    .rules-list, .rules-steps, .rules-copy { font-size: 13px; }
     .settings-rows { gap: 6px; }
     .settings-save { padding: 9px 16px; font-size: 12px; }
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
