@@ -8,7 +8,9 @@
 // characters from the same Western series (baked web GLBs; see
 // tools/bake_western_npc.py and tools/bake_cowgirl_npc.py). Two Cowboy Girls
 // sit at every table, dealt two different random skin tones each game
-// (GIRL_SKIN_TONES) for a diverse table.
+// (GIRL_SKIN_TONES) for a diverse table, and every fresh deal reshuffles
+// the NPC bodies to new random chairs (state.reseatNpcs); only the human
+// player keeps seat 0.
 // Check/bet/fold and all table mood idles (sit/observe/hold-cards/win/lose)
 // share one biped catalogue: Sheriff and Bandit GLBs are re-framed onto
 // Jacob's bone axes (tools/retarget_western_biped.mjs), and the girl onto his
@@ -1041,6 +1043,9 @@ function characterMaterial(material, shirt, meshName, hatTint, mul) {
   m.shadowSide = THREE.FrontSide;
   m.userData.baseOpacity = m.opacity;
   m.userData.keepTransparent = !!(m.transparent || m.alphaTest > 0);
+  // The uTint uniform references this very Color instance, so mutating it
+  // later (per-hand reseating) re-paints the hat in a new seat's accent.
+  if (tint) m.userData.hatTint = tint;
   if (m.emissive) m.emissive.setRGB(0, 0, 0);
   if (m.emissiveIntensity !== undefined) m.emissiveIntensity = 0;
   // Vertex colours are unity white on Jimmy — drop them so lighting uses
@@ -2266,6 +2271,53 @@ async function buildScene(canvas) {
   if (headY.length) {
     applyCameraHome();
   }
+
+  // Every new deal sends the NPC bodies (girls included) to freshly
+  // shuffled chairs; only the human player keeps seat 0. Seats sit on a
+  // circle around the origin, so moving a planted character (and the chair
+  // aligned under it) from one seat to another is an exact rigid rotation
+  // about the table's vertical axis — no pose re-measuring. The hat accent
+  // belongs to the SEAT (it matches that player's HUD name colour), so an
+  // arriving body re-tints its hat to the new seat's colour.
+  const reseatUp = new THREE.Vector3(0, 1, 0);
+  state.reseatNpcs = () => {
+    const from = [];
+    for (let i = 1; i < state.seats.length; i++) {
+      if (state.seats[i].char) from.push(i);
+    }
+    if (from.length < 2) return;
+    const to = shuffle(from);
+    const movedChar = from.map((i) => state.seats[i].char);
+    const movedChair = from.map((i) => state.seats[i].chair);
+    const spin = new THREE.Quaternion();
+    const accent = new THREE.Color();
+    for (let k = 0; k < from.length; k++) {
+      const ch = movedChar[k];
+      const chair = movedChair[k];
+      // Rotating about +Y by θ moves a point's planar angle (atan2(z, x))
+      // by −θ, so advancing a seat angle by Δ needs a spin of −Δ.
+      const delta = seatAngle(to[k]) - seatAngle(from[k]);
+      spin.setFromAxisAngle(reseatUp, -delta);
+      ch.root.position.applyAxisAngle(reseatUp, -delta);
+      ch.root.quaternion.premultiply(spin);
+      if (chair) {
+        chair.position.applyAxisAngle(reseatUp, -delta);
+        chair.quaternion.premultiply(spin);
+      }
+      state.seats[to[k]].char = ch;
+      state.seats[to[k]].chair = chair;
+      ch.variant = to[k];
+      if (typeof ch.seatFacing === 'number') ch.seatFacing -= delta;
+      accent.set(SEAT_COLORS[to[k] % SEAT_COLORS.length]);
+      ch.root.traverse((o) => {
+        if (!o.isMesh) return;
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (const m of mats) {
+          if (m.userData && m.userData.hatTint) m.userData.hatTint.copy(accent);
+        }
+      });
+    }
+  };
 
   // Only the player gets a CardHold palm helper; NPC hole cards stay on felt.
   setupPlayerArms();
@@ -3918,6 +3970,15 @@ window.pokerScene = {
       updateHole(snapshot.hole || []);
     }
     if (!prev || prev.pot !== snapshot.pot) updatePot(snapshot.pot);
+
+    // A fresh deal (new hole cards) reshuffles every NPC body to a random
+    // chair, so the girls — and everyone else — sit somewhere new each hand.
+    // The very first deal keeps the build-time lineup (already random).
+    if (prev && state.reseatNpcs
+        && snapshot.hole && snapshot.hole.length === 2
+        && JSON.stringify(prev.hole) !== JSON.stringify(snapshot.hole)) {
+      state.reseatNpcs();
+    }
 
     const seats = snapshot.seats || [];
     // The C# snapshot captures the actor once before serializing the rows.
