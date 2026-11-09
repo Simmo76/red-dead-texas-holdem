@@ -1269,6 +1269,14 @@ function makeCharacter(gltf, spec, extraClips) {
     next.time = Math.random() * clip.duration;
   };
 
+  // The seat placer re-rolls an NPC's idle when the planted pose leaves the
+  // lap inside the tabletop (see placeSeatedCharacter).
+  character.npcIdleOptions = () => NPC_IDLES.filter((n) => findMood(n));
+  character.setHomeIdle = (name) => {
+    character.homeIdle = name;
+    switchHomeIdle(name);
+  };
+
   // Inverted-hull outline (the classic stencil-outline look): a back-face
   // copy of every mesh, inflated along the normals, shown only while this
   // character is the one to act. Clones share the source skeleton, so the
@@ -2077,12 +2085,7 @@ async function buildScene(canvas) {
   // idle's hands on the felt. The thinking clip holds the palms at lap
   // height, so a foot-plant left everyone hovering above the rail.
   const placeSeatedCharacter = (character, i, facing) => {
-    character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
     scene.add(character.root);
-
-    // Apply the current idle pose before measuring any bones.
-    character.mixer.update(0);
-    character.root.updateMatrixWorld(true);
 
     const bone = (names) => {
       const want = Array.isArray(names) ? names : [names];
@@ -2093,57 +2096,97 @@ async function buildScene(canvas) {
       return found;
     };
 
-    // Rigs differ in which axis they face, so measure the model's own
-    // forward (up x left-to-right-foot) and correct toward the table.
-    const lFoot = bone(['L_ankle', 'foot_l']), rFoot = bone(['R_ankle', 'foot_r']);
-    let modelYaw = 0;
-    if (lFoot && rFoot) {
-      const l = lFoot.getWorldPosition(new THREE.Vector3());
-      const r = rFoot.getWorldPosition(new THREE.Vector3());
-      const fwd = new THREE.Vector3(0, 1, 0).cross(r.sub(l));
-      if (fwd.lengthSq() > 1e-6) modelYaw = Math.atan2(fwd.x, fwd.z);
-    }
-    character.root.rotation.y = facing - modelYaw;
-    character.root.updateMatrixWorld(true);
+    // Seat the character for its current idle pose: face the table, centre
+    // the hips over the chair spot, drop the palms onto the felt and pull
+    // them just inside the rail. Returns the planted pelvis height so the
+    // caller can tell when the palm-drop hoisted the lap into the tabletop.
+    const plant = () => {
+      character.root.position.copy(seatPos(i, SEAT_RADIUS - 0.34));
+      character.root.rotation.y = 0;
 
-    const v = new THREE.Vector3();
-    const hips = bone(['hips', 'pelvis']);
-    if (hips) {
-      hips.getWorldPosition(v);
-      const target = seatPos(i, SEAT_RADIUS - 0.02);
-      character.root.position.x += target.x - v.x;
-      character.root.position.z += target.z - v.z;
+      // Apply the current idle pose before measuring any bones.
+      character.mixer.update(0);
       character.root.updateMatrixWorld(true);
+
+      // Rigs differ in which axis they face, so measure the model's own
+      // forward (up x left-to-right-foot) and correct toward the table.
+      const lFoot = bone(['L_ankle', 'foot_l']), rFoot = bone(['R_ankle', 'foot_r']);
+      let modelYaw = 0;
+      if (lFoot && rFoot) {
+        const l = lFoot.getWorldPosition(new THREE.Vector3());
+        const r = rFoot.getWorldPosition(new THREE.Vector3());
+        const fwd = new THREE.Vector3(0, 1, 0).cross(r.sub(l));
+        if (fwd.lengthSq() > 1e-6) modelYaw = Math.atan2(fwd.x, fwd.z);
+      }
+      character.root.rotation.y = facing - modelYaw;
+      character.root.updateMatrixWorld(true);
+
+      const v = new THREE.Vector3();
+      const hips = bone(['hips', 'pelvis']);
+      if (hips) {
+        hips.getWorldPosition(v);
+        const target = seatPos(i, SEAT_RADIUS - 0.02);
+        character.root.position.x += target.x - v.x;
+        character.root.position.z += target.z - v.z;
+        character.root.updateMatrixWorld(true);
+      }
+
+      const handL = bone(['hand_l', 'LeftHand']);
+      const handR = bone(['hand_r', 'RightHand']);
+      const midL = bone(['middle_01_l']);
+      const midR = bone(['middle_01_r']);
+      const hands = [handL, handR].filter(Boolean);
+      const palms = [handL, handR, midL, midR].filter(Boolean);
+      let minPalm = Infinity;
+      const mid = new THREE.Vector3();
+      for (const b of palms) {
+        b.getWorldPosition(v);
+        minPalm = Math.min(minPalm, v.y);
+      }
+      for (const b of hands) {
+        b.getWorldPosition(v);
+        mid.add(v);
+      }
+      if (hands.length) mid.divideScalar(hands.length);
+      if (isFinite(minPalm)) {
+        character.root.position.y -= (minPalm - (TABLE_TOP + HAND_ON_TABLE));
+      }
+      const radial = Math.hypot(mid.x, mid.z);
+      if (hands.length && radial > 1e-4) {
+        const scale = HAND_RADIUS / radial;
+        character.root.position.x += mid.x * (scale - 1);
+        character.root.position.z += mid.z * (scale - 1);
+      }
+      character.root.updateMatrixWorld(true);
+      character.modelYaw = modelYaw;
+      return hips ? hips.getWorldPosition(v).y : -Infinity;
+    };
+
+    let pelvisY = plant();
+
+    // Most of the shared sit/observe idles retarget onto the cowgirl with
+    // her palms ending up at lap height (the clips were authored for the
+    // longer male arms), so dropping the palms onto the felt hoists her lap
+    // — and the skirt over it — up into the tabletop. When the plant leaves
+    // her pelvis near the felt slab, re-roll her home idle until the seated
+    // pose clears the table, keeping the lowest-riding pose as a fallback.
+    const lapCeiling = TABLE_TOP - 0.10;
+    if (character.kind === 'girl' && character.setHomeIdle && pelvisY > lapCeiling) {
+      let best = { name: character.idleName, y: pelvisY };
+      const options = shuffle(character.npcIdleOptions()
+        .filter((n) => n !== character.idleName));
+      for (const name of options) {
+        character.setHomeIdle(name);
+        pelvisY = plant();
+        if (pelvisY < best.y) best = { name, y: pelvisY };
+        if (pelvisY <= lapCeiling) break;
+      }
+      if (character.idleName !== best.name) {
+        character.setHomeIdle(best.name);
+        plant();
+      }
     }
 
-    const handL = bone(['hand_l', 'LeftHand']);
-    const handR = bone(['hand_r', 'RightHand']);
-    const midL = bone(['middle_01_l']);
-    const midR = bone(['middle_01_r']);
-    const hands = [handL, handR].filter(Boolean);
-    const palms = [handL, handR, midL, midR].filter(Boolean);
-    let minPalm = Infinity;
-    const mid = new THREE.Vector3();
-    for (const b of palms) {
-      b.getWorldPosition(v);
-      minPalm = Math.min(minPalm, v.y);
-    }
-    for (const b of hands) {
-      b.getWorldPosition(v);
-      mid.add(v);
-    }
-    if (hands.length) mid.divideScalar(hands.length);
-    if (isFinite(minPalm)) {
-      character.root.position.y -= (minPalm - (TABLE_TOP + HAND_ON_TABLE));
-    }
-    const radial = Math.hypot(mid.x, mid.z);
-    if (hands.length && radial > 1e-4) {
-      const scale = HAND_RADIUS / radial;
-      character.root.position.x += mid.x * (scale - 1);
-      character.root.position.z += mid.z * (scale - 1);
-    }
-    character.root.updateMatrixWorld(true);
-    character.modelYaw = modelYaw;
     character.seatFacing = facing;
   };
 
