@@ -2491,13 +2491,23 @@ async function buildScene(canvas) {
     positionHandCards();
     // Camera and the held fan are in their final pose for this frame. Fade
     // the hero only once that test can see whether his body covers the pair.
+    const heroMask = heroHoleCardsInHand();
     for (const seat of state.seats) if (seat.char) {
       if (seat.char.isPlayer) {
         seat.char.seeTarget = heldCardOcclusion(seat.char);
-        seat.char.maskHeldCards = heroHoleCardsInHand();
+        seat.char.maskHeldCards = heroMask;
       }
       seat.char.updateFold(dt);
     }
+    // Chips borrow the same stencil mask as the hero's fingers: the player's
+    // own rail stacks sit between the close-up camera and his held pair (the
+    // hand-zoom camera hovers just over them), and a giant chip covering your
+    // cards reads as a bug even though the depth is honest. While the pair is
+    // in hand it stamps HELD_CARD_STENCIL_REF, so masked chips simply skip
+    // those pixels and the cards always stay readable. The mask lifts when
+    // the pair lies on the felt (board close-up), where a nearer pot stack
+    // covering the cards is the correct picture.
+    for (const mat of _chipMats.values()) setHeldCardMask(mat, heroMask);
     resizeIfNeeded(canvas, renderer, camera);
     renderer.render(scene, camera);
   });
