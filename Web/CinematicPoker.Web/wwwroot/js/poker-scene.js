@@ -3461,6 +3461,15 @@ function positionHandCards() {
   for (const card of state.holeCards) {
     card.visible = handZoom || boardZoom || betZoom || !state.zoom.active;
   }
+  // The player's rail stack sits exactly where his palms hover (stack at
+  // radius 0.96, palms ~0.94), so in the hand close-up the chips physically
+  // interpenetrate his fingers right in front of the lens. The stack has no
+  // storytelling job in that shot — hide it for the duration, the same way
+  // the bet preview hides his committed chips. Enforced per frame because a
+  // snapshot can rebuild the group (visible) mid-zoom. The bet-preview hide
+  // (seat.chips) is owned by betPreview/endBetPreview and left alone here.
+  const seat0 = state.seats[0];
+  if (seat0 && seat0.stackChips) seat0.stackChips.visible = !handZoom;
 }
 
 // What a seat's spot on the felt should be showing for the given snapshot:
