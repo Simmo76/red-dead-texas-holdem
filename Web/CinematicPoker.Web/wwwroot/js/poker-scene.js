@@ -748,10 +748,11 @@ function makeChipStacks(amount, spread = 0.05) {
 
 // ------------------------------------------------------------------ button chips
 
-// Physical dealer/blind buttons, the standard casino set: a white DEALER
+// Physical dealer/blind buttons, the standard home-game set: a white DEALER
 // puck, a blue SMALL BLIND and a yellow BIG BLIND. Each sits flat on the
-// felt beside its player's cards, slides across the table when the deal
-// passes on, and the blind pucks leave once the flop is out.
+// felt beside its player's cards for the whole hand and slides across the
+// table when the deal passes on. (They used to leave at the flop, but pucks
+// blinking in and out mid-hand read as a rendering glitch.)
 const BUTTON_RADIUS = 0.08;
 const BUTTON_HEIGHT = 0.02;
 
@@ -4043,17 +4044,16 @@ window.pokerScene = {
     }
     updateActorOutline(actorSeat);
 
-    // Dealer/blind pucks: the DEALER button rides with the deal all hand;
-    // the blind pucks only mark who posted until the flop hits the felt.
-    const preflop = !(snapshot.board && snapshot.board.length);
+    // Dealer/blind pucks ride with their seats for the whole hand and glide
+    // to the new posters when the deal passes on. Keep a puck even when its
+    // seat busts mid-hand (`out` flips at the showdown): yanking it then is
+    // the same pop-out-of-existence this marker set is meant to avoid, and
+    // the next deal reassigns the flags to live seats anyway.
     const findSeat = (flag) => {
-      const s = seats.find(d => d[flag] && !d.out);
+      const s = seats.find(d => d[flag]);
       return s ? s.seat : -1;
     };
-    updateButtonChips(
-      findSeat('dealer'),
-      preflop ? findSeat('sb') : -1,
-      preflop ? findSeat('bb') : -1);
+    updateButtonChips(findSeat('dealer'), findSeat('sb'), findSeat('bb'));
     for (const data of seats) {
       const seat = state.seats[data.seat];
       if (!seat) continue;
