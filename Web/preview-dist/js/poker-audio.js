@@ -131,6 +131,38 @@ window.pokerAudio = (function () {
     let lastClickAt = 0;
     let clickComboStep = 0;
 
+    // iOS Safari has no vibrate API, but recent versions (iOS ~17.4+) fire
+    // the system haptic when a native switch control toggles inside a user
+    // gesture. A hidden switch clicked from the pointerdown handler therefore
+    // gives a real haptic tick on iPhone. Older iOS versions simply ignore
+    // the attribute and stay silent. Kept invisible via opacity (display:none
+    // would suppress the haptic).
+    let iosHapticSwitch = null;
+    function ensureIosHapticSwitch() {
+        if (iosHapticSwitch) return iosHapticSwitch;
+        try {
+            const el = document.createElement('input');
+            el.type = 'checkbox';
+            el.setAttribute('switch', '');
+            el.setAttribute('aria-hidden', 'true');
+            el.tabIndex = -1;
+            el.style.cssText =
+                'position:fixed;top:0;left:0;width:1px;height:1px;' +
+                'opacity:0;pointer-events:none;';
+            document.body.appendChild(el);
+            iosHapticSwitch = el;
+        } catch (e) { }
+        return iosHapticSwitch;
+    }
+
+    function hapticTap() {
+        if (navigator.vibrate) {
+            try { navigator.vibrate(10); return; } catch (e) { }
+        }
+        const el = ensureIosHapticSwitch();
+        if (el) { try { el.click(); } catch (e) { } }
+    }
+
     // Use the supplied click recording for every enabled button, including
     // buttons rendered by Blazor.
     // The file peaks at -2.35 dBFS (0.763 linear), so gain must stay below
@@ -147,9 +179,9 @@ window.pokerAudio = (function () {
         const rate = Math.pow(2, clickComboStep / 12) * (0.97 + Math.random() * 0.06);
         const volume = 1.1 + Math.random() * 0.15;
         playBuffer(BUTTON_SOUND_URL, volume, rate);
-        // Pair the click with a tiny tap of haptics where the browser allows
-        // it (Android Chrome; iOS Safari has no vibrate API and ignores this).
-        if (navigator.vibrate) { try { navigator.vibrate(10); } catch (e) { } }
+        // Pair the click with a tiny tap of haptics: Vibration API where it
+        // exists (Android Chrome), hidden-switch trick on iOS Safari.
+        hapticTap();
     }
 
     // Wikimedia Commons ragtime recordings, re-encoded to MP3 for iOS Safari.
