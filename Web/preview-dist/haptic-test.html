@@ -46,6 +46,24 @@
 </div>
 
 <div class="case">
+  <h2>Test 4 — fires at finger release</h2>
+  <p>Quick-tap this. The switch toggles the instant your finger lifts.</p>
+  <button class="big" id="b4">TAP ME (on release)</button>
+</div>
+
+<div class="case">
+  <h2>Test 5 — fires just after the tap (tiny delay)</h2>
+  <p>Quick-tap this. The switch toggles ~60 ms after touch-down.</p>
+  <button class="big" id="b5">TAP ME (delayed 60ms)</button>
+</div>
+
+<div class="case">
+  <h2>Test 6 — double toggle</h2>
+  <p>Quick-tap this. The switch toggles twice, 70 ms apart.</p>
+  <button class="big" id="b6">TAP ME (double toggle)</button>
+</div>
+
+<div class="case">
   <h2>Diagnostics</h2>
   <div class="diag" id="diag"></div>
 </div>
@@ -59,6 +77,14 @@
 
   document.getElementById('b2').addEventListener('click', function () { hidden.click(); });
   document.getElementById('b3').addEventListener('pointerdown', function () { hidden.click(); });
+  document.getElementById('b4').addEventListener('pointerup', function () { hidden.click(); });
+  document.getElementById('b5').addEventListener('pointerdown', function () {
+    setTimeout(function () { hidden.click(); }, 60);
+  });
+  document.getElementById('b6').addEventListener('pointerdown', function () {
+    hidden.click();
+    setTimeout(function () { hidden.click(); }, 70);
+  });
 
   document.getElementById('diag').textContent =
     'vibrate API: ' + (navigator.vibrate ? 'yes' : 'no') +
