@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Dead Man's Hand: Poker Coach — App Store</title>
+<style>
+  :root {
+    --blue: #0071e3; --text: #1d1d1f; --dim: #6e6e73; --faint: #86868b;
+    --hair: #d2d2d7; --card: #f5f5f7; --star: #f6a000;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #fff; color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; line-height: 1.45;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 36px 22px 80px; }
+  .crumb { color: var(--faint); font-size: 12px; margin-bottom: 26px; }
+  .crumb a { color: var(--blue); text-decoration: none; }
+
+  /* ---- product header */
+  .hdr { display: flex; gap: 28px; align-items: flex-start; }
+  .icon {
+    width: 196px; height: 196px; border-radius: 44px; flex: none;
+    border: 0.5px solid rgba(0,0,0,0.12); object-fit: cover;
+  }
+  .hdr-right { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.15; }
+  .subtitle { font-size: 18px; color: var(--dim); margin-top: 2px; font-weight: 400; }
+  .seller { color: var(--blue); font-size: 14px; margin-top: 10px; }
+  .rank { color: var(--faint); font-size: 13px; margin-top: 2px; }
+  .buy-row { margin-top: auto; padding-top: 22px; display: flex; align-items: center; gap: 14px; }
+  .get {
+    display: inline-block; background: var(--blue); color: #fff; text-decoration: none;
+    font-size: 15px; font-weight: 600; padding: 7px 26px; border-radius: 20px;
+  }
+  .iap-note { color: var(--faint); font-size: 11px; }
+  @media (max-width: 620px) {
+    .hdr { gap: 18px; }
+    .icon { width: 110px; height: 110px; border-radius: 26px; }
+    h1 { font-size: 21px; } .subtitle { font-size: 15px; }
+  }
+
+  /* ---- stats strip */
+  .stats {
+    display: flex; margin: 34px 0 0; border-top: 1px solid var(--hair);
+    border-bottom: 1px solid var(--hair); padding: 14px 0; overflow-x: auto;
+  }
+  .stat { flex: 1; min-width: 120px; text-align: center; padding: 0 18px; }
+  .stat + .stat { border-left: 1px solid var(--hair); }
+  .stat .t { color: var(--faint); font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; }
+  .stat .v { color: var(--dim); font-size: 21px; font-weight: 600; margin-top: 2px; }
+  .stat .u { color: var(--faint); font-size: 12px; margin-top: 1px; }
+  .stars { color: var(--star); letter-spacing: 1px; }
+
+  /* ---- sections */
+  section { border-bottom: 1px solid var(--hair); padding: 30px 0; }
+  section:last-of-type { border-bottom: none; }
+  h2 { font-size: 21px; font-weight: 700; margin-bottom: 14px; }
+
+  /* ---- screenshots */
+  .shots { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px;
+           scroll-snap-type: x mandatory; }
+  .shots img {
+    height: 256px; border-radius: 14px; border: 0.5px solid rgba(0,0,0,0.15);
+    scroll-snap-align: start; flex: none;
+  }
+  .shots-hint { color: var(--faint); font-size: 12px; margin-top: 6px; }
+
+  /* ---- description */
+  .desc { font-size: 15px; white-space: pre-wrap; max-width: 760px; }
+  .desc b { font-weight: 650; }
+
+  /* ---- what's new */
+  .vn { display: flex; justify-content: space-between; color: var(--faint); font-size: 13px; max-width: 760px; margin-bottom: 8px; }
+
+  /* ---- ratings */
+  .rate-top { display: flex; align-items: flex-end; gap: 30px; flex-wrap: wrap; }
+  .rate-big { font-size: 56px; font-weight: 800; line-height: 1; }
+  .rate-big small { display: block; font-size: 14px; color: var(--faint); font-weight: 400; margin-top: 4px; }
+  .bars { flex: 1; min-width: 220px; max-width: 360px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  .bar-row .s { color: var(--faint); font-size: 11px; width: 56px; text-align: right; letter-spacing: 1px; }
+  .bar { flex: 1; height: 7px; background: #e8e8ed; border-radius: 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: #8e8e93; border-radius: 4px; }
+  .reviews { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 22px; }
+  .rev { background: var(--card); border-radius: 14px; padding: 16px 18px; }
+  .rev h3 { font-size: 14px; font-weight: 650; }
+  .rev .meta { display: flex; justify-content: space-between; color: var(--faint); font-size: 12px; margin: 4px 0 8px; }
+  .rev p { font-size: 13.5px; color: var(--text); }
+
+  /* ---- privacy + info */
+  .privacy-card { background: var(--card); border-radius: 14px; padding: 20px 22px; max-width: 420px; }
+  .privacy-card .big { font-size: 17px; font-weight: 650; }
+  .privacy-card p { color: var(--dim); font-size: 13px; margin-top: 6px; }
+  .info { max-width: 760px; }
+  .info-row { display: flex; justify-content: space-between; gap: 20px; padding: 10px 0; border-bottom: 1px solid #ebebf0; font-size: 14px; }
+  .info-row:last-child { border-bottom: none; }
+  .info-row .k { color: var(--faint); flex: none; width: 150px; }
+  .info-row .v { text-align: right; flex: 1; color: var(--text); }
+  .iap-list { list-style: none; text-align: right; }
+  .iap-list li span { color: var(--faint); margin-left: 10px; }
+
+  .mocknote {
+    margin-top: 44px; padding: 14px 18px; background: #fffbea; border: 1px solid #f0e6c0;
+    border-radius: 10px; color: #7a6a33; font-size: 12.5px; max-width: 760px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="crumb">App Store &rsaquo; Games &rsaquo; Card &nbsp;&bull;&nbsp; <a href="../">internal design version</a></div>
+
+  <div class="hdr">
+    <img class="icon" src="../icon-1024.jpg" alt="Dead Man's Hand app icon — two weathered eights on a saloon table" />
+    <div class="hdr-right">
+      <h1>Dead Man's Hand: Poker Coach</h1>
+      <div class="subtitle">Learn Texas Hold'em. Offline.</div>
+      <div class="seller">Simmo Games</div>
+      <div class="rank">#4 in Card</div>
+      <div class="buy-row">
+        <a class="get" href="../../" title="Opens the playable branch build">GET</a>
+        <span class="iap-note">Offers In-App Purchases</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="t">312 Ratings</div><div class="v">4.8</div><div class="u stars">★★★★★</div></div>
+    <div class="stat"><div class="t">Age</div><div class="v">17+</div><div class="u">Years Old</div></div>
+    <div class="stat"><div class="t">Chart</div><div class="v">#4</div><div class="u">Card</div></div>
+    <div class="stat"><div class="t">Size</div><div class="v">487</div><div class="u">MB</div></div>
+    <div class="stat"><div class="t">Language</div><div class="v">EN</div><div class="u">English</div></div>
+  </div>
+
+  <section>
+    <h2>iPhone Screenshots</h2>
+    <div class="shots">
+      <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/01-cinematic-holdem.jpg" alt="Dead Man's Hand splash art" loading="lazy" />
+      <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/02-what-would-ai-do.jpg" alt="What would AI do — live advisor" loading="lazy" />
+      <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/03-poker-coach.jpg" alt="Maximilian's hand review" loading="lazy" />
+      <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/04-key-decision.jpg" alt="Tommy Gunn's key decision" loading="lazy" />
+      <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/05-octagon.jpg" alt="The Octagon table" loading="lazy" />
+      <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/06-saloon.jpg" alt="Saloon all-in" loading="lazy" />
+      <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/07-octagon-advice.jpg" alt="Octagon raise advice" loading="lazy" />
+      <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/08-learn-from-scratch.jpg" alt="Hand rankings chart" loading="lazy" />
+      <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/09-win-the-table.jpg" alt="Win celebration" loading="lazy" />
+    </div>
+    <div class="shots-hint">Scroll for more &rarr;</div>
+  </section>
+
+  <section>
+    <div class="desc"><b>The poker game that teaches you poker.</b>
+
+Pull up a chair in a smoky frontier saloon — or at a felt table pitched in the middle of a fight cage — and play Texas Hold'em against five outlaws with real personalities. No accounts. No ads between hands. No real-money bets. Just you, the cards, and a coach in your corner.
+
+<b>A COACH IN YOUR CORNER</b>
+After any hand, ask the table coach for a review. Maximilian — the eye-patch bandit holding court at the saloon bar — walks you through why you won or lost, shows the key decision, and leaves you with one thing to try next time. Play the Octagon and Tommy Gunn does the same from inside the cage. Set the coach to review every hand, only notable hands, or stay quiet until you ask.
+
+<b>STUCK? ASK "WHAT WOULD AI DO?"</b>
+On your turn, one tap reveals what a card-counting pro would do with your exact cards: the recommended action, your estimated equity, the pot odds, and a plain-English reason. Use it as training wheels, check it after you've decided, or leave it alone and play your own game.
+
+<b>LEARN FROM SCRATCH</b>
+Never played Hold'em? The rules and the full hand-rankings chart are one tap away, even mid-hand. Start by tapping "What would AI do?" every turn; within a session you'll be reading the board on your own.
+
+<b>FIVE RIVALS WITH REAL PERSONALITIES</b>
+Nickey 2-guns, Tommy Gunn, Stevie Wanders, Jimmy two-hands and Simmo Says play like people, not slot machines: some tight, some reckless, some on tilt after a bad beat. They bluff, they have tells — and sometimes the tells are lies. The AI makes decisions with genuine card mathematics plus human-like noise. It never sees your cards.
+
+<b>EXTRAORDINARY PLACES</b>
+Every table is a seat in a living 3D scene — chips riffle, cards slide, characters watch you across the felt.
+• THE SALOON — brass taps, bottle-lined shelves, frontier hospitality.
+• THE OCTAGON — heavyweight bruisers playing cards where they usually throw hands.
+More environments are on the way as one-time packs: new table, new cast, new coach.
+
+<b>HONEST OFFLINE POKER</b>
+• Single player, offline-first: plays on a plane, in a tunnel, anywhere.
+• No account, no sign-in, nothing to subscribe to.
+• Chips are play money and always will be. We sell places, never chips.
+• Real poker rules: blinds, side pots, split pots, min-raise tracking, heads-up play — the engine is validated by a 10,000-hand simulation every release.
+
+Shuffle up. The table's waiting, and the coach is buying.</div>
+  </section>
+
+  <section>
+    <h2>What's New</h2>
+    <div class="vn"><span>Version 1.0</span><span>13 Nov 2026</span></div>
+    <div class="desc">First deal. Two places to play — the Saloon and the Octagon — five rivals, and a coach at each table. Tell us what you'd like reviewed next: the reviews decide what we build.</div>
+  </section>
+
+  <section>
+    <h2>Ratings &amp; Reviews</h2>
+    <div class="rate-top">
+      <div class="rate-big">4.8<small>out of 5 &bull; 312 Ratings</small></div>
+      <div class="bars">
+        <div class="bar-row"><span class="s stars">★★★★★</span><div class="bar"><i style="width:84%"></i></div></div>
+        <div class="bar-row"><span class="s stars">★★★★</span><div class="bar"><i style="width:11%"></i></div></div>
+        <div class="bar-row"><span class="s stars">★★★</span><div class="bar"><i style="width:3%"></i></div></div>
+        <div class="bar-row"><span class="s stars">★★</span><div class="bar"><i style="width:1%"></i></div></div>
+        <div class="bar-row"><span class="s stars">★</span><div class="bar"><i style="width:1%"></i></div></div>
+      </div>
+    </div>
+    <div class="reviews">
+      <div class="rev">
+        <h3>Finally understand pot odds</h3>
+        <div class="meta"><span class="stars">★★★★★</span><span>RiverRatJules</span></div>
+        <p>Years of home games and I never knew why I kept losing with "good" hands. Tapped "What would AI do?" for one evening and it clicked — the equity number next to the pot odds just explains itself. My mates have noticed.</p>
+      </div>
+      <div class="rev">
+        <h3>The coach is the game</h3>
+        <div class="meta"><span class="stars">★★★★★</span><span>TinHorn_Pete</span></div>
+        <p>Maximilian telling me a losing call was still the right price changed how I think about the game more than any video ever did. Set him to review notable hands only — perfect balance. The saloon looks unreal on an iPhone.</p>
+      </div>
+      <div class="rev">
+        <h3>Great offline, want more worlds</h3>
+        <div class="meta"><span class="stars">★★★★</span><span>CommuterCardshark</span></div>
+        <p>Plays flawlessly on the tube with zero signal and zero ads, which basically no card game manages. The Octagon cast made me laugh out loud. One request: more environments, faster. I'll buy every pack.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>App Privacy</h2>
+    <div class="privacy-card">
+      <div class="big">Data Not Collected</div>
+      <p>The developer does not collect any data from this app. No account, no tracking, no third-party SDKs — the game is fully playable offline.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Information</h2>
+    <div class="info">
+      <div class="info-row"><span class="k">Seller</span><span class="v">Simmo Games</span></div>
+      <div class="info-row"><span class="k">Size</span><span class="v">487.3 MB</span></div>
+      <div class="info-row"><span class="k">Category</span><span class="v">Games — Card</span></div>
+      <div class="info-row"><span class="k">Compatibility</span><span class="v">Requires iOS 16.0 or later. Compatible with iPhone and iPad.</span></div>
+      <div class="info-row"><span class="k">Languages</span><span class="v">English</span></div>
+      <div class="info-row"><span class="k">Age Rating</span><span class="v">17+ — Frequent/Intense Simulated Gambling</span></div>
+      <div class="info-row"><span class="k">Price</span><span class="v">Free</span></div>
+      <div class="info-row"><span class="k">In-App Purchases</span>
+        <ul class="iap-list v">
+          <li>The Octagon — Table &amp; Coach <span>£3.99</span></li>
+          <li>Chicago 1926 — Table &amp; Coach <span>£3.99</span></li>
+          <li>Everything Bundle <span>£7.99</span></li>
+        </ul>
+      </div>
+      <div class="info-row"><span class="k">Copyright</span><span class="v">© 2026 Simmo Games</span></div>
+    </div>
+  </section>
+
+  <div class="mocknote">
+    <b>Design mockup.</b> This page shows how the listing would appear to a player on the App Store.
+    Ratings, reviews, chart position, size, seller name and prices are illustrative placeholders —
+    the metadata, description, icon and screenshots are the real proposed assets. The GET button
+    opens the playable web build of this branch.
+  </div>
+
+</div>
+</body>
+</html>
