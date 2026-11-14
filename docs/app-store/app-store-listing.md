@@ -258,11 +258,12 @@ re-record on-device for the shipping versions.
 A third video, `trailer.mp4` (30 s, 1280×720), is a cinematic marketing
 trailer in the Red Dead Redemption vein rather than an App Store preview:
 smash-cut animated titles ("IN A TOWN WITHOUT MERCY" → "EVERY HAND …IS A
-SHOWDOWN" → "SOME PLAY ROUGH" → "FROM THE SALOON TO THE OCTAGON" → "LEARN
-FROM A LEGEND" → "WIN IT ALL" → "DOWNLOAD NOW" end card), a gunfight duel
-and a saloon brawl as painted stills with Ken Burns moves and impact shake,
-intercut with real gameplay, finished with film grain, vignette and
-letterbox bars. Use it for the web, social and ads; App Store previews must
+SHOWDOWN" → "SOME PLAY ROUGH" → "FROM THE SALOON TO THE OCTAGON" → "SOME
+HIT HARDER" → "LEARN FROM A LEGEND" → "WIN IT ALL" → "DOWNLOAD NOW" end
+card), a gunfight duel, a saloon brawl and an octagon cage fight as painted
+stills with Ken Burns moves and impact shake, intercut with real gameplay
+(every gameplay shot carries a slow camera push), finished with film grain,
+vignette and letterbox bars. Use it for the web, social and ads; App Store previews must
 show primarily captured gameplay, so keep the two drafts above for the
 listing itself.
 
