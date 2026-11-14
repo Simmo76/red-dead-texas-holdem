@@ -247,6 +247,14 @@ Autoplays muted in search — must work silently; captions carry the story.
 One preview per device size, captured in-engine, no hands/UI overlays beyond
 the game's own.
 
+Two realised drafts (cut from real gameplay recordings, 24–29 s, silent)
+ship with the player-facing mockup at
+`Web/CinematicPoker.Web/wwwroot/appstore-design/store/`: `preview-saloon.mp4`
+(title → deal → flop → "What would AI do?" → river → showdown → coach review)
+and `preview-octagon.mp4` (title → cage deal → betting → advisor → two-pair
+showdown → $2,104 pot award). They follow the storyboard below in miniature;
+re-record on-device for the shipping versions.
+
 | Time | Shot | On-screen text |
 |---|---|---|
 | 0–3 s | Saloon establishing orbit: table, chips, five characters | — |

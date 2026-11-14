@@ -60,14 +60,21 @@
   section:last-of-type { border-bottom: none; }
   h2 { font-size: 21px; font-weight: 700; margin-bottom: 14px; }
 
-  /* ---- screenshots */
+  /* ---- app previews + screenshots. Landscape media is wider than a phone
+     in portrait, so each item is capped to the viewport width and snaps,
+     instead of a fixed height that would overflow and get cut off. */
   .shots { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px;
-           scroll-snap-type: x mandatory; }
-  .shots img {
-    height: 256px; border-radius: 14px; border: 0.5px solid rgba(0,0,0,0.15);
-    scroll-snap-align: start; flex: none;
+           scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+  .shots img, .shots video {
+    width: min(557px, 88vw); height: auto;
+    border-radius: 14px; border: 0.5px solid rgba(0,0,0,0.15);
+    scroll-snap-align: start; flex: none; display: block; background: #000;
   }
   .shots-hint { color: var(--faint); font-size: 12px; margin-top: 6px; }
+  .preview-badge {
+    color: var(--faint); font-size: 11px; font-weight: 600; letter-spacing: 0.4px;
+    text-transform: uppercase; margin-bottom: 6px;
+  }
 
   /* ---- description */
   .desc { font-size: 15px; white-space: pre-wrap; max-width: 760px; }
@@ -137,8 +144,13 @@
   </div>
 
   <section>
-    <h2>iPhone Screenshots</h2>
+    <h2>Previews &amp; Screenshots</h2>
+    <div class="preview-badge">App previews play first, with sound off — just like the App Store</div>
     <div class="shots">
+      <video src="preview-saloon.mp4" autoplay muted loop playsinline controls
+             aria-label="App preview — a cinematic hand of Texas Hold'em in the Saloon"></video>
+      <video src="preview-octagon.mp4" muted loop playsinline controls
+             aria-label="App preview — poker in the Octagon cage with the live advisor"></video>
       <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/01-cinematic-holdem.jpg" alt="Dead Man's Hand splash art" loading="lazy" />
       <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/02-what-would-ai-do.jpg" alt="What would AI do — live advisor" loading="lazy" />
       <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/03-poker-coach.jpg" alt="Maximilian's hand review" loading="lazy" />
