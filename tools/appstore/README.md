@@ -21,3 +21,11 @@ curl -sL "https://fonts.googleapis.com/css2?family=Rye" -A "Mozilla/5.0" \
 ```
 
 The committed set lives in `docs/app-store/screenshots/`.
+
+- `trailer-audio.js` — renders the 30 s soundtrack for the cinematic
+  trailer (`wwwroot/appstore-design/store/trailer.mp4`) as
+  `trailer-audio.wav`: a synthesized spaghetti-western score (gallop
+  percussion, Karplus-Strong guitar, whistle lead, tremolo pad) with
+  gunshots, punches and a braaam placed on the trailer's cut points.
+  Pure Node, no dependencies. Mux onto the silent trailer video with
+  `ffmpeg -i trailer.mp4 -i trailer-audio.wav -c:v copy -c:a aac -b:a 160k -shortest out.mp4`.
