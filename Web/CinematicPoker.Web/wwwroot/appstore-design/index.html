@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Dead Man's Hand — Apple App Store Listing Design</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Rye&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0c0a08; --panel: #171007; --panel2: #1d1509;
+    --gold: #e8c87a; --gold-dim: #a8853e; --red: #d87a6a;
+    --text: #e9ddc8; --text-dim: #a89878; --green: #2e7d5b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 48px 24px 90px; }
+  .kicker { color: var(--red); letter-spacing: 5px; font-size: 13px; font-weight: bold; text-align: center; }
+  h1 {
+    font-family: 'Rye', Georgia, serif; color: var(--gold);
+    font-size: clamp(30px, 5.5vw, 52px); text-align: center;
+    letter-spacing: 2px; margin-top: 10px; font-weight: 400;
+  }
+  .sub { text-align: center; color: var(--text-dim); font-style: italic; margin-top: 8px; }
+  .rule { width: 140px; height: 2px; margin: 26px auto;
+          background: linear-gradient(to right, transparent, var(--gold-dim), transparent); }
+  h2 {
+    font-family: 'Rye', Georgia, serif; color: var(--gold); font-weight: 400;
+    font-size: 26px; letter-spacing: 1.5px; margin: 64px 0 6px;
+  }
+  h2 .no { color: var(--gold-dim); margin-right: 10px; }
+  .lede { color: var(--text-dim); margin-bottom: 22px; }
+  p { margin: 12px 0; }
+  b { color: var(--gold); font-weight: bold; }
+  a { color: var(--red); }
+  table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 15px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #2a2014; vertical-align: top; }
+  th { color: var(--gold-dim); letter-spacing: 2px; font-size: 12px; font-weight: bold; }
+  td.k { color: var(--text-dim); white-space: nowrap; width: 170px; }
+  .chars { color: var(--text-dim); font-size: 12.5px; white-space: nowrap; }
+  .val { color: var(--gold); font-size: 17px; }
+  code {
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px;
+    background: var(--panel); border: 1px solid #2a2014; border-radius: 4px; padding: 2px 6px;
+    color: var(--text);
+  }
+  .pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 22px 0; }
+  .pillar { background: var(--panel); border: 1px solid #2a2014; border-radius: 10px; padding: 18px 20px; }
+  .pillar h3 { color: var(--gold); font-size: 16px; letter-spacing: 1px; margin-bottom: 6px; }
+  .pillar p { color: var(--text-dim); font-size: 14.5px; margin: 0; }
+  .desc {
+    background: var(--panel); border: 1px solid var(--gold-dim); border-radius: 12px;
+    padding: 26px 30px; margin: 20px 0; white-space: pre-wrap; font-size: 15px;
+  }
+  .shot { margin: 42px 0; }
+  .shot img {
+    width: 100%; border-radius: 12px; border: 1px solid #3a2c18; display: block;
+  }
+  .shot .meta { display: flex; gap: 14px; align-items: baseline; margin: 0 2px 10px; flex-wrap: wrap; }
+  .shot .slot {
+    font-family: 'Rye', Georgia, serif; color: var(--gold); font-size: 22px; min-width: 30px;
+  }
+  .shot .cap { color: var(--text); font-size: 16px; }
+  .shot .why { color: var(--text-dim); font-size: 13.5px; font-style: italic; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid2 figure img { width: 100%; border-radius: 10px; border: 1px solid #3a2c18; display: block; }
+  .grid2 figcaption { color: var(--text-dim); font-size: 13px; margin-top: 6px; text-align: center; }
+  @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+  .note {
+    border-left: 3px solid var(--gold-dim); background: var(--panel);
+    padding: 14px 18px; margin: 18px 0; color: var(--text-dim); font-size: 14.5px;
+  }
+  footer { margin-top: 70px; text-align: center; color: var(--text-dim); font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="kicker">DEAD MAN'S HAND &bull; TEXAS HOLD'EM POKER</div>
+  <h1>Apple App Store Listing Design</h1>
+  <p class="sub">Positioning, store metadata and a produced screenshot set &mdash; captured from the real game in the Saloon and the Octagon, led by the Poker Coach and the learning features.</p>
+  <p class="sub">Also see the <a href="store/">player-facing App Store page mockup</a> &mdash; the listing as a player would see it.</p>
+  <div class="rule"></div>
+
+  <h2><span class="no">1.</span>Positioning</h2>
+  <p class="lede">One-line pitch: <b>the poker game that teaches you poker</b> &mdash; cinematic Texas Hold'em against five characterful AI outlaws, with a coach in your corner, entirely offline.</p>
+  <div class="pillars">
+    <div class="pillar">
+      <h3>LEARN AS YOU PLAY</h3>
+      <p>A tap-to-ask &ldquo;What would AI do?&rdquo; advisor on your turn (action, equity, pot odds, a plain-English reason) and a post-hand Poker Coach &mdash; Maximilian in the Saloon, Tommy Gunn in the Octagon &mdash; who reviews why you won or lost.</p>
+    </div>
+    <div class="pillar">
+      <h3>EXTRAORDINARY PLACES</h3>
+      <p>Cinematic 3D tables with seated presence: the old-west Saloon and the cage-fighting Octagon, each with its own cast, coach, audio and atmosphere. More environments ship as one-time packs.</p>
+    </div>
+    <div class="pillar">
+      <h3>HONEST OFFLINE POKER</h3>
+      <p>Single player, no account, no server, no real-money wagering, chips never for sale. Works on a plane. &ldquo;Data Not Collected&rdquo; privacy label.</p>
+    </div>
+  </div>
+
+  <h2><span class="no">2.</span>Store metadata</h2>
+  <p class="lede">Every field fits App Store Connect's limits. &ldquo;Poker&rdquo; and &ldquo;coach&rdquo; live in the name, the learning promise in the subtitle, so the keyword string is free for secondary terms.</p>
+  <table>
+    <tr><td class="k">App name</td><td><span class="val">Dead Man's Hand: Poker Coach</span> <span class="chars">28 / 30</span></td></tr>
+    <tr><td class="k">Subtitle</td><td><span class="val">Learn Texas Hold'em. Offline.</span> <span class="chars">29 / 30</span></td></tr>
+    <tr><td class="k">Promotional text</td><td>Sit down with five outlaws, let the table coach review every hand, and learn to think in equity and pot odds. Fully offline &mdash; no account, no real-money bets. <span class="chars">157 / 170</span></td></tr>
+    <tr><td class="k">Keywords</td><td><code>holdem,cards,saloon,western,cowboy,octagon,odds,equity,strategy,trainer,bluff,tells,solo,ai,chips</code> <span class="chars">97 / 100</span></td></tr>
+    <tr><td class="k">Categories</td><td>Games &rarr; Card (primary), Games &rarr; Casino (secondary)</td></tr>
+    <tr><td class="k">Age rating</td><td>Simulated gambling answered honestly (frequent) &rarr; 17+. No other flags.</td></tr>
+    <tr><td class="k">Privacy label</td><td><b>Data Not Collected</b> &mdash; offline-first, no account, no third-party SDKs at launch.</td></tr>
+    <tr><td class="k">Pricing</td><td>Free. Non-consumable environment-pack IAPs (e.g. <code>The Octagon &mdash; Table &amp; Coach</code>), bundle later. No chips for sale, ever.</td></tr>
+  </table>
+
+  <h2><span class="no">3.</span>Description</h2>
+  <p class="lede">~2,340 of 4,000 characters &mdash; room left for localisation growth and a future environment list.</p>
+  <div class="desc"><b>The poker game that teaches you poker.</b>
+
+Pull up a chair in a smoky frontier saloon &mdash; or at a felt table pitched in the middle of a fight cage &mdash; and play Texas Hold'em against five outlaws with real personalities. No accounts. No ads between hands. No real-money bets. Just you, the cards, and a coach in your corner.
+
+<b>A COACH IN YOUR CORNER</b>
+After any hand, ask the table coach for a review. Maximilian &mdash; the eye-patch bandit holding court at the saloon bar &mdash; walks you through why you won or lost, shows the key decision, and leaves you with one thing to try next time. Play the Octagon and Tommy Gunn does the same from inside the cage. Set the coach to review every hand, only notable hands, or stay quiet until you ask.
+
+<b>STUCK? ASK &ldquo;WHAT WOULD AI DO?&rdquo;</b>
+On your turn, one tap reveals what a card-counting pro would do with your exact cards: the recommended action, your estimated equity, the pot odds, and a plain-English reason. Use it as training wheels, check it after you've decided, or leave it alone and play your own game.
+
+<b>LEARN FROM SCRATCH</b>
+Never played Hold'em? The rules and the full hand-rankings chart are one tap away, even mid-hand. Start by tapping &ldquo;What would AI do?&rdquo; every turn; within a session you'll be reading the board on your own.
+
+<b>FIVE RIVALS WITH REAL PERSONALITIES</b>
+Nickey 2-guns, Tommy Gunn, Stevie Wanders, Jimmy two-hands and Simmo Says play like people, not slot machines: some tight, some reckless, some on tilt after a bad beat. They bluff, they have tells &mdash; and sometimes the tells are lies. The AI makes decisions with genuine card mathematics plus human-like noise. It never sees your cards.
+
+<b>EXTRAORDINARY PLACES</b>
+Every table is a seat in a living 3D scene &mdash; chips riffle, cards slide, characters watch you across the felt.
+&bull; THE SALOON &mdash; brass taps, bottle-lined shelves, frontier hospitality.
+&bull; THE OCTAGON &mdash; heavyweight bruisers playing cards where they usually throw hands.
+More environments are on the way as one-time packs: new table, new cast, new coach.
+
+<b>HONEST OFFLINE POKER</b>
+&bull; Single player, offline-first: plays on a plane, in a tunnel, anywhere.
+&bull; No account, no sign-in, nothing to subscribe to.
+&bull; Chips are play money and always will be. We sell places, never chips.
+&bull; Real poker rules: blinds, side pots, split pots, min-raise tracking, heads-up play &mdash; the engine is validated by a 10,000-hand simulation every release.
+
+Shuffle up. The table's waiting, and the coach is buying.</div>
+
+  <h2><span class="no">4.</span>Screenshot set &mdash; iPhone 6.9&Prime; (2868&times;1320)</h2>
+  <p class="lede">Real captures from the current build. Apple shows the first three screenshots in search results, so the brand panel, the live advisor and the coach take those slots. Grey translucent characters are folded players &mdash; the game's &ldquo;ghost&rdquo; treatment &mdash; kept deliberately so hands read as in-progress.</p>
+
+  <div class="shot">
+    <div class="meta"><span class="slot">1</span><span class="cap">Brand hero &mdash; the splash art carries the title; the kicker does the positioning.</span><span class="why">Instant genre read in search results.</span></div>
+    <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/01-cinematic-holdem.jpg" alt="Panel 1 — splash art hero" loading="lazy" />
+  </div>
+  <div class="shot">
+    <div class="meta"><span class="slot">2</span><span class="cap">&ldquo;What would AI do?&rdquo; &mdash; live equity, pot odds and a plain-English reason on any turn.</span><span class="why">The #1 differentiator, shown not told.</span></div>
+    <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/02-what-would-ai-do.jpg" alt="Panel 2 — live AI advisor in the Saloon" loading="lazy" />
+  </div>
+  <div class="shot">
+    <div class="meta"><span class="slot">3</span><span class="cap">The Poker Coach &mdash; Maximilian reviews why you won or lost, with one thing to try.</span><span class="why">Completes the search-results trio.</span></div>
+    <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/03-poker-coach.jpg" alt="Panel 3 — Maximilian's hand review" loading="lazy" />
+  </div>
+  <div class="shot">
+    <div class="meta"><span class="slot">4</span><span class="cap">Replay the key decision &mdash; Tommy Gunn, street, board and the numbers behind the advice.</span><span class="why">Depth for the convinced scroller; introduces the second coach.</span></div>
+    <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/04-key-decision.jpg" alt="Panel 4 — Tommy Gunn's key decision breakdown" loading="lazy" />
+  </div>
+  <div class="shot">
+    <div class="meta"><span class="slot">5</span><span class="cap">Step into the Octagon &mdash; heavyweights at the table, Tommy Gunn in your corner.</span><span class="why">The second environment as a reveal.</span></div>
+    <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/05-octagon.jpg" alt="Panel 5 — Octagon table action" loading="lazy" />
+  </div>
+  <div class="shot">
+    <div class="meta"><span class="slot">6</span><span class="cap">Go all-in in the old Saloon &mdash; five rivals with real personalities, tells and tilt.</span><span class="why">Core gameplay drama.</span></div>
+    <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/06-saloon.jpg" alt="Panel 6 — Saloon river decision" loading="lazy" />
+  </div>
+  <div class="shot">
+    <div class="meta"><span class="slot">7</span><span class="cap">Know when to raise for value &mdash; the advisor teaches you to think in odds, in every world.</span><span class="why">Learning works everywhere; an aggressive, fun recommendation.</span></div>
+    <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/07-octagon-advice.jpg" alt="Panel 7 — Octagon advisor recommending a raise" loading="lazy" />
+  </div>
+  <div class="shot">
+    <div class="meta"><span class="slot">8</span><span class="cap">Rules &amp; hand rankings built in &mdash; one tap away, mid-hand.</span><span class="why">Welcomes total beginners.</span></div>
+    <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/08-learn-from-scratch.jpg" alt="Panel 8 — hand rankings chart" loading="lazy" />
+  </div>
+  <div class="shot">
+    <div class="meta"><span class="slot">9</span><span class="cap">Outplay the table &mdash; no account, no ads between hands, chips never cost a cent.</span><span class="why">Payoff shot + the trust/ethics close.</span></div>
+    <img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/iphone-6.9/09-win-the-table.jpg" alt="Panel 9 — win celebration" loading="lazy" />
+  </div>
+
+  <h2><span class="no">5.</span>iPad 13&Prime; set (2752&times;2064)</h2>
+  <p class="lede">Same nine panels reframed for the iPad listing: captioned header, gold-framed capture on a card-suit watermark.</p>
+  <div class="grid2">
+    <figure><img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/ipad-13/02-what-would-ai-do.jpg" alt="iPad panel — advisor" loading="lazy" /><figcaption>2 &mdash; the live advisor</figcaption></figure>
+    <figure><img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/ipad-13/03-poker-coach.jpg" alt="iPad panel — coach" loading="lazy" /><figcaption>3 &mdash; the Poker Coach</figcaption></figure>
+    <figure><img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/ipad-13/05-octagon.jpg" alt="iPad panel — Octagon" loading="lazy" /><figcaption>5 &mdash; the Octagon</figcaption></figure>
+    <figure><img src="https://raw.githubusercontent.com/Simmo76/red-dead-texas-holdem/d4bb14a4b36edc08798042c20813494b8fd35869/docs/app-store/screenshots/ipad-13/09-win-the-table.jpg" alt="iPad panel — win" loading="lazy" /><figcaption>9 &mdash; the close</figcaption></figure>
+  </div>
+  <p class="note">All 18 final JPEGs (both device sizes) live in the repo at <code>docs/app-store/screenshots/</code>; the full rationale, App Review notes, preview-video storyboard and icon direction are in <code>docs/app-store/app-store-listing.md</code>.</p>
+
+  <h2><span class="no">6.</span>App preview video &mdash; 30&nbsp;s storyboard</h2>
+  <table>
+    <tr><th>TIME</th><th>SHOT</th><th>ON-SCREEN TEXT</th></tr>
+    <tr><td class="k">0&ndash;3 s</td><td>Saloon establishing orbit: table, chips, five characters</td><td>&mdash;</td></tr>
+    <tr><td class="k">3&ndash;7 s</td><td>Hole cards dealt, camera settles into the player's seat</td><td>&ldquo;TEXAS HOLD'EM, SOMEWHERE WORTH SITTING&rdquo;</td></tr>
+    <tr><td class="k">7&ndash;12 s</td><td>Tap &ldquo;WHAT WOULD AI DO?&rdquo; &rarr; advice expands; player raises</td><td>&ldquo;LEARN AS YOU PLAY&rdquo;</td></tr>
+    <tr><td class="k">12&ndash;17 s</td><td>Showdown win, chips slide over, sparkles</td><td>&mdash;</td></tr>
+    <tr><td class="k">17&ndash;23 s</td><td>The coach: Maximilian at the bar, hand review, key decision</td><td>&ldquo;EVERY HAND REVIEWED&rdquo;</td></tr>
+    <tr><td class="k">23&ndash;27 s</td><td>Smash cut: the Octagon &mdash; cage, fighters, Tommy Gunn</td><td>&ldquo;NEW WORLDS. SAME GAME. YOUR CORNER.&rdquo;</td></tr>
+    <tr><td class="k">27&ndash;30 s</td><td>Splash art with title</td><td>&ldquo;FREE &bull; OFFLINE &bull; NO REAL-MONEY BETS&rdquo;</td></tr>
+  </table>
+
+  <h2><span class="no">7.</span>App icon direction</h2>
+  <p>The dead man's hand itself &mdash; <b>aces and eights, fanned, on dark wood</b> with one gold-rim poker chip. No text (the name renders below the icon anyway); two big card pips and one warm light keep it readable at 60&times;60. Avoid character faces, felt-green backgrounds and the word &ldquo;poker&rdquo; in the icon. The splash art's foreground cards/chips crop is the exact source material.</p>
+
+  <footer>
+    <div class="rule"></div>
+    Dead Man's Hand &mdash; App Store listing design &bull;
+    <a href="store/">player-facing store page mockup</a> &bull;
+    <a href="https://github.com/Simmo76/red-dead-texas-holdem/pull/204">PR #204</a> &bull;
+    full design doc: <code>docs/app-store/app-store-listing.md</code>
+  </footer>
+</div>
+</body>
+</html>
