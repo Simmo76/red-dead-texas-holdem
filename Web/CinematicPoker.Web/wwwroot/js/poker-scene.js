@@ -2535,13 +2535,23 @@ async function buildScene(canvas) {
     positionHandCards();
     // Camera and the held fan are in their final pose for this frame. Fade
     // the hero only once that test can see whether his body covers the pair.
+    const heroMask = heroHoleCardsInHand();
     for (const seat of state.seats) if (seat.char) {
       if (seat.char.isPlayer) {
         seat.char.seeTarget = heldCardOcclusion(seat.char);
-        seat.char.maskHeldCards = heroHoleCardsInHand();
+        seat.char.maskHeldCards = heroMask;
       }
       seat.char.updateFold(dt);
     }
+    // Chips borrow the same stencil mask as the hero's fingers: the player's
+    // own rail stacks sit between the close-up camera and his held pair (the
+    // hand-zoom camera hovers just over them), and a giant chip covering your
+    // cards reads as a bug even though the depth is honest. While the pair is
+    // in hand it stamps HELD_CARD_STENCIL_REF, so masked chips simply skip
+    // those pixels and the cards always stay readable. The mask lifts when
+    // the pair lies on the felt (board close-up), where a nearer pot stack
+    // covering the cards is the correct picture.
+    for (const mat of _chipMats.values()) setHeldCardMask(mat, heroMask);
     resizeIfNeeded(canvas, renderer, camera);
     renderer.render(scene, camera);
   });
@@ -3495,6 +3505,15 @@ function positionHandCards() {
   for (const card of state.holeCards) {
     card.visible = handZoom || boardZoom || betZoom || !state.zoom.active;
   }
+  // The player's rail stack sits exactly where his palms hover (stack at
+  // radius 0.96, palms ~0.94), so in the hand close-up the chips physically
+  // interpenetrate his fingers right in front of the lens. The stack has no
+  // storytelling job in that shot — hide it for the duration, the same way
+  // the bet preview hides his committed chips. Enforced per frame because a
+  // snapshot can rebuild the group (visible) mid-zoom. The bet-preview hide
+  // (seat.chips) is owned by betPreview/endBetPreview and left alone here.
+  const seat0 = state.seats[0];
+  if (seat0 && seat0.stackChips) seat0.stackChips.visible = !handZoom;
 }
 
 // What a seat's spot on the felt should be showing for the given snapshot:
