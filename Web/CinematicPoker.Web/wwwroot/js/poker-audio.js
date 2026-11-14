@@ -123,11 +123,65 @@ window.pokerAudio = (function () {
 
     const BUTTON_SOUND_URL = 'audio/ui-click.wav';
 
+    // Rapid consecutive presses step the click up a semitone each (capped),
+    // resetting after a short idle gap — the coin-pickup trick: a quick run
+    // of taps becomes a little rising melody instead of a flat repeat.
+    const CLICK_COMBO_WINDOW_MS = 1000;
+    const CLICK_COMBO_MAX_STEPS = 4;
+    let lastClickAt = 0;
+    let clickComboStep = 0;
+
+    // iOS Safari has no vibrate API, but recent versions (iOS ~17.4+) fire
+    // the system haptic when a native switch control toggles inside a user
+    // gesture. A hidden switch clicked from the pointerdown handler therefore
+    // gives a real haptic tick on iPhone. Older iOS versions simply ignore
+    // the attribute and stay silent. Kept invisible via opacity (display:none
+    // would suppress the haptic).
+    let iosHapticSwitch = null;
+    function ensureIosHapticSwitch() {
+        if (iosHapticSwitch) return iosHapticSwitch;
+        try {
+            const el = document.createElement('input');
+            el.type = 'checkbox';
+            el.setAttribute('switch', '');
+            el.setAttribute('aria-hidden', 'true');
+            el.tabIndex = -1;
+            el.style.cssText =
+                'position:fixed;top:0;left:0;width:1px;height:1px;' +
+                'opacity:0;pointer-events:none;';
+            document.body.appendChild(el);
+            iosHapticSwitch = el;
+        } catch (e) { }
+        return iosHapticSwitch;
+    }
+
+    function hapticTap() {
+        if (navigator.vibrate) {
+            try { navigator.vibrate(10); return; } catch (e) { }
+        }
+        const el = ensureIosHapticSwitch();
+        if (el) { try { el.click(); } catch (e) { } }
+    }
+
     // Use the supplied click recording for every enabled button, including
     // buttons rendered by Blazor.
+    // The file peaks at -2.35 dBFS (0.763 linear), so gain must stay below
+    // ~1.3 or WebAudio clamps the peak and the click distorts; the old 1.6
+    // gain was clipping every press. Small per-press pitch/volume variance
+    // keeps repeats from sounding machine-identical (same trick as play()).
     function button() {
         if (muted) return;
-        playBuffer(BUTTON_SOUND_URL, 1.6, 1);
+        const now = Date.now();
+        clickComboStep = (now - lastClickAt <= CLICK_COMBO_WINDOW_MS)
+            ? Math.min(clickComboStep + 1, CLICK_COMBO_MAX_STEPS)
+            : 0;
+        lastClickAt = now;
+        const rate = Math.pow(2, clickComboStep / 12) * (0.97 + Math.random() * 0.06);
+        const volume = 1.1 + Math.random() * 0.15;
+        playBuffer(BUTTON_SOUND_URL, volume, rate);
+        // Pair the click with a tiny tap of haptics: Vibration API where it
+        // exists (Android Chrome), hidden-switch trick on iOS Safari.
+        hapticTap();
     }
 
     // Wikimedia Commons ragtime recordings, re-encoded to MP3 for iOS Safari.
@@ -488,6 +542,12 @@ window.pokerAudio = (function () {
             scheduleChatter();
         }, 20000 + Math.random() * 18000);
     })();
+
+    // Warm the click buffer at startup: decodeAudioData works on a suspended
+    // context, so by the time the first tap unlocks audio the buffer is ready
+    // and the very first press answers instantly instead of waiting on a
+    // fetch + decode round trip.
+    try { if (ensureCtx()) loadBuffer(BUTTON_SOUND_URL); } catch (e) { }
 
     return {
         play: play,

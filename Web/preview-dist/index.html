@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#0b0d12" />
+    <meta name="robots" content="noindex, nofollow" />
+    <!-- Desktop shortcuts / Home Screen apps otherwise keep a week-old
+         index.html (and its pinned ?v= script URLs) — ask browsers not to. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <!-- iOS: run fullscreen when added to the Home Screen -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Dead Man's Hand" />
+    <title>Dead Man's Hand</title>
+    <base href="/" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png?v=3" />
+    <link rel="icon" type="image/png" href="favicon.png?v=3" />
+    <!-- Western wood-type display face for the intro title. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Rye&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/app.css?v=41" />
+    <script>
+        // Paint the boot card for the saved level before the body renders.
+        // Selecting OCTAGON reloads, so this is the title the player comes back to.
+        (function () {
+            try {
+                if (localStorage.getItem('cinematic-poker-table-scene') === 'street')
+                    document.documentElement.classList.add('scene-street');
+            } catch (e) { }
+        })();
+    </script>
+    <script>
+        // Desktop / Home Screen installs cache index.html hard. Each deploy
+        // writes version.json with the git SHA; if that changes, drop Cache
+        // Storage and reload once so the new ?v= pins actually load.
+        (function () {
+            var KEY = 'dmh-deploy-version';
+            var FLAG = 'dmh-deploy-reload';
+            fetch('version.json', { cache: 'no-store' }).then(function (r) {
+                if (!r.ok) return null;
+                return r.json();
+            }).then(function (body) {
+                if (!body || !body.version) return;
+                var next = String(body.version);
+                var prev = null;
+                try { prev = localStorage.getItem(KEY); } catch (e) { }
+                if (prev && prev !== next) {
+                    try { localStorage.setItem(KEY, next); } catch (e) { }
+                    var already = false;
+                    try { already = sessionStorage.getItem(FLAG) === next; } catch (e) { }
+                    if (already) return;
+                    try { sessionStorage.setItem(FLAG, next); } catch (e) { }
+                    var reload = function () { location.reload(); };
+                    if (window.caches && caches.keys) {
+                        caches.keys().then(function (keys) {
+                            return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+                        }).then(reload, reload);
+                    } else {
+                        reload();
+                    }
+                    return;
+                }
+                try { localStorage.setItem(KEY, next); } catch (e) { }
+            }).catch(function () { /* offline / first paint — play with whatever we have */ });
+        })();
+    </script>
+</head>
+
+<body>
+    <div id="app">
+        <div class="boot-screen">
+            <div class="boot-title">DEAD MAN'S HAND</div>
+            <div class="boot-subtitle">TEXAS HOLD’EM POKER</div>
+            <div class="boot-sub">Shuffling up and dealing…</div>
+        </div>
+    </div>
+
+    <div class="rotate-lock" role="dialog" aria-label="Rotate your device">
+        <div class="rotate-lock-glyph" aria-hidden="true"></div>
+        <div class="rotate-lock-title">TURN YOUR PHONE</div>
+        <div class="rotate-lock-sub">Landscape only</div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "./js/vendor/three.module.min.js"
+        }
+    }
+    </script>
+    <script>
+        // The 3D table loads through the import map above, which iOS Safari
+        // only understands from 16.4 (and other browsers of the same era).
+        // Older devices would get a working HUD over a silent black void —
+        // reported back to us as "it just crashes". Tell them what to do
+        // instead.
+        (function () {
+            if (window.HTMLScriptElement && HTMLScriptElement.supports
+                && HTMLScriptElement.supports('importmap')) return;
+            document.addEventListener('DOMContentLoaded', function () {
+                var note = document.createElement('div');
+                note.setAttribute('role', 'alert');
+                note.style.cssText = 'position:fixed;inset:0;z-index:1000;display:flex;'
+                    + 'flex-direction:column;align-items:center;justify-content:center;'
+                    + 'gap:12px;padding:24px;text-align:center;background:#0b0d12;'
+                    + 'color:#e8dcc8;font-family:Georgia,serif;';
+                note.innerHTML = '<div style="font-size:1.6em;letter-spacing:0.08em;">DEAD MAN\'S HAND</div>'
+                    + '<div style="max-width:30em;opacity:0.85;">This saloon needs a newer browser than this device has. '
+                    + 'Update your phone\'s software (iPhone: iOS 16.4 or later), then come back and deal in.</div>';
+                document.body.appendChild(note);
+            });
+        })();
+    </script>
+    <!-- Bump ?v= on scene/audio changes so phones don't serve a stale cache. -->
+    <script src="js/poker-profile.js?v=1"></script>
+    <script src="js/poker-invite.js?v=4"></script>
+    <script>
+        // Local beta: the Blazor dev server runs on 5000 while the SignalR
+        // process runs on 5080. Production keeps both behind one origin.
+        if (!window.pokerRealtimeEndpoint && window.location.port === "5000")
+            window.pokerRealtimeEndpoint =
+                window.location.protocol + "//" + window.location.hostname + ":5080/gamehub";
+    </script>
+    <script src="js/vendor/signalr.min.js?v=1"></script>
+    <script src="js/poker-realtime.js?v=3"></script>
+    <script src="js/poker-usage.js?v=2"></script>
+    <script src="js/poker-session.js?v=2"></script>
+    <script src="js/poker-coach-store.js?v=3"></script>
+    <script src="js/poker-audio.js?v=21"></script>
+    <script src="js/poker-export.js?v=2"></script>
+    <script src="js/poker-screenshot.js?v=2"></script>
+    <script src="js/poker-hands-zoom.js?v=1"></script>
+    <script type="module" src="js/poker-scene.js?v=115"></script>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+
+</html>
