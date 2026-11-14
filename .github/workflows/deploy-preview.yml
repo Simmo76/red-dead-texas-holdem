@@ -55,6 +55,8 @@ jobs:
           BRANCH_SLUG="$(echo "${GITHUB_REF_NAME}" | tr '/' '-')"
           echo "slug=${BRANCH_SLUG}" >> "$GITHUB_OUTPUT"
           sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/preview/${BRANCH_SLUG}/\" />|" publish-preview/wwwroot/index.html
+          # Pages serves files verbatim; precompressed publish output is dead weight.
+          find publish-preview/wwwroot \( -name '*.br' -o -name '*.gz' \) -delete
           printf '{"version":"%s","built":"%s","preview":"%s","branch":"%s"}\n' \
             "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$BRANCH_SLUG" "$GITHUB_REF_NAME" \
             > publish-preview/wwwroot/version.json
@@ -104,6 +106,8 @@ jobs:
           REPO_NAME="${GITHUB_REPOSITORY#*/}"
           mkdir -p site
           cp -r publish-main/wwwroot/. site/
+          # Pages serves files verbatim; precompressed publish output is dead weight.
+          find site \( -name '*.br' -o -name '*.gz' \) -delete
           sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/\" />|" site/index.html
           MAIN_SHA="$(git -C main-src rev-parse HEAD)"
           printf '{"version":"%s","built":"%s"}\n' "$MAIN_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \

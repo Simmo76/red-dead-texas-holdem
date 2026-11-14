@@ -39,6 +39,8 @@ jobs:
         run: |
           REPO_NAME="${GITHUB_REPOSITORY#*/}"
           sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/\" />|" publish/wwwroot/index.html
+          # Pages serves files verbatim; precompressed publish output is dead weight.
+          find publish/wwwroot \( -name '*.br' -o -name '*.gz' \) -delete
           # Desktop shortcuts cache index.html for days; version.json is
           # fetched with cache: 'no-store' so a new SHA forces one reload.
           printf '{"version":"%s","built":"%s"}\n' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
