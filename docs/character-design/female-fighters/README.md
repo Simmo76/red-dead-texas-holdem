@@ -3,6 +3,16 @@
 The Arcade Fighters pack has no female characters, so the female fighters are
 generated. This folder holds the inputs for that pipeline.
 
+**Status: shipped.** The whole pipeline below was run through the Meshy API
+(Image-to-3D, then rigging on the `max_biped` skeleton template so the bones
+carry the same 3ds Max Biped names as the Arcade Fighters). The rigged sources
+live in `tools/assets/female-fighters/`, `tools/bake_female_fighters.py`
+retargets the poker animation catalogue onto them (run
+`blender --background --python tools/bake_female_fighters.py`), and the baked
+`FemaleFighter{1,2}.glb` sit in the octagon's `FIGHTER_URLS` rotation in
+`poker-scene.js`. To add another character, drop a new concept image through
+the same steps.
+
 ## Files
 
 | File | What it is |
