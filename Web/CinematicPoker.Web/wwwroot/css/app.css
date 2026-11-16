@@ -1155,7 +1155,7 @@ html.scene-street .boot-screen {
     color: var(--text-dim);
 }
 
-/* "What would AI do?" — Maximilian's advisor, at the left end of the row
+/* "Poker coach advice" — Maximilian's advisor, at the left end of the row
    above the FOLD button on the player's turn. Rests as a small title-bar
    button; tapping it reveals the advice, tapping again collapses it back
    to the button. */
