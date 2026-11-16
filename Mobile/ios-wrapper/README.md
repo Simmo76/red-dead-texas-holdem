@@ -84,12 +84,20 @@ macOS runner — trigger it from the repo's **Actions** tab. One-time setup:
 3. **App Store Connect API key**: Users and Access → Integrations →
    App Store Connect API → ＋. Role: App Manager. Note the **Key ID** and
    **Issuer ID**, download the `.p8` file (one chance only).
-4. **Apple Distribution certificate**: on any Mac, Xcode → Settings →
-   Accounts → your team → Manage Certificates → ＋ → Apple Distribution,
-   then export it from Keychain Access as a password-protected `.p12`
-   (Keychain Access → My Certificates → right-click the certificate →
-   Export). No Mac at all? `fastlane cert` on a borrowed machine or a
-   one-off cloud Mac works too.
+4. **Apple Distribution certificate — no Mac needed**: leave the
+   `DIST_CERT_*` secrets out entirely and the pipeline mints a fresh
+   Apple Distribution certificate through the App Store Connect API on
+   every run. Before minting it revokes previously minted distribution
+   certificates (their private keys only ever existed on discarded CI
+   runners, and Apple caps how many a team can hold) — this does **not**
+   affect builds already uploaded to TestFlight or the App Store. If the
+   certificate step fails with a permissions error, recreate the API key
+   from step 3 with the **Admin** role.
+   Alternatively, with a Mac: Xcode → Settings → Accounts → your team →
+   Manage Certificates → ＋ → Apple Distribution, export from Keychain
+   Access as a password-protected `.p12`, and set the two optional
+   secrets — the pipeline then uses your certificate and never revokes
+   anything.
 5. Add **repository secrets** (Settings → Secrets and variables → Actions):
 
    | Secret | Value |
@@ -97,9 +105,17 @@ macOS runner — trigger it from the repo's **Actions** tab. One-time setup:
    | `APPLE_TEAM_ID` | Team ID from the developer account membership page |
    | `ASC_KEY_ID` | API key ID from step 3 |
    | `ASC_ISSUER_ID` | Issuer ID from step 3 |
-   | `ASC_KEY_P8_BASE64` | `base64 -i AuthKey_XXXX.p8` |
-   | `DIST_CERT_P12_BASE64` | `base64 -i certificate.p12` |
-   | `DIST_CERT_PASSWORD` | The `.p12` export password |
+   | `ASC_KEY_P8_BASE64` | the `.p8` file, base64-encoded (see below) |
+   | `DIST_CERT_P12_BASE64` | *(optional)* `base64 -i certificate.p12` |
+   | `DIST_CERT_PASSWORD` | *(optional)* the `.p12` export password |
+
+   Base64-encoding the `.p8` without a Mac — PowerShell on Windows:
+
+   ```powershell
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("AuthKey_XXXX.p8")) | Set-Clipboard
+   ```
+
+   (macOS/Linux: `base64 -i AuthKey_XXXX.p8`.)
 
 6. Run the workflow. It publishes the Blazor app, syncs the iOS project,
    fetches/creates the App Store provisioning profile automatically, builds
