@@ -909,7 +909,7 @@
 
     // ---------------------------------------------------------- difficulty
 
-    private static readonly string[] DifficultyNames = { "AI EASY", "AI NORMAL", "AI HARD" };
+    private static readonly string[] DifficultyNames = { "AI EASY", "AI NORMAL" };
     private int _difficulty = 1; // NORMAL
 
     private void CycleDifficulty()
@@ -925,9 +925,10 @@
         }
     }
 
-    // Scales each personality's competence up or down without erasing what
+    // Scales each personality's competence down on EASY without erasing what
     // makes them distinct: aggression and tightness stay untouched, only the
-    // "how well do they actually play" parameters move.
+    // "how well do they actually play" parameters move. NORMAL uses the
+    // presets as authored.
     private AIProfile WithDifficulty(AIProfile p)
     {
         if (_difficulty == 0) // EASY: sloppier reads, more mistakes, tilts easily
@@ -940,16 +941,6 @@
             p.BluffFrequency *= 0.7;
             p.DecisionNoise = Math.Min(1, p.DecisionNoise + 0.15);
             p.TiltSensitivity = Math.Min(1, p.TiltSensitivity + 0.2);
-        }
-        else if (_difficulty == 2) // HARD: sharper reads, fewer mistakes, cool heads
-        {
-            p.Skill += (1 - p.Skill) * 0.55;
-            p.PotOddsAccuracy += (1 - p.PotOddsAccuracy) * 0.55;
-            p.HandReadingAbility += (1 - p.HandReadingAbility) * 0.55;
-            p.PositionAwareness += (1 - p.PositionAwareness) * 0.5;
-            p.OpponentAwareness += (1 - p.OpponentAwareness) * 0.5;
-            p.DecisionNoise *= 0.35;
-            p.TiltSensitivity *= 0.5;
         }
         return p;
     }
