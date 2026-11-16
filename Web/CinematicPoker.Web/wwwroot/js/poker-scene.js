@@ -212,10 +212,16 @@ const FIGHTER_SCALE = 1;
 // so the canvas stays flush with the table stand's foot.
 const STREET_ARENA_SCALE = 2.2;
 const STREET_BEAM_OPACITY = 0.25;
+// Ultra-lite tiers load only the first two entries, so that slice keeps one
+// male and one female fighter. The females are Meshy-generated on the
+// max_biped skeleton and carry the same retargeted poker catalogue
+// (see tools/bake_female_fighters.py and ASSET_LICENSES.md).
 const FIGHTER_URLS = [
   'models/characters/street/Fighter1.glb?v=3',
-  'models/characters/street/Fighter1-variation.glb?v=3',
+  'models/characters/street/FemaleFighter1.glb?v=1',
   'models/characters/street/Fighter2.glb?v=3',
+  'models/characters/street/FemaleFighter2.glb?v=1',
+  'models/characters/street/Fighter1-variation.glb?v=3',
   'models/characters/street/Fighter2-variation.glb?v=3',
 ];
 const TABLE_SCENE_KEY = 'cinematic-poker-table-scene';
@@ -2077,6 +2083,13 @@ async function buildScene(canvas) {
   const fighterOrder = [];
   while (streetScene && fighterOrder.length < SEATS) {
     fighterOrder.push(...shuffle(fighterUrls.map((_, i) => i)));
+  }
+  // Seat 0 is the player's own character and stays male: if the shuffle put
+  // a female fighter there, swap her with the first male further down.
+  const femaleFighter = (model) => /FemaleFighter/.test(fighterUrls[model]);
+  if (streetScene && femaleFighter(fighterOrder[0])) {
+    const male = fighterOrder.findIndex((model, i) => i > 0 && !femaleFighter(model));
+    [fighterOrder[0], fighterOrder[male]] = [fighterOrder[male], fighterOrder[0]];
   }
   const lineup = streetScene
     ? fighterOrder.slice(0, SEATS).map((model) => ({ kind: 'fighter', look: null, model }))
