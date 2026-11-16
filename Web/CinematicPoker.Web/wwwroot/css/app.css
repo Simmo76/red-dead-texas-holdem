@@ -1172,7 +1172,23 @@ html.scene-street .boot-screen {
 
 .ai-advice.collapsed {
     width: auto;
-    padding: 10px 17px;
+    padding: 7px 17px 7px 9px;
+}
+
+/* Maximilian's medallion sits at the left of the advisor button so the
+   coach is recognizably "who you're asking" before the advice opens. */
+.ai-advice-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ai-advice-icon {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    box-shadow: 0 1px 7px rgba(0, 0, 0, 0.6);
 }
 
 .ai-advice-title {
