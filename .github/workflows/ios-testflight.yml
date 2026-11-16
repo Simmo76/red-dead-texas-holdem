@@ -1,0 +1,61 @@
+name: iOS TestFlight Build
+
+# Builds the Capacitor iOS wrapper (Mobile/ios-wrapper) on a macOS runner,
+# signs it, and uploads it to TestFlight.
+#
+# Trigger manually from the Actions tab. One-time setup (see
+# Mobile/ios-wrapper/README.md "TestFlight builds from CI"):
+#   - Apple Developer Program membership
+#   - App record for com.cinematicpoker.app in App Store Connect
+#   - Repo secrets: APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID,
+#     ASC_KEY_P8_BASE64, DIST_CERT_P12_BASE64, DIST_CERT_PASSWORD
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-upload:
+    name: Build, sign and upload to TestFlight
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: Mobile/ios-wrapper
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Capacitor CLI
+        run: npm ci
+
+      - name: Publish Blazor app and stage web bundle
+        run: ./scripts/build-www.sh
+
+      - name: Sync web bundle into the iOS project
+        run: npx cap sync ios
+
+      - name: Build, sign and upload
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          DIST_CERT_P12_BASE64: ${{ secrets.DIST_CERT_P12_BASE64 }}
+          DIST_CERT_PASSWORD: ${{ secrets.DIST_CERT_PASSWORD }}
+        run: fastlane ios beta
+
+      - name: Upload .ipa as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CinematicPoker-iOS
+          path: Mobile/ios-wrapper/build/*.ipa
+          if-no-files-found: ignore

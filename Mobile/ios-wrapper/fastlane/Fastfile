@@ -1,0 +1,79 @@
+# TestFlight lane for the Capacitor iOS wrapper.
+#
+# Runs on CI (GitHub Actions macOS runner) with these environment variables:
+#   APPLE_TEAM_ID          Apple Developer Team ID (e.g. AB12CD34EF)
+#   ASC_KEY_ID             App Store Connect API key ID
+#   ASC_ISSUER_ID          App Store Connect API issuer ID
+#   ASC_KEY_P8_BASE64      The .p8 API key file, base64-encoded
+#   DIST_CERT_P12_BASE64   Apple Distribution certificate + private key (.p12), base64-encoded
+#   DIST_CERT_PASSWORD     Password of the .p12
+#
+# The App Store Connect app record for com.cinematicpoker.app must already
+# exist (creating it registers the bundle id; the provisioning profile is
+# then created/fetched automatically here).
+
+default_platform(:ios)
+
+APP_IDENTIFIER = "com.cinematicpoker.app"
+
+platform :ios do
+  desc "Build the wrapper and upload it to TestFlight"
+  lane :beta do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_P8_BASE64"),
+      is_key_content_base64: true
+    )
+
+    # Temporary keychain for the runner; import the distribution identity.
+    setup_ci
+    cert_path = File.expand_path("dist_cert.p12")
+    File.binwrite(cert_path, Base64.decode64(ENV.fetch("DIST_CERT_P12_BASE64")))
+    import_certificate(
+      certificate_path: cert_path,
+      certificate_password: ENV.fetch("DIST_CERT_PASSWORD"),
+      keychain_name: "fastlane_tmp_keychain",
+      keychain_password: ""
+    )
+
+    # Fetch (or create) the App Store provisioning profile for the bundle id.
+    get_provisioning_profile(
+      api_key: api_key,
+      app_identifier: APP_IDENTIFIER,
+      team_id: ENV.fetch("APPLE_TEAM_ID")
+    )
+
+    update_code_signing_settings(
+      path: "ios/App/App.xcodeproj",
+      use_automatic_signing: false,
+      team_id: ENV.fetch("APPLE_TEAM_ID"),
+      bundle_identifier: APP_IDENTIFIER,
+      code_sign_identity: "Apple Distribution",
+      profile_name: lane_context[SharedValues::SIGH_NAME],
+      targets: ["App"]
+    )
+
+    # Monotonic build number so every upload is accepted by App Store Connect.
+    build_number = ENV["GITHUB_RUN_NUMBER"] || Time.now.strftime("%Y%m%d%H%M")
+
+    build_app(
+      project: "ios/App/App.xcodeproj",
+      scheme: "App",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build",
+      xcargs: "CURRENT_PROJECT_VERSION=#{build_number}",
+      export_options: {
+        provisioningProfiles: {
+          APP_IDENTIFIER => lane_context[SharedValues::SIGH_NAME]
+        }
+      }
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+  end
+end
