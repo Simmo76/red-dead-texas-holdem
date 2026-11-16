@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>html,body{margin:0;padding:0;overflow:hidden;background:#e8e4dc}</style>
+<script type="importmap">
+{ "imports": { "three": "/js/vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from '/js/vendor/GLTFLoader.js';
+
+const params = new URLSearchParams(location.search);
+const modelUrl = params.get('m');
+const yaw = parseFloat(params.get('yaw') || '0') * Math.PI / 180;
+
+const size = 1024;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(size, size);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe8e4dc);
+
+scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+const key = new THREE.DirectionalLight(0xffffff, 2.2);
+key.position.set(2, 4, 5);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xbfd4ff, 0.8);
+fill.position.set(-4, 2, -3);
+scene.add(fill);
+
+const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
+
+new GLTFLoader().load(modelUrl, (gltf) => {
+  const root = gltf.scene;
+  root.rotation.y = yaw;
+  scene.add(root);
+  root.updateMatrixWorld(true);
+
+  const box = new THREE.Box3().setFromObject(root);
+  const c = box.getCenter(new THREE.Vector3());
+  const s = box.getSize(new THREE.Vector3());
+  const dist = Math.max(s.y, s.x) * 1.65;
+  camera.position.set(c.x, c.y + s.y * 0.02, c.z + dist);
+  camera.lookAt(c);
+
+  renderer.render(scene, camera);
+  document.title = 'READY';
+});
+</script>
+</body>
+</html>
