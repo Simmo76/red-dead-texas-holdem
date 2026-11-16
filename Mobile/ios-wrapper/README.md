@@ -54,7 +54,7 @@ Once enrolled:
 1. In Xcode: set the Team to the paid account, **Product → Archive**, then
    *Distribute App → App Store Connect* (create the app record first at
    [appstoreconnect.apple.com](https://appstoreconnect.apple.com) with
-   bundle id `com.cinematicpoker.app` if it does not exist yet).
+   bundle id `com.deadmanshand.app` if it does not exist yet).
 2. In App Store Connect → **TestFlight**: once the build finishes
    processing (minutes to an hour), add your friend as an **internal
    tester** (invite his Apple ID email; no review needed, available
@@ -78,7 +78,7 @@ macOS runner — trigger it from the repo's **Actions** tab. One-time setup:
 1. **Apple Developer Program** membership active.
 2. **Create the app record** in
    [App Store Connect](https://appstoreconnect.apple.com) → My Apps → ＋ →
-   New App, with bundle id `com.cinematicpoker.app` (register the bundle id
+   New App, with bundle id `com.deadmanshand.app` (register the bundle id
    at [developer.apple.com/account](https://developer.apple.com/account) →
    Identifiers if it is not offered in the dropdown).
 3. **App Store Connect API key**: Users and Access → Integrations →
@@ -125,8 +125,9 @@ npm run build:www && npm run sync
   comes from the web app itself.
 - **`ITSAppUsesNonExemptEncryption = NO`** — removes the export-compliance
   question from every App Store Connect upload.
-- Bundle id `com.cinematicpoker.app`, display name **Cinematic Poker**,
-  iOS 15+ deployment target.
+- Bundle id `com.deadmanshand.app`, display name **Dead Man's Hand**
+  (App Store name: "Dead Man's Hand: Texas Holdem"), iOS 15+ deployment
+  target.
 - Pre-compressed `.br`/`.gz` publish artifacts are stripped from the bundle
   (no server content-negotiation inside the app).
 

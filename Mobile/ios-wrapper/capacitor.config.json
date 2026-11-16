@@ -1,6 +1,6 @@
 {
-  "appId": "com.cinematicpoker.app",
-  "appName": "Cinematic Poker",
+  "appId": "com.deadmanshand.app",
+  "appName": "Dead Man's Hand",
   "webDir": "www",
   "ios": {
     "contentInset": "never",

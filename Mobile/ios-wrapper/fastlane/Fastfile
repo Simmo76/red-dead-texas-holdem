@@ -8,13 +8,13 @@
 #   DIST_CERT_P12_BASE64   Apple Distribution certificate + private key (.p12), base64-encoded
 #   DIST_CERT_PASSWORD     Password of the .p12
 #
-# The App Store Connect app record for com.cinematicpoker.app must already
+# The App Store Connect app record for com.deadmanshand.app must already
 # exist (creating it registers the bundle id; the provisioning profile is
 # then created/fetched automatically here).
 
 default_platform(:ios)
 
-APP_IDENTIFIER = "com.cinematicpoker.app"
+APP_IDENTIFIER = "com.deadmanshand.app"
 
 platform :ios do
   desc "Build the wrapper and upload it to TestFlight"
