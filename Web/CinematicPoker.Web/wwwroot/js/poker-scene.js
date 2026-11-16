@@ -2084,6 +2084,13 @@ async function buildScene(canvas) {
   while (streetScene && fighterOrder.length < SEATS) {
     fighterOrder.push(...shuffle(fighterUrls.map((_, i) => i)));
   }
+  // Seat 0 is the player's own character and stays male: if the shuffle put
+  // a female fighter there, swap her with the first male further down.
+  const femaleFighter = (model) => /FemaleFighter/.test(fighterUrls[model]);
+  if (streetScene && femaleFighter(fighterOrder[0])) {
+    const male = fighterOrder.findIndex((model, i) => i > 0 && !femaleFighter(model));
+    [fighterOrder[0], fighterOrder[male]] = [fighterOrder[male], fighterOrder[0]];
+  }
   const lineup = streetScene
     ? fighterOrder.slice(0, SEATS).map((model) => ({ kind: 'fighter', look: null, model }))
     : [playerPick, ...npcPool];
