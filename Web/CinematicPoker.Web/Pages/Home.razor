@@ -322,21 +322,24 @@
     {
         <div class="ai-advice @(_adviceCollapsed ? "collapsed" : "")" @onclick="ToggleAdvice"
              title="Tap and @CoachDisplayName counts the cards and tells you what he'd do">
-            <div class="ai-advice-title">WHAT WOULD <span>AI</span> DO?</div>
-            @if (!_adviceCollapsed && _advice != null)
-            {
-                <div class="ai-advice-action">@_advice.ActionLabel</div>
-                <div class="ai-advice-stats">
-                    <span class="ai-stat">EST. EQUITY <b>@_advice.WinPercent%</b></span>
-                    @if (_advice.PotOddsPercent.HasValue)
-                    {
-                        <span class="ai-stat">POT ODDS <b>@_advice.PotOddsPercent%</b></span>
-                    }
-                    <span class="ai-stat">VS <b>@_advice.Opponents</b></span>
-                </div>
-                <div class="ai-advice-why">@_advice.Rationale</div>
-                <div class="ai-advice-sig">— @CoachDisplayName, card counter</div>
-            }
+            <img class="ai-advice-icon" src="img/ui/coach-icon-128.png" alt="" aria-hidden="true" />
+            <div class="ai-advice-plate">
+                <div class="ai-advice-title">WHAT WOULD <span>AI</span> DO?</div>
+                @if (!_adviceCollapsed && _advice != null)
+                {
+                    <div class="ai-advice-action">@_advice.ActionLabel</div>
+                    <div class="ai-advice-stats">
+                        <span class="ai-stat">EST. EQUITY <b>@_advice.WinPercent%</b></span>
+                        @if (_advice.PotOddsPercent.HasValue)
+                        {
+                            <span class="ai-stat">POT ODDS <b>@_advice.PotOddsPercent%</b></span>
+                        }
+                        <span class="ai-stat">VS <b>@_advice.Opponents</b></span>
+                    </div>
+                    <div class="ai-advice-why">@_advice.Rationale</div>
+                    <div class="ai-advice-sig">— @CoachDisplayName, card counter</div>
+                }
+            </div>
         </div>
     }
 
