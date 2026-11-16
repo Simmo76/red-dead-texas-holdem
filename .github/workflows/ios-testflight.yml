@@ -56,8 +56,12 @@ jobs:
           DIST_CERT_PASSWORD: ${{ secrets.DIST_CERT_PASSWORD }}
         run: fastlane ios beta
 
+      # Backup copy only — the .ipa has already been uploaded to TestFlight
+      # by the previous step, so a failure here (e.g. artifact storage quota)
+      # must not mark the run as failed.
       - name: Upload .ipa as workflow artifact
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: CinematicPoker-iOS
