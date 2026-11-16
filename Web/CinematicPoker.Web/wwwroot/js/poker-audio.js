@@ -82,6 +82,7 @@ window.pokerAudio = (function () {
         a.volume = Math.max(0, Math.min(1, volume || 1));
         if (rate && rate !== 1) {
             try { a.preservesPitch = false; } catch (e) { }
+            try { a.webkitPreservesPitch = false; } catch (e) { }
             try { a.playbackRate = rate; } catch (e) { }
         }
         a.loop = !!loop;
@@ -107,11 +108,19 @@ window.pokerAudio = (function () {
         return handle;
     }
 
-    // Preferred clip entry point: WebAudio when running, HTMLAudio in the
-    // native wrapper otherwise, silence (like before) in plain browsers.
+    // Clip entry point. In the native wrapper, ALWAYS HTMLAudio: on-device
+    // testing showed the wrapper's WebAudio context reports "running" after
+    // the first tap unlocks it yet produces no audible output (only the
+    // first tap — played via fallback while still locked — was heard).
+    // HTMLAudio is the path the background music uses, proven audible.
+    // Plain browsers keep WebAudio with the original silent-until-unlocked
+    // behavior.
     function playClip(url, volume, rate, onEnded, loop) {
+        if (NATIVE_WRAPPER) {
+            if (muted) return null;
+            return playHtmlAudio(url, volume, rate, onEnded, loop);
+        }
         if (webAudioReady()) return playBuffer(url, volume, rate, onEnded, loop);
-        if (NATIVE_WRAPPER && !muted) return playHtmlAudio(url, volume, rate, onEnded, loop);
         return null;
     }
 
