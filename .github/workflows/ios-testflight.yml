@@ -14,6 +14,12 @@ name: iOS TestFlight Build
 
 on:
   workflow_dispatch:
+  # Auto-build whenever the iOS wrapper (or this pipeline) changes on main.
+  push:
+    branches: [main]
+    paths:
+      - 'Mobile/ios-wrapper/**'
+      - '.github/workflows/ios-testflight.yml'
 
 jobs:
   build-and-upload:
