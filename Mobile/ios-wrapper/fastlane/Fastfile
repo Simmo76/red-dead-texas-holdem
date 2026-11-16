@@ -51,9 +51,12 @@ platform :ios do
         filepath: key_path,
         in_house: false
       )
+      # Only revoke the modern "Apple Distribution" (DISTRIBUTION) type this
+      # pipeline mints. Legacy IOS_DISTRIBUTION certificates (e.g. created by
+      # Expo/EAS for other projects) are left untouched.
       Spaceship::ConnectAPI::Certificate.all.each do |c|
-        next unless ["DISTRIBUTION", "IOS_DISTRIBUTION"].include?(c.certificate_type)
-        UI.important("Revoking previous distribution certificate #{c.id} (#{c.certificate_type})")
+        next unless c.certificate_type == "DISTRIBUTION"
+        UI.important("Revoking previously minted distribution certificate #{c.id}")
         c.delete!
       end
       cert(
