@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Haptic test</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 24px 20px 60px;
+         background: #1b1410; color: #f2e4c9; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  p { color: #c9b48c; line-height: 1.45; margin: 6px 0 18px; }
+  .case { background: #2a2018; border: 1px solid #4a3a28; border-radius: 14px;
+          padding: 16px; margin-bottom: 16px; }
+  .case h2 { font-size: 1.05rem; margin: 0 0 8px; }
+  button.big { display: block; width: 100%; padding: 16px; font-size: 1.1rem; font-weight: 700;
+         border: none; border-radius: 12px; background: #b5893a; color: #221708;
+         -webkit-tap-highlight-color: transparent; }
+  button.big:active { background: #8f6a28; }
+  input[type="checkbox"][switch].visible { transform: scale(1.6); margin: 8px; }
+  .diag { font-size: .8rem; color: #9a885f; word-break: break-all; }
+  .offscreen { position: fixed; top: 0; left: 0; width: 1px; height: 1px;
+               opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<h1>Haptic diagnostic</h1>
+<p>Try each test below with your finger and note which ones make the phone tick.</p>
+
+<div class="case">
+  <h2>Test 1 — real switch, flipped by finger</h2>
+  <p>Flip this switch back and forth. This is the ground truth: if this doesn't tick, this browser can't produce web haptics at all.</p>
+  <input type="checkbox" switch class="visible" />
+</div>
+
+<div class="case">
+  <h2>Test 2 — button clicking a hidden switch (what the game does)</h2>
+  <p>Tap the button. It programmatically toggles an invisible switch, exactly like the poker game's buttons.</p>
+  <button class="big" id="b2">TAP ME (hidden switch)</button>
+</div>
+
+<div class="case">
+  <h2>Test 3 — same, but from a pointerdown handler</h2>
+  <p>Like test 2, but triggered on touch-down instead of tap-release, matching the game's exact event.</p>
+  <button class="big" id="b3">TAP ME (pointerdown)</button>
+</div>
+
+<div class="case">
+  <h2>Test 4 — fires at finger release</h2>
+  <p>Quick-tap this. The switch toggles the instant your finger lifts.</p>
+  <button class="big" id="b4">TAP ME (on release)</button>
+</div>
+
+<div class="case">
+  <h2>Test 5 — fires just after the tap (tiny delay)</h2>
+  <p>Quick-tap this. The switch toggles ~60 ms after touch-down.</p>
+  <button class="big" id="b5">TAP ME (delayed 60ms)</button>
+</div>
+
+<div class="case">
+  <h2>Test 6 — double toggle</h2>
+  <p>Quick-tap this. The switch toggles twice, 70 ms apart.</p>
+  <button class="big" id="b6">TAP ME (double toggle)</button>
+</div>
+
+<div class="case">
+  <h2>Diagnostics</h2>
+  <div class="diag" id="diag"></div>
+</div>
+
+<script>
+  var hidden = document.createElement('input');
+  hidden.type = 'checkbox';
+  hidden.setAttribute('switch', '');
+  hidden.className = 'offscreen';
+  document.body.appendChild(hidden);
+
+  document.getElementById('b2').addEventListener('click', function () { hidden.click(); });
+  document.getElementById('b3').addEventListener('pointerdown', function () { hidden.click(); });
+  document.getElementById('b4').addEventListener('pointerup', function () { hidden.click(); });
+  document.getElementById('b5').addEventListener('pointerdown', function () {
+    setTimeout(function () { hidden.click(); }, 60);
+  });
+  document.getElementById('b6').addEventListener('pointerdown', function () {
+    hidden.click();
+    setTimeout(function () { hidden.click(); }, 70);
+  });
+
+  document.getElementById('diag').textContent =
+    'vibrate API: ' + (navigator.vibrate ? 'yes' : 'no') +
+    ' | UA: ' + navigator.userAgent;
+</script>
+</body>
+</html>
