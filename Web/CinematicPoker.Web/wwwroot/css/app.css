@@ -1160,36 +1160,44 @@ html.scene-street .boot-screen {
    button; tapping it reveals the advice, tapping again collapses it back
    to the button. */
 .ai-advice {
-    width: 302px;
-    padding: 12px 17px 11px;
-    background: rgba(12, 10, 8, 0.9);
-    border: 1px solid var(--gold-dim);
-    border-radius: 12px;
+    display: flex;
+    align-items: flex-start;
     color: var(--text);
     cursor: pointer;
     animation: fadein-plain 0.3s ease-out;
 }
 
-.ai-advice.collapsed {
-    width: auto;
-    padding: 7px 17px 7px 9px;
-}
-
-/* Maximilian's medallion sits at the left of the advisor button so the
-   coach is recognizably "who you're asking" before the advice opens. */
-.ai-advice-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
+/* Maximilian's medallion anchors the advisor: the framed plate with the
+   title (and the opened advice) hangs off its right edge, tucked behind
+   the coin, so the coach fronts the advice in both states. */
 .ai-advice-icon {
     flex: 0 0 auto;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    box-shadow: 0 1px 7px rgba(0, 0, 0, 0.6);
+    position: relative;
+    z-index: 1;
+    width: 58px;
+    height: 58px;
+    filter: drop-shadow(0 2px 7px rgba(0, 0, 0, 0.65));
 }
+
+.ai-advice-plate {
+    width: 302px;
+    margin-left: -29px;
+    padding: 12px 17px 11px 42px;
+    background: rgba(12, 10, 8, 0.9);
+    border: 1px solid var(--gold-dim);
+    border-radius: 12px;
+}
+
+/* Collapsed, the plate is a one-line nameplate centered on the coin. */
+.ai-advice.collapsed { align-items: center; }
+
+.ai-advice.collapsed .ai-advice-plate {
+    width: auto;
+    padding: 10px 17px 10px 42px;
+}
+
+/* Open, the coin centers on the title line at the top of the card. */
+.ai-advice:not(.collapsed) .ai-advice-icon { margin-top: -9px; }
 
 .ai-advice-title {
     font-size: 13px;
