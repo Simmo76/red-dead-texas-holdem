@@ -4,7 +4,8 @@
 #   APPLE_TEAM_ID          Apple Developer Team ID (e.g. AB12CD34EF)
 #   ASC_KEY_ID             App Store Connect API key ID
 #   ASC_ISSUER_ID          App Store Connect API issuer ID
-#   ASC_KEY_P8_BASE64      The .p8 API key file, base64-encoded
+#   ASC_KEY_P8_BASE64      The .p8 API key file, base64-encoded (the raw
+#                          .p8 file contents are also accepted)
 #   DIST_CERT_P12_BASE64   OPTIONAL: Apple Distribution certificate + private
 #                          key (.p12), base64-encoded. When absent, a fresh
 #                          certificate is minted via the API (no Mac needed).
@@ -18,14 +19,51 @@ default_platform(:ios)
 
 APP_IDENTIFIER = "com.deadmanshand.app"
 
+# Returns the .p8 key as PEM text. Accepts the ASC_KEY_P8_BASE64 secret either
+# base64-encoded (the documented format) or as the raw contents of the .p8
+# file, and fails with an actionable message when the value is corrupted
+# (e.g. a partial paste) instead of letting OpenSSL raise "invalid curve name".
+def resolve_asc_key_pem
+  raw = ENV.fetch("ASC_KEY_P8_BASE64").strip
+  pem =
+    if raw.include?("BEGIN PRIVATE KEY")
+      raw
+    else
+      Base64.decode64(raw.gsub(/\s+/, ""))
+    end
+
+  unless pem.include?("BEGIN PRIVATE KEY") && pem.include?("END PRIVATE KEY")
+    UI.user_error!(
+      "The ASC_KEY_P8_BASE64 repository secret is not a valid App Store Connect " \
+      "API key (got #{raw.length} characters; a correct base64 value is ~300). " \
+      "It was probably truncated when pasted. Re-paste the full one-line base64 " \
+      "string (or the entire raw contents of the AuthKey_XXXXXXXXXX.p8 file, " \
+      "including the BEGIN/END PRIVATE KEY lines) into the secret and re-run."
+    )
+  end
+
+  begin
+    OpenSSL::PKey.read(pem)
+  rescue OpenSSL::PKey::PKeyError => e
+    UI.user_error!(
+      "The ASC_KEY_P8_BASE64 repository secret decodes to text that looks like " \
+      "a key but cannot be parsed (#{e.message}). Re-paste the secret from the " \
+      "original AuthKey_XXXXXXXXXX.p8 file and re-run."
+    )
+  end
+
+  pem
+end
+
 platform :ios do
   desc "Build the wrapper and upload it to TestFlight"
   lane :beta do
+    asc_key_pem = resolve_asc_key_pem
     api_key = app_store_connect_api_key(
       key_id: ENV.fetch("ASC_KEY_ID"),
       issuer_id: ENV.fetch("ASC_ISSUER_ID"),
-      key_content: ENV.fetch("ASC_KEY_P8_BASE64"),
-      is_key_content_base64: true
+      key_content: asc_key_pem,
+      is_key_content_base64: false
     )
 
     # Temporary keychain for the runner, then a distribution identity:
@@ -44,7 +82,7 @@ platform :ios do
     keychain_path = File.expand_path("~/Library/Keychains/fastlane_tmp_keychain-db")
     if ENV["DIST_CERT_P12_BASE64"].to_s.strip.empty?
       key_path = File.expand_path("asc_api_key.p8")
-      File.write(key_path, Base64.decode64(ENV.fetch("ASC_KEY_P8_BASE64")))
+      File.write(key_path, asc_key_pem)
       Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
         key_id: ENV.fetch("ASC_KEY_ID"),
         issuer_id: ENV.fetch("ASC_ISSUER_ID"),
