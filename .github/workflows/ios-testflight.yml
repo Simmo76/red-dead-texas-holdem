@@ -18,7 +18,9 @@ on:
 jobs:
   build-and-upload:
     name: Build, sign and upload to TestFlight
-    runs-on: macos-15
+    # macos-26 defaults to Xcode 26.x. Apple rejects uploads built with
+    # anything older than the iOS 26 SDK (macos-15 defaults to Xcode 16.4).
+    runs-on: macos-26
     defaults:
       run:
         working-directory: Mobile/ios-wrapper
