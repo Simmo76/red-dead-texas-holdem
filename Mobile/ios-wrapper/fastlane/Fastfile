@@ -5,8 +5,10 @@
 #   ASC_KEY_ID             App Store Connect API key ID
 #   ASC_ISSUER_ID          App Store Connect API issuer ID
 #   ASC_KEY_P8_BASE64      The .p8 API key file, base64-encoded
-#   DIST_CERT_P12_BASE64   Apple Distribution certificate + private key (.p12), base64-encoded
-#   DIST_CERT_PASSWORD     Password of the .p12
+#   DIST_CERT_P12_BASE64   OPTIONAL: Apple Distribution certificate + private
+#                          key (.p12), base64-encoded. When absent, a fresh
+#                          certificate is minted via the API (no Mac needed).
+#   DIST_CERT_PASSWORD     OPTIONAL: password of the .p12
 #
 # The App Store Connect app record for com.deadmanshand.app must already
 # exist (creating it registers the bundle id; the provisioning profile is
@@ -26,22 +28,59 @@ platform :ios do
       is_key_content_base64: true
     )
 
-    # Temporary keychain for the runner; import the distribution identity.
+    # Temporary keychain for the runner, then a distribution identity:
+    # either an uploaded .p12 (DIST_CERT_P12_BASE64 secret), or — when that
+    # secret is absent — a fresh Apple Distribution certificate minted
+    # through the App Store Connect API, so no Mac is ever needed.
+    #
+    # Minting first revokes previously minted distribution certificates,
+    # because their private keys lived only on earlier (discarded) CI
+    # runners and Apple caps how many distribution certificates a team can
+    # hold. Revoking a distribution certificate does NOT affect builds
+    # already uploaded to TestFlight or released on the App Store. If you
+    # ever create a distribution certificate of your own on a Mac, switch
+    # to the .p12 secrets so the pipeline stops revoking.
     setup_ci
-    cert_path = File.expand_path("dist_cert.p12")
-    File.binwrite(cert_path, Base64.decode64(ENV.fetch("DIST_CERT_P12_BASE64")))
-    import_certificate(
-      certificate_path: cert_path,
-      certificate_password: ENV.fetch("DIST_CERT_PASSWORD"),
-      keychain_name: "fastlane_tmp_keychain",
-      keychain_password: ""
-    )
+    keychain_path = File.expand_path("~/Library/Keychains/fastlane_tmp_keychain-db")
+    if ENV["DIST_CERT_P12_BASE64"].to_s.strip.empty?
+      key_path = File.expand_path("asc_api_key.p8")
+      File.write(key_path, Base64.decode64(ENV.fetch("ASC_KEY_P8_BASE64")))
+      Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
+        key_id: ENV.fetch("ASC_KEY_ID"),
+        issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+        filepath: key_path,
+        in_house: false
+      )
+      Spaceship::ConnectAPI::Certificate.all.each do |c|
+        next unless ["DISTRIBUTION", "IOS_DISTRIBUTION"].include?(c.certificate_type)
+        UI.important("Revoking previous distribution certificate #{c.id} (#{c.certificate_type})")
+        c.delete!
+      end
+      cert(
+        api_key: api_key,
+        generate_apple_certs: true,
+        keychain_path: keychain_path,
+        keychain_password: ""
+      )
+    else
+      cert_path = File.expand_path("dist_cert.p12")
+      File.binwrite(cert_path, Base64.decode64(ENV.fetch("DIST_CERT_P12_BASE64")))
+      import_certificate(
+        certificate_path: cert_path,
+        certificate_password: ENV.fetch("DIST_CERT_PASSWORD"),
+        keychain_name: "fastlane_tmp_keychain",
+        keychain_password: ""
+      )
+    end
 
     # Fetch (or create) the App Store provisioning profile for the bundle id.
+    # A freshly minted certificate invalidates old profiles, so force a new
+    # profile whenever this run minted its certificate.
     get_provisioning_profile(
       api_key: api_key,
       app_identifier: APP_IDENTIFIER,
-      team_id: ENV.fetch("APPLE_TEAM_ID")
+      team_id: ENV.fetch("APPLE_TEAM_ID"),
+      force: ENV["DIST_CERT_P12_BASE64"].to_s.strip.empty?
     )
 
     update_code_signing_settings(

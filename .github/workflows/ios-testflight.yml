@@ -8,7 +8,9 @@ name: iOS TestFlight Build
 #   - Apple Developer Program membership
 #   - App record for com.deadmanshand.app in App Store Connect
 #   - Repo secrets: APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID,
-#     ASC_KEY_P8_BASE64, DIST_CERT_P12_BASE64, DIST_CERT_PASSWORD
+#     ASC_KEY_P8_BASE64, and optionally DIST_CERT_P12_BASE64 +
+#     DIST_CERT_PASSWORD (omit them and a distribution certificate is
+#     minted via the App Store Connect API — no Mac needed)
 
 on:
   workflow_dispatch:
