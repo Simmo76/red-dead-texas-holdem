@@ -41,25 +41,90 @@ window.pokerAudio = (function () {
         return 'audio/street/voices/street-voice-' + n + '.wav';
     });
 
+    // Inside the Capacitor iOS wrapper the WKWebView is created with
+    // mediaTypesRequiringUserActionForPlayback = [], so HTMLAudio may start
+    // at any time without a user gesture. WebAudio, on the other hand, can
+    // stay stuck in a non-running state in embedded web views even after
+    // resume() (an in-app WebKit quirk Safari doesn't have). When that
+    // happens, short clips fall back to HTMLAudio so SFX and voices are
+    // never silently dropped in the native app. Plain browsers keep the
+    // original behavior: WebAudio only, silent until unlocked.
+    const NATIVE_WRAPPER = (function () {
+        try {
+            if (location.protocol === 'capacitor:') return true;
+            return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function'
+                && window.Capacitor.isNativePlatform());
+        } catch (e) { return false; }
+    })();
+
     function ensureCtx() {
         try {
             if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-            if (ctx.state === 'suspended') { const p = ctx.resume(); if (p) p.catch(function () { }); }
+            if (ctx.state !== 'running') { const p = ctx.resume(); if (p) p.catch(function () { }); }
         } catch (e) { }
         return ctx;
     }
 
+    function webAudioReady() {
+        const c = ensureCtx();
+        return !!(c && c.state === 'running');
+    }
+
+    // True when some clip playback path is available right now.
+    function audioPlayable() {
+        return webAudioReady() || NATIVE_WRAPPER;
+    }
+
+    // HTMLAudio stand-in mimicking the bits of AudioBufferSourceNode the
+    // callers use (stop(), assignable onended, _cancelled).
+    function playHtmlAudio(url, volume, rate, onEnded, loop) {
+        const a = new Audio(url);
+        a.volume = Math.max(0, Math.min(1, volume || 1));
+        if (rate && rate !== 1) {
+            try { a.preservesPitch = false; } catch (e) { }
+            try { a.playbackRate = rate; } catch (e) { }
+        }
+        a.loop = !!loop;
+        const handle = {
+            _cancelled: false,
+            onended: onEnded || null,
+            stop: function () {
+                handle._cancelled = true;
+                try { a.pause(); } catch (e) { }
+                fireEnded();
+            }
+        };
+        function fireEnded() {
+            const cb = handle.onended;
+            handle.onended = null;
+            if (cb) cb();
+        }
+        a.addEventListener('ended', fireEnded);
+        try {
+            const p = a.play();
+            if (p) p.catch(fireEnded);
+        } catch (e) { fireEnded(); }
+        return handle;
+    }
+
+    // Preferred clip entry point: WebAudio when running, HTMLAudio in the
+    // native wrapper otherwise, silence (like before) in plain browsers.
+    function playClip(url, volume, rate, onEnded, loop) {
+        if (webAudioReady()) return playBuffer(url, volume, rate, onEnded, loop);
+        if (NATIVE_WRAPPER && !muted) return playHtmlAudio(url, volume, rate, onEnded, loop);
+        return null;
+    }
+
     function flushPendingResultAudio() {
         if (muted || (!victoryPending && !playerLossPending)) return;
-        const c = ensureCtx();
-        if (!c || c.state !== 'running') return;
+        if (!audioPlayable()) return;
         if (victoryPending) {
             victoryPending = false;
-            playBuffer('audio/victory.mp3', 0.75, 1);
+            playClip('audio/victory.mp3', 0.75, 1);
         }
         if (playerLossPending) {
             playerLossPending = false;
-            playBuffer('audio/player-loss.wav', 2.25, 1);
+            playClip('audio/player-loss.wav', 2.25, 1);
         }
     }
 
@@ -109,7 +174,7 @@ window.pokerAudio = (function () {
         stopSliderDrag();
         sliderDragActive = true;
         sliderAudioFinished = false;
-        sliderDragSrc = playBuffer('audio/drop-chips.mp3', 0.7, 1, function () {
+        sliderDragSrc = playClip('audio/drop-chips.mp3', 0.7, 1, function () {
             if (sliderDragActive) sliderAudioFinished = true;
         });
     }
@@ -118,7 +183,7 @@ window.pokerAudio = (function () {
         if (muted) return;
         if (delayMs) { setTimeout(function () { play(name, 0); }, delayMs); return; }
         // Slight pitch variance so repeated chip/card sounds don't feel mechanical.
-        playBuffer('audio/' + name + '.mp3', 0.55, 0.92 + Math.random() * 0.16);
+        playClip('audio/' + name + '.mp3', 0.55, 0.92 + Math.random() * 0.16);
     }
 
     const BUTTON_SOUND_URL = 'audio/ui-click.wav';
@@ -127,7 +192,7 @@ window.pokerAudio = (function () {
     // buttons rendered by Blazor.
     function button() {
         if (muted) return;
-        playBuffer(BUTTON_SOUND_URL, 1.6, 1);
+        playClip(BUTTON_SOUND_URL, 1.6, 1);
     }
 
     // Wikimedia Commons ragtime recordings, re-encoded to MP3 for iOS Safari.
@@ -323,9 +388,18 @@ window.pokerAudio = (function () {
     // The same tap unlocks the WebAudio context used for SFX and voices.
     document.addEventListener('pointerdown', function (event) {
         const c = ensureCtx();
-        if (c && c.state === 'suspended') {
+        // 'interrupted' is a WebKit-only state seen in embedded web views.
+        if (c && c.state !== 'running') {
             const p = c.resume();
             if (p) p.then(flushPendingResultAudio).catch(function () { });
+            // Classic iOS unlock: a one-sample silent buffer started inside
+            // the gesture nudges WebKit to actually open the output stream.
+            try {
+                const unlock = c.createBufferSource();
+                unlock.buffer = c.createBuffer(1, 1, 22050);
+                unlock.connect(c.destination);
+                unlock.start(0);
+            } catch (e) { }
         }
         const target = event.target;
         const slider = target && target.closest
@@ -338,7 +412,7 @@ window.pokerAudio = (function () {
         flushPendingResultAudio();
         startMusic();
         if (playButton) {
-            if (c && c.state === 'suspended') {
+            if (!NATIVE_WRAPPER && c && c.state !== 'running') {
                 const p = c.resume();
                 if (p) p.then(function () { button(); }).catch(function () { });
             } else {
@@ -362,7 +436,7 @@ window.pokerAudio = (function () {
     // Ignored until the first tap unlocks audio, same as SFX.
     function dealer(name) {
         if (muted || !name) return;
-        if (!ensureCtx() || ctx.state !== 'running') return;
+        if (!audioPlayable()) return;
         try { if (voiceSrc) voiceSrc.stop(); } catch (e) { }
         voiceSrc = null;
         voicePlaying = false;
@@ -372,32 +446,14 @@ window.pokerAudio = (function () {
         }
         dealerPlaying = true;
         lastVoiceAt = Date.now();
-        const src = ctx.createBufferSource();
-        dealerSrc = src;
-        loadBuffer('audio/dealer/' + name + '.mp3').then(function (buf) {
-            if (muted || dealerSrc !== src) {
-                if (dealerSrc === src) {
-                    dealerPlaying = false;
-                    dealerSrc = null;
-                }
-                return;
-            }
-            src.buffer = buf;
-            src.onended = function () {
-                if (dealerSrc !== src) return;
-                dealerPlaying = false;
-                dealerSrc = null;
-                lastVoiceAt = Date.now();
-            };
-            const gain = ctx.createGain();
-            gain.gain.value = 1;
-            src.connect(gain).connect(ctx.destination);
-            src.start();
-        }).catch(function () {
+        const src = playClip('audio/dealer/' + name + '.mp3', 1, 1, function () {
             if (dealerSrc !== src) return;
             dealerPlaying = false;
             dealerSrc = null;
+            lastVoiceAt = Date.now();
         });
+        dealerSrc = src;
+        if (!src) dealerPlaying = false;
     }
 
     function poolUrl(kind, index) {
@@ -453,7 +509,7 @@ window.pokerAudio = (function () {
     // James (seat 0) never uses the table voice pack — that's NPC table talk.
     function voice(seat, kind) {
         if (muted || dealerPlaying || voicePlaying) return;
-        if (!ensureCtx() || ctx.state !== 'running') return;
+        if (!audioPlayable()) return;
         const eventKind = (kind === 'win' || kind === 'lose' || kind === 'fold') ? kind : 'idle';
         if (seat === 0 && eventKind !== 'idle') return;
         const now = Date.now();
@@ -467,11 +523,12 @@ window.pokerAudio = (function () {
         const n = pickClip(eventKind);
         try { if (voiceSrc) voiceSrc.stop(); } catch (e) { }
         voicePlaying = true;
-        voiceSrc = playBuffer(poolUrl(eventKind, n), 0.95, 1, function () {
+        voiceSrc = playClip(poolUrl(eventKind, n), 0.95, 1, function () {
             voicePlaying = false;
             voiceSrc = null;
             lastVoiceAt = Date.now();
         });
+        if (!voiceSrc) voicePlaying = false;
         // Idle chatter gets a matching talking gesture in the 3D scene.
         if (eventKind === 'idle' && seat > 0 && window.pokerScene && window.pokerScene.talk) {
             window.pokerScene.talk(seat);
@@ -525,24 +582,22 @@ window.pokerAudio = (function () {
         // a detuned jingle is instantly noticeable).
         victory: function () {
             if (muted) return;
-            const c = ensureCtx();
             // A result can be raised by Blazor just as the browser is
             // completing the resume initiated by the all-in tap. Keep the
             // one-shot pending instead of silently dropping the win cue.
-            if (!c || c.state !== 'running') {
+            if (!audioPlayable()) {
                 victoryPending = true;
                 return;
             }
-            playBuffer('audio/victory.mp3', 0.75, 1);
+            playClip('audio/victory.mp3', 0.75, 1);
         },
         playerLoss: function () {
             if (muted) return;
-            const c = ensureCtx();
-            if (!c || c.state !== 'running') {
+            if (!audioPlayable()) {
                 playerLossPending = true;
                 return;
             }
-            playBuffer('audio/player-loss.wav', 2.25, 1);
+            playClip('audio/player-loss.wav', 2.25, 1);
         },
         setAlive: function (seats) { aliveSeats = seats || []; },
         setAwaitingHuman: function (on) { awaitingHuman = !!on; },
