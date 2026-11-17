@@ -889,8 +889,11 @@
     private static string SeatColor(int seat) => SeatColors[seat % SeatColors.Length];
 
     // Table nicknames handed out at random each time a fresh roster sits down,
-    // so any given personality can wear any of these names.
-    private static readonly string[] NpcNamePool =
+    // so any given personality can wear any of these names. The 3D scene
+    // seats female bodies (the saloon Cowboy Girls, the street female
+    // fighters) at some chairs; those seats draw from the female pool so a
+    // girl never sits under "Tommy Gunn".
+    private static readonly string[] MaleNpcNamePool =
     {
         "Nickey 2-guns",
         "Tommy Gunn",
@@ -899,14 +902,68 @@
         "Simmo Says"
     };
 
-    private string[] ShuffledNpcNames()
+    private static readonly string[] FemaleNpcNamePool =
     {
-        var names = (string[])NpcNamePool.Clone();
+        "Annie Up",
+        "Holly Holster",
+        "Lily Longshot"
+    };
+
+    private static readonly HashSet<string> FemaleNpcNames = new(FemaleNpcNamePool);
+
+    // NPC chairs the 3D scene seated female bodies at (pokerScene.femaleSeats).
+    // Null until the scene reports in; the name dealer then guesses the
+    // full-tier default of two chairs and the scene swaps bodies to match.
+    private int[] _femaleSeats;
+
+    private async Task SyncFemaleSeats()
+    {
+        try
+        {
+            _femaleSeats = await JS.InvokeAsync<int[]>("pokerScene.femaleSeats");
+        }
+        catch (JSException) { /* scene module unavailable; guess applies */ }
+    }
+
+    private HashSet<int> FemaleNpcSeats()
+    {
+        if (_femaleSeats != null)
+            return new HashSet<int>(_femaleSeats.Where(s => s >= 1 && s <= Roster.Length));
+        // The scene has not reported its lineup yet (a roster can be named
+        // before the 3D build finishes). Both full-tier scenes seat two
+        // female bodies, and the scene moves bodies onto whichever chairs
+        // wear the female names (alignGenders in poker-scene.js), so any
+        // two chairs are a sound guess.
+        int a = 1 + _rng.Next(Roster.Length);
+        int b = 1 + _rng.Next(Roster.Length - 1);
+        if (b >= a) b++;
+        return new HashSet<int> { a, b };
+    }
+
+    private string[] ShuffledPool(string[] pool)
+    {
+        var names = (string[])pool.Clone();
         for (int i = names.Length - 1; i > 0; i--)
         {
             int j = _rng.Next(i + 1);
             (names[i], names[j]) = (names[j], names[i]);
         }
+        return names;
+    }
+
+    // One name per NPC seat 1..Roster.Length: seats holding a female body
+    // draw from the female pool, everyone else from the male pool.
+    private string[] ShuffledNpcNames()
+    {
+        string[] male = ShuffledPool(MaleNpcNamePool);
+        string[] female = ShuffledPool(FemaleNpcNamePool);
+        HashSet<int> femaleSeats = FemaleNpcSeats();
+        var names = new string[Roster.Length];
+        int m = 0, f = 0;
+        for (int i = 0; i < names.Length; i++)
+            names[i] = femaleSeats.Contains(i + 1) && f < female.Length
+                ? female[f++]
+                : male[m++];
         return names;
     }
 
@@ -1275,7 +1332,11 @@
                 catch (JSException) { /* scene module still downloading */ }
                 if (!_sceneReady) await Task.Delay(250);
             }
-            if (_sceneReady) await SyncBackdropLabel();
+            if (_sceneReady)
+            {
+                await SyncBackdropLabel();
+                await SyncFemaleSeats();
+            }
         }
         // Reveal the table first, then let the title card fade out over it.
         _introFading = true;
@@ -1409,7 +1470,11 @@
                     await Task.Delay(250);
                 }
             }
-            if (_sceneReady) await SyncBackdropLabel();
+            if (_sceneReady)
+            {
+                await SyncBackdropLabel();
+                await SyncFemaleSeats();
+            }
             if (_coachPreview) await OpenCoachPreview();
         }
         if (_sceneReady && !_coachOpen) await PushSceneState();
@@ -1468,6 +1533,10 @@
                 active = Round != null && !folded && !eliminated,
                 heat = SeatHeat(p.Seat),
                 human = IsHumanSeat(p.Seat),
+                // The scene seats a female body (Cowboy Girl / female
+                // fighter) under every female-named chair; see
+                // alignGenders in wwwroot/js/poker-scene.js.
+                female = !IsHumanSeat(p.Seat) && FemaleNpcNames.Contains(DisplayName(p)),
                 dealer = Round != null && p.Seat == Round.DealerSeat,
                 sb = Round != null && p.Seat == Round.SmallBlindSeat,
                 bb = Round != null && p.Seat == Round.BigBlindSeat,
