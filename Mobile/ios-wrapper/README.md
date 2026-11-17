@@ -149,11 +149,13 @@ npm run build:www && npm run sync
 
 ## Notes
 
-- The Google Fonts stylesheet (Rye display face) is fetched over the network;
-  offline it falls back to a system font. Everything else is bundled.
-- App icon / splash are Capacitor defaults for now — replace
-  `ios/App/App/Assets.xcassets` contents before any store submission
-  (`npx @capacitor/assets generate` can do this from one 1024×1024 image).
+- Everything is bundled — the Rye display face is vendored in the web app's
+  `wwwroot/fonts/`, so the app makes **no network requests at all**.
+- The App Store listing mockup (`wwwroot/appstore-design/`, ~25 MB of
+  marketing videos) is stripped from the staged bundle by `build-www.sh` —
+  it is web-only and must never ship inside the binary.
+- App icon is final art; the launch screen is a solid `#0b0d12` (the game's
+  background colour), so launch → boot card is a seamless dark frame.
 - For the full App Store submission checklist see
   [`docs/ios-app-store-plan.md`](../../docs/ios-app-store-plan.md) — this
   wrapper is "Track B" in that plan.
