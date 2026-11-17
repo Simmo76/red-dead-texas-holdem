@@ -12,7 +12,12 @@
 window.pokerAudio = (function () {
     let ctx = null;
     const buffers = {};       // url -> Promise<AudioBuffer>
-    let muted = false;
+    // Independently switchable audio channels (settings SOUND combo):
+    // music    — background music beds + intro score
+    // voices   — table talk, dealer calls, announcer lines
+    // effects  — chips, cards, buttons, win/loss cues
+    // ambience — background crowd bed
+    const channels = { music: true, voices: true, effects: true, ambience: true };
     let music = null;
     let musicFadingOut = null;
     let ambience = null;
@@ -117,7 +122,6 @@ window.pokerAudio = (function () {
     // behavior.
     function playClip(url, volume, rate, onEnded, loop) {
         if (NATIVE_WRAPPER) {
-            if (muted) return null;
             return playHtmlAudio(url, volume, rate, onEnded, loop);
         }
         if (webAudioReady()) return playBuffer(url, volume, rate, onEnded, loop);
@@ -125,7 +129,7 @@ window.pokerAudio = (function () {
     }
 
     function flushPendingResultAudio() {
-        if (muted || (!victoryPending && !playerLossPending)) return;
+        if (!channels.effects || (!victoryPending && !playerLossPending)) return;
         if (!audioPlayable()) return;
         if (victoryPending) {
             victoryPending = false;
@@ -154,7 +158,7 @@ window.pokerAudio = (function () {
         if (!ensureCtx() || ctx.state !== 'running') return null;
         const src = ctx.createBufferSource();
         loadBuffer(url).then(function (buf) {
-            if (src._cancelled || muted) { if (onEnded) onEnded(); return; }
+            if (src._cancelled) { if (onEnded) onEnded(); return; }
             src.buffer = buf;
             if (rate) src.playbackRate.value = rate;
             src.loop = !!loop;
@@ -179,7 +183,7 @@ window.pokerAudio = (function () {
     }
 
     function startSliderDrag() {
-        if (muted) return;
+        if (!channels.effects) return;
         stopSliderDrag();
         sliderDragActive = true;
         sliderAudioFinished = false;
@@ -189,7 +193,7 @@ window.pokerAudio = (function () {
     }
 
     function play(name, delayMs) {
-        if (muted) return;
+        if (!channels.effects) return;
         if (delayMs) { setTimeout(function () { play(name, 0); }, delayMs); return; }
         // Slight pitch variance so repeated chip/card sounds don't feel mechanical.
         playClip('audio/' + name + '.mp3', 0.55, 0.92 + Math.random() * 0.16);
@@ -200,7 +204,7 @@ window.pokerAudio = (function () {
     // Use the supplied click recording for every enabled button, including
     // buttons rendered by Blazor.
     function button() {
-        if (muted) return;
+        if (!channels.effects) return;
         playClip(BUTTON_SOUND_URL, 1.6, 1);
     }
 
@@ -274,7 +278,7 @@ window.pokerAudio = (function () {
         const ms = Math.max(50, (seconds || MUSIC_FADE_SECONDS) * 1000);
         audio._fadeTimer = setInterval(function () {
             const t = Math.min(1, (Date.now() - t0) / ms);
-            audio.volume = muted ? 0 : startVol + (targetVolume - startVol) * t;
+            audio.volume = channels.music ? startVol + (targetVolume - startVol) * t : 0;
             if (t >= 1) {
                 clearMusicFade(audio);
                 if (onDone) onDone();
@@ -331,7 +335,7 @@ window.pokerAudio = (function () {
             const t = (Date.now() - t0) / 1000;
             const vIn = Math.min(1, t / fade);
             const vOut = Math.max(0, Math.min(1, (INTRO_PART_SECONDS - t) / fade));
-            a.volume = (muted ? 0 : 0.4) * Math.min(vIn, vOut);
+            a.volume = (channels.music ? 0.4 : 0) * Math.min(vIn, vOut);
             if (t >= INTRO_PART_SECONDS) {
                 clearInterval(a._fadeTimer);
                 try { a.pause(); } catch (e) { }
@@ -341,10 +345,10 @@ window.pokerAudio = (function () {
     }
 
     function startMusic(opts) {
-        if (muted || introPlaying) return;
+        if (introPlaying) return;
         const fadeIn = !!(opts && opts.fadeIn);
         try {
-            if (!ambience) {
+            if (!ambience && channels.ambience) {
                 const ambienceUrl = sceneName === 'street' ? STREET_AMBIENCE_URL : SALOON_AMBIENCE_URL;
                 ambience = new Audio(ambienceUrl);
                 ambience.loop = true;
@@ -352,7 +356,7 @@ window.pokerAudio = (function () {
                 const ambiencePlay = ambience.play();
                 if (ambiencePlay) ambiencePlay.catch(function () { });
             }
-            if (!music) {
+            if (!music && channels.music) {
                 const track = new Audio(pickMusic());
                 music = track;
                 track.volume = fadeIn ? 0 : MUSIC_VOLUME;
@@ -380,16 +384,23 @@ window.pokerAudio = (function () {
                     fadeMusicTo(track, MUSIC_VOLUME, fadeSec);
                 }
             }
-            const p = music.play();
-            if (p) p.catch(function () { });
+            if (music) {
+                const p = music.play();
+                if (p) p.catch(function () { });
+            }
         } catch (e) { }
     }
 
-    function stopMusic() {
+    // Stops the music beds only — ambience (background crowd) keeps going.
+    function stopMusicTracks() {
         disposeMusic(music);
         disposeMusic(musicFadingOut);
         music = null;
         musicFadingOut = null;
+    }
+
+    function stopMusic() {
+        stopMusicTracks();
         if (ambience) { try { ambience.pause(); } catch (e) { } ambience = null; }
     }
 
@@ -444,7 +455,7 @@ window.pokerAudio = (function () {
     // One dealer call — used for the player's winning-hand category at pot award.
     // Ignored until the first tap unlocks audio, same as SFX.
     function dealer(name) {
-        if (muted || !name) return;
+        if (!channels.voices || !name) return;
         if (!audioPlayable()) return;
         try { if (voiceSrc) voiceSrc.stop(); } catch (e) { }
         voiceSrc = null;
@@ -517,7 +528,7 @@ window.pokerAudio = (function () {
     // Seat is only used so idle banter can trigger a matching talk gesture.
     // James (seat 0) never uses the table voice pack — that's NPC table talk.
     function voice(seat, kind) {
-        if (muted || dealerPlaying || voicePlaying) return;
+        if (!channels.voices || dealerPlaying || voicePlaying) return;
         if (!audioPlayable()) return;
         const eventKind = (kind === 'win' || kind === 'lose' || kind === 'fold') ? kind : 'idle';
         if (seat === 0 && eventKind !== 'idle') return;
@@ -548,7 +559,7 @@ window.pokerAudio = (function () {
     // an active win / fold / lose line).
     (function scheduleChatter() {
         setTimeout(function () {
-            if (!muted && !document.hidden && awaitingHuman && !voicePlaying && !dealerPlaying) {
+            if (channels.voices && !document.hidden && awaitingHuman && !voicePlaying && !dealerPlaying) {
                 voice(pickIdleSeat(), 'idle');
             }
             scheduleChatter();
@@ -590,7 +601,7 @@ window.pokerAudio = (function () {
         // Short fanfare when the player wins a pot (steady pitch: unlike SFX,
         // a detuned jingle is instantly noticeable).
         victory: function () {
-            if (muted) return;
+            if (!channels.effects) return;
             // A result can be raised by Blazor just as the browser is
             // completing the resume initiated by the all-in tap. Keep the
             // one-shot pending instead of silently dropping the win cue.
@@ -601,7 +612,7 @@ window.pokerAudio = (function () {
             playClip('audio/victory.mp3', 0.75, 1);
         },
         playerLoss: function () {
-            if (muted) return;
+            if (!channels.effects) return;
             if (!audioPlayable()) {
                 playerLossPending = true;
                 return;
@@ -610,21 +621,34 @@ window.pokerAudio = (function () {
         },
         setAlive: function (seats) { aliveSeats = seats || []; },
         setAwaitingHuman: function (on) { awaitingHuman = !!on; },
-        setMuted: function (m) {
-            muted = m;
-            if (m) stopSliderDrag();
-            if (m) {
+        // Settings SOUND combo: each channel toggles independently.
+        // Missing keys count as ON so a partial object can't silence the game.
+        setChannels: function (c) {
+            c = c || {};
+            const wasMusic = channels.music, wasAmbience = channels.ambience;
+            channels.music = c.music !== false;
+            channels.voices = c.voices !== false;
+            channels.effects = c.effects !== false;
+            channels.ambience = c.ambience !== false;
+            if (!channels.music) stopMusicTracks();
+            if (!channels.ambience && ambience) {
+                try { ambience.pause(); } catch (e) { }
+                ambience = null;
+            }
+            if (!channels.effects) {
+                stopSliderDrag();
                 victoryPending = false;
                 playerLossPending = false;
             }
-            if (m) stopMusic();
-            else if (!m) startMusic();
-            if (m && voiceSrc) { try { voiceSrc.stop(); } catch (e) { } voiceSrc = null; voicePlaying = false; }
-            if (m && dealerSrc) {
-                try { dealerSrc.onended = null; dealerSrc.stop(); } catch (e) { }
-                dealerSrc = null;
-                dealerPlaying = false;
+            if (!channels.voices) {
+                if (voiceSrc) { try { voiceSrc.stop(); } catch (e) { } voiceSrc = null; voicePlaying = false; }
+                if (dealerSrc) {
+                    try { dealerSrc.onended = null; dealerSrc.stop(); } catch (e) { }
+                    dealerSrc = null;
+                    dealerPlaying = false;
+                }
             }
+            if ((channels.music && !wasMusic) || (channels.ambience && !wasAmbience)) startMusic();
         }
     };
 })();

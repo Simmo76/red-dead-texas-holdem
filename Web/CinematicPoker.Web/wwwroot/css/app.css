@@ -2001,6 +2001,57 @@ html.scene-street .boot-screen {
 
 .settings-row .chip-btn { min-width: 150px; }
 
+/* SOUND combo: the button summarises the enabled channels; tapping it folds
+   out a checklist where any mix of channels can be selected. */
+.sound-combo-btn { justify-content: space-between; }
+
+.sound-caret {
+    color: var(--gold-dim);
+    font-size: 10px;
+    margin-left: 6px;
+}
+
+.sound-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: -4px 0 2px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(12, 9, 5, 0.75);
+}
+
+.sound-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: none;
+    padding: 6px 4px;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-align: left;
+    touch-action: manipulation;
+}
+
+.sound-option.on { color: var(--gold); }
+
+.sound-check {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    line-height: 16px;
+    text-align: center;
+    border: 1px solid var(--gold-dim);
+    border-radius: 5px;
+    color: var(--gold);
+    font-size: 12px;
+}
+
 .settings-select {
     min-width: 168px;
     color: var(--gold);
