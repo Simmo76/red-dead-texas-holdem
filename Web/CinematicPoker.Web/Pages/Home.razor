@@ -501,14 +501,8 @@
                 <div class="settings-rows">
                     <div class="settings-row">
                         <span class="settings-label">SOUND</span>
-                        <button class="chip-btn @(_muted ? "" : "active")" @onclick="ToggleMute">
-                            @(_muted ? "SOUND OFF" : "SOUND ON")
-                        </button>
-                    </div>
-                    <div class="settings-row">
-                        <span class="settings-label">MUSIC</span>
-                        <button class="chip-btn @(_musicMuted ? "" : "active")" @onclick="ToggleMusic">
-                            @(_musicMuted ? "MUSIC OFF" : "MUSIC ON")
+                        <button class="chip-btn @(_muted ? "" : "active")" @onclick="CycleSound">
+                            @SoundModeLabel
                         </button>
                     </div>
                     <div class="settings-row">
@@ -4557,18 +4551,18 @@
     private bool _muted;
     private bool _musicMuted;
 
-    private void ToggleMute()
-    {
-        _muted = !_muted;
-        _ = JS.InvokeVoidAsync("pokerAudio.setMuted", _muted);
-    }
+    private string SoundModeLabel =>
+        _muted ? "SOUND OFF" : _musicMuted ? "SFX ONLY" : "SOUND ON";
 
-    // Music-only toggle: background music off while SFX, table talk and
-    // ambience keep playing. Independent of the master SOUND toggle.
-    private void ToggleMusic()
+    // One three-way setting: everything on, SFX only (music off while chips,
+    // table talk and ambience keep playing), or everything off.
+    private void CycleSound()
     {
-        _musicMuted = !_musicMuted;
+        if (!_muted && !_musicMuted) _musicMuted = true;
+        else if (!_muted) _muted = true;
+        else { _muted = false; _musicMuted = false; }
         _ = JS.InvokeVoidAsync("pokerAudio.setMusicMuted", _musicMuted);
+        _ = JS.InvokeVoidAsync("pokerAudio.setMuted", _muted);
     }
 
     private static readonly Dictionary<string, string[]> SoundGroups = new()
