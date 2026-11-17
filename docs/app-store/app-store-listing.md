@@ -91,12 +91,15 @@ story is told by the name, subtitle and screenshots instead.)
 
 ### Age rating
 
-- "Simulated Gambling" → **Frequent/Intense** → results in a **17+** rating
-  unless offset; Apple's questionnaire currently yields **12+** when
-  simulated gambling is marked Infrequent/Mild. Poker *is* the whole game, so
-  answer **Frequent/Intense Simulated Gambling → 17+** and do not try to
-  game the questionnaire. No other flags (no violence, no profanity in
-  shipped dialogue, no user-generated content, no unrestricted web).
+- "Simulated Gambling" → **Frequent/Intense** → under Apple's current global
+  age-rating tiers (4+/9+/13+/16+/18+) this lands the app at **18+**. Poker
+  *is* the whole game, so answer **Frequent/Intense Simulated Gambling** and
+  do not try to game the questionnaire — an understated rating is a
+  guaranteed rejection or later takedown, and a high rating is normal for
+  poker apps. Also answer the alcohol/tobacco-references question honestly
+  (the saloon setting shows drinks; declare it). No other flags (no
+  violence, no profanity in shipped dialogue, no user-generated content,
+  no unrestricted web).
 - Set "Made for Kids" to **No**.
 
 ### Pricing & IAP
