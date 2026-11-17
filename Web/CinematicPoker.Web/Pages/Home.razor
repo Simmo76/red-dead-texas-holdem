@@ -403,8 +403,10 @@
             {
                 @if (!_awaitingNextHand)
                 {
-                    @* Folded and spectating: step through the action one tap
-                       at a time, or jump straight to the next hand. *@
+                    @* Folded and spectating, or the hand is settled and only
+                       the result presentation is still playing: step through
+                       the action one tap at a time, or jump straight to the
+                       next hand. *@
                     <div class="actionbar-right">
                         <button class="act ff" @onclick="FastForward"
                                 title="Skip to the next action">
@@ -1059,6 +1061,10 @@
     //    player taps.
     //  - NEXT HAND: one tap fast-forwards every remaining wait AND the
     //    result hold, going straight to the next deal.
+    // The same two buttons appear once the engine has settled the hand and
+    // only the paced result presentation (reveal, pot award) is still
+    // playing, so a player who went to showdown can hurry the winner
+    // announcement instead of sitting through every dwell.
     // After the pot is awarded (when the player didn't ask to jump ahead)
     // the SKIP control becomes NEXT HAND so the result stays on screen
     // until the player chooses to continue.
@@ -1073,7 +1079,8 @@
         _game != null && !_sessionOver && !_awaitingHuman
         && (_awaitingNextHand
             || (SeatOf(0) is { Folded: true }
-                && (_game.Phase == GamePhase.HandInProgress || _pending.Count > 0)));
+                && (_game.Phase == GamePhase.HandInProgress || _pending.Count > 0))
+            || (_game.Phase != GamePhase.HandInProgress && _pending.Count > 0));
 
     // Labels for the single button shown while the result is on screen.
     private string NextHandButtonLabel => HumanIsBusted ? "CONTINUE" : "NEXT HAND";
@@ -4026,34 +4033,61 @@
             if (after > 0)
                 await PacedDelay(after, token);
             if (token != _loopToken) return;
-            int before = PauseBefore(_pending.Count > 0 ? _pending.Peek() : null);
+            PokerEvent next = _pending.Count > 0 ? _pending.Peek() : null;
+            int before = PauseBefore(next);
             if (before > 0)
+            {
+                string beat = PendingBeatStatus(next);
+                if (beat != null)
+                {
+                    _statusLine = beat;
+                    StateHasChanged();
+                }
                 await PacedDelay(before, token);
+            }
         }
         StateHasChanged();
     }
 
     // Dwell time BEFORE presenting the given queued event: let the current
     // street sink in before hands are revealed, and the reveal sink in
-    // before the pot is pushed.
+    // before the pot is pushed. Nothing moves on the table during these
+    // waits, so they are kept short — the dwell AFTER the reveal is where
+    // the reading time lives — and DrainEvents narrates them in the status
+    // line so the pause reads as pacing, not as the game stalling while it
+    // "works out the winner".
     private int PauseBefore(PokerEvent next) => next switch
     {
         FlopDealt or TurnDealt or RiverDealt => _quickMode ? 900 : 1400,
-        ShowdownStarted => _quickMode ? 1400 : 2200,
-        PotAwarded => _quickMode ? 1200 : 2000,
+        ShowdownStarted => _quickMode ? 800 : 1200,
+        PotAwarded => _quickMode ? 500 : 800,
         _ => 0
     };
 
     // Extra dwell AFTER the current event is on screen: read opponent hole
-    // cards at showdown, then sit with the win/loss amount before the next
-    // hand wipes the table.
+    // cards at showdown, then let the pot push (and the player's win
+    // celebration) play out before HandCompleted brings up the result
+    // banner. The banner itself holds until NEXT HAND is tapped, so these
+    // dwells only delay the announcement — keep them tight.
     private int PauseAfter(PokerEvent evt) => evt switch
     {
-        ShowdownStarted => _quickMode ? 1800 : 2800,
+        ShowdownStarted => _quickMode ? 1400 : 2200,
         PotAwarded award => award.WinnerSeats.Contains(0)
-            ? (_quickMode ? 2400 : 3800)
-            : (_quickMode ? 1800 : 2800),
+            ? (_quickMode ? 1600 : 2400)
+            : (_quickMode ? 1200 : 1800),
         _ => 0
+    };
+
+    // What the status line says while the table holds its breath before a
+    // dramatic beat. Without this the line still shows the last actor's
+    // "thinking…" through the dwells, which looks like the game has
+    // stalled computing the result.
+    private static string PendingBeatStatus(PokerEvent next) => next switch
+    {
+        FlopDealt or TurnDealt or RiverDealt => "Dealing…",
+        ShowdownStarted => "Showdown!",
+        PotAwarded => "And the pot goes to…",
+        _ => null
     };
 
     // Stack as the table currently shows it: winnings (and returned uncalled
