@@ -13,6 +13,7 @@ window.pokerAudio = (function () {
     let ctx = null;
     const buffers = {};       // url -> Promise<AudioBuffer>
     let muted = false;
+    let musicMuted = false;   // music-only mute: SFX, voices and ambience keep playing
     let music = null;
     let musicFadingOut = null;
     let ambience = null;
@@ -331,7 +332,7 @@ window.pokerAudio = (function () {
             const t = (Date.now() - t0) / 1000;
             const vIn = Math.min(1, t / fade);
             const vOut = Math.max(0, Math.min(1, (INTRO_PART_SECONDS - t) / fade));
-            a.volume = (muted ? 0 : 0.4) * Math.min(vIn, vOut);
+            a.volume = ((muted || musicMuted) ? 0 : 0.4) * Math.min(vIn, vOut);
             if (t >= INTRO_PART_SECONDS) {
                 clearInterval(a._fadeTimer);
                 try { a.pause(); } catch (e) { }
@@ -352,7 +353,7 @@ window.pokerAudio = (function () {
                 const ambiencePlay = ambience.play();
                 if (ambiencePlay) ambiencePlay.catch(function () { });
             }
-            if (!music) {
+            if (!music && !musicMuted) {
                 const track = new Audio(pickMusic());
                 music = track;
                 track.volume = fadeIn ? 0 : MUSIC_VOLUME;
@@ -380,16 +381,23 @@ window.pokerAudio = (function () {
                     fadeMusicTo(track, MUSIC_VOLUME, fadeSec);
                 }
             }
-            const p = music.play();
-            if (p) p.catch(function () { });
+            if (music) {
+                const p = music.play();
+                if (p) p.catch(function () { });
+            }
         } catch (e) { }
     }
 
-    function stopMusic() {
+    // Stops the music beds only — ambience (background crowd) keeps going.
+    function stopMusicTracks() {
         disposeMusic(music);
         disposeMusic(musicFadingOut);
         music = null;
         musicFadingOut = null;
+    }
+
+    function stopMusic() {
+        stopMusicTracks();
         if (ambience) { try { ambience.pause(); } catch (e) { } ambience = null; }
     }
 
@@ -609,6 +617,13 @@ window.pokerAudio = (function () {
             playClip('audio/player-loss.wav', 2.25, 1);
         },
         setAlive: function (seats) { aliveSeats = seats || []; },
+        // Music-only toggle: silences the music beds (and intro score) while
+        // SFX, table voices, dealer calls and the ambience bed keep playing.
+        setMusicMuted: function (m) {
+            musicMuted = !!m;
+            if (musicMuted) stopMusicTracks();
+            else startMusic();
+        },
         setAwaitingHuman: function (on) { awaitingHuman = !!on; },
         setMuted: function (m) {
             muted = m;

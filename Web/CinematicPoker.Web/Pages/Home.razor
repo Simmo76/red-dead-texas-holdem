@@ -506,6 +506,12 @@
                         </button>
                     </div>
                     <div class="settings-row">
+                        <span class="settings-label">MUSIC</span>
+                        <button class="chip-btn @(_musicMuted ? "" : "active")" @onclick="ToggleMusic">
+                            @(_musicMuted ? "MUSIC OFF" : "MUSIC ON")
+                        </button>
+                    </div>
+                    <div class="settings-row">
                         <span class="settings-label">PACE</span>
                         <button class="chip-btn @(_quickMode ? "active" : "")" @onclick="ToggleMode">
                             @(_quickMode ? "QUICK PLAY" : "CINEMATIC")
@@ -992,6 +998,7 @@
         public int difficulty;
         public bool quickMode;
         public bool muted;
+        public bool musicMuted;
         public string tableScene;
         public int handNumber;
         public int dealerSeat;
@@ -1379,6 +1386,15 @@
                     }
                     if (!string.IsNullOrEmpty(saved))
                         TryRestoreWebSession(saved);
+                    // The JS audio module starts with both mutes off, so the
+                    // restored preferences must be pushed across or a reload
+                    // would quietly bring the sound/music back.
+                    try
+                    {
+                        if (_muted) await JS.InvokeVoidAsync("pokerAudio.setMuted", true);
+                        if (_musicMuted) await JS.InvokeVoidAsync("pokerAudio.setMusicMuted", true);
+                    }
+                    catch (JSException) { }
                     // Restored tables never hit StartSessionCore, so ping here
                     // or solo play is invisible in Render logs. _hosting is
                     // still false this early — check the invite flag instead.
@@ -1575,6 +1591,7 @@
             _difficulty = Math.Clamp(saved.difficulty, 0, DifficultyNames.Length - 1);
             _quickMode = saved.quickMode;
             _muted = saved.muted;
+            _musicMuted = saved.musicMuted;
 
             var players = new List<PokerPlayer>();
             foreach (WebSeatSnapshot seat in saved.seats.OrderBy(s => s.seat))
@@ -1628,6 +1645,7 @@
             difficulty = _difficulty,
             quickMode = _quickMode,
             muted = _muted,
+            musicMuted = _musicMuted,
             tableScene = _tableScene,
             handNumber = _game.HandNumber,
             dealerSeat = _game.DealerSeat,
@@ -4537,11 +4555,20 @@
     // -------------------------------------------------------------- sounds
 
     private bool _muted;
+    private bool _musicMuted;
 
     private void ToggleMute()
     {
         _muted = !_muted;
         _ = JS.InvokeVoidAsync("pokerAudio.setMuted", _muted);
+    }
+
+    // Music-only toggle: background music off while SFX, table talk and
+    // ambience keep playing. Independent of the master SOUND toggle.
+    private void ToggleMusic()
+    {
+        _musicMuted = !_musicMuted;
+        _ = JS.InvokeVoidAsync("pokerAudio.setMusicMuted", _musicMuted);
     }
 
     private static readonly Dictionary<string, string[]> SoundGroups = new()
