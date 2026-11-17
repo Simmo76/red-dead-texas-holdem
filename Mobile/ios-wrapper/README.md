@@ -147,6 +147,16 @@ npm run build:www && npm run sync
 - Pre-compressed `.br`/`.gz` publish artifacts are stripped from the bundle
   (no server content-negotiation inside the app).
 
+## Battery comparison vs the web version
+
+The game ships a hidden battery test harness (tap the **top-left corner 5
+times** to open it — the app has no URL bar). Inside the wrapper it reads
+the battery natively through the **`@capacitor/device`** plugin (declared
+in `package.json`; `npx cap sync ios` wires it into the Swift package, so
+run `npm run ios` / `npm run sync` after pulling this change). Protocol for
+a fair web-vs-app measurement:
+[`docs/battery-comparison.md`](../../docs/battery-comparison.md).
+
 ## Notes
 
 - The Google Fonts stylesheet (Rye display face) is fetched over the network;
