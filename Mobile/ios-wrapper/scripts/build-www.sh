@@ -18,6 +18,11 @@ rm -rf "$PUBLISH_DIR"
 # negotiation, so the precompressed duplicates are dead weight.
 find www \( -name '*.br' -o -name '*.gz' \) -delete
 
+# The App Store listing mockup (store page, preview cuts, trailers) is web-only
+# marketing material — never ship it inside the app binary (~25 MB of videos,
+# and hidden unreachable content is an App Review smell).
+rm -rf www/appstore-design
+
 # Stamp version.json (index.html fetches it to bust stale caches on the web;
 # in the app it is just informational).
 SHA="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo local)"
