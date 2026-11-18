@@ -64,14 +64,14 @@ namespace CinematicPoker.Game.Prototype
         };
 
         // Kenney mini-character models (CC0) matched to the roster above.
+        // Every seat gets a different model — no body appears twice.
         private static readonly string[] CharacterModels =
         {
             "character-male-a",   // maniac
             "character-male-b",   // regular
             "character-male-c",   // rock
             "character-male-d",   // calling station
-            "character-male-c"    // professional
-
+            "character-female-a"  // professional
         };
 
         private static string[] ShuffledNpcNames()
