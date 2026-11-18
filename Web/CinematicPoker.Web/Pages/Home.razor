@@ -1675,6 +1675,9 @@
             // only an all-off save restores as background off.
             _backgroundOn = !((saved.voicesOff && saved.effectsOff && saved.ambienceOff) || saved.muted);
 
+            // Restores are solo-only; no multiplayer name overlay applies.
+            _seatNames.Clear();
+
             var players = new List<PokerPlayer>();
             // A session saved by an older build may carry retired roster
             // names. Keep a saved name only when it is still in the pool
@@ -1695,7 +1698,8 @@
 
                 string npcName = seat.name;
                 bool inPool = !string.IsNullOrEmpty(npcName)
-                    && Array.Exists(NpcNamePool, n => string.Equals(n, npcName, StringComparison.OrdinalIgnoreCase));
+                    && Array.Exists(NpcNamePool, n => string.Equals(n, npcName, StringComparison.OrdinalIgnoreCase))
+                    && !string.Equals(npcName, PlayerName, StringComparison.OrdinalIgnoreCase);
                 if (!inPool || !takenNames.Add(npcName))
                 {
                     while (nextFresh < freshNames.Length && !takenNames.Add(freshNames[nextFresh]))
@@ -1784,6 +1788,11 @@
     private void StartSessionCore(bool run)
     {
         if (!_isGuest) ClearWebSession();
+        // A name overlay left over from an earlier friends table must not
+        // shadow this roster: a stale entry on one seat can duplicate a name
+        // the fresh shuffle deals to another seat. Live multiplayer tables
+        // repopulate the overlay themselves.
+        if (!_hosting && !_isGuest) _seatNames.Clear();
         var rules = TableRules.Default;
         var players = new List<PokerPlayer> { new HumanPlayer("human", PlayerName, seat: 0, stack: rules.StartingStack) };
         string[] npcNames = ShuffledNpcNames();
