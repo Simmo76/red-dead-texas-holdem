@@ -52,15 +52,18 @@ namespace CinematicPoker.Game.Prototype
             AIProfile.Professional
         };
 
-        // Table nicknames dealt out at random each session, so any personality
-        // can wear any of these names.
+        // Gender-neutral table nicknames dealt out at random each session, so
+        // any personality can wear any of these names. The pool is larger than
+        // the table, so each session seats a random subset.
         private static readonly string[] NpcNamePool =
         {
-            "Nickey 2-guns",
-            "Tommy Gunn",
-            "Stevie Wanders",
-            "Jimmy two-hands",
-            "Simmo Says"
+            "Sam Six-Shot",
+            "Billie Quickdraw",
+            "Jesse Deadeye",
+            "Charlie Cold-Iron",
+            "Frankie Fast-Hand",
+            "Riley Black-Hat",
+            "Casey Trigger"
         };
 
         // Kenney mini-character models (CC0) matched to the roster above.

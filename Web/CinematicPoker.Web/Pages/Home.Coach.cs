@@ -99,7 +99,7 @@ namespace CinematicPoker.Web.Pages
             _game != null && _game.HasHumanLost ? "CONTINUE" : "NEXT HAND";
 
         // Saloon reviews are Maximilian, the eye-patch bandit. Octagon reviews
-        // are Tommy Gunn, a roster name, seated as the bald cage fighter.
+        // are Tommy Gunn, the bald cage fighter coach.
         private bool OctagonCoach => _tableScene == "street";
 
         private string CoachDisplayName => OctagonCoach ? "Tommy Gunn" : "Maximilian";

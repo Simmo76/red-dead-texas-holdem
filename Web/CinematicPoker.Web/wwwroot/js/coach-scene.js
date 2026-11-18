@@ -6,8 +6,8 @@
 // Saloon: Bandit.glb (SK_Cowboy_2), eye-patch bandage, hat on,
 // IdleTableObserveLeftRight01 from mighty-cat.glb.
 // Octagon: Fighter1.glb (the bald fighter in the purple gi), same idle baked
-// on that rig, street-arena.glb. He reviews as Tommy Gunn, a name already
-// on the table roster. Maximilian stays the saloon coach.
+// on that rig, street-arena.glb. He reviews as Tommy Gunn. Maximilian stays
+// the saloon coach.
 
 import * as THREE from 'three';
 import { clone as cloneSkinned } from './vendor/SkeletonUtils.js';

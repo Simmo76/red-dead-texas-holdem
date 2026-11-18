@@ -169,7 +169,8 @@ review risk for any poker app.
 > within a session you'll be reading the board on your own.
 >
 > **FIVE RIVALS WITH REAL PERSONALITIES**
-> Nickey 2-guns, Tommy Gunn, Stevie Wanders, Jimmy two-hands and Simmo Says
+> Sam Six-Shot, Billie Quickdraw, Jesse Deadeye, Charlie Cold-Iron, Frankie
+> Fast-Hand, Riley Black-Hat and Casey Trigger take turns at the table and
 > play like people, not slot machines: some tight, some reckless, some on
 > tilt after a bad beat. They bluff, they have tells — and sometimes the
 > tells are lies. The AI makes decisions with genuine card mathematics plus

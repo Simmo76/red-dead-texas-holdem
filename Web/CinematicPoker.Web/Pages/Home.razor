@@ -915,20 +915,20 @@
 
     private static string SeatColor(int seat) => SeatColors[seat % SeatColors.Length];
 
-    // Table nicknames handed out at random each time a fresh roster sits down,
-    // so any given personality can wear any of these names. Every entry is
-    // unique, the pool is larger than the NPC count, and any name matching the
-    // player's own is skipped, so no two people at the table ever share a name.
+    // Gender-neutral table nicknames handed out at random each time a fresh
+    // roster sits down, so any given personality can wear any of these names.
+    // Every entry is unique, the pool is larger than the NPC count, and any
+    // name matching the player's own is skipped, so no two people at the
+    // table ever share a name.
     private static readonly string[] NpcNamePool =
     {
-        "Nickey 2-guns",
-        "Tommy Gunn",
-        "Stevie Wanders",
-        "Jimmy two-hands",
-        "Simmo Says",
-        "Dusty Boots",
-        "Ace McGraw",
-        "Lucky Lou"
+        "Sam Six-Shot",
+        "Billie Quickdraw",
+        "Jesse Deadeye",
+        "Charlie Cold-Iron",
+        "Frankie Fast-Hand",
+        "Riley Black-Hat",
+        "Casey Trigger"
     };
 
     private string[] ShuffledNpcNames()
