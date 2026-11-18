@@ -1676,6 +1676,13 @@
             _backgroundOn = !((saved.voicesOff && saved.effectsOff && saved.ambienceOff) || saved.muted);
 
             var players = new List<PokerPlayer>();
+            // A session saved by an older build may carry retired roster
+            // names. Keep a saved name only when it is still in the pool
+            // (and not already taken); anything else is remapped to a fresh
+            // pool name so retired names never resurface mid-session.
+            string[] freshNames = ShuffledNpcNames();
+            int nextFresh = 0;
+            var takenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (WebSeatSnapshot seat in saved.seats.OrderBy(s => s.seat))
             {
                 if (seat.seat == 0)
@@ -1686,10 +1693,20 @@
                     continue;
                 }
 
+                string npcName = seat.name;
+                bool inPool = !string.IsNullOrEmpty(npcName)
+                    && Array.Exists(NpcNamePool, n => string.Equals(n, npcName, StringComparison.OrdinalIgnoreCase));
+                if (!inPool || !takenNames.Add(npcName))
+                {
+                    while (nextFresh < freshNames.Length && !takenNames.Add(freshNames[nextFresh]))
+                        nextFresh++;
+                    npcName = nextFresh < freshNames.Length ? freshNames[nextFresh++] : $"Player {seat.seat}";
+                }
+
                 AIProfile profile = WithDifficulty(Roster[seat.seat - 1]());
                 var npc = new AIPlayer(
                     string.IsNullOrEmpty(seat.id) ? $"npc{seat.seat - 1}" : seat.id,
-                    string.IsNullOrEmpty(seat.name) ? $"Player {seat.seat}" : seat.name,
+                    npcName,
                     seat.seat, Math.Max(0, seat.stack), profile, _rng.Next());
                 npc.Status = seat.eliminated ? PlayerStatus.Eliminated : PlayerStatus.Active;
                 npc.Tilt.Tilt = seat.tilt;
