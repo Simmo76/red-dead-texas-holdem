@@ -10,7 +10,9 @@
 // sit at every table, dealt two different random skin tones each game
 // (GIRL_SKIN_TONES) for a diverse table, and every fresh deal reshuffles
 // the NPC bodies to new random chairs (state.reseatNpcs); only the human
-// player keeps seat 0.
+// player keeps seat 0, and bodies only trade chairs within their gender so
+// a female body always sits under the female name the HUD dealt that seat
+// (pokerScene.femaleSeats / state.alignGenders).
 // Check/bet/fold and all table mood idles (sit/observe/hold-cards/win/lose)
 // share one biped catalogue: Sheriff and Bandit GLBs are re-framed onto
 // Jacob's bone axes (tools/retarget_western_biped.mjs), and the girl onto his
@@ -2291,6 +2293,10 @@ async function buildScene(canvas) {
       if (!character) return;
       character.variant = i;
       character.kind = pick.kind;
+      // The HUD deals this chair a female name when a female body sits here
+      // (pokerScene.femaleSeats / the snapshot female flags).
+      character.female = pick.kind === 'girl'
+        || (pick.kind === 'fighter' && femaleFighter(pick.model));
       placeSeatedCharacter(character, i, facing);
       if (seat.chair) {
         alignChairToCharacter(seat.chair, character, facing, i);
@@ -2329,21 +2335,14 @@ async function buildScene(canvas) {
     applyCameraHome();
   }
 
-  // Every new deal sends the NPC bodies (girls included) to freshly
-  // shuffled chairs; only the human player keeps seat 0. Seats sit on a
-  // circle around the origin, so moving a planted character (and the chair
-  // aligned under it) from one seat to another is an exact rigid rotation
-  // about the table's vertical axis — no pose re-measuring. The hat accent
-  // belongs to the SEAT (it matches that player's HUD name colour), so an
-  // arriving body re-tints its hat to the new seat's colour.
+  // Moving a planted character (and the chair aligned under it) from one
+  // seat to another is an exact rigid rotation about the table's vertical
+  // axis — seats sit on a circle around the origin, so no pose
+  // re-measuring. The hat accent belongs to the SEAT (it matches that
+  // player's HUD name colour), so an arriving body re-tints its hat to the
+  // new seat's colour. `from` and `to` are parallel seat-index arrays.
   const reseatUp = new THREE.Vector3(0, 1, 0);
-  state.reseatNpcs = () => {
-    const from = [];
-    for (let i = 1; i < state.seats.length; i++) {
-      if (state.seats[i].char) from.push(i);
-    }
-    if (from.length < 2) return;
-    const to = shuffle(from);
+  const moveNpcBodies = (from, to) => {
     const movedChar = from.map((i) => state.seats[i].char);
     const movedChair = from.map((i) => state.seats[i].chair);
     const spin = new THREE.Quaternion();
@@ -2374,6 +2373,46 @@ async function buildScene(canvas) {
         }
       });
     }
+  };
+
+  // Every new deal sends the NPC bodies to freshly shuffled chairs; only
+  // the human player keeps seat 0. Bodies shuffle WITHIN their gender:
+  // seat names never move (the HUD deals female names to the chairs that
+  // hold female bodies), so a girl must only ever trade chairs with
+  // another girl.
+  state.reseatNpcs = () => {
+    const from = [];
+    for (let i = 1; i < state.seats.length; i++) {
+      if (state.seats[i].char) from.push(i);
+    }
+    if (from.length < 2) return;
+    const female = (i) => !!state.seats[i].char.female;
+    const girlTo = shuffle(from.filter(female));
+    const guyTo = shuffle(from.filter((i) => !female(i)));
+    const to = from.map((i) => (female(i) ? girlTo.shift() : guyTo.shift()));
+    moveNpcBodies(from, to);
+  };
+
+  // Make the bodies agree with the gender of the name each seat wears in
+  // the HUD (the snapshot rows' female flags): a page reload re-randomises
+  // the lineup while a restored session keeps its old names, and a roster
+  // named before the scene finished building had to guess the girls'
+  // chairs. Swap mismatched bodies pairwise, as far as this tier's bodies
+  // allow (ultra-lite saloon has no girl model; ultra-lite street seats
+  // three girls). reseatNpcs shuffles within genders, so a fix sticks.
+  state.alignGenders = (femaleBySeat) => {
+    const extraGirls = [];   // female body on a male-named seat
+    const missingGirls = []; // male body on a female-named seat
+    for (let i = 1; i < state.seats.length; i++) {
+      const ch = state.seats[i].char;
+      if (!ch || !!ch.female === !!femaleBySeat[i]) continue;
+      (ch.female ? extraGirls : missingGirls).push(i);
+    }
+    const n = Math.min(extraGirls.length, missingGirls.length);
+    if (!n) return;
+    const girls = extraGirls.slice(0, n);
+    const guys = missingGirls.slice(0, n);
+    moveNpcBodies([...girls, ...guys], [...guys, ...girls]);
   };
 
   // Only the player gets a CardHold palm helper; NPC hole cards stay on felt.
@@ -3972,6 +4011,20 @@ window.pokerScene = {
     return TABLE_SCENE;
   },
 
+  // Chairs currently holding a female body (saloon Cowboy Girls, street
+  // female fighters), so the HUD can deal those seats female names. Null
+  // while the scene is still building. Keep in sync with the name pools in
+  // Pages/Home.razor.
+  femaleSeats() {
+    if (!state.ready) return null;
+    const out = [];
+    for (let i = 1; i < (state.seats || []).length; i++) {
+      const ch = state.seats[i].char;
+      if (ch && ch.female) out.push(i);
+    }
+    return out;
+  },
+
   // Persist the choice and reload. The poker clips and music do not change;
   // the next boot only swaps the backdrop and character meshes. The saloon
   // stays the default when nothing has been saved.
@@ -4028,8 +4081,9 @@ window.pokerScene = {
     }
     if (!prev || prev.pot !== snapshot.pot) updatePot(snapshot.pot);
 
-    // A fresh deal (new hole cards) reshuffles every NPC body to a random
-    // chair, so the girls — and everyone else — sit somewhere new each hand.
+    // A fresh deal (new hole cards) reshuffles the NPC bodies to random
+    // chairs within their gender (names stay with chairs, so a girl only
+    // trades chairs with a girl).
     // The very first deal keeps the build-time lineup (already random).
     if (prev && state.reseatNpcs
         && snapshot.hole && snapshot.hole.length === 2
@@ -4038,6 +4092,13 @@ window.pokerScene = {
     }
 
     const seats = snapshot.seats || [];
+    // Seat names live in the HUD and never move between chairs; bodies do.
+    // Put a female body under every female-named seat (see alignGenders).
+    if (state.alignGenders && seats.length) {
+      const femaleBySeat = [];
+      for (const data of seats) femaleBySeat[data.seat] = !!data.female;
+      state.alignGenders(femaleBySeat);
+    }
     // The C# snapshot captures the actor once before serializing the rows.
     // Use that explicit identity instead of rediscovering it from row flags:
     // a turn transition during a render must never make the outline drift
