@@ -675,8 +675,9 @@ function drawLabel(label, seat) {
 // lets the lens drop this low.
 const OVERHEAD_LABEL_RADIUS = SEAT_RADIUS + 0.05;
 const OVERHEAD_LABEL_HEIGHT = TABLE_TOP + 0.55;
-// How much of the seat/plate ring must fit the vertical field of view.
-const OVERHEAD_FIT_RADIUS = OVERHEAD_LABEL_RADIUS + 0.31;
+// How much of the seat/plate ring must fit the vertical field of view
+// (plate half-height is ~0.26, so this keeps the top plate fully framed).
+const OVERHEAD_FIT_RADIUS = OVERHEAD_LABEL_RADIUS + 0.38;
 // Everything above this height (hanging lamp, saloon beams, roof planes)
 // sits between the raised lens and the felt. The near plane rides just
 // under it while the camera is up, so the fixtures vanish instead of
@@ -689,8 +690,8 @@ function ensureOverheadLabels() {
     const seat = state.seats[i];
     if (seat.overheadLabel) continue;
     const label = makeLabel();
-    // Larger than the seated-view tags: these are read from ~4 m up.
-    label.sprite.scale.set(0.94, 0.3525, 1);
+    // Larger than the seated-view tags: these are read from ~3.5 m up.
+    label.sprite.scale.set(1.41, 0.52875, 1);
     label.sprite.visible = false;
     label.sprite.position.copy(seatPos(i, OVERHEAD_LABEL_RADIUS, OVERHEAD_LABEL_HEIGHT));
     state.scene.add(label.sprite);
@@ -2543,11 +2544,14 @@ async function buildScene(canvas) {
       // overhead poker layout.
       const vfov = THREE.MathUtils.degToRad(camera.fov);
       const dist = OVERHEAD_FIT_RADIUS / Math.tan(vfov / 2);
+      // Framed a touch north of the pot so the far seat's plate clears the
+      // translucent toolbar; the bottom gives up space the action bar
+      // covers anyway (the player's own seat has no plate).
+      _lookTarget.set(state.pivot.x, state.pivot.y, state.pivot.z - 0.22);
       _desiredPos.set(
-        state.pivot.x,
-        state.pivot.y + dist,
-        state.pivot.z + dist * 0.22);
-      _lookTarget.copy(state.pivot);
+        _lookTarget.x,
+        _lookTarget.y + dist,
+        _lookTarget.z + dist * 0.22);
     } else if (state.zoom.active) {
       _desiredPos.copy(state.zoom.pos);
       _lookTarget.copy(state.zoom.look);
@@ -2830,6 +2834,17 @@ function setupLookControls(canvas, view) {
       if (e.timeStamp - downAt >= 220) return;
     }
     if (moved >= 8) return;
+
+    // A tap on the scene leaves the overhead view — the same dismiss
+    // gesture as tapping out of a card close-up. HUD buttons sit on top of
+    // the canvas, so their taps never arrive here. The bet-sizing close-up
+    // stays owned by its CONFIRM/BACK panel even from overhead.
+    if (state.overhead) {
+      if (state.zoom.active && state.zoom.kind === 'bet') return;
+      state.zoom.active = false;
+      window.pokerScene.setOverhead(false);
+      return;
+    }
 
     if (state.zoom.active) {
       // The bet-sizing close-up is owned by the slider panel (CONFIRM/BACK),
@@ -3969,11 +3984,18 @@ window.pokerScene = {
   // Bird's-eye toggle: the camera eases straight up over the pot and every
   // seat shows a name/stack plate, so all remaining chip counts read at a
   // glance. Returns the state actually applied so the HUD button stays in
-  // sync even when the scene is not ready.
-  setOverhead(on) {
+  // sync even when the scene is not ready. `hudRef` (optional, remembered)
+  // is the Blazor page; a tap on the felt also leaves this view, and the
+  // HUD hears about it through OnOverheadChanged so its button follows.
+  setOverhead(on, hudRef) {
+    if (hudRef) state.overheadRef = hudRef;
     if (!state.ready) return false;
     markActivity();
-    state.overhead = !!on;
+    const next = !!on;
+    if (next !== state.overhead && state.overheadRef) {
+      try { state.overheadRef.invokeMethodAsync('OnOverheadChanged', next); } catch (e) { }
+    }
+    state.overhead = next;
     if (state.overhead) {
       this.endBetPreview();
       state.zoom.active = false;

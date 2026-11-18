@@ -2242,13 +2242,24 @@
     // shows a floating name/stack plate, so all remaining chip counts read
     // at a glance. The scene reports the state it actually applied, so the
     // button cannot drift out of sync when the 3D build is unavailable.
+    // A tap on the felt also dismisses the view (same gesture as leaving a
+    // card close-up); the scene reports that through OnOverheadChanged.
     private bool _overheadView;
 
     private async Task ToggleOverheadView()
     {
         if (!_sceneReady) return;
-        try { _overheadView = await JS.InvokeAsync<bool>("pokerScene.setOverhead", !_overheadView); }
+        _selfRef ??= DotNetObjectReference.Create(this);
+        try { _overheadView = await JS.InvokeAsync<bool>("pokerScene.setOverhead", !_overheadView, _selfRef); }
         catch (JSException) { _overheadView = false; }
+    }
+
+    [JSInvokable]
+    public void OnOverheadChanged(bool on)
+    {
+        if (_overheadView == on) return;
+        _overheadView = on;
+        _ = InvokeAsync(StateHasChanged);
     }
 
     // Any tap outside the enlarged close-up (wired on the root .game3d div)
