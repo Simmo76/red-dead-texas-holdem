@@ -673,7 +673,10 @@ function drawLabel(label, seat) {
   ctx.font = LINE_FONT;
   if (seat.out) { ctx.fillStyle = '#b0483c'; ctx.fillText('OUT', W / 2, 148); }
   else {
-    ctx.fillStyle = '#e0b95e';
+    // A folded seat's whole plate mutes — gold stack figures read as "still
+    // in the hand", so they keep the same grey as the name until the next
+    // deal brings the seat back.
+    ctx.fillStyle = seat.folded ? '#8a7f70' : '#e0b95e';
     ctx.fillText(line, W / 2, 148, W - 72);
   }
   label.tex.needsUpdate = true;
