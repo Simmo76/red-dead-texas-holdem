@@ -630,8 +630,30 @@ function drawLabel(label, seat) {
   if (key === label.text) return;
   label.text = key;
 
+  let name = seat.name;
+  if (seat.dealer) name += '  ◈';
+  else if (seat.sb) name += '  sb';
+  else if (seat.bb) name += '  bb';
+  let line = 'OUT';
+  if (!seat.out) {
+    line = '$' + seat.stack;
+    if (seat.status) line += '   ·   ' + seat.status;
+  }
+
   const ctx = label.canvas.getContext('2d');
-  const W = 512, H = 192;
+  const H = 192;
+  const NAME_FONT = 'bold 58px Georgia, serif';
+  const LINE_FONT = 'bold 50px Georgia, serif';
+  // The box grows with its text instead of cutting long names at the
+  // border: measure both rows, pick a canvas just wide enough, and widen
+  // the sprite by the same aspect so the texture is never squeezed. The
+  // cap keeps a runaway status line from walling off half the table.
+  ctx.font = NAME_FONT;
+  let needed = ctx.measureText(name).width;
+  ctx.font = LINE_FONT;
+  needed = Math.max(needed, ctx.measureText(line).width);
+  const W = Math.round(THREE.MathUtils.clamp(needed + 88, 512, 896));
+  if (label.canvas.width !== W) label.canvas.width = W; // resize also clears
   ctx.clearRect(0, 0, W, H);
 
   ctx.fillStyle = seat.actor ? 'rgba(46,32,14,0.88)' : 'rgba(12,10,8,0.72)';
@@ -644,22 +666,19 @@ function drawLabel(label, seat) {
 
   ctx.textAlign = 'center';
   ctx.fillStyle = seat.out || seat.folded ? '#8a7f70' : '#f0e2c8';
-  ctx.font = 'bold 58px Georgia, serif';
-  let name = seat.name;
-  if (seat.dealer) name += '  ◈';
-  else if (seat.sb) name += '  sb';
-  else if (seat.bb) name += '  bb';
-  ctx.fillText(name, W / 2, 78);
+  ctx.font = NAME_FONT;
+  ctx.fillText(name, W / 2, 78, W - 72);
 
-  ctx.font = 'bold 50px Georgia, serif';
+  ctx.font = LINE_FONT;
   if (seat.out) { ctx.fillStyle = '#b0483c'; ctx.fillText('OUT', W / 2, 148); }
   else {
     ctx.fillStyle = '#e0b95e';
-    let line = '$' + seat.stack;
-    if (seat.status) line += '   ·   ' + seat.status;
-    ctx.fillText(line, W / 2, 148);
+    ctx.fillText(line, W / 2, 148, W - 72);
   }
   label.tex.needsUpdate = true;
+  // Keep the plate's world height and let the width follow the canvas, so
+  // text renders at the same size in every plate regardless of box width.
+  label.sprite.scale.x = label.sprite.scale.y * (W / H);
 }
 
 // ------------------------------------------------------------- overhead view
