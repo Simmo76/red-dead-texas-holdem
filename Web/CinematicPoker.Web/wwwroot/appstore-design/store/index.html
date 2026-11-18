@@ -110,6 +110,54 @@
   .iap-list { list-style: none; text-align: right; }
   .iap-list li span { color: var(--faint); margin-left: 10px; }
 
+  /* ---- Meet the Table: Red Dead-style character posters. The game vendors
+     the Rye wood-type face in wwwroot/fonts, so the posters match the
+     in-game title typography without any network fetch. */
+  @font-face {
+    font-family: 'Rye';
+    src: url('../../fonts/rye-latin.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+  .posse { display: flex; gap: 16px; overflow-x: auto; padding: 4px 2px 10px;
+           scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+  .outlaw {
+    flex: none; width: 272px; scroll-snap-align: start;
+    background: #171007; border: 1px solid #3a2c18; border-radius: 14px;
+    overflow: hidden; color: #e9ddc8;
+    font-family: Georgia, "Times New Roman", serif;
+  }
+  .outlaw .photo { position: relative; }
+  .outlaw .photo img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
+  .outlaw .archetype {
+    position: absolute; top: 10px; left: 10px;
+    background: rgba(12, 10, 8, 0.72); border: 1px solid #a8853e; border-radius: 4px;
+    color: #e8c87a; font-size: 10px; font-weight: 700; letter-spacing: 2.5px;
+    text-transform: uppercase; padding: 4px 8px;
+  }
+  .outlaw .nameplate {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 42px 14px 10px;
+    background: linear-gradient(to top, rgba(12,10,8,0.94) 0%, rgba(12,10,8,0.62) 55%, transparent 100%);
+  }
+  .outlaw .nameplate .name {
+    font-family: 'Rye', Georgia, serif; font-weight: 400; color: #e8c87a;
+    font-size: 21px; line-height: 1.1; letter-spacing: 1px;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+  }
+  .outlaw .nameplate .epithet { color: #d8c5a0; font-size: 12px; font-style: italic; margin-top: 2px; }
+  .outlaw .dossier { padding: 12px 14px 16px; }
+  .outlaw .stat-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+  .outlaw .stat-row .k {
+    color: #a8853e; font-size: 9.5px; font-weight: 700; letter-spacing: 1.6px;
+    text-transform: uppercase; width: 96px; flex: none;
+  }
+  .outlaw .stat-row .track { flex: 1; height: 6px; background: #2a2014; border-radius: 3px; overflow: hidden; }
+  .outlaw .stat-row .track i { display: block; height: 100%; border-radius: 3px;
+    background: linear-gradient(to right, #a8853e, #e8c87a); }
+  .outlaw .stat-row .n { color: #e8c87a; font-size: 11px; width: 16px; text-align: right; font-variant-numeric: tabular-nums; }
+  .outlaw .story { color: #c9b896; font-size: 12.5px; line-height: 1.5; margin-top: 10px;
+    border-top: 1px solid #2a2014; padding-top: 10px; }
+  .posse-note { color: var(--faint); font-size: 12px; margin-top: 6px; }
+
   .mocknote {
     margin-top: 44px; padding: 14px 18px; background: #fffbea; border: 1px solid #f0e6c0;
     border-radius: 10px; color: #7a6a33; font-size: 12.5px; max-width: 760px;
@@ -196,6 +244,115 @@ More environments are on the way as one-time packs: new table, new cast, new coa
 • Real poker rules: blinds, side pots, split pots, min-raise tracking, heads-up play — the engine is validated by a 10,000-hand simulation every release.
 
 Shuffle up. The table's waiting, and the coach is buying.</div>
+  </section>
+
+  <!-- One poster per NPC seat. The bars are the real AIProfile numbers in
+       plain English: LIKELY TO BLUFF = BluffFrequency, STONE COLD = how
+       little tilt and emotion move them (TiltSensitivity + EmotionalBias,
+       inverted), NO TELLS = how little their feelings leak into their play
+       (EmotionalBias + DecisionNoise, inverted), TRIGGER FINGER =
+       Aggression. Seat order matches the in-game roster. -->
+  <section>
+    <h2>Meet the Table</h2>
+    <div class="posse">
+
+      <div class="outlaw">
+        <div class="photo">
+          <img src="../../img/characters/billie-quickdraw.jpg" loading="lazy"
+               alt="Painted western portrait of Billie Quickdraw, a wild-eyed young outlaw with a crooked grin and a red bandana" />
+          <div class="archetype">The Maniac</div>
+          <div class="nameplate">
+            <div class="name">Billie Quickdraw</div>
+            <div class="epithet">&ldquo;Raise first. Look at the cards later.&rdquo;</div>
+          </div>
+        </div>
+        <div class="dossier">
+          <div class="stat-row"><span class="k">Likely to Bluff</span><div class="track"><i style="width:90%"></i></div><span class="n">9</span></div>
+          <div class="stat-row"><span class="k">Stone Cold</span><div class="track"><i style="width:20%"></i></div><span class="n">2</span></div>
+          <div class="stat-row"><span class="k">No Tells</span><div class="track"><i style="width:30%"></i></div><span class="n">3</span></div>
+          <div class="stat-row"><span class="k">Trigger Finger</span><div class="track"><i style="width:90%"></i></div><span class="n">9</span></div>
+          <p class="story">Trick-shooter with a travelling rodeo until she put a hole in the judge's hat over a scoring dispute. Billie raises blind, bluffs with nothing, and once pushed her own horse into the pot holding seven-deuce — and won. Take a pot off her and stack your chips somewhere safe: the next hand, she's coming for all of it, tilted and grinning.</p>
+        </div>
+      </div>
+
+      <div class="outlaw">
+        <div class="photo">
+          <img src="../../img/characters/sam-six-shot.jpg" loading="lazy"
+               alt="Painted western portrait of Sam Six-Shot, a friendly weathered rancher with a sandy mustache and brown hat" />
+          <div class="archetype">The Regular</div>
+          <div class="nameplate">
+            <div class="name">Sam Six-Shot</div>
+            <div class="epithet">&ldquo;I play the cards I'm dealt. Mostly.&rdquo;</div>
+          </div>
+        </div>
+        <div class="dossier">
+          <div class="stat-row"><span class="k">Likely to Bluff</span><div class="track"><i style="width:50%"></i></div><span class="n">5</span></div>
+          <div class="stat-row"><span class="k">Stone Cold</span><div class="track"><i style="width:50%"></i></div><span class="n">5</span></div>
+          <div class="stat-row"><span class="k">No Tells</span><div class="track"><i style="width:60%"></i></div><span class="n">6</span></div>
+          <div class="stat-row"><span class="k">Trigger Finger</span><div class="track"><i style="width:50%"></i></div><span class="n">5</span></div>
+          <p class="story">Runs cattle an hour out of town and has held the same chair every Friday since his wedding ring settled a bar debt he still won't discuss. No fancy moves — Sam plays the hand he's dealt and the odds he can count on his fingers, which is more than most at this table manage. He's the handshake of the game and its yardstick: beat Sam steady, and you're ready for the rest of them.</p>
+        </div>
+      </div>
+
+      <div class="outlaw">
+        <div class="photo">
+          <img src="../../img/characters/charlie-cold-iron.jpg" loading="lazy"
+               alt="Painted western portrait of Charlie Cold-Iron, a stern old blacksmith with an iron-grey beard and unreadable eyes" />
+          <div class="archetype">The Rock</div>
+          <div class="nameplate">
+            <div class="name">Charlie Cold-Iron</div>
+            <div class="epithet">&ldquo;Patience is free. Mistakes ain't.&rdquo;</div>
+          </div>
+        </div>
+        <div class="dossier">
+          <div class="stat-row"><span class="k">Likely to Bluff</span><div class="track"><i style="width:10%"></i></div><span class="n">1</span></div>
+          <div class="stat-row"><span class="k">Stone Cold</span><div class="track"><i style="width:70%"></i></div><span class="n">7</span></div>
+          <div class="stat-row"><span class="k">No Tells</span><div class="track"><i style="width:70%"></i></div><span class="n">7</span></div>
+          <div class="stat-row"><span class="k">Trigger Finger</span><div class="track"><i style="width:30%"></i></div><span class="n">3</span></div>
+          <p class="story">Forty years at the forge, two buried partners, and one gold claim he never talks about. Charlie folds all night over a single whiskey and never shows a flicker doing it. He bets about as often as it rains out here — so when his chips finally slide forward, the smart money is already out the door, in the stable, saddling up. Nobody remembers the last time he bluffed. That's rather the point.</p>
+        </div>
+      </div>
+
+      <div class="outlaw">
+        <div class="photo">
+          <img src="../../img/characters/casey-trigger.jpg" loading="lazy"
+               alt="Painted western portrait of Casey Trigger, a fresh-faced young cowboy with a lucky playing card tucked into his hat band" />
+          <div class="archetype">The Calling Station</div>
+          <div class="nameplate">
+            <div class="name">Casey Trigger</div>
+            <div class="epithet">&ldquo;I just want to see one more card.&rdquo;</div>
+          </div>
+        </div>
+        <div class="dossier">
+          <div class="stat-row"><span class="k">Likely to Bluff</span><div class="track"><i style="width:20%"></i></div><span class="n">2</span></div>
+          <div class="stat-row"><span class="k">Stone Cold</span><div class="track"><i style="width:50%"></i></div><span class="n">5</span></div>
+          <div class="stat-row"><span class="k">No Tells</span><div class="track"><i style="width:40%"></i></div><span class="n">4</span></div>
+          <div class="stat-row"><span class="k">Trigger Finger</span><div class="track"><i style="width:20%"></i></div><span class="n">2</span></div>
+          <p class="story">Youngest at the table, heir to a silver claim he's cheerfully donating back one river card at a time. Casey has never met a draw that wasn't worth chasing, calls &ldquo;just to see,&rdquo; and hits his miracle card exactly often enough to keep the legend alive. He doesn't bluff you — folding has simply never crossed his mind. Beat him with made hands and let the lucky card in his hat band do the rest.</p>
+        </div>
+      </div>
+
+      <div class="outlaw">
+        <div class="photo">
+          <img src="../../img/characters/jesse-deadeye.jpg" loading="lazy"
+               alt="Painted western portrait of Jesse Deadeye, an elegant expressionless gambler in black riverboat attire with a silver watch chain" />
+          <div class="archetype">The Professional</div>
+          <div class="nameplate">
+            <div class="name">Jesse Deadeye</div>
+            <div class="epithet">&ldquo;I'm not reading your cards. I'm reading you.&rdquo;</div>
+          </div>
+        </div>
+        <div class="dossier">
+          <div class="stat-row"><span class="k">Likely to Bluff</span><div class="track"><i style="width:60%"></i></div><span class="n">6</span></div>
+          <div class="stat-row"><span class="k">Stone Cold</span><div class="track"><i style="width:90%"></i></div><span class="n">9</span></div>
+          <div class="stat-row"><span class="k">No Tells</span><div class="track"><i style="width:90%"></i></div><span class="n">9</span></div>
+          <div class="stat-row"><span class="k">Trigger Finger</span><div class="track"><i style="width:70%"></i></div><span class="n">7</span></div>
+          <p class="story">Dealt faro on the riverboats from Natchez to St. Louis until the games got too easy and the exits got too necessary. Jesse counts the pot to the cent, plays position like a land grab, and hasn't shown an expression since Abilene. Bad beats don't move her; neither do good ones. Every bluff is priced, every tell is rehearsed, and the watch chain isn't for telling time — it's for watching you sweat.</p>
+        </div>
+      </div>
+
+    </div>
+    <div class="posse-note">Names rotate at the table between sessions — the faces, habits and tempers stay. Scroll for more &rarr;</div>
   </section>
 
   <section>
