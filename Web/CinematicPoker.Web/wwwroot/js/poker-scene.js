@@ -626,6 +626,17 @@ function drawNameTag(label, name, dim) {
   label.tex.needsUpdate = true;
 }
 
+// Plate canvases are allocated once at the widest size and never resized:
+// three.js backs a CanvasTexture with immutable GPU storage (texStorage2D),
+// so shrinking the canvas later only partially overwrites the old texels and
+// the right edge of a previously wider draw survives beside the new box —
+// seen on phones as a stale sliver (old bb/sb suffix, old actor border)
+// "overlapping" each plate's right edge. The box grows and shrinks by
+// drawing at the needed width, centred inside the fixed canvas, with the
+// margins left transparent.
+const PLATE_MAX_W = 896;
+const PLATE_H = 192;
+
 function drawLabel(label, seat) {
   const key = JSON.stringify([seat.name, seat.stack, seat.status, seat.actor, seat.out, seat.folded, seat.dealer, seat.sb, seat.bb]);
   if (key === label.text) return;
@@ -642,24 +653,23 @@ function drawLabel(label, seat) {
   }
 
   const ctx = label.canvas.getContext('2d');
-  const H = 192;
+  const MAXW = PLATE_MAX_W, H = PLATE_H;
   const NAME_FONT = 'bold 58px Georgia, serif';
   const LINE_FONT = 'bold 50px Georgia, serif';
   // The box grows with its text instead of cutting long names at the
-  // border: measure both rows, pick a canvas just wide enough, and widen
-  // the sprite by the same aspect so the texture is never squeezed. The
-  // cap keeps a runaway status line from walling off half the table.
+  // border: measure both rows and draw a box just wide enough. The cap
+  // keeps a runaway status line from walling off half the table.
   ctx.font = NAME_FONT;
   let needed = ctx.measureText(name).width;
   ctx.font = LINE_FONT;
   needed = Math.max(needed, ctx.measureText(line).width);
-  const W = Math.round(THREE.MathUtils.clamp(needed + 88, 512, 896));
-  if (label.canvas.width !== W) label.canvas.width = W; // resize also clears
-  ctx.clearRect(0, 0, W, H);
+  const W = Math.round(THREE.MathUtils.clamp(needed + 88, 512, MAXW));
+  const x0 = (MAXW - W) / 2;
+  ctx.clearRect(0, 0, MAXW, H);
 
   ctx.fillStyle = seat.actor ? 'rgba(46,32,14,0.88)' : 'rgba(12,10,8,0.72)';
   ctx.beginPath();
-  ctx.roundRect(8, 8, W - 16, H - 16, 26);
+  ctx.roundRect(x0 + 8, 8, W - 16, H - 16, 26);
   ctx.fill();
   if (seat.actor) {
     ctx.strokeStyle = '#e8b23c'; ctx.lineWidth = 8; ctx.stroke();
@@ -668,21 +678,18 @@ function drawLabel(label, seat) {
   ctx.textAlign = 'center';
   ctx.fillStyle = seat.out || seat.folded ? '#8a7f70' : '#f0e2c8';
   ctx.font = NAME_FONT;
-  ctx.fillText(name, W / 2, 78, W - 72);
+  ctx.fillText(name, MAXW / 2, 78, W - 72);
 
   ctx.font = LINE_FONT;
-  if (seat.out) { ctx.fillStyle = '#b0483c'; ctx.fillText('OUT', W / 2, 148); }
+  if (seat.out) { ctx.fillStyle = '#b0483c'; ctx.fillText('OUT', MAXW / 2, 148); }
   else {
     // A folded seat's whole plate mutes — gold stack figures read as "still
     // in the hand", so they keep the same grey as the name until the next
     // deal brings the seat back.
     ctx.fillStyle = seat.folded ? '#8a7f70' : '#e0b95e';
-    ctx.fillText(line, W / 2, 148, W - 72);
+    ctx.fillText(line, MAXW / 2, 148, W - 72);
   }
   label.tex.needsUpdate = true;
-  // Keep the plate's world height and let the width follow the canvas, so
-  // text renders at the same size in every plate regardless of box width.
-  label.sprite.scale.x = label.sprite.scale.y * (W / H);
 }
 
 // ------------------------------------------------------------- overhead view
@@ -713,8 +720,14 @@ function ensureOverheadLabels() {
     const seat = state.seats[i];
     if (seat.overheadLabel) continue;
     const label = makeLabel();
-    // Larger than the seated-view tags: these are read from ~3.5 m up.
-    label.sprite.scale.set(1.692, 0.6345, 1);
+    // Widen the canvas to the plate maximum once, before the texture's
+    // first GPU upload — it must never resize after that (see drawLabel).
+    label.canvas.width = PLATE_MAX_W;
+    label.canvas.height = PLATE_H;
+    // Larger than the seated-view tags: these are read from ~3.5 m up. The
+    // sprite spans the full fixed canvas; narrower boxes are drawn centred
+    // inside it with transparent margins.
+    label.sprite.scale.set(0.6345 * (PLATE_MAX_W / PLATE_H), 0.6345, 1);
     label.sprite.visible = false;
     const pos = seatPos(i, OVERHEAD_LABEL_RADIUS, OVERHEAD_LABEL_HEIGHT);
     // The seats flanking the player sit low in the frame, right where the
