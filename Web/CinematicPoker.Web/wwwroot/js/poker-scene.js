@@ -366,6 +366,7 @@ const state = {
   eyeHeight: EYE_HEIGHT,
   lastJson: '',
   lastActorSeat: -2,
+  overhead: false,      // bird's-eye table view with per-seat stack plates
   lastActivity: 0       // performance.now() of the last input/game-state event
 };
 
@@ -659,6 +660,56 @@ function drawLabel(label, seat) {
     ctx.fillText(line, W / 2, 148);
   }
   label.tex.needsUpdate = true;
+}
+
+// ------------------------------------------------------------- overhead view
+
+// Bird's-eye table view: the camera climbs above the pot and every seat —
+// the player included — gets a floating name/stack plate beside their chair,
+// so the whole table's chip counts read at a glance (the classic mobile
+// poker overhead layout). Plates belong to the SEAT, not the body, so NPC
+// reseating between hands never detaches a name from its stack.
+const OVERHEAD_LABEL_RADIUS = SEAT_RADIUS + 0.34;
+const OVERHEAD_LABEL_HEIGHT = TABLE_TOP + 0.55;
+// How much of the seat/plate ring must fit the vertical field of view.
+const OVERHEAD_FIT_RADIUS = OVERHEAD_LABEL_RADIUS + 0.45;
+// Everything above this height (hanging lamp, saloon beams, roof planes)
+// sits between the raised lens and the felt. The near plane rides just
+// under it while the camera is up, so the fixtures vanish instead of
+// covering the pot; at seat height the clip collapses back to the normal
+// 5 cm near plane. Hat crowns top out around 1.7 m.
+const OVERHEAD_CLIP_Y = 1.95;
+
+function ensureOverheadLabels() {
+  for (let i = 0; i < state.seats.length; i++) {
+    const seat = state.seats[i];
+    if (seat.overheadLabel) continue;
+    const label = makeLabel();
+    // Larger than the seated-view tags: these are read from ~4 m up.
+    label.sprite.scale.set(0.94, 0.3525, 1);
+    label.sprite.visible = false;
+    label.sprite.position.copy(seatPos(i, OVERHEAD_LABEL_RADIUS, OVERHEAD_LABEL_HEIGHT));
+    state.scene.add(label.sprite);
+    seat.overheadLabel = label;
+  }
+}
+
+// Redraw every plate from the given snapshot rows (same rows update() gets).
+function drawOverheadLabels(rows) {
+  if (!state.overhead || !state.scene) return;
+  ensureOverheadLabels();
+  for (const data of rows || []) {
+    const seat = state.seats[data.seat];
+    if (!seat || !seat.overheadLabel) continue;
+    drawLabel(seat.overheadLabel, data);
+    seat.overheadLabel.sprite.visible = true;
+  }
+}
+
+function hideOverheadLabels() {
+  for (const seat of state.seats) {
+    if (seat.overheadLabel) seat.overheadLabel.sprite.visible = false;
+  }
 }
 
 // ------------------------------------------------------------------ chips
@@ -1768,7 +1819,9 @@ async function buildScene(canvas) {
       view.distScale = view.targetDistScale = 1;
     }
     orbitFromView(view, state.camHome);
-    if (state.zoom.active) return;
+    // While zoomed or in the overhead view, only recompute the home pose;
+    // the render loop keeps easing toward the active view instead.
+    if (state.zoom.active || state.overhead) return;
     camera.position.copy(state.camHome);
     camera.lookAt(look);
   };
@@ -2477,6 +2530,19 @@ async function buildScene(canvas) {
         _lookMat.lookAt(camera.position, _introLook, _upVec);
         camera.quaternion.setFromRotationMatrix(_lookMat);
       }
+    } else if (state.overhead) {
+      // Bird's-eye: climb until the whole seat ring and its name/stack
+      // plates fit the vertical field of view, with a slight southward
+      // offset so the lookAt up-vector never degenerates and the player's
+      // own seat reads at the bottom of the frame like the classic
+      // overhead poker layout.
+      const vfov = THREE.MathUtils.degToRad(camera.fov);
+      const dist = OVERHEAD_FIT_RADIUS / Math.tan(vfov / 2);
+      _desiredPos.set(
+        state.pivot.x,
+        state.pivot.y + dist,
+        state.pivot.z + dist * 0.22);
+      _lookTarget.copy(state.pivot);
     } else if (state.zoom.active) {
       _desiredPos.copy(state.zoom.pos);
       _lookTarget.copy(state.zoom.look);
@@ -2549,6 +2615,16 @@ async function buildScene(canvas) {
         card.scale.setScalar(s);
         card.position.y = TABLE_TOP + 0.004 + (s - 1) * 0.02;
       }
+    }
+
+    // Overhead ceiling clip (see OVERHEAD_CLIP_Y). Height-driven, so the
+    // fixtures melt away as the camera climbs and return as it descends —
+    // every other view keeps the stock near plane because the lens never
+    // rises above the clip height there.
+    const near = Math.max(0.05, camera.position.y - OVERHEAD_CLIP_Y);
+    if (Math.abs(near - camera.near) > 0.01) {
+      camera.near = near;
+      camera.updateProjectionMatrix();
     }
 
     updateFx(dt);
@@ -3875,6 +3951,8 @@ window.pokerScene = {
   },
 
   // Snap back to the 10°/10° table-centre home (cancels card close-up too).
+  // The overhead view survives: it is an explicit mode the player toggled,
+  // so the start-of-hand camera reset must not silently drop out of it.
   resetCamera() {
     if (!state.ready) return;
     markActivity();
@@ -3882,6 +3960,29 @@ window.pokerScene = {
     state.zoom.active = false;
     if (state.applyCameraHome) state.applyCameraHome(true);
   },
+
+  // Bird's-eye toggle: the camera eases straight up over the pot and every
+  // seat shows a name/stack plate, so all remaining chip counts read at a
+  // glance. Returns the state actually applied so the HUD button stays in
+  // sync even when the scene is not ready.
+  setOverhead(on) {
+    if (!state.ready) return false;
+    markActivity();
+    state.overhead = !!on;
+    if (state.overhead) {
+      this.endBetPreview();
+      state.zoom.active = false;
+      const snap = state.lastJson ? JSON.parse(state.lastJson) : null;
+      drawOverheadLabels(snap && snap.seats);
+    } else {
+      // Labels vanish at once; the render loop eases the camera back down
+      // to the over-the-shoulder home on its own.
+      hideOverheadLabels();
+    }
+    return state.overhead;
+  },
+
+  overheadActive() { return !!state.overhead; },
 
   // Fly the seated camera onto an opponent's revealed hole cards so a
   // win (including a fold-win) is readable without hunting the rail.
@@ -4149,6 +4250,9 @@ window.pokerScene = {
         seat.char.revive();
       }
     }
+
+    // Overhead plates track every stack/status change while the view is up.
+    if (state.overhead) drawOverheadLabels(seats);
 
     // Busted players stop joining the table chatter.
     if (window.pokerAudio && window.pokerAudio.setAlive) {
