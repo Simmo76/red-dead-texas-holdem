@@ -1334,7 +1334,8 @@
                     // driving it from here too covers boots where that loop
                     // exhausted its attempts while the scene module itself
                     // was still downloading.
-                    _sceneReady = await JS.InvokeAsync<bool>("pokerScene.init", "poker-canvas");
+                    _selfRef ??= DotNetObjectReference.Create(this);
+                    _sceneReady = await JS.InvokeAsync<bool>("pokerScene.init", "poker-canvas", _selfRef);
                     if (!_sceneReady &&
                         await JS.InvokeAsync<string>("pokerScene.status") == "failed")
                         break;
@@ -1497,7 +1498,8 @@
             {
                 try
                 {
-                    _sceneReady = await JS.InvokeAsync<bool>("pokerScene.init", "poker-canvas");
+                    _selfRef ??= DotNetObjectReference.Create(this);
+                    _sceneReady = await JS.InvokeAsync<bool>("pokerScene.init", "poker-canvas", _selfRef);
                 }
                 catch (JSException)
                 {
