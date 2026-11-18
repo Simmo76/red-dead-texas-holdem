@@ -18,6 +18,31 @@ window.pokerAudio = (function () {
     // effects  — chips, cards, buttons, win/loss cues
     // ambience — background crowd bed
     const channels = { music: true, voices: true, effects: true, ambience: true };
+    // The channel prefs live in their own localStorage key, read synchronously
+    // at script load. Blazor restores its copy seconds later (after the WASM
+    // boot); without this, a tap on the loading screen started music that the
+    // player had switched off — and on iOS a pause() racing a still-pending
+    // play() could leave it playing with no reference left to stop.
+    const CHANNELS_KEY = 'cinematic-poker-audio-channels';
+    let channelsStored = false;
+    (function loadStoredChannels() {
+        try {
+            const raw = localStorage.getItem(CHANNELS_KEY);
+            if (!raw) return;
+            const c = JSON.parse(raw);
+            channels.music = c.music !== false;
+            channels.voices = c.voices !== false;
+            channels.effects = c.effects !== false;
+            channels.ambience = c.ambience !== false;
+            channelsStored = true;
+        } catch (e) { /* first run or private mode */ }
+    })();
+    function storeChannels() {
+        try {
+            localStorage.setItem(CHANNELS_KEY, JSON.stringify(channels));
+            channelsStored = true;
+        } catch (e) { /* private mode */ }
+    }
     let music = null;
     let musicFadingOut = null;
     let ambience = null;
@@ -260,12 +285,23 @@ window.pokerAudio = (function () {
         }
     }
 
+    // pause() alone is not enough to silence an element that is still loading:
+    // on iOS WebKit a pause() racing a still-pending play() can lose, and the
+    // track starts anyway after we have dropped our reference to it. Mute and
+    // detach the source so a late-resolving play() has nothing to sound.
+    function silenceElement(a) {
+        if (!a) return;
+        try { a.muted = true; } catch (e) { }
+        try { a.pause(); } catch (e) { }
+        try { a.removeAttribute('src'); a.load(); } catch (e) { }
+    }
+
     function disposeMusic(audio) {
         if (!audio) return;
         clearMusicFade(audio);
         try { audio.onended = null; } catch (e) { }
         try { audio.removeEventListener('timeupdate', audio._onTimeUpdate); } catch (e) { }
-        try { audio.pause(); } catch (e) { }
+        silenceElement(audio);
         if (music === audio) music = null;
         if (musicFadingOut === audio) musicFadingOut = null;
     }
@@ -316,7 +352,7 @@ window.pokerAudio = (function () {
     function stopIntroAudio() {
         if (introAudio) {
             clearInterval(introAudio._fadeTimer);
-            try { introAudio.pause(); } catch (e) { }
+            silenceElement(introAudio);
             introAudio = null;
         }
         introPlaying = false;
@@ -401,7 +437,7 @@ window.pokerAudio = (function () {
 
     function stopMusic() {
         stopMusicTracks();
-        if (ambience) { try { ambience.pause(); } catch (e) { } ambience = null; }
+        if (ambience) { silenceElement(ambience); ambience = null; }
     }
 
     // Browsers block audio until the first user gesture, so (re)try on taps.
@@ -630,9 +666,10 @@ window.pokerAudio = (function () {
             channels.voices = c.voices !== false;
             channels.effects = c.effects !== false;
             channels.ambience = c.ambience !== false;
+            storeChannels();
             if (!channels.music) stopMusicTracks();
             if (!channels.ambience && ambience) {
-                try { ambience.pause(); } catch (e) { }
+                silenceElement(ambience);
                 ambience = null;
             }
             if (!channels.effects) {
@@ -649,6 +686,20 @@ window.pokerAudio = (function () {
                 }
             }
             if ((channels.music && !wasMusic) || (channels.ambience && !wasAmbience)) startMusic();
+        },
+        // Current channel state plus whether it came from this device's own
+        // store. Blazor reads this on boot so the settings UI matches what
+        // the audio engine is actually doing; `stored: false` means a fresh
+        // device (or cleared storage), where the game-session snapshot is
+        // still the only record of the player's choice.
+        getChannels: function () {
+            return {
+                music: channels.music,
+                voices: channels.voices,
+                effects: channels.effects,
+                ambience: channels.ambience,
+                stored: channelsStored
+            };
         }
     };
 })();
