@@ -691,9 +691,17 @@ function ensureOverheadLabels() {
     if (seat.overheadLabel) continue;
     const label = makeLabel();
     // Larger than the seated-view tags: these are read from ~3.5 m up.
-    label.sprite.scale.set(1.41, 0.52875, 1);
+    label.sprite.scale.set(1.692, 0.6345, 1);
     label.sprite.visible = false;
-    label.sprite.position.copy(seatPos(i, OVERHEAD_LABEL_RADIUS, OVERHEAD_LABEL_HEIGHT));
+    const pos = seatPos(i, OVERHEAD_LABEL_RADIUS, OVERHEAD_LABEL_HEIGHT);
+    // The seats flanking the player sit low in the frame, right where the
+    // action bar lives; their plates slide north over the rail so the
+    // FOLD/BET buttons can never cover them. The seat straight across sits
+    // under the translucent toolbar on short phone viewports, so its plate
+    // mirrors the move and slides south over the rail.
+    if (i === 1 || i === SEATS - 1) pos.z -= 0.55;
+    if (i === 3) pos.z += 0.40;
+    label.sprite.position.copy(pos);
     state.scene.add(label.sprite);
     seat.overheadLabel = label;
   }
