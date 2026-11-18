@@ -102,12 +102,16 @@
             @* While the enlarged card close-up owns the right edge, the
                current actor's window joins this column under the pot pill
                so the big cards can never cover it. *@
-            @if (_hudBoardExpanded && HudActor != null)
+            @if (_hudBoardExpanded && HudActor != null && !_overheadView)
             {
                 @ActorCardFragment
             }
         </div>
 
+        @* The overhead view already shows the board and every stack on the
+           felt itself, so the floating card window stays out of its way. *@
+        @if (!_overheadView)
+        {
         <div class="hud-board @(_hudBoardExpanded ? "expanded" : "") @(ShowCardWindowGlow ? "hint-active" : "")"
              @onclick="ToggleHudBoard" @onclick:stopPropagation="true">
                 <div class="hud-row hud-card-cue-row">
@@ -182,6 +186,7 @@
                 </div>
             }
         </div>
+        }
     }
 
     @if (_banner != null)
@@ -314,7 +319,9 @@
     @* Expanded close-up moves this window up under the pot pill instead
        (see the hud-meters block above). Round == null is a safety net so
        the card is never lost entirely when the meters aren't rendered. *@
-    @if (HudActor != null && (!_hudBoardExpanded || Round == null))
+    @* The overhead plates already name the actor (gold border) with their
+       stack and status, so the floating actor window would only cover them. *@
+    @if (HudActor != null && (!_hudBoardExpanded || Round == null) && !_overheadView)
     {
         @ActorCardFragment
     }
@@ -325,7 +332,7 @@
        put it away. It starts hidden again on every new turn. With another
        human at the table the button stays off — the count would play the
        hand for you. *@
-    @if (ShowAiAdvice)
+    @if (ShowAiAdvice && !_overheadView)
     {
         <div class="ai-advice @(_adviceCollapsed ? "collapsed" : "")" @onclick="ToggleAdvice"
              title="Tap and @CoachDisplayName counts the cards and tells you what he'd do">
