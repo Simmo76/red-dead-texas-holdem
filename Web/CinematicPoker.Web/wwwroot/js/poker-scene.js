@@ -2530,6 +2530,13 @@ async function buildScene(canvas) {
       if (seat.char.isPlayer && seat.char.cardHold) syncCardHold(seat.char);
     }
 
+    // Friend name tags hover over heads in the seated view only. The
+    // overhead plates already carry every seat's name, so while that view
+    // is up the tags would just crowd (and poke past) the plate ring.
+    for (const seat of state.seats) if (seat.nameTag) {
+      const want = !!seat.nameTagWanted && !state.overhead;
+      if (seat.nameTag.sprite.visible !== want) seat.nameTag.sprite.visible = want;
+    }
     for (const seat of state.seats) if (seat.nameTag && seat.nameTag.sprite.visible && seat.char) {
       if (seat.nameTag.head === undefined) {
         seat.nameTag.head = null;
@@ -4325,8 +4332,11 @@ window.pokerScene = {
           state.scene.add(seat.nameTag.sprite);
         }
         drawNameTag(seat.nameTag, data.name || 'Player', !!data.folded);
-        seat.nameTag.sprite.visible = !data.out;
+        // Actual visibility is resolved per frame in the render loop, which
+        // also keeps the tag out of the overhead table view.
+        seat.nameTagWanted = !data.out;
       } else if (seat.nameTag) {
+        seat.nameTagWanted = false;
         seat.nameTag.sprite.visible = false;
       }
       if (seat.char && typeof data.heat === 'number') seat.char.heat = data.heat;
