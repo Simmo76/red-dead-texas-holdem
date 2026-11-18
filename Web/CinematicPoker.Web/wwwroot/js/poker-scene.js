@@ -6,11 +6,12 @@
 // The player is always a random outfit of David Grette's Jacob cowboy.
 // NPC seats draw from Jacob outfits plus the Sheriff, Bandit and Cowboy Girl
 // characters from the same Western series (baked web GLBs; see
-// tools/bake_western_npc.py and tools/bake_cowgirl_npc.py). Two Cowboy Girls
-// sit at every table, dealt two different random skin tones each game
-// (GIRL_SKIN_TONES) for a diverse table, and every fresh deal reshuffles
-// the NPC bodies to new random chairs (state.reseatNpcs); only the human
-// player keeps seat 0.
+// tools/bake_western_npc.py and tools/bake_cowgirl_npc.py). No character
+// model ever sits twice at the same table: the Sheriff, Bandit and Cowboy
+// Girl each take at most one chair, Jacob seats each wear a different outfit
+// look, and the girl deals a random skin tone each game (GIRL_SKIN_TONES).
+// Every fresh deal reshuffles the NPC bodies to new random chairs
+// (state.reseatNpcs); only the human player keeps seat 0.
 // Check/bet/fold and all table mood idles (sit/observe/hold-cards/win/lose)
 // share one biped catalogue: Sheriff and Bandit GLBs are re-framed onto
 // Jacob's bone axes (tools/retarget_western_biped.mjs), and the girl onto his
@@ -40,8 +41,9 @@ import { createCoachController } from './coach-scene.js?v=8';
 // device):
 //   tier 0  full quality (default)
 //   tier 1  no antialiasing, no shadows, reduced render resolution
-//   tier 2  tier 1 + all-Jacob cast (skips the Sheriff/Bandit/Cowboy Girl models)
-//           — the saloon GLB still loads; alternate backdrops are disabled
+//   tier 2  tier 1 + all-Jacob saloon cast, one distinct outfit per seat
+//           (skips the Sheriff/Bandit/Cowboy Girl models) — the saloon GLB
+//           still loads; alternate backdrops are disabled
 //
 // The penalty is not forever: after enough consecutive clean visits at a
 // reduced tier the next boot tries one tier higher again. A device that was
@@ -161,7 +163,7 @@ document.addEventListener('visibilitychange', () => setBootFlag(!document.hidden
 window.addEventListener('pagehide', () => setBootFlag(false));
 
 const GFX_LITE = GFX_TIER >= 1;       // no MSAA / shadows, smaller backbuffer
-const GFX_ULTRA_LITE = GFX_TIER >= 2; // + skip Sheriff/Bandit/Cowboy Girl (saloon still loads)
+const GFX_ULTRA_LITE = GFX_TIER >= 2; // + all-Jacob cast, one outfit per seat (saloon still loads)
 
 // Touch-first devices (phones/tablets) are viewed at arm's length, so they
 // take a lower backbuffer cap than desktop — ~23% fewer shaded pixels, a
@@ -212,8 +214,9 @@ const FIGHTER_SCALE = 1;
 // so the canvas stays flush with the table stand's foot.
 const STREET_ARENA_SCALE = 2.2;
 const STREET_BEAM_OPACITY = 0.25;
-// Ultra-lite tiers load only the first two entries, so that slice keeps one
-// male and one female fighter. The females are Meshy-generated on the
+// Exactly one body per seat (FIGHTER_URLS.length === SEATS) and every entry
+// is a distinct GLB, so the street table never seats the same model twice —
+// every tier loads the full list. The females are Meshy-generated on the
 // max_biped skeleton and carry the same retargeted poker catalogue
 // (see tools/bake_female_fighters.py and ASSET_LICENSES.md).
 const FIGHTER_URLS = [
@@ -2041,10 +2044,11 @@ async function buildScene(canvas) {
   state.seats = [];
   const charPromises = [];
 
-  // Saloon: Jacob outfits for every seat, plus Sheriff, Bandit and the
-  // Cowboy Girl (random skin tone per game) as NPC draws.
-  // Street: the four arcade fighters, with the same poker clips baked on.
-  // Ultra-lite skips the extra bodies (Sheriff/Bandit/Girl, or the two variations).
+  // Saloon: Jacob outfits plus the Sheriff, Bandit and one Cowboy Girl
+  // (random skin tone per game) as NPC draws — each model at most once.
+  // Street: six distinct arcade fighters, with the same poker clips baked on.
+  // Ultra-lite saloon skips the special bodies (Sheriff/Bandit/Girl) and
+  // seats six different Jacob outfits instead.
   const streetScene = TABLE_SCENE === 'street';
   const jacobModel = streetScene ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
   const sheriffModel = (streetScene || GFX_ULTRA_LITE) ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Sheriff.glb?v=10');
@@ -2054,7 +2058,9 @@ async function buildScene(canvas) {
   jacobModel.then((g) => { state.jacobGltf = g; });
   banditModel.then((g) => { state.banditGltf = g; });
   mightyCatModel.then((g) => { state.mightyCatGltf = g; });
-  const fighterUrls = GFX_ULTRA_LITE ? FIGHTER_URLS.slice(0, 2) : FIGHTER_URLS;
+  // Every tier loads the full fighter list: FIGHTER_URLS carries exactly one
+  // distinct body per chair, so no fighter model ever sits twice.
+  const fighterUrls = FIGHTER_URLS;
   const fighterModels = streetScene ? fighterUrls.map((url) => loadGlb(loader, url)) : [];
   if (streetScene && fighterModels[0]) {
     fighterModels[0].then((g) => { state.fighterGltf = g; });
@@ -2066,24 +2072,25 @@ async function buildScene(canvas) {
   const withHat = (look, i) => (look.hat ? look : { ...look, hat: 1 + (i % 2), hair: 'cut' });
   const jacobPool = shuffle(WESTERN_LOOKS.map((look, i) => ({ kind: 'jacob', look: withHat(look, i) })));
   const playerPick = jacobPool[0];
-  // Every table seats Sheriff, Bandit and two Cowboy Girls among the five
-  // NPCs (random chairs), with the last NPC chair filled from the remaining
-  // Jacob outfits. The girls draw two different random skin tones each game
-  // (caucasian / asian / tan / black / dark) so the table stays diverse.
-  // Ultra-lite: all five NPC chairs are Jacob outfits (their GLBs never load).
-  const girlTones = shuffle([...GIRL_SKIN_TONES]);
+  // Every table seats the Sheriff, the Bandit and ONE Cowboy Girl among the
+  // five NPCs (random chairs), with the remaining NPC chairs filled from the
+  // shuffled Jacob outfit pool. No body ever repeats: each special model sits
+  // at most once per table, and every Jacob seat wears a different look. The
+  // girl draws a random skin tone each game (caucasian / asian / tan / black
+  // / dark) so the table stays diverse.
+  // Ultra-lite: all five NPC chairs are distinct Jacob outfits (the special
+  // GLBs never load).
+  const girlTone = shuffle([...GIRL_SKIN_TONES])[0];
   const specialNpcs = GFX_ULTRA_LITE ? [] : [
     { kind: 'sheriff', look: null },
     { kind: 'bandit', look: null },
-    { kind: 'girl', look: null, skinTone: girlTones[0] },
-    { kind: 'girl', look: null, skinTone: girlTones[1] },
+    { kind: 'girl', look: null, skinTone: girlTone },
   ];
   const npcJacob = jacobPool.slice(1, 1 + (SEATS - 1 - specialNpcs.length));
   const npcPool = shuffle([...npcJacob, ...specialNpcs]);
-  const fighterOrder = [];
-  while (streetScene && fighterOrder.length < SEATS) {
-    fighterOrder.push(...shuffle(fighterUrls.map((_, i) => i)));
-  }
+  // One fighter per seat, each a different GLB: a plain shuffle of the six
+  // bodies deals every chair a unique model (FIGHTER_URLS.length === SEATS).
+  const fighterOrder = streetScene ? shuffle(fighterUrls.map((_, i) => i)) : [];
   // Seat 0 is the player's own character and stays male: if the shuffle put
   // a female fighter there, swap her with the first male further down.
   const femaleFighter = (model) => /FemaleFighter/.test(fighterUrls[model]);
@@ -2329,7 +2336,7 @@ async function buildScene(canvas) {
     applyCameraHome();
   }
 
-  // Every new deal sends the NPC bodies (girls included) to freshly
+  // Every new deal sends the NPC bodies (girl included) to freshly
   // shuffled chairs; only the human player keeps seat 0. Seats sit on a
   // circle around the origin, so moving a planted character (and the chair
   // aligned under it) from one seat to another is an exact rigid rotation
@@ -4029,7 +4036,7 @@ window.pokerScene = {
     if (!prev || prev.pot !== snapshot.pot) updatePot(snapshot.pot);
 
     // A fresh deal (new hole cards) reshuffles every NPC body to a random
-    // chair, so the girls — and everyone else — sit somewhere new each hand.
+    // chair, so the girl — and everyone else — sits somewhere new each hand.
     // The very first deal keeps the build-time lineup (already random).
     if (prev && state.reseatNpcs
         && snapshot.hole && snapshot.hole.length === 2

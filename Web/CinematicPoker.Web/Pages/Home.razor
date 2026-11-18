@@ -902,19 +902,25 @@
     private static string SeatColor(int seat) => SeatColors[seat % SeatColors.Length];
 
     // Table nicknames handed out at random each time a fresh roster sits down,
-    // so any given personality can wear any of these names.
+    // so any given personality can wear any of these names. Every entry is
+    // unique, the pool is larger than the NPC count, and any name matching the
+    // player's own is skipped, so no two people at the table ever share a name.
     private static readonly string[] NpcNamePool =
     {
         "Nickey 2-guns",
         "Tommy Gunn",
         "Stevie Wanders",
         "Jimmy two-hands",
-        "Simmo Says"
+        "Simmo Says",
+        "Dusty Boots",
+        "Ace McGraw",
+        "Lucky Lou"
     };
 
     private string[] ShuffledNpcNames()
     {
-        var names = (string[])NpcNamePool.Clone();
+        var names = Array.FindAll(NpcNamePool,
+            n => !string.Equals(n, PlayerName, StringComparison.OrdinalIgnoreCase));
         for (int i = names.Length - 1; i > 0; i--)
         {
             int j = _rng.Next(i + 1);
@@ -1167,7 +1173,16 @@
     private bool _settingsLoaded;
 
     private string PlayerName => string.IsNullOrEmpty(_playerName) ? "Player" : _playerName;
-    private bool CanConfirmName => SanitizeName(_nameDraft, allowEmpty: true).Length > 0;
+    // A restored session already has named NPCs seated, so a draft matching
+    // one of them keeps SIT DOWN disabled — no two names at the table.
+    private bool CanConfirmName
+    {
+        get
+        {
+            string candidate = SanitizeName(_nameDraft, allowEmpty: true);
+            return candidate.Length > 0 && !NpcNameInUse(candidate);
+        }
+    }
 
     // -------------------------------------------------------- tap to play
 
@@ -3896,13 +3911,32 @@
         if (e.Key == "Enter") await SaveSettingsName();
     }
 
+    // A seated NPC already answering to this name mid-session would put two
+    // identical names at the table, so the rename is refused with a hint.
+    private bool NpcNameInUse(string name)
+    {
+        if (_game == null) return false;
+        foreach (PokerPlayer p in _game.Players)
+        {
+            if (p.Seat != 0 && string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
     // Renames take effect immediately: the HUD reads PlayerName directly and
     // the scene/actor windows go through DisplayName, so the engine's
     // immutable player record never needs to change mid-session.
     private async Task SaveSettingsName()
     {
         if (!CanSaveSettingsName) return;
-        _playerName = SanitizeName(_settingsNameDraft);
+        string candidate = SanitizeName(_settingsNameDraft);
+        if (NpcNameInUse(candidate))
+        {
+            _settingsNameNote = $"There's already a {candidate} at this table — pick another name.";
+            return;
+        }
+        _playerName = candidate;
         _settingsNameDraft = _playerName;
         await PersistPlayerName(_playerName);
         _settingsNameNote = $"Saved — the table knows you as {_playerName}.";
