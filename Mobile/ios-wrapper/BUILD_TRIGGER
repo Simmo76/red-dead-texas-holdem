@@ -1,4 +1,4 @@
 # Bump the line below to force a TestFlight build when a change lives
 # outside Mobile/ios-wrapper (the iOS workflow auto-runs only when files
 # under this folder, or the workflow itself, change on main).
-build: 2026-11-18 unique table cast, sound persistence and two-option sound menu
+build: 2026-11-18 overhead table view with per-seat stack plates
