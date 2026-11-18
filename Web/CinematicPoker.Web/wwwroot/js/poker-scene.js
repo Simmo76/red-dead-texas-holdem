@@ -367,6 +367,7 @@ const state = {
   lastJson: '',
   lastActorSeat: -2,
   overhead: false,      // bird's-eye table view with per-seat stack plates
+  felt: null,           // the green baize mesh; a tap on it opens that view
   lastActivity: 0       // performance.now() of the last input/game-state event
 };
 
@@ -2095,6 +2096,7 @@ async function buildScene(canvas) {
   felt.castShadow = true;
   felt.receiveShadow = true;
   scene.add(felt);
+  state.felt = felt;
 
   const woodTex = texture('img/wood.jpg');
   const rail = new THREE.Mesh(
@@ -2883,12 +2885,21 @@ function setupLookControls(canvas, view) {
       return;
     }
 
-    const target = pickCardZoomTarget(canvas, e);
+    const target = pickCardZoomTarget(canvas, e.clientX, e.clientY);
     if (target) {
       state.zoom.active = true;
       state.zoom.kind = target.kind;
       state.zoom.pos.copy(target.pos);
       state.zoom.look.copy(target.look);
+      return;
+    }
+
+    // From the normal seated view, a tap that lands on the green baize
+    // itself (cards already had their chance above; HUD buttons and panels
+    // are DOM overlays whose taps never reach the canvas) lifts the camera
+    // into the overhead table view.
+    if (pickFelt(canvas, e)) {
+      window.pokerScene.setOverhead(true);
       return;
     }
 
@@ -2910,33 +2921,54 @@ function setupLookControls(canvas, view) {
 // Returns { pos, look, kind } for the zoom flight, or null on miss.
 const _raycaster = new THREE.Raycaster();
 const _ndc = new THREE.Vector2();
-function pickCardZoomTarget(canvas, e) {
-  if (!state.camera) return null;
+
+// Did a tap land on the table felt? Chips and pucks sitting on the baize
+// don't block it — visually they are part of the green table too.
+function pickFelt(canvas, e) {
+  if (!state.camera || !state.felt) return false;
   const rect = canvas.getBoundingClientRect();
   _ndc.set(
     ((e.clientX - rect.left) / rect.width) * 2 - 1,
     -((e.clientY - rect.top) / rect.height) * 2 + 1);
   _raycaster.setFromCamera(_ndc, state.camera);
-  const targets = [...state.boardCards, ...state.holeCards];
-  for (const seat of state.seats) targets.push(...seat.cards);
-  const hits = _raycaster.intersectObjects(targets, false);
-  if (!hits.length) return null;
-  const obj = hits[0].object;
+  return _raycaster.intersectObject(state.felt, false).length > 0;
+}
+
+// Cards are thin meshes seen at grazing angles, so an exact raycast misses a
+// finger-accurate tap by a few pixels far too often — and with the felt-tap
+// overhead gesture behind them, a near-miss would yank the camera upward
+// instead of opening the card. Test the tap against each card's projected
+// screen rectangle (padded) instead: generous, deterministic, and the same
+// footprint the player actually sees.
+const CARD_TAP_PAD = 10;
+function tapOnCard(card, canvas, x, y) {
+  if (!card.visible || !card.parent) return false;
+  const r = cardScreenRect(card, canvas);
+  return x >= r.minX - CARD_TAP_PAD && x <= r.maxX + CARD_TAP_PAD
+      && y >= r.minY - CARD_TAP_PAD && y <= r.maxY + CARD_TAP_PAD;
+}
+
+function pickCardZoomTarget(canvas, x, y) {
+  if (!state.camera) return null;
 
   // The player's own pair: fly to the held fan (exact camera spot comes from
-  // positionHandCards once the palm world position is known).
-  if (state.holeCards.includes(obj)) {
+  // positionHandCards once the palm world position is known). Checked first —
+  // held cards sit nearest the camera, so they win any screen overlap.
+  for (const card of state.holeCards) {
+    if (!tapOnCard(card, canvas, x, y)) continue;
     const look = new THREE.Vector3();
-    obj.getWorldPosition(look);
+    card.getWorldPosition(look);
     return { pos: state.camera.position.clone(), look, kind: 'hand' };
   }
 
   // Hover over the whole group the tapped card belongs to (all five community
   // cards, or an opponent's pair) so every card in it is readable at once.
-  let group = state.boardCards.includes(obj) ? state.boardCards : null;
-  if (!group) {
+  let group = null;
+  if (state.boardCards.some((c) => tapOnCard(c, canvas, x, y))) {
+    group = state.boardCards;
+  } else {
     for (const seat of state.seats) {
-      if (seat.cards.includes(obj)) { group = seat.cards; break; }
+      if (seat.cards.some((c) => tapOnCard(c, canvas, x, y))) { group = seat.cards; break; }
     }
   }
   if (!group || !group.length) return null;
@@ -4148,7 +4180,11 @@ window.pokerScene = {
     return next;
   },
 
-  async init(canvasId) {
+  async init(canvasId, hudRef) {
+    // The HUD ref is remembered up front so a felt tap can flip the page
+    // into the overhead view (via OnOverheadChanged) even before the
+    // TABLE VIEW button has ever been pressed.
+    if (hudRef) state.overheadRef = hudRef;
     if (state.ready) return true;
     if (state.buildFailed) return false;
     const canvas = document.getElementById(canvasId);
