@@ -4485,8 +4485,15 @@
             : _banner;
     }
 
+    // The overlay may only rename a seat a connected friend actually holds
+    // (guests trust it for every seat — their local engine players are
+    // placeholders). On a host or solo table, NPC seats always show the
+    // engine's name: those are unique by construction, so a stale overlay
+    // entry left by an earlier friends table can never dress a second seat
+    // in a name the fresh shuffle dealt to someone else.
     private string NameOf(int seat) =>
         _seatNames.TryGetValue(seat, out string shown) && !string.IsNullOrEmpty(shown)
+            && (_isGuest || IsRemote(seat))
             ? shown
             : _game.GetPlayer(seat).Name;
 
