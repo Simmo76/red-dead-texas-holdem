@@ -50,7 +50,7 @@ const PANELS = [
     img: `${RAW}/street/40-turn-3-board4.png`,
     kicker: 'EXTRAORDINARY PLACES',
     headline: 'STEP INTO THE OCTAGON',
-    sub: 'Heavyweights at the table \u2014 and Tommy Gunn in your corner',
+    sub: 'Heavyweights at the table \u2014 and Frankie Fast-Hand in your corner',
   },
   {
     file: '06-saloon',
