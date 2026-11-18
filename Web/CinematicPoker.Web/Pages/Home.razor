@@ -513,14 +513,8 @@
                             <button class="sound-option @(_musicOn ? "on" : "")" @onclick="@(() => ToggleChannel("music"))">
                                 <span class="sound-check">@(_musicOn ? "\u2713" : "")</span>MUSIC
                             </button>
-                            <button class="sound-option @(_voicesOn ? "on" : "")" @onclick="@(() => ToggleChannel("voices"))">
-                                <span class="sound-check">@(_voicesOn ? "\u2713" : "")</span>VOICES
-                            </button>
-                            <button class="sound-option @(_effectsOn ? "on" : "")" @onclick="@(() => ToggleChannel("effects"))">
-                                <span class="sound-check">@(_effectsOn ? "\u2713" : "")</span>CHIPS &amp; CARDS
-                            </button>
-                            <button class="sound-option @(_ambienceOn ? "on" : "")" @onclick="@(() => ToggleChannel("ambience"))">
-                                <span class="sound-check">@(_ambienceOn ? "\u2713" : "")</span>CROWD
+                            <button class="sound-option @(_backgroundOn ? "on" : "")" @onclick="@(() => ToggleChannel("background"))">
+                                <span class="sound-check">@(_backgroundOn ? "\u2713" : "")</span>BACKGROUND
                             </button>
                         </div>
                     }
@@ -1417,13 +1411,13 @@
                     // would quietly bring the sound back.
                     try
                     {
-                        if (!_musicOn || !_voicesOn || !_effectsOn || !_ambienceOn)
+                        if (!_musicOn || !_backgroundOn)
                             await JS.InvokeVoidAsync("pokerAudio.setChannels", new
                             {
                                 music = _musicOn,
-                                voices = _voicesOn,
-                                effects = _effectsOn,
-                                ambience = _ambienceOn
+                                voices = _backgroundOn,
+                                effects = _backgroundOn,
+                                ambience = _backgroundOn
                             });
                     }
                     catch (JSException) { }
@@ -1623,9 +1617,10 @@
             _difficulty = Math.Clamp(saved.difficulty, 0, DifficultyNames.Length - 1);
             _quickMode = saved.quickMode;
             _musicOn = !(saved.musicOff || saved.muted || saved.musicMuted);
-            _voicesOn = !(saved.voicesOff || saved.muted);
-            _effectsOn = !(saved.effectsOff || saved.muted);
-            _ambienceOn = !(saved.ambienceOff || saved.muted);
+            // Older saves stored voices/effects/ambience separately; they now
+            // share the single BACKGROUND switch. Bias to keeping sound on:
+            // only an all-off save restores as background off.
+            _backgroundOn = !((saved.voicesOff && saved.effectsOff && saved.ambienceOff) || saved.muted);
 
             var players = new List<PokerPlayer>();
             foreach (WebSeatSnapshot seat in saved.seats.OrderBy(s => s.seat))
@@ -1678,10 +1673,12 @@
             playerName = PlayerName,
             difficulty = _difficulty,
             quickMode = _quickMode,
+            // The BACKGROUND switch still writes the three legacy flags so
+            // saves stay readable by builds with the four-channel menu.
             musicOff = !_musicOn,
-            voicesOff = !_voicesOn,
-            effectsOff = !_effectsOn,
-            ambienceOff = !_ambienceOn,
+            voicesOff = !_backgroundOn,
+            effectsOff = !_backgroundOn,
+            ambienceOff = !_backgroundOn,
             tableScene = _tableScene,
             handNumber = _game.HandNumber,
             dealerSeat = _game.DealerSeat,
@@ -4446,7 +4443,7 @@
 
     private void PlayDealer(string clip)
     {
-        if (!_voicesOn || string.IsNullOrEmpty(clip)) return;
+        if (!_backgroundOn || string.IsNullOrEmpty(clip)) return;
         try { _ = JS.InvokeVoidAsync("pokerAudio.dealer", clip); }
         catch (JSException) { }
     }
@@ -4483,7 +4480,7 @@
 
     private void PlayVictory()
     {
-        if (!_effectsOn || _victoryPlayedThisHand) return;
+        if (!_backgroundOn || _victoryPlayedThisHand) return;
         _victoryPlayedThisHand = true;
         try { _ = JS.InvokeVoidAsync("pokerAudio.victory"); }
         catch (JSException) { }
@@ -4491,7 +4488,7 @@
 
     private void PlayPlayerLoss()
     {
-        if (!_effectsOn || _playerLossPlayedThisHand) return;
+        if (!_backgroundOn || _playerLossPlayedThisHand) return;
         _playerLossPlayedThisHand = true;
         try { _ = JS.InvokeVoidAsync("pokerAudio.playerLoss"); }
         catch (JSException) { }
@@ -4618,33 +4615,22 @@
 
     // -------------------------------------------------------------- sounds
 
-    // Four independently selectable audio channels (SOUND combo in settings).
+    // Two independently selectable audio channels (SOUND combo in settings):
+    // MUSIC drives the music beds, BACKGROUND drives everything else (table
+    // voices, chip/card effects and the crowd bed) as one switch.
     private bool _musicOn = true;
-    private bool _voicesOn = true;
-    private bool _effectsOn = true;
-    private bool _ambienceOn = true;
+    private bool _backgroundOn = true;
     private bool _soundMenuOpen;
 
-    private bool AnyChannelOn => _musicOn || _voicesOn || _effectsOn || _ambienceOn;
+    private bool AnyChannelOn => _musicOn || _backgroundOn;
 
-    private string SoundSummary
+    private string SoundSummary => (_musicOn, _backgroundOn) switch
     {
-        get
-        {
-            var names = new List<string>(4);
-            if (_musicOn) names.Add("MUSIC");
-            if (_voicesOn) names.Add("VOICES");
-            if (_effectsOn) names.Add("SFX");
-            if (_ambienceOn) names.Add("CROWD");
-            return names.Count switch
-            {
-                4 => "ALL ON",
-                0 => "ALL OFF",
-                3 => "ALL BUT " + (!_musicOn ? "MUSIC" : !_voicesOn ? "VOICES" : !_effectsOn ? "SFX" : "CROWD"),
-                _ => string.Join(" + ", names)
-            };
-        }
-    }
+        (true, true) => "ALL ON",
+        (false, false) => "ALL OFF",
+        (true, false) => "MUSIC ONLY",
+        (false, true) => "BACKGROUND ONLY"
+    };
 
     private void ToggleSoundMenu() => _soundMenuOpen = !_soundMenuOpen;
 
@@ -4653,9 +4639,7 @@
         switch (channel)
         {
             case "music": _musicOn = !_musicOn; break;
-            case "voices": _voicesOn = !_voicesOn; break;
-            case "effects": _effectsOn = !_effectsOn; break;
-            case "ambience": _ambienceOn = !_ambienceOn; break;
+            case "background": _backgroundOn = !_backgroundOn; break;
         }
         PushAudioChannels();
     }
@@ -4665,9 +4649,9 @@
         _ = JS.InvokeVoidAsync("pokerAudio.setChannels", new
         {
             music = _musicOn,
-            voices = _voicesOn,
-            effects = _effectsOn,
-            ambience = _ambienceOn
+            voices = _backgroundOn,
+            effects = _backgroundOn,
+            ambience = _backgroundOn
         });
     }
 
@@ -4686,7 +4670,7 @@
 
     private void PlaySound(string group, int delayMs = 0)
     {
-        if (!_effectsOn) return;
+        if (!_backgroundOn) return;
         string[] variants = SoundGroups[group];
         _ = JS.InvokeVoidAsync("pokerAudio.play", variants[_rng.Next(variants.Length)], delayMs);
     }
