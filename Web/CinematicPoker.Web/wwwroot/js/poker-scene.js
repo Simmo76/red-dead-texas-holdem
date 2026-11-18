@@ -669,10 +669,14 @@ function drawLabel(label, seat) {
 // so the whole table's chip counts read at a glance (the classic mobile
 // poker overhead layout). Plates belong to the SEAT, not the body, so NPC
 // reseating between hands never detaches a name from its stack.
-const OVERHEAD_LABEL_RADIUS = SEAT_RADIUS + 0.34;
+// Plates sit right on the seat ring, over each player, so the camera can
+// come in close; the player's own seat gets no plate (the action bar's
+// stack pill already shows that number) and the freed bottom edge is what
+// lets the lens drop this low.
+const OVERHEAD_LABEL_RADIUS = SEAT_RADIUS + 0.05;
 const OVERHEAD_LABEL_HEIGHT = TABLE_TOP + 0.55;
 // How much of the seat/plate ring must fit the vertical field of view.
-const OVERHEAD_FIT_RADIUS = OVERHEAD_LABEL_RADIUS + 0.45;
+const OVERHEAD_FIT_RADIUS = OVERHEAD_LABEL_RADIUS + 0.31;
 // Everything above this height (hanging lamp, saloon beams, roof planes)
 // sits between the raised lens and the felt. The near plane rides just
 // under it while the camera is up, so the fixtures vanish instead of
@@ -681,7 +685,7 @@ const OVERHEAD_FIT_RADIUS = OVERHEAD_LABEL_RADIUS + 0.45;
 const OVERHEAD_CLIP_Y = 1.95;
 
 function ensureOverheadLabels() {
-  for (let i = 0; i < state.seats.length; i++) {
+  for (let i = 1; i < state.seats.length; i++) {
     const seat = state.seats[i];
     if (seat.overheadLabel) continue;
     const label = makeLabel();
@@ -699,6 +703,7 @@ function drawOverheadLabels(rows) {
   if (!state.overhead || !state.scene) return;
   ensureOverheadLabels();
   for (const data of rows || []) {
+    if (data.seat === 0) continue; // the HUD's own stack pill covers seat 0
     const seat = state.seats[data.seat];
     if (!seat || !seat.overheadLabel) continue;
     drawLabel(seat.overheadLabel, data);
