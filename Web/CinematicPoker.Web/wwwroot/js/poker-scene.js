@@ -701,6 +701,9 @@ function ensureOverheadLabels() {
     // mirrors the move and slides south over the rail.
     if (i === 1 || i === SEATS - 1) pos.z -= 0.55;
     if (i === 3) pos.z += 0.40;
+    // The four side seats spread outward so their plate corners clear the
+    // far seat's plate, which the toolbar dodge above moved toward them.
+    if (i !== 3) pos.x += Math.sign(pos.x) * 0.32;
     label.sprite.position.copy(pos);
     state.scene.add(label.sprite);
     seat.overheadLabel = label;
