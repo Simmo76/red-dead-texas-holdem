@@ -163,13 +163,12 @@ of them are cheap to fix now.
 1. The wrapper packages the published `wwwroot` output; all assets (models,
    audio, textures, the WASM engine) are **bundled, not fetched**, so the app
    is genuinely offline-first — both the product promise and the
-   guideline 4.2 defence. (One exception: the Google Fonts display face
-   falls back to a system font offline; vendor the font before submission.)
-2. Bundle id (`com.cinematicpoker.app`), landscape-only lock, hidden status
-   bar, `UIRequiresFullScreen` and `ITSAppUsesNonExemptEncryption=NO` are
-   already configured in `Mobile/ios-wrapper/ios/App/App/Info.plist`.
-   Still to do before a store submission: real app icon and launch screen
-   (`npx @capacitor/assets generate` from one 1024×1024 image).
+   guideline 4.2 defence. The Rye display font is vendored locally too.
+2. Bundle id (`com.deadmanshand.app`), iOS 16.4 minimum (required for the
+   3D table's import maps), landscape-only lock, hidden status bar,
+   `UIRequiresFullScreen` and `ITSAppUsesNonExemptEncryption=NO` are already
+   configured. The native target also has the final neutral card-table icon
+   and dark launch screen.
 3. **Device performance pass**: three.js + WASM in WKWebView on the oldest
    target iPhone. Check load time (meshopt backdrop + character GLBs),
    memory (WKWebView gets killed around 1.5 GB on older devices), and audio

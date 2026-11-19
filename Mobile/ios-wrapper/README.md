@@ -142,8 +142,9 @@ npm run build:www && npm run sync
 - **`ITSAppUsesNonExemptEncryption = NO`** — removes the export-compliance
   question from every App Store Connect upload.
 - Bundle id `com.deadmanshand.app`, display name **Dead Man's Hand**
-  (App Store name: "Dead Man's Hand: Texas Holdem"), iOS 15+ deployment
-  target.
+  (App Store name: "Dead Man's Hand: Texas Holdem"), iOS 16.4+ deployment
+  target. The game uses browser import maps for its 3D table, first supported
+  by the iOS 16.4 WKWebView.
 - Pre-compressed `.br`/`.gz` publish artifacts are stripped from the bundle
   (no server content-negotiation inside the app).
 
@@ -154,8 +155,11 @@ npm run build:www && npm run sync
 - The App Store listing mockup (`wwwroot/appstore-design/`, ~25 MB of
   marketing videos) is stripped from the staged bundle by `build-www.sh` —
   it is web-only and must never ship inside the binary.
-- App icon is final art; the launch screen is a solid `#0b0d12` (the game's
-  background colour), so launch → boot card is a seamless dark frame.
+- App icon uses neutral card-table artwork (two aces and chips), with no
+  weapons, tobacco, alcohol or text, so the App Store metadata remains
+  suitable for a 4+ audience even though the game itself is rated 18+.
+  The launch screen is a solid `#0b0d12` (the game's background colour), so
+  launch → boot card is a seamless dark frame.
 - For the full App Store submission checklist see
   [`docs/ios-app-store-plan.md`](../../docs/ios-app-store-plan.md) — this
   wrapper is "Track B" in that plan.
