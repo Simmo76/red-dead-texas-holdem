@@ -458,9 +458,69 @@
 
     @if (_sessionOver)
     {
-        <div class="overlay" role="dialog" aria-label="@_sessionOverMessage">
+        <div class="overlay @(_humanWon ? "win-celebration" : "")" role="dialog" aria-label="@_sessionOverMessage">
+            @if (_humanWon)
+            {
+                @* Gold confetti and card suits rain for the full-table win.
+                   Deterministic per-piece inline styles keep the CSS small. *@
+                <div class="win-confetti" aria-hidden="true">
+                    @for (int i = 0; i < ConfettiCount; i++)
+                    {
+                        @if (i % 3 == 0)
+                        {
+                            <span class="confetti-piece confetti-suit" style="@ConfettiSuitStyle(i)">@ConfettiSuits[(i / 3) % ConfettiSuits.Length]</span>
+                        }
+                        else
+                        {
+                            <span class="confetti-piece" style="@ConfettiStyle(i)"></span>
+                        }
+                    }
+                </div>
+            }
             <div class="overlay-box @(_humanLost ? "game-over" : _humanWon ? "table-win" : "")">
-                <div class="overlay-title">@_sessionOverMessage</div>
+                @if (_humanWon)
+                {
+                    <div class="win-rays" aria-hidden="true"></div>
+                    @* Dead man's hand — aces and eights, fanned like the pot
+                       was just dragged. Pure flourish, hidden from readers. *@
+                    <div class="win-cards" aria-hidden="true">
+                        <span class="win-card"><b>A</b><i>♠</i></span>
+                        <span class="win-card"><b>A</b><i>♣</i></span>
+                        <span class="win-card red"><b>Q</b><i>♥</i></span>
+                        <span class="win-card"><b>8</b><i>♠</i></span>
+                        <span class="win-card"><b>8</b><i>♣</i></span>
+                    </div>
+                    <div class="win-eyebrow">★ WINNER TAKES ALL ★</div>
+                    <div class="overlay-title">@_sessionOverMessage</div>
+                    <div class="win-haul">
+                        <div class="win-haul-label">RIDES OFF WITH</div>
+                        <div class="win-amount">$@_haulShown.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</div>
+                    </div>
+                    @if (_game != null)
+                    {
+                        <div class="win-stats">
+                            <div class="win-stat">
+                                <span class="win-stat-num">@_game.HandNumber</span>
+                                <span class="win-stat-label">@(_game.HandNumber == 1 ? "HAND" : "HANDS")</span>
+                            </div>
+                            <div class="win-stat">
+                                <span class="win-stat-num">@(_game.Players.Count - 1)</span>
+                                <span class="win-stat-label">@(_game.Players.Count == 2 ? "RIVAL BUSTED" : "RIVALS BUSTED")</span>
+                            </div>
+                            @if (_biggestPotWon > 0)
+                            {
+                                <div class="win-stat">
+                                    <span class="win-stat-num">$@_biggestPotWon.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</span>
+                                    <span class="win-stat-label">BIGGEST POT</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="overlay-title">@_sessionOverMessage</div>
+                }
                 <div class="overlay-actions">
                     @if (_isGuest)
                     {
@@ -1086,6 +1146,13 @@
     private bool _playerWonPot;
     private bool _shotBusy;
     private string _shotStatus;
+
+    // Table-win celebration: the chip count-up on the overlay and the
+    // biggest pot the player dragged this table. Reset with each new table.
+    private long _haulShown;
+    private int _haulAnimToken;
+    private long _biggestPotWon;
+
     private readonly List<PotAwarded> _awardsThisHand = new();
     private int _pendingFocusSeat = -1;
     private readonly List<ShowdownRow> _showdownView = new();
@@ -1822,6 +1889,9 @@
         _playerWonPot = false;
         _shotBusy = false;
         _shotStatus = null;
+        _haulAnimToken++;
+        _haulShown = 0;
+        _biggestPotWon = 0;
         _pendingFocusSeat = -1;
         _sessionOver = false;
         _humanLost = false;
@@ -1911,6 +1981,9 @@
         _playerWonPot = false;
         _shotBusy = false;
         _shotStatus = null;
+        _haulAnimToken++;
+        _haulShown = 0;
+        _biggestPotWon = 0;
         _pendingFocusSeat = -1;
         _showdownView.Clear();
         _statusLine = "Dealing…";
@@ -1949,6 +2022,7 @@
         else if (_humanWon)
         {
             _sessionOverMessage = $"{PlayerName} takes the table!";
+            _ = AnimateHaulAsync(_game.Human?.Stack ?? 0);
         }
         else
         {
@@ -3683,6 +3757,9 @@
         _playerWonPot = false;
         _shotBusy = false;
         _shotStatus = null;
+        _haulAnimToken++;
+        _haulShown = 0;
+        _biggestPotWon = 0;
         _pendingFocusSeat = -1;
         _sessionOver = false;
         _humanLost = false;
@@ -4356,6 +4433,9 @@
             case PotAwarded award:
             {
                 _awardsThisHand.Add(award);
+                // Session-best pot for the table-win overlay's stat line.
+                if (award.Payouts != null && award.Payouts.TryGetValue(0, out long playerCut))
+                    _biggestPotWon = Math.Max(_biggestPotWon, playerCut);
                 double potHeat = PotHeat(award.Amount);
                 // Body takes on every winner/loser; only one NPC speaks so the
                 // table doesn't stack the same sayings on top of each other.
@@ -4608,6 +4688,60 @@
         finally
         {
             _shotBusy = false;
+        }
+    }
+
+    // ------------------------------------------------ table-win celebration
+
+    private const int ConfettiCount = 27;
+    private static readonly string[] ConfettiColors = { "#e6c36a", "#c0392b", "#57c785", "#f4efe2" };
+    private static readonly string[] ConfettiSuits = { "♠", "♥", "♦", "♣" };
+
+    // Deterministic scatter from the piece index: no RNG, so the shower
+    // looks the same on every render pass of the same overlay.
+    private static string ConfettiStyle(int i)
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        int left = (i * 41 + 7) % 100;
+        double delay = (i * 73 % 260) / 100.0;
+        double duration = 2.8 + (i * 29 % 140) / 100.0;
+        int size = 7 + (i * 31) % 7;
+        string color = ConfettiColors[i % ConfettiColors.Length];
+        return string.Format(inv,
+            "left:{0}%;animation-delay:{1:0.00}s;animation-duration:{2:0.00}s;width:{3}px;height:{4}px;background-color:{5};",
+            left, delay, duration, size, size + 4, color);
+    }
+
+    private static string ConfettiSuitStyle(int i)
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        int left = (i * 41 + 23) % 100;
+        double delay = (i * 67 % 260) / 100.0;
+        double duration = 3.1 + (i * 37 % 120) / 100.0;
+        int size = 15 + (i * 13) % 9;
+        string color = (i / 3) % 2 == 0 ? "#e6c36a" : "#d05a4e";
+        return string.Format(inv,
+            "left:{0}%;animation-delay:{1:0.00}s;animation-duration:{2:0.00}s;font-size:{3}px;color:{4};",
+            left, delay, duration, size, color);
+    }
+
+    /// <summary>
+    /// Rolls the overlay's "rides off with" figure from 0 up to the final
+    /// stack, slot-machine style. Token-guarded so a restart mid-roll stops
+    /// the stale animation.
+    /// </summary>
+    private async Task AnimateHaulAsync(long target)
+    {
+        int token = ++_haulAnimToken;
+        _haulShown = 0;
+        const int steps = 50;
+        for (int i = 1; i <= steps; i++)
+        {
+            await Task.Delay(28);
+            if (token != _haulAnimToken || !_sessionOver) return;
+            double eased = 1 - Math.Pow(1 - i / (double)steps, 3);
+            _haulShown = (long)Math.Round(target * eased);
+            StateHasChanged();
         }
     }
 

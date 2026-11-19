@@ -1755,23 +1755,269 @@ html.scene-street .boot-screen {
     align-items: center;
 }
 
+/* ------------------------------------------- table-win celebration */
+
+/* Winner-takes-all overlay: gold-rimmed plaque that pops in over a
+   confetti shower, with a spinning ray burst behind the content. The
+   solid background-color (not just the gradient) matters — the victory
+   screenshot compositor only paints solid colors and text. */
 .overlay-box.table-win {
-    padding: 44px 56px;
-    gap: 28px;
-    border-color: var(--gold);
+    position: relative;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
+    scrollbar-width: thin;
+    scrollbar-color: var(--gold-dim) transparent;
+    padding: 40px 56px 36px;
+    gap: 22px;
+    border: 2px solid var(--gold);
+    background-color: #241709;
+    background-image: radial-gradient(130% 100% at 50% 0%, rgba(216, 178, 92, 0.16), rgba(0, 0, 0, 0) 55%);
+    box-shadow:
+        0 24px 80px rgba(0, 0, 0, 0.75),
+        0 0 60px rgba(216, 178, 92, 0.22),
+        inset 0 0 0 1px rgba(255, 230, 160, 0.12);
+    max-width: min(560px, calc(100vw - 24px));
+    animation: win-pop 0.55s cubic-bezier(0.18, 1.35, 0.4, 1) both;
+}
+
+/* Content rides above the ray burst. */
+.overlay-box.table-win > * {
+    position: relative;
+    z-index: 1;
 }
 
 .overlay-box.table-win .overlay-title {
+    font-family: 'Rye', Georgia, serif;
     font-size: clamp(28px, 5vw, 42px);
-    font-weight: 800;
-    letter-spacing: 4px;
+    font-weight: 400;
+    letter-spacing: 2px;
     color: var(--gold);
-    text-shadow: 0 3px 18px rgba(0, 0, 0, 0.9), 0 0 28px rgba(216, 178, 92, 0.35);
+    animation: win-title-glow 2.2s ease-in-out infinite;
 }
 
 .overlay-box.table-win .overlay-actions {
     flex-direction: column;
     align-items: center;
+}
+
+@keyframes win-pop {
+    from { opacity: 0; transform: scale(0.82) translateY(14px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes win-title-glow {
+    0%, 100% { text-shadow: 0 3px 18px rgba(0, 0, 0, 0.9), 0 0 24px rgba(216, 178, 92, 0.3); }
+    50% { text-shadow: 0 3px 18px rgba(0, 0, 0, 0.9), 0 0 44px rgba(255, 224, 130, 0.75); }
+}
+
+.overlay-box.table-win > .win-rays {
+    position: absolute;
+    z-index: 0;
+    left: 50%;
+    top: -120px;
+    width: 460px;
+    height: 460px;
+    pointer-events: none;
+    background: repeating-conic-gradient(rgba(216, 178, 92, 0.13) 0deg 8deg, transparent 8deg 24deg);
+    -webkit-mask-image: radial-gradient(closest-side, #000 20%, transparent 72%);
+    mask-image: radial-gradient(closest-side, #000 20%, transparent 72%);
+    animation: win-rays-spin 16s linear infinite;
+}
+
+@keyframes win-rays-spin {
+    from { transform: translateX(-50%) rotate(0deg); }
+    to { transform: translateX(-50%) rotate(360deg); }
+}
+
+.win-eyebrow {
+    font-size: 13px;
+    letter-spacing: 5px;
+    color: #e6c36a;
+    text-shadow: 0 0 12px rgba(230, 195, 106, 0.4);
+    margin-bottom: -10px;
+}
+
+/* Dead man's hand fanned over the plaque, dealt card by card. The final
+   fan angle/lift live in --r/--y so one keyframe serves all five. */
+.win-cards {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    height: 76px;
+    margin-bottom: -4px;
+}
+
+.win-card {
+    width: 46px;
+    height: 64px;
+    margin: 0 -7px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    background-color: #f7f1e3;
+    border: 1px solid #2a1c10;
+    border-radius: 6px;
+    color: #1d1408;
+    font-weight: 800;
+    font-size: 16px;
+    line-height: 1;
+    box-shadow:
+        0 6px 14px rgba(0, 0, 0, 0.55),
+        0 0 0 1.5px rgba(230, 195, 106, 0.55);
+    transform: translateY(var(--y, 0px)) rotate(var(--r, 0deg));
+    animation: win-card-deal 0.5s cubic-bezier(0.2, 1.1, 0.3, 1) both;
+}
+
+.win-card b { font-weight: 800; }
+.win-card i { font-style: normal; font-size: 15px; }
+.win-card.red { color: #b02e24; }
+
+.win-card:nth-child(1) { --r: -26deg; --y: 16px; animation-delay: 0.08s; }
+.win-card:nth-child(2) { --r: -13deg; --y: 5px; animation-delay: 0.16s; }
+.win-card:nth-child(3) { --r: 0deg; --y: 0px; animation-delay: 0.24s; z-index: 2; }
+.win-card:nth-child(4) { --r: 13deg; --y: 5px; animation-delay: 0.32s; }
+.win-card:nth-child(5) { --r: 26deg; --y: 16px; animation-delay: 0.4s; }
+
+@keyframes win-card-deal {
+    from { opacity: 0; transform: translateY(30px) rotate(0deg) scale(0.6); }
+    to { opacity: 1; transform: translateY(var(--y, 0px)) rotate(var(--r, 0deg)) scale(1); }
+}
+
+/* The haul counts up from $0 in the code-behind; the glow pulse reuses
+   the banner's victory-amount keyframes. */
+.win-haul {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: -6px;
+}
+
+.win-haul-label {
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--text-dim);
+}
+
+.win-amount {
+    font-size: clamp(40px, 9vw, 60px);
+    font-weight: 800;
+    color: #ffe9a8;
+    text-shadow:
+        0 0 30px rgba(255, 220, 120, 0.55),
+        0 2px 0 rgba(60, 40, 10, 0.55);
+    animation: victory-amount 1.8s ease-in-out infinite;
+}
+
+.win-stats {
+    display: flex;
+    justify-content: center;
+    margin-top: -6px;
+}
+
+.win-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 18px;
+}
+
+.win-stat + .win-stat {
+    border-left: 1px solid rgba(140, 110, 70, 0.4);
+}
+
+.win-stat-num {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--gold);
+}
+
+.win-stat-label {
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    color: var(--text-dim);
+}
+
+/* Confetti shower behind the plaque. Per-piece size, color, drift, and
+   timing arrive as inline styles from the Razor loop. */
+.win-celebration .overlay-box {
+    z-index: 1;
+}
+
+.win-confetti {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.confetti-piece {
+    position: absolute;
+    top: -26px;
+    border-radius: 2px;
+    opacity: 0;
+    line-height: 1;
+    animation-name: confetti-fall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+.confetti-piece:nth-child(even) {
+    animation-name: confetti-fall-sway;
+}
+
+.confetti-piece.confetti-suit {
+    background: none;
+    border-radius: 0;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+@keyframes confetti-fall {
+    0% { transform: translate3d(0, -4vh, 0) rotate(0deg); opacity: 0; }
+    8% { opacity: 1; }
+    100% { transform: translate3d(-5vw, 106vh, 0) rotate(640deg); opacity: 0.9; }
+}
+
+@keyframes confetti-fall-sway {
+    0% { transform: translate3d(0, -4vh, 0) rotate(0deg); opacity: 0; }
+    8% { opacity: 1; }
+    100% { transform: translate3d(6vw, 106vh, 0) rotate(-560deg); opacity: 0.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .confetti-piece,
+    .win-rays,
+    .overlay-box.table-win .overlay-title,
+    .win-amount {
+        animation: none;
+    }
+    .confetti-piece { opacity: 0.85; top: auto; }
+    .win-card { animation-duration: 0.01s; }
+}
+
+/* Landscape phones: the table-win plaque holds a lot of celebration, so
+   compact everything to keep it on one short screen without scrolling. */
+@media (max-height: 540px) {
+    .overlay-box.table-win { padding: 16px 30px 14px; gap: 9px; }
+    .overlay-box.table-win .overlay-title { font-size: 22px; }
+    .win-cards { height: 46px; margin-bottom: -2px; }
+    .win-card { width: 32px; height: 44px; font-size: 11px; margin: 0 -5px; border-radius: 4px; }
+    .win-card i { font-size: 10px; }
+    .win-card:nth-child(1) { --y: 10px; }
+    .win-card:nth-child(5) { --y: 10px; }
+    .win-eyebrow { font-size: 10px; letter-spacing: 3px; margin-bottom: -4px; }
+    .win-haul { gap: 2px; margin-top: -4px; }
+    .win-amount { font-size: 30px; }
+    .win-stats { margin-top: -4px; }
+    .win-stat { gap: 2px; padding: 0 12px; }
+    .win-stat-num { font-size: 15px; }
+    .win-stat-label { font-size: 9px; }
+    .overlay-box.table-win .overlay-actions { gap: 8px; }
+    .overlay-box.table-win .overlay-blurb { margin: -6px 0 0; font-size: 11px; }
 }
 
 .restart-btn { min-width: 220px; }
@@ -2373,8 +2619,15 @@ html.scene-street .boot-screen {
     .settings-save { padding: 9px 16px; font-size: 12px; }
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
     .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
-    .overlay-box.table-win { padding: 28px 36px; gap: 18px; }
-    .overlay-box.table-win .overlay-title { font-size: 26px; letter-spacing: 3px; }
+    .overlay-box.table-win { padding: 24px 28px 22px; gap: 14px; }
+    .overlay-box.table-win .overlay-title { font-size: 26px; letter-spacing: 2px; }
+    .win-cards { height: 60px; }
+    .win-card { width: 38px; height: 53px; font-size: 13px; margin: 0 -6px; }
+    .win-card i { font-size: 12px; }
+    .win-eyebrow { font-size: 11px; letter-spacing: 3.5px; margin-bottom: -6px; }
+    .win-amount { font-size: 36px; }
+    .win-stat { padding: 0 12px; }
+    .win-stat-num { font-size: 17px; }
 }
 
 /* ------------------------------------------------------------- post-hand coach */
