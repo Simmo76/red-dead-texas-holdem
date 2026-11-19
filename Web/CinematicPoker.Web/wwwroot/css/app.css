@@ -890,17 +890,12 @@ html.scene-street .boot-screen {
     color: rgba(244, 239, 226, 0.85);
 }
 
-/* While an opponent's result banner is up, the five board cards in the
-   top-right window keep quiet: their gold pulse (and the expand-hint
-   button's) would fight the dim veil and pull the eye off the result. */
-.game3d.banner-opponent .hud-board {
-    animation: none;
-    border-color: rgba(216, 178, 92, 0.3);
-    box-shadow: none;
-}
-
-.game3d.banner-opponent .hud-board .board-hint {
-    animation: none;
+/* The result now contains the winner's cards, hand name and board. Hide
+   the duplicate card HUD and compare strip so the single result plaque
+   reads cleanly, like the player's victory certificate. */
+.game3d.banner-opponent .hud-board,
+.game3d.banner-opponent .showdown-layer {
+    display: none;
 }
 
 /* The result plaque grows when the coach button is inside it. Keep the
