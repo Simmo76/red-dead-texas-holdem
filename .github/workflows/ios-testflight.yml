@@ -18,6 +18,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'Web/CinematicPoker.Web/**'
       - 'Mobile/ios-wrapper/**'
       - '.github/workflows/ios-testflight.yml'
 
