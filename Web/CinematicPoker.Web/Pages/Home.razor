@@ -201,10 +201,10 @@
             {
                 <div class="banner-amount">$@_bannerAmount.Value</div>
             }
-            @if (HudWinningHand is { } winHand)
+            @if (BannerHandCards is { Count: > 0 } cards)
             {
-                <div class="banner-cards">
-                    @foreach (var card in winHand.Cards)
+                <div class="banner-cards" aria-label="@(_playerWonPot ? "Your winning hand" : "Winning hand")">
+                    @foreach (var card in cards)
                     {
                         <img class="hud-card" src="@CardImage(card)" alt="" />
                     }
@@ -227,8 +227,10 @@
 
     @* Hand-compare sits in its own centered stage (not the bottom flow
        column) so multi-seat showdowns stay middle-of-screen and never
-       clip past the top or bottom of the viewport. *@
-    @if (_showdownView.Count > 0)
+       clip past the top or bottom of the viewport. Fold-wins that only
+       list the player's own cards stay off the strip — those cards already
+       live in the victory banner, which is what the photo captures. *@
+    @if (ShowShowdownCompare)
     {
         <div class="showdown-layer">
             <div class="showdown-strip">
@@ -4625,13 +4627,39 @@
         catch (JSException) { }
     }
 
-    // Opponent hole cards shown on the result banner and in the top-right
-    // HUD. Prefer an actual winner; fall back to the first revealed NPC.
+    // Opponent hole cards shown in the top-right HUD after a loss. Prefer
+    // an actual winner; fall back to the first revealed NPC.
     private ShowdownRow HudWinningHand =>
         _playerWonPot || _showdownView.Count == 0
             ? null
             : _showdownView.FirstOrDefault(r => r.Winner && r.Seat != 0 && r.Cards is { Count: > 0 })
               ?? _showdownView.FirstOrDefault(r => r.Seat != 0 && r.Cards is { Count: > 0 });
+
+    // Cards featured on the result banner — and therefore in the Victory
+    // Screen-Shot. On a player win this is YOUR hole cards so the photo
+    // shows the hand that took the pot. On a loss it is the opponent who
+    // beat you (same cards as the top-right HUD strip).
+    private IReadOnlyList<Card> BannerHandCards
+    {
+        get
+        {
+            if (_playerWonPot)
+            {
+                ShowdownRow mine = _showdownView.FirstOrDefault(
+                    r => r.Seat == 0 && r.Cards is { Count: > 0 });
+                if (mine != null) return mine.Cards;
+                IReadOnlyList<Card> hole = HoleCardsOf(0);
+                return hole is { Count: > 0 } ? hole : null;
+            }
+            return HudWinningHand?.Cards;
+        }
+    }
+
+    // Multi-seat compares stay on screen. A fold-win that only lists the
+    // player is already shown on the victory banner, so skip the strip.
+    private bool ShowShowdownCompare =>
+        _showdownView.Count > 0
+        && !(_playerWonPot && _showdownView.TrueForAll(r => r.Seat == 0));
 
     private void RememberShownHand(int seat, IReadOnlyList<Card> hole, bool winner)
     {

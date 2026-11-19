@@ -856,12 +856,74 @@ html.scene-street .boot-screen {
     box-shadow: 0 3px 12px rgba(0, 0, 0, 0.65);
 }
 
+/* Solid fill (not a CSS gradient): pokerShot.save() only paints
+   backgroundColor, so a gradient would leave a hollow plaque in Photos. */
 .banner-win {
+    top: 7%;
     border-color: var(--gold);
-    background: rgba(18, 12, 4, 0.88);
+    background: rgba(22, 14, 6, 0.94);
+    box-shadow:
+        0 14px 42px rgba(0, 0, 0, 0.58),
+        0 0 0 1px rgba(216, 178, 92, 0.22),
+        inset 0 1px 0 rgba(255, 233, 168, 0.14);
+    padding: 16px 36px 18px;
 }
 
-.banner-win .banner-amount { color: #ffe9a8; }
+.banner-win .banner-amount {
+    color: #ffe9a8;
+    text-shadow:
+        0 0 28px rgba(255, 220, 120, 0.5),
+        0 2px 0 rgba(60, 40, 10, 0.55);
+    animation: victory-amount 1.8s ease-in-out infinite;
+}
+
+.banner-win .banner-cards {
+    margin: 14px 0 6px;
+    gap: 12px;
+}
+
+/* Hero hole cards for the Victory Screen-Shot — large enough to read
+   suits/ranks in a phone photo, with a gold rim so they sit above the felt. */
+.banner-win .banner-cards .hud-card {
+    width: 96px;
+    border-radius: 5px;
+    box-shadow:
+        0 5px 18px rgba(0, 0, 0, 0.72),
+        0 0 0 1.5px rgba(230, 195, 106, 0.7),
+        0 0 18px rgba(216, 178, 92, 0.28);
+    animation: victory-card-rise 0.45s ease-out both;
+}
+
+.banner-win .banner-cards .hud-card:nth-child(2) { animation-delay: 0.07s; }
+
+.banner-win .banner-line {
+    margin-top: 4px;
+    font-size: 22px;
+    letter-spacing: 1.8px;
+    color: #f4efe2;
+}
+
+@keyframes victory-amount {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.12); }
+}
+
+@keyframes victory-card-rise {
+    from { opacity: 0; transform: translateY(10px) scale(0.94); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .banner-win .banner-amount,
+    .banner-win .banner-cards .hud-card { animation: none; }
+}
+
+/* Victory plaque owns the upper stage; pin the hand-compare strip toward
+   the lower mid so it never sits under the winning cards in the photo. */
+.game3d.banner-victory .showdown-layer {
+    align-items: flex-end;
+    padding-bottom: 6px;
+}
 
 /* Shown only after the player takes a pot or the table. Hidden while the
    shot is captured so the button itself stays out of the photo. */
@@ -874,7 +936,8 @@ html.scene-street .boot-screen {
     border-color: #e6c36a;
 }
 
-.shot-busy .victory-shot {
+.shot-busy .victory-shot,
+.shot-busy .victory-shot-status {
     visibility: hidden;
 }
 
@@ -2179,10 +2242,17 @@ html.scene-street .boot-screen {
     .banner-amount { font-size: 39px; }
     .banner-line { font-size: 18px; }
     .banner-cards .hud-card { width: 63px; }
+    .banner-win { top: 10%; padding: 12px 22px 14px; }
+    .banner-win .banner-cards { margin: 10px 0 4px; gap: 10px; }
+    .banner-win .banner-cards .hud-card { width: 78px; }
+    .banner-win .banner-line { font-size: 18px; }
     .hud-winner .hud-card { width: 30px; }
     .showdown-layer {
         top: calc(72px + env(safe-area-inset-top, 0px));
         bottom: calc(110px + max(16px, env(safe-area-inset-bottom, 0px)));
+    }
+    .game3d.banner-victory .showdown-layer {
+        top: calc(168px + env(safe-area-inset-top, 0px));
     }
     .showdown-strip { gap: 18px; padding: 15px 18px; max-width: min(630px, 94vw); }
     .showdown-seat { min-width: 132px; padding: 9px 12px; gap: 8px; }
@@ -2238,11 +2308,20 @@ html.scene-street .boot-screen {
     .banner-line { font-size: 18px; }
     .banner-cards { margin: 9px 0 3px; gap: 8px; }
     .banner-cards .hud-card { width: 60px; }
+    .banner-win { top: 4%; padding: 8px 20px 10px; }
+    .banner-win .banner-amount { font-size: 32px; }
+    .banner-win .banner-cards { margin: 6px 0 2px; gap: 8px; }
+    .banner-win .banner-cards .hud-card { width: 58px; }
+    .banner-win .banner-line { font-size: 16px; margin-top: 2px; }
     .hud-winner .hud-card { width: 28px; }
     /* Compact chrome on short landscape so a 4+ seat wrap still centers. */
     .showdown-layer {
         top: calc(40px + env(safe-area-inset-top, 0px));
         bottom: calc(72px + max(12px, env(safe-area-inset-bottom, 0px)));
+    }
+    .game3d.banner-victory .showdown-layer {
+        top: calc(118px + env(safe-area-inset-top, 0px));
+        align-items: flex-end;
     }
     .showdown-strip { gap: 15px; padding: 12px 15px; max-width: min(570px, 90vw); }
     .showdown-seat { min-width: 120px; padding: 8px 12px; gap: 6px; }
