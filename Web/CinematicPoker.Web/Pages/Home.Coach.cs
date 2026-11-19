@@ -112,6 +112,7 @@ namespace CinematicPoker.Web.Pages
             "game3d"
             + (_hudBoardExpanded ? " board-expanded" : "")
             + (_shotBusy ? " shot-busy" : "")
+            + (_banner != null && _playerWonPot ? " banner-victory" : "")
             + (_coachOpen && _coachUseScene ? " coach-open" : "")
             + (_coachOpen && !_coachUseScene ? " coach-panel-only" : "")
             + (_coachOpen && _awaitingHuman ? " coach-live" : "");
