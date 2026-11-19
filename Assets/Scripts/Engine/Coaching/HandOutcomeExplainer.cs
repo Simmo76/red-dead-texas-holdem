@@ -209,9 +209,12 @@ namespace CinematicPoker.Engine.Coaching
                 return;
             }
 
-            int otherSeat = winners.FirstOrDefault(s => s != hand.HeroSeat);
-            if (!heroWins && winners.Count > 0) otherSeat = winners[0];
-            bool haveOther = values.TryGetValue(otherSeat, out HandValue other);
+            // Sole-winner pots must compare against a revealed opponent, not
+            // against winners.FirstOrDefault(...): an empty filter returns 0,
+            // which is often the hero seat and produced "you split with yourself".
+            int otherSeat = ComparisonSeat(hand.HeroSeat, winners, values, heroWins);
+            HandValue other = default;
+            bool haveOther = otherSeat >= 0 && values.TryGetValue(otherSeat, out other);
 
             if (heroWins && !haveOther)
             {
@@ -241,6 +244,37 @@ namespace CinematicPoker.Engine.Coaching
             review.Heading = "WHY THEY WON";
             review.WhyWon = Comparison(winner: other, loser: hero, winnerIsHero: false);
             review.HighlightCodes = fives.TryGetValue(otherSeat, out List<Card> theirs) ? Codes(theirs) : new List<string>();
+        }
+
+        /// <summary>
+        /// Seat whose hand should appear in the win/loss sentence. When the
+        /// hero won alone, that is the strongest revealed opponent — never a
+        /// defaulted seat index of 0.
+        /// </summary>
+        private static int ComparisonSeat(
+            int heroSeat,
+            IReadOnlyList<int> winners,
+            Dictionary<int, HandValue> values,
+            bool heroWins)
+        {
+            if (!heroWins)
+            {
+                if (winners != null && winners.Count > 0) return winners[0];
+                return -1;
+            }
+
+            int bestSeat = -1;
+            HandValue best = default;
+            foreach (KeyValuePair<int, HandValue> kv in values)
+            {
+                if (kv.Key == heroSeat) continue;
+                if (bestSeat < 0 || kv.Value.CompareTo(best) > 0)
+                {
+                    bestSeat = kv.Key;
+                    best = kv.Value;
+                }
+            }
+            return bestSeat;
         }
 
         public static string Comparison(HandValue winner, HandValue loser, bool winnerIsHero)

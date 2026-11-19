@@ -144,6 +144,39 @@ namespace CinematicPoker.Engine.Coaching
             return hand;
         }
 
+        /// <summary>
+        /// Hero seat 0 wins alone with a pair over high card. Regression for the
+        /// coach wrongly saying the pot split when winners.FirstOrDefault defaulted to 0.
+        /// </summary>
+        public static CompletedHandRecord PairBeatsHighCard()
+        {
+            var hand = Base("fixture-pair-win", 0, "You");
+            hand.SeatNames[1] = "Trigger";
+            hand.FinalBoard = Cards("Ad", "Kh", "8s", "4d", "6h");
+            hand.HeroHoleCards = Cards("2s", "8h");
+            hand.RevealedHands.Add(Shown(0, "2s", "8h"));
+            hand.RevealedHands.Add(Shown(1, "Qc", "Jd"));
+            Award(hand, 0, 600, 0, false);
+            hand.HeroNet = 300;
+            hand.Complete = true;
+            return hand;
+        }
+
+        /// <summary>Hero full house over an opponent who only plays board two pair.</summary>
+        public static CompletedHandRecord FullHouseBeatsTwoPair()
+        {
+            var hand = Base("fixture-boat-win", 0, "You");
+            hand.SeatNames[1] = "Opponent";
+            hand.FinalBoard = Cards("9c", "Ks", "As", "9d", "Kh");
+            hand.HeroHoleCards = Cards("9h", "8c");
+            hand.RevealedHands.Add(Shown(0, "9h", "8c"));
+            hand.RevealedHands.Add(Shown(1, "7h", "Tc"));
+            Award(hand, 0, 74, 0, false);
+            hand.HeroNet = 42;
+            hand.Complete = true;
+            return hand;
+        }
+
         private static CompletedHandRecord Base(string id, int hero, string heroName)
         {
             return new CompletedHandRecord
