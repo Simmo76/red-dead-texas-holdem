@@ -12,25 +12,18 @@ fs.mkdirSync(OUT_IPAD, { recursive: true });
 
 const FONT = fs.readFileSync('/tmp/appstore/rye.woff2').toString('base64');
 
-// The ordered screenshot set. Learning + coach lead (slots 2-4 are visible
-// in search alongside slot 1).
+// The ordered screenshot set. Every panel shows the app in use (App Review
+// Guideline 2.3.3); learning + coach lead the three search-result slots.
 const PANELS = [
   {
-    file: '01-cinematic-holdem',
-    img: `${RAW}/saloon/00-splash.png`,
-    kicker: 'SINGLE PLAYER \u2022 OFFLINE \u2022 NO REAL-MONEY BETS',
-    headline: null, // splash art carries the title
-    scrim: 0.55,
-  },
-  {
-    file: '02-what-would-ai-do',
+    file: '01-what-would-ai-do',
     img: `${RAW}/saloon/30-ai-advice-1-board0.png`,
     kicker: 'LEARN AS YOU PLAY',
     headline: 'STUCK? ASK \u201CWHAT WOULD AI DO?\u201D',
     sub: 'Live equity, pot odds and a plain-English reason \u2014 on any turn',
   },
   {
-    file: '03-poker-coach',
+    file: '02-poker-coach',
     img: `${RAW}/saloon/20-coach-review.png`,
     kicker: 'YOUR PERSONAL POKER COACH',
     headline: 'EVERY HAND REVIEWED, IF YOU WANT',
@@ -38,7 +31,7 @@ const PANELS = [
     band: true,
   },
   {
-    file: '04-key-decision',
+    file: '03-key-decision',
     img: `${RAW}/street/21-coach-key-decision.png`,
     kicker: 'GO DEEPER',
     headline: 'REPLAY THE KEY DECISION',
@@ -46,28 +39,28 @@ const PANELS = [
     band: true,
   },
   {
-    file: '05-octagon',
+    file: '04-octagon',
     img: `${RAW}/street/40-turn-3-board4.png`,
     kicker: 'EXTRAORDINARY PLACES',
     headline: 'STEP INTO THE OCTAGON',
     sub: 'Heavyweights at the table \u2014 and Frankie Fast-Hand in your corner',
   },
   {
-    file: '06-saloon',
+    file: '05-saloon',
     img: `${RAW}/saloon/50-frame-018.png`,
     kicker: 'CINEMATIC TABLES',
     headline: 'GO ALL-IN IN THE OLD SALOON',
     sub: 'Five rivals with real personalities, tells and tilt',
   },
   {
-    file: '07-octagon-advice',
+    file: '06-octagon-advice',
     img: `${RAW}/street/30-ai-advice-1-board0.png`,
     kicker: 'A COACH IN EVERY WORLD',
     headline: 'KNOW WHEN TO RAISE FOR VALUE',
     sub: 'The advisor counts the cards so you learn to think in odds',
   },
   {
-    file: '08-learn-from-scratch',
+    file: '07-learn-from-scratch',
     img: `${RAW}/saloon/60-hand-rankings.png`,
     kicker: 'NEW TO POKER?',
     headline: 'RULES & HAND RANKINGS BUILT IN',
@@ -75,7 +68,7 @@ const PANELS = [
     band: true,
   },
   {
-    file: '09-win-the-table',
+    file: '08-win-the-table',
     img: `${RAW}/saloon/50-frame-012.png`,
     kicker: 'NO ACCOUNT \u2022 NO ADS BETWEEN HANDS \u2022 PLAY ANYWHERE',
     headline: 'OUTPLAY THE TABLE',

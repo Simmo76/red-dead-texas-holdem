@@ -222,26 +222,28 @@ card, rankings chart) use a solid caption band and gold-framed capture
 instead, so marketing text never covers UI. iPad panels are framed captures
 on a card-suit-watermarked background.
 
-Apple shows the first three screenshots in search results — so the brand
-panel, the advisor and the coach take those slots. Order and rationale:
+Apple shows the first three screenshots in search results. Guideline 2.3.3
+requires these to show the app in use rather than merely title/splash art, so
+the live advisor now leads, followed by the coach and key-decision breakdown.
+The former splash panel is retained under `marketing/` for non-store use.
+Order and rationale:
 
 | # | File | Scene | Caption (kicker / headline / sub) | Job |
 |---|---|---|---|---|
-| 1 | `01-cinematic-holdem` | Saloon splash art | SINGLE PLAYER • OFFLINE • NO REAL-MONEY BETS | Brand + instant genre read; the art carries the title so the kicker does the positioning |
-| 2 | `02-what-would-ai-do` | Saloon, live advisor open (FOLD, 29% equity vs 38% pot odds) | LEARN AS YOU PLAY / STUCK? ASK "WHAT WOULD AI DO?" / Live equity, pot odds and a plain-English reason — on any turn | The #1 differentiator, shown not told |
-| 3 | `03-poker-coach` | Saloon coach: Maximilian's hand review | YOUR PERSONAL POKER COACH / EVERY HAND REVIEWED, IF YOU WANT / Why you won, why you lost — and one thing to try next time | The coach pillar; completes the search-results trio |
-| 4 | `04-key-decision` | Octagon coach: Frankie Fast-Hand, key-decision breakdown | GO DEEPER / REPLAY THE KEY DECISION / Street, board and the numbers behind the coach's advice | Depth for the convinced scroller; quietly introduces the second coach |
-| 5 | `05-octagon` | Octagon table, $549 pot, turn board | EXTRAORDINARY PLACES / STEP INTO THE OCTAGON / Heavyweights at the table — and Frankie Fast-Hand in your corner | The second environment as a reveal |
-| 6 | `06-saloon` | Saloon table, $757 pot, river decision | CINEMATIC TABLES / GO ALL-IN IN THE OLD SALOON / Five rivals with real personalities, tells and tilt | Core gameplay drama + NPC personality claim |
-| 7 | `07-octagon-advice` | Octagon, advisor says RAISE TO $100 (45% vs 21%) | A COACH IN EVERY WORLD / KNOW WHEN TO RAISE FOR VALUE / The advisor counts the cards so you learn to think in odds | Learning works everywhere; shows an aggressive (fun) recommendation |
-| 8 | `08-learn-from-scratch` | Hand-rankings chart over the table | NEW TO POKER? / RULES & HAND RANKINGS BUILT IN / From high card to royal flush — one tap away, mid-hand | Welcomes total beginners |
-| 9 | `09-win-the-table` | Saloon win celebration, gold sparkles | NO ACCOUNT • NO ADS BETWEEN HANDS • PLAY ANYWHERE / OUTPLAY THE TABLE / Pure offline Texas Hold'em — your chips never cost a cent | Payoff shot + the trust/ethics close |
+| 1 | `01-what-would-ai-do` | Saloon, live advisor open (FOLD, 29% equity vs 38% pot odds) | LEARN AS YOU PLAY / STUCK? ASK "WHAT WOULD AI DO?" / Live equity, pot odds and a plain-English reason — on any turn | The #1 differentiator, shown in live gameplay |
+| 2 | `02-poker-coach` | Saloon coach: Maximilian's hand review | YOUR PERSONAL POKER COACH / EVERY HAND REVIEWED, IF YOU WANT / Why you won, why you lost — and one thing to try next time | The coach pillar |
+| 3 | `03-key-decision` | Octagon coach: Frankie Fast-Hand, key-decision breakdown | GO DEEPER / REPLAY THE KEY DECISION / Street, board and the numbers behind the coach's advice | Depth for the search-results trio; introduces the second coach |
+| 4 | `04-octagon` | Octagon table, $549 pot, turn board | EXTRAORDINARY PLACES / STEP INTO THE OCTAGON / Heavyweights at the table — and Frankie Fast-Hand in your corner | The second environment as a reveal |
+| 5 | `05-saloon` | Saloon table, $757 pot, river decision | CINEMATIC TABLES / GO ALL-IN IN THE OLD SALOON / Five rivals with real personalities, tells and tilt | Core gameplay drama + NPC personality claim |
+| 6 | `06-octagon-advice` | Octagon, advisor says RAISE TO $100 (45% vs 21%) | A COACH IN EVERY WORLD / KNOW WHEN TO RAISE FOR VALUE / The advisor counts the cards so you learn to think in odds | Learning works everywhere; shows an aggressive (fun) recommendation |
+| 7 | `07-learn-from-scratch` | Hand-rankings chart over the table | NEW TO POKER? / RULES & HAND RANKINGS BUILT IN / From high card to royal flush — one tap away, mid-hand | Welcomes total beginners |
+| 8 | `08-win-the-table` | Saloon win celebration, gold sparkles | NO ACCOUNT • NO ADS BETWEEN HANDS • PLAY ANYWHERE / OUTPLAY THE TABLE / Pure offline Texas Hold'em — your chips never cost a cent | Payoff shot + the trust/ethics close |
 
 Screenshot hygiene notes for final production from the Unity build:
 - Capture with the player stack **up**, mid-four-figure pots, and a board of
   4–5 cards — big numbers photograph better.
 - Grey translucent characters are folded players (a real game feature);
-  panels 2/5/6/7 keep a couple in frame deliberately — it reads as "a hand in
+  panels 1/4/5/6 keep a couple in frame deliberately — it reads as "a hand in
   progress" — but never let more than half the table be ghosts in a hero shot.
 - Keep the player name "Jake" or similar-neutral in captures.
 
@@ -281,15 +283,16 @@ listing itself.
 | 23–27 s | Smash cut: the Octagon — cage, fighters, Frankie Fast-Hand | "NEW WORLDS. SAME GAME. YOUR CORNER." |
 | 27–30 s | Splash art with title | "FREE • OFFLINE • NO REAL-MONEY BETS" |
 
-## 6. App icon direction
+## 6. App icon
 
-- **Subject:** the dead man's hand itself — aces and eights, fanned, on dark
-  wood with one gold-rim poker chip. Zero text (the name renders below the
-  icon anyway). High contrast at 60×60: two big card pips, one warm light.
-- Avoid: character faces (too small), felt-green backgrounds (every poker
-  app), and the word "poker" in the icon.
-- Source material: crop of the splash art's foreground cards/chips already
-  matches this exactly.
+- **Subject:** two large aces on a warm card table, with chips softly visible
+  around them. Zero text (the name renders below the icon anyway).
+- No weapon, alcohol, tobacco, character face or gambling stake appears in
+  the icon. This keeps the metadata suitable for a 4+ audience as required by
+  App Review Guideline 2.3.8, independently of the game's 18+ age rating.
+- The 1024×1024 RGB source is
+  `Web/CinematicPoker.Web/wwwroot/appstore-design/icon-1024.jpg`; the native
+  PNG is generated from it without transparency or rounded-corner masking.
 
 ---
 
