@@ -31,7 +31,20 @@ namespace CinematicPoker.Engine.Coaching
 
         public CoachHistoryBuffer History => _history;
         public CompletedHandRecord Current => _current;
-        public CompletedHandRecord LastCompleted => _history.Latest;
+        /// <summary>
+        /// Latest hand recorded in this session. Hands restored from storage
+        /// belong to earlier sessions and are never offered as "the hand that
+        /// just finished": a table resumed mid-hand has no record for that
+        /// hand, so the review would otherwise describe an older game.
+        /// </summary>
+        public CompletedHandRecord LastCompleted
+        {
+            get
+            {
+                CompletedHandRecord latest = _history.Latest;
+                return latest != null && latest.SessionId == _sessionId ? latest : null;
+            }
+        }
 
         public void BeginSession(string sessionId)
         {

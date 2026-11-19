@@ -207,6 +207,21 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void ResumedHandNeverReviewsAnOlderSessionsHand()
+        {
+            var history = new CoachHistoryBuffer();
+            CompletedHandRecord old = CoachFixtures.FoldedBlind();
+            old.SessionId = "earlier-session";
+            history.Remember(old);
+
+            var recorder = new HandReviewRecorder("resumed", 0, 5, 10, history);
+            var names = new Dictionary<int, string> { { 0, "You" }, { 1, "Frankie" } };
+            recorder.Observe(new HandCompleted { WonByFolds = true, StackChanges = new Dictionary<int, long> { { 1, 200 } } }, null, names);
+
+            Assert.IsNull(recorder.LastCompleted, "A hand resumed mid-hand has no record; the older session's hand must not stand in for it.");
+        }
+
+        [Test]
         public void HiddenOpponentCardsNeverReachTheRecord()
         {
             var deck = StackedDeck.Parse("7c", "Qh", "2d", "Jh");
