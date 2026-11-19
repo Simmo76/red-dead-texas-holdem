@@ -4,6 +4,7 @@
 @using CinematicPoker.Engine.Players
 @using CinematicPoker.Engine.Poker
 @using CinematicPoker.Engine.Simulation
+@using CinematicPoker.Web.Diagnostics
 @using System.Text.Json
 @using System.Text.Json.Serialization
 @inject IJSRuntime JS
@@ -669,7 +670,12 @@
                     </div>
                 </div>
 
+                @if (!string.IsNullOrEmpty(_logNote))
+                {
+                    <p class="settings-note">@_logNote</p>
+                }
                 <div class="overlay-actions">
+                    <button class="act small" @onclick="CopyDebugLog" title="Copy the debug log to the clipboard to paste into Cursor or a bug report">COPY LOG</button>
                     <button class="act small" @onclick="ExportFromSettings">EXPORT STATS</button>
                     @if (_isGuest)
                     {
@@ -1059,6 +1065,7 @@
     private void CycleDifficulty()
     {
         _difficulty = (_difficulty + 1) % DifficultyNames.Length;
+        GameLog.Info("ui", $"difficulty -> {DifficultyNames[_difficulty]}");
         if (_game == null) return;
         // Retune the live NPCs in place, mid-session: rebuild each personality
         // preset at the new difficulty and write it into the existing profile.
@@ -1908,6 +1915,7 @@
 
     private void StartSessionCore(bool run)
     {
+        GameLog.Info("session", $"new solo table (run={run}, difficulty={DifficultyNames[_difficulty]}, scene={_tableScene}, quickMode={_quickMode})");
         if (!_isGuest) ClearWebSession();
         // A name overlay left over from an earlier friends table must not
         // shadow this roster: a stale entry on one seat can duplicate a name
@@ -2239,6 +2247,7 @@
     private async Task Act(PlayerAction action)
     {
         if (!_awaitingHuman) return;
+        GameLog.Info("ui", $"human action {action}{(_isGuest ? " (guest, sent to host)" : "")}");
         if (_isGuest)
         {
             SendToHost(new MpMessage { t = "act", a = action.Type.ToString(), amt = action.Amount });
@@ -2260,8 +2269,9 @@
             try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
             catch (JSException) { }
         }
-        catch (IllegalActionException)
+        catch (IllegalActionException ex)
         {
+            GameLog.Warn("game", $"engine rejected {action}: {ex.Message}");
             return; // engine rejected it; keep waiting for a legal choice
         }
         StateHasChanged();
@@ -2393,7 +2403,11 @@
         else await Act(PlayerAction.Raise(amount));
     }
 
-    private void ToggleMode() => _quickMode = !_quickMode;
+    private void ToggleMode()
+    {
+        _quickMode = !_quickMode;
+        GameLog.Info("ui", $"pace -> {(_quickMode ? "quick" : "cinematic")}");
+    }
 
     // Bird's-eye table view: the camera climbs over the pot and every seat
     // shows a floating name/stack plate, so all remaining chip counts read
@@ -2684,6 +2698,7 @@
     private bool _settingsOpen;
     private string _settingsNameDraft = "";
     private string _settingsNameNote = "";
+    private string _logNote = "";
 
     // ------------------------------------------------------------ friends beta
     //
@@ -2932,7 +2947,7 @@
     private async Task SafeInvoke(string identifier, params object[] args)
     {
         try { await JS.InvokeVoidAsync(identifier, args); }
-        catch (JSException ex) { Console.Error.WriteLine($"{identifier} failed: {ex.Message}"); }
+        catch (JSException ex) { GameLog.Error("js", $"{identifier} failed", ex); }
         catch (InvalidOperationException) { }
     }
 
@@ -4083,11 +4098,37 @@
     {
         _settingsNameDraft = PlayerName;
         _settingsNameNote = "";
+        _logNote = "";
         _soundMenuOpen = false;
         _rulesOpen = false;
         ReleaseHandsZoom();
         _handRankingsOpen = false;
         _settingsOpen = true;
+        GameLog.Info("ui", "settings opened");
+    }
+
+    private async Task CopyDebugLog()
+    {
+        _logNote = "Copying…";
+        try
+        {
+            var result = await JS.InvokeAsync<DebugLogCopyResult>("pokerLog.copy");
+            _logNote = result.Ok
+                ? $"Log copied ({result.Entries} entries) — paste it into Cursor or a bug report."
+                : "Could not copy the log in this browser.";
+        }
+        catch (JSException ex)
+        {
+            GameLog.Error("ui", "copy log failed", ex);
+            _logNote = "Could not copy the log in this browser.";
+        }
+    }
+
+    private sealed class DebugLogCopyResult
+    {
+        public bool Ok { get; set; }
+        public int Entries { get; set; }
+        public int Chars { get; set; }
     }
 
     private async Task CloseSettings()
@@ -4309,6 +4350,7 @@
     // even while the table is still animating a prior street.
     private void OnEngineEvent(PokerEvent evt)
     {
+        GameLog.Info("game", GameLog.Describe(evt));
         _handLog.OnEvent(evt);
         // Fold the settled hand into the durable archive right away so the
         // export history survives restarts, reloads, and new tables.
@@ -4977,6 +5019,7 @@
         if (next == _tableScene) return;
         if (_coachOpen) await CloseCoach(false);
         _tableScene = next;
+        GameLog.Info("ui", $"table scene -> {next}");
         try { await JS.InvokeVoidAsync("pokerScene.setTableScene", next); }
         catch (JSException) { }
     }
