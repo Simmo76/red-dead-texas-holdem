@@ -1475,6 +1475,7 @@
         _settingsLoaded = !string.IsNullOrEmpty(_playerName) || JS is IJSInProcessRuntime;
         ReadInviteRoomFromUrl();
         NoteCoachPreviewFromUrl();
+        NoteWinPreviewFromUrl();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -1915,6 +1916,7 @@
         catch (JSException) { }
 
         ++_loopToken;
+        if (_winPreview) ShowWinPreview();
         if (run) _ = RunLoop(_loopToken);
         // Solo (and host-table restarts) never emit a hub "started" line on
         // their own — ping /usage so Render still sees who sat down. Guests
@@ -4692,6 +4694,25 @@
     }
 
     // ------------------------------------------------ table-win celebration
+
+    // ?winpreview=1 shows the table-win overlay as soon as the first session
+    // starts, with sample numbers — a test hook for the victory screen, same
+    // idea as ?coachpreview=1 for the coach panel. One-shot: CONTINUE GAME
+    // and RESTART behave normally afterwards.
+    private bool _winPreview;
+
+    private void NoteWinPreviewFromUrl() =>
+        _winPreview = Nav.Uri.Contains("winpreview=1", StringComparison.OrdinalIgnoreCase);
+
+    private void ShowWinPreview()
+    {
+        _winPreview = false;
+        _sessionOver = true;
+        _humanWon = true;
+        _biggestPotWon = 1480;
+        _sessionOverMessage = $"{PlayerName} takes the table!";
+        _ = AnimateHaulAsync(6000);
+    }
 
     private const int ConfettiCount = 27;
     private static readonly string[] ConfettiColors = { "#e6c36a", "#c0392b", "#57c785", "#f4efe2" };
