@@ -1,0 +1,17 @@
+---
+description: Keep agent work scoped, incremental, and limited to the task at hand
+alwaysApply: true
+---
+
+# AI EFFICIENCY RULES
+
+1. Before editing, identify the smallest relevant set of files.
+2. Do not scan or reanalyse the entire repository unless explicitly requested.
+3. Implement one clearly defined task at a time.
+4. Reuse existing architecture notes and implementation plans.
+5. Avoid repeated searches and unnecessary tool calls.
+6. Do not repeatedly run the full test suite; run targeted tests first.
+7. Do not perform broad refactors or unrelated improvements without approval.
+8. After two unsuccessful attempts at the same problem, stop, summarise the blocker and request direction.
+9. Summarise changed files, tests and remaining issues concisely.
+10. Ask for approval before starting any large-scale investigation or multi-stage implementation.
