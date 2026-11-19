@@ -233,7 +233,7 @@
                 <div class="cert-footer">@PlayerName.ToUpperInvariant() &middot; @DateTime.Now.ToString("MMMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture).ToUpperInvariant()</div>
                 <button type="button" class="act victory-shot" disabled="@_shotBusy"
                         @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true">
-                    Victory Screen-Shot!
+                    Export Certificate
                 </button>
                 @if (!string.IsNullOrEmpty(_shotStatus))
                 {
@@ -579,7 +579,7 @@
                         {
                             <button type="button" class="act victory-shot" disabled="@_shotBusy"
                                     @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true">
-                                Victory Screen-Shot!
+                                Export Certificate
                             </button>
                             @if (!string.IsNullOrEmpty(_shotStatus))
                             {
@@ -4739,19 +4739,19 @@
             string result = await JS.InvokeAsync<string>("pokerShot.save");
             _shotStatus = result switch
             {
-                "shared" => "Saved to Photos",
-                "downloaded" => "Screenshot saved",
+                "shared" => "Certificate shared",
+                "downloaded" => "Certificate downloaded",
                 "aborted" => null,
-                _ => "Couldn't save the screenshot"
+                _ => "Couldn't export the certificate"
             };
         }
         catch (JSException)
         {
-            _shotStatus = "Couldn't save the screenshot";
+            _shotStatus = "Couldn't export the certificate";
         }
         catch (InvalidOperationException)
         {
-            _shotStatus = "Couldn't save the screenshot";
+            _shotStatus = "Couldn't export the certificate";
         }
         finally
         {
