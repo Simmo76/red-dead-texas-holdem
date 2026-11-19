@@ -856,6 +856,48 @@ html.scene-street .boot-screen {
     box-shadow: 0 3px 12px rgba(0, 0, 0, 0.65);
 }
 
+/* Opponent result: the winner's two cards sit to the LEFT of the text
+   column (pot amount, "takes the pot", and the reason they won) instead
+   of stacked between the amount and the line. */
+.banner-result-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 26px;
+}
+
+.banner-result .banner-cards {
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.banner-result-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* WHY the pot moved: "Won with a pair" / "Everyone else folded". */
+.banner-reason {
+    margin-top: 5px;
+    font-size: 17px;
+    letter-spacing: 1px;
+    color: rgba(244, 239, 226, 0.85);
+}
+
+/* While an opponent's result banner is up, the five board cards in the
+   top-right window keep quiet: their gold pulse (and the expand-hint
+   button's) would fight the dim veil and pull the eye off the result. */
+.game3d.banner-opponent .hud-board {
+    animation: none;
+    border-color: rgba(216, 178, 92, 0.3);
+    box-shadow: none;
+}
+
+.game3d.banner-opponent .hud-board .board-hint {
+    animation: none;
+}
+
 /* Solid fill (not a CSS gradient): pokerShot.save() only paints
    backgroundColor, so a gradient would leave a hollow plaque in Photos. */
 .banner-win {
@@ -2242,6 +2284,8 @@ html.scene-street .boot-screen {
     .banner-amount { font-size: 39px; }
     .banner-line { font-size: 18px; }
     .banner-cards .hud-card { width: 63px; }
+    .banner-result-row { gap: 18px; }
+    .banner-reason { font-size: 15px; }
     .banner-win { top: 10%; padding: 12px 22px 14px; }
     .banner-win .banner-cards { margin: 10px 0 4px; gap: 10px; }
     .banner-win .banner-cards .hud-card { width: 78px; }
@@ -2308,6 +2352,8 @@ html.scene-street .boot-screen {
     .banner-line { font-size: 18px; }
     .banner-cards { margin: 9px 0 3px; gap: 8px; }
     .banner-cards .hud-card { width: 60px; }
+    .banner-result-row { gap: 15px; }
+    .banner-reason { font-size: 14px; }
     .banner-win { top: 4%; padding: 8px 20px 10px; }
     .banner-win .banner-amount { font-size: 32px; }
     .banner-win .banner-cards { margin: 6px 0 2px; gap: 8px; }

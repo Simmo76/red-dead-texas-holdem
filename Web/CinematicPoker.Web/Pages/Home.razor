@@ -197,22 +197,22 @@
            layers but below .hud-bottom (8) and .banner (12). *@
         <div class="result-dim" aria-hidden="true"></div>
         <div class="banner @(_playerWonPot ? "banner-win" : "banner-result")">
-            @if (_bannerAmount.HasValue)
-            {
-                <div class="banner-amount">$@_bannerAmount.Value</div>
-            }
-            @if (BannerHandCards is { Count: > 0 } cards)
-            {
-                <div class="banner-cards" aria-label="@(_playerWonPot ? "Your winning hand" : "Winning hand")">
-                    @foreach (var card in cards)
-                    {
-                        <img class="hud-card" src="@CardImage(card)" alt="" />
-                    }
-                </div>
-            }
-            <div class="banner-line">@_banner</div>
             @if (_playerWonPot)
             {
+                @if (_bannerAmount.HasValue)
+                {
+                    <div class="banner-amount">$@_bannerAmount.Value</div>
+                }
+                @if (BannerHandCards is { Count: > 0 } cards)
+                {
+                    <div class="banner-cards" aria-label="Your winning hand">
+                        @foreach (var card in cards)
+                        {
+                            <img class="hud-card" src="@CardImage(card)" alt="" />
+                        }
+                    </div>
+                }
+                <div class="banner-line">@_banner</div>
                 <button type="button" class="act victory-shot" disabled="@_shotBusy"
                         @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true">
                     Victory Screen-Shot!
@@ -221,6 +221,34 @@
                 {
                     <div class="victory-shot-status">@_shotStatus</div>
                 }
+            }
+            else
+            {
+                @* Someone else took the pot: their two cards sit to the LEFT
+                   of the text column so the amount and the reason they won
+                   read beside the hand, not underneath it. *@
+                <div class="banner-result-row">
+                    @if (BannerHandCards is { Count: > 0 } cards)
+                    {
+                        <div class="banner-cards" aria-label="Winning hand">
+                            @foreach (var card in cards)
+                            {
+                                <img class="hud-card" src="@CardImage(card)" alt="" />
+                            }
+                        </div>
+                    }
+                    <div class="banner-result-text">
+                        @if (_bannerAmount.HasValue)
+                        {
+                            <div class="banner-amount">$@_bannerAmount.Value</div>
+                        }
+                        <div class="banner-line">@_banner</div>
+                        @if (!string.IsNullOrEmpty(_bannerReason))
+                        {
+                            <div class="banner-reason">@_bannerReason</div>
+                        }
+                    </div>
+                </div>
             }
         </div>
     }
@@ -1082,6 +1110,9 @@
     private string _exportNote = "";
     private string _sessionOverMessage = "";
     private string _banner;
+    // Second line under the result banner: WHY the pot moved ("Won with a
+    // pair", "Everyone else folded"). Only set when an opponent takes it.
+    private string _bannerReason;
     private long? _bannerAmount;
     private bool _playerWonPot;
     private bool _shotBusy;
@@ -1818,6 +1849,7 @@
         _shownBoard.Clear();
         _showdownView.Clear();
         _banner = null;
+        _bannerReason = null;
         _bannerAmount = null;
         _playerWonPot = false;
         _shotBusy = false;
@@ -1907,6 +1939,7 @@
         _handHasCompleted = false;
         _exportOpen = false;
         _banner = null;
+        _bannerReason = null;
         _bannerAmount = null;
         _playerWonPot = false;
         _shotBusy = false;
@@ -3679,6 +3712,7 @@
         _shownBoard.Clear();
         _showdownView.Clear();
         _banner = null;
+        _bannerReason = null;
         _bannerAmount = null;
         _playerWonPot = false;
         _shotBusy = false;
@@ -4305,6 +4339,7 @@
                 _victoryPlayedThisHand = false;
                 _playerLossPlayedThisHand = false;
                 _banner = null;
+                _bannerReason = null;
                 _bannerAmount = null;
                 _playerWonPot = false;
                 _shotBusy = false;
@@ -4470,21 +4505,34 @@
             _banner = winningHand.HasValue
                 ? $"YOU WON with {Pretty(winningHand.Value.Category)}"
                 : "YOU WON — everyone folded";
+            _bannerReason = null;
         }
-        else if (stackChange == 0)
+        // "Broke even" is only a split when the player actually shared the
+        // pot. A player who folded without paying anything also ends the
+        // hand at +/- 0, and that hand belongs to whoever took the pot.
+        else if (stackChange == 0 && winners.Contains(0))
         {
             _banner = "POT SPLIT";
+            _bannerReason = winningHand.HasValue
+                ? $"Split with {Pretty(winningHand.Value.Category)}"
+                : null;
         }
         else
         {
-            _banner = winningHand.HasValue
-                ? $"{winnerNames} win{(winners.Count == 1 ? "s" : "")} with {Pretty(winningHand.Value.Category)}"
-                : $"{winnerNames} take{(winners.Count == 1 ? "s" : "")} the pot";
+            // The engine only sets WinningHand at showdown, so a null hand
+            // means everyone else folded — the other way a pot can be won.
+            _banner = $"{winnerNames} take{(winners.Count == 1 ? "s" : "")} the pot";
+            _bannerReason = winningHand.HasValue
+                ? $"Won with {Pretty(winningHand.Value.Category)}"
+                : "Everyone else folded";
         }
 
+        string statusResult = string.IsNullOrEmpty(_bannerReason)
+            ? _banner
+            : $"{_banner} — {_bannerReason.ToLowerInvariant()}";
         _statusLine = _bannerAmount.HasValue
-            ? $"{_banner}  ·  ${_bannerAmount.Value}"
-            : _banner;
+            ? $"{statusResult}  ·  ${_bannerAmount.Value}"
+            : statusResult;
     }
 
     // The overlay may only rename a seat a connected friend actually holds
