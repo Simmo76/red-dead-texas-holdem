@@ -1,10 +1,8 @@
-// Victory screenshot: paint the live table (WebGL) and the HUD into one PNG,
-// then put it in the photo library.
+// Victory certificate: paint only the winner's plaque into a PNG.
 //
-// Phones and tablets hand the PNG to the system share sheet. On iOS that
-// sheet's "Save Image" writes the Photos library; Android's sheet offers the
-// gallery. A page cannot write the Photos library without that system step.
-// Desktop browsers, which have no photo library, download the PNG instead.
+// Phones and tablets hand the PNG to the system share sheet. The player
+// chooses what happens there; a web page cannot tell whether the image was
+// saved to Photos. Desktop browsers download the PNG instead.
 window.pokerShot = (function () {
   function stamp() {
     const d = new Date();
@@ -77,30 +75,9 @@ window.pokerShot = (function () {
     return false;
   }
 
-  // Copy the WebGL frame immediately. The drawing buffer is cleared when
-  // the browser composites, which can happen as soon as we touch layout,
-  // so this has to be the first thing after renderNow().
-  function snapshotTable() {
-    const gl = document.getElementById('poker-canvas');
-    if (!gl) return null;
-    if (window.pokerScene && window.pokerScene.renderNow) {
-      try { window.pokerScene.renderNow(); } catch (e) { /* keep the last frame */ }
-    }
-    const snap = document.createElement('canvas');
-    snap.width = gl.width || gl.clientWidth || 1;
-    snap.height = gl.height || gl.clientHeight || 1;
-    try { snap.getContext('2d').drawImage(gl, 0, 0); }
-    catch (e) { return null; }
-    return snap;
-  }
-
-  // Synchronous composite. Reads the WebGL canvas in this turn, after
-  // renderNow(), so preserveDrawingBuffer is not required.
-  function capture(root) {
-    const table = snapshotTable();
-
+  function capture(root, captureHeight) {
     const w = Math.max(1, root.clientWidth || window.innerWidth);
-    const h = Math.max(1, root.clientHeight || window.innerHeight);
+    const h = Math.max(1, captureHeight || root.clientHeight || window.innerHeight);
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(w * dpr);
@@ -124,21 +101,17 @@ window.pokerShot = (function () {
       if (rect.width < 1 || rect.height < 1) continue;
       const x = rect.left - rootRect.left;
       const y = rect.top - rootRect.top;
+      if (y >= h) continue;
       const alpha = parseFloat(style.opacity);
       ctx.save();
       ctx.globalAlpha = Number.isFinite(alpha) ? alpha : 1;
 
-      if (el.id === 'poker-canvas') {
-        if (table) ctx.drawImage(table, x, y, rect.width, rect.height);
-        ctx.restore();
-        continue;
-      }
-
       const bg = style.backgroundColor;
       const radius = parseFloat(style.borderRadius) || 0;
+      const elementHeight = el === root ? h : Math.min(rect.height, h - y);
       if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') {
         ctx.fillStyle = bg;
-        roundRect(ctx, x, y, rect.width, rect.height, radius);
+        roundRect(ctx, x, y, rect.width, elementHeight, radius);
         ctx.fill();
       }
 
@@ -146,7 +119,7 @@ window.pokerShot = (function () {
       if (border > 0 && style.borderTopStyle !== 'none' && style.borderTopColor) {
         ctx.strokeStyle = style.borderTopColor;
         ctx.lineWidth = border;
-        roundRect(ctx, x + border / 2, y + border / 2, rect.width - border, rect.height - border, radius);
+        roundRect(ctx, x + border / 2, y + border / 2, rect.width - border, elementHeight - border, radius);
         ctx.stroke();
       }
 
@@ -198,29 +171,37 @@ window.pokerShot = (function () {
     setTimeout(() => URL.revokeObjectURL(url), 1500);
   }
 
-  // 'shared' — the system accepted the image (Save Image writes Photos).
+  // 'shared' — the system accepted the image; its destination is unknowable.
   // 'downloaded' — saved as a PNG file (desktop, or share unavailable).
   // 'aborted' — the player closed the share sheet.
   // 'failed' — nothing was written.
   async function save() {
-    const root = document.querySelector('.game3d');
+    const root = document.querySelector('.banner-win, .overlay-box.table-win');
     if (!root) return 'failed';
 
+    // The action and status live inside the plaque for layout purposes, but
+    // the exported certificate ends immediately before those controls.
+    const action = root.querySelector('.victory-shot');
+    const rootRect = root.getBoundingClientRect();
+    const captureHeight = action
+      ? Math.max(1, Math.floor(action.getBoundingClientRect().top - rootRect.top - 5))
+      : root.clientHeight;
+
     let canvas;
-    try { canvas = capture(root); }
+    try { canvas = capture(root, captureHeight); }
     catch (e) { return 'failed'; }
     if (!canvas || isBlank(canvas)) return 'failed';
 
     let blob;
     try { blob = dataUrlToBlob(canvas.toDataURL('image/png')); }
     catch (e) { return 'failed'; }
-    const fileName = 'DeadMansHand_victory_' + stamp() + '.png';
+    const fileName = 'DeadMansHand_certificate_' + stamp() + '.png';
 
     if (typeof File !== 'undefined' && navigator.canShare && navigator.share) {
       try {
         const file = new File([blob], fileName, { type: 'image/png' });
         if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'Victory Screen-Shot!' });
+          await navigator.share({ files: [file], title: 'Victory Certificate' });
           return 'shared';
         }
       } catch (err) {
