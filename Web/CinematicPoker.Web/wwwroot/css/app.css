@@ -866,6 +866,11 @@ html.scene-street .boot-screen {
     gap: 26px;
 }
 
+/* Nudge the opponent result window away from the top-right card HUD. */
+.banner-result {
+    transform: translateX(calc(-50% - clamp(18px, 3vw, 36px)));
+}
+
 .banner-result .banner-cards {
     margin: 0;
     flex-shrink: 0;
