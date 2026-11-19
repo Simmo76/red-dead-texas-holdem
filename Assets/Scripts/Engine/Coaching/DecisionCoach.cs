@@ -302,7 +302,7 @@ namespace CinematicPoker.Engine.Coaching
             else if (called && ahead)
             {
                 advice.ReasonCode = "favourable_call";
-                advice.Lesson = "The call had a favourable price under this estimate. Losing this time doesn't make it a bad call.";
+                advice.Lesson = "The call had a favourable price under this estimate. One hand's result doesn't make it a bad call.";
             }
             else if (called && !ahead)
             {

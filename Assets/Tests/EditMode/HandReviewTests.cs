@@ -90,6 +90,41 @@ namespace CinematicPoker.Engine.Tests
             Assert.That(review.ChipDetail, Does.Not.Contain("60 profit"));
             Assert.That(review.WhyWon, Does.Not.Contain("60 profit"));
             Assert.That(string.Join(" ", review.PotLines), Does.Contain("80"));
+            Assert.AreEqual("WHY YOU WON", review.Heading);
+            Assert.AreEqual("Your pair beat their high card.", review.WhyWon);
+            Assert.That(review.WhyWon, Does.Not.Contain("split"));
+        }
+
+        [Test]
+        public void PairWinOverHighCardIsNotDescribedAsASplit()
+        {
+            HandReview review = new HandReviewService().Explain(CoachFixtures.PairBeatsHighCard());
+            Assert.AreEqual("WHY YOU WON", review.Heading);
+            Assert.AreEqual("Your pair beat their high card.", review.WhyWon);
+            Assert.That(review.WhyWon, Does.Not.Contain("split"));
+            Assert.That(review.ChipDetail, Does.Contain("+300"));
+        }
+
+        [Test]
+        public void FullHouseWinOverBoardTwoPairIsNotDescribedAsASplit()
+        {
+            HandReview review = new HandReviewService().Explain(CoachFixtures.FullHouseBeatsTwoPair());
+            Assert.AreEqual("WHY YOU WON", review.Heading);
+            Assert.AreEqual("Your full house beat their two pair.", review.WhyWon);
+            Assert.That(review.WhyWon, Does.Not.Contain("split"));
+        }
+
+        [Test]
+        public async Task FavourableCallLessonDoesNotAssumeALoss()
+        {
+            var source = new FixedEquitySource(0.35);
+            var coach = new DecisionCoach(source);
+            HeroDecisionSnapshot spot = CoachFixtures.PricedCall(150, 50);
+            var action = new AcceptedHeroAction { DecisionId = 1, Action = "call", AddedAmount = 50 };
+            DecisionAdvice advice = await coach.AnalyseAsync(spot, action, LessonKind.PricedCall, seed: 7, CancellationToken.None);
+            Assert.AreEqual("favourable_call", advice.ReasonCode);
+            Assert.That(advice.Lesson, Does.Contain("favourable price"));
+            Assert.That(advice.Lesson, Does.Not.Contain("Losing"));
         }
 
         [Test]
