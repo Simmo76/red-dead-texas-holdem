@@ -199,6 +199,12 @@
         <div class="banner @(_playerWonPot ? "banner-win" : "banner-result")">
             @if (_playerWonPot)
             {
+                @* Certificate header — the Victory Screen-Shot captures this
+                   plaque, so it carries everything needed to remember the
+                   hand: title, pot, your cards, the board, name and date. *@
+                <div class="cert-brand">DEAD MAN'S HAND</div>
+                <div class="cert-title">CERTIFIED VICTOR!</div>
+                <div class="cert-rule" aria-hidden="true"></div>
                 @if (_bannerAmount.HasValue)
                 {
                     <div class="banner-amount">$@_bannerAmount.Value</div>
@@ -213,6 +219,18 @@
                     </div>
                 }
                 <div class="banner-line">@_banner</div>
+                @if (_shownBoard.Count > 0)
+                {
+                    <div class="cert-board-label">ON THE BOARD</div>
+                    <div class="cert-board" aria-label="Community cards">
+                        @foreach (var card in _shownBoard)
+                        {
+                            <img class="hud-card" src="@CardImage(card)" alt="" />
+                        }
+                    </div>
+                }
+                <div class="cert-rule" aria-hidden="true"></div>
+                <div class="cert-footer">@PlayerName.ToUpperInvariant() &middot; @DateTime.Now.ToString("MMMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture).ToUpperInvariant()</div>
                 <button type="button" class="act victory-shot" disabled="@_shotBusy"
                         @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true">
                     Victory Screen-Shot!

@@ -907,6 +907,7 @@ html.scene-street .boot-screen {
    backgroundColor, so a gradient would leave a hollow plaque in Photos. */
 .banner-win {
     top: 7%;
+    border-width: 2px;
     border-color: var(--gold);
     background: rgba(22, 14, 6, 0.94);
     box-shadow:
@@ -950,6 +951,60 @@ html.scene-street .boot-screen {
     color: #f4efe2;
 }
 
+/* Victory certificate chrome — real elements with solid colors only, so
+   the plaque survives pokerShot's painter (backgroundColor, borders,
+   images and text; gradients and pseudo-elements would vanish from the
+   saved photo). */
+.cert-brand {
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 4px;
+    color: #c9a24f;
+}
+
+.cert-title {
+    margin-top: 3px;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 3px;
+    color: #ffe9a8;
+}
+
+.cert-rule {
+    width: 170px;
+    height: 2px;
+    margin: 9px auto 3px;
+    border-radius: 1px;
+    background-color: rgba(230, 195, 106, 0.55);
+}
+
+.cert-board-label {
+    margin-top: 9px;
+    font-size: 11px;
+    letter-spacing: 2.5px;
+    color: #b89758;
+}
+
+.cert-board {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin: 5px 0 1px;
+}
+
+.cert-board .hud-card {
+    width: 44px;
+    border-radius: 3px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.cert-footer {
+    margin-top: 7px;
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: #d8c9a0;
+}
+
 @keyframes victory-amount {
     0%, 100% { filter: brightness(1); }
     50% { filter: brightness(1.12); }
@@ -965,11 +1020,12 @@ html.scene-street .boot-screen {
     .banner-win .banner-cards .hud-card { animation: none; }
 }
 
-/* Victory plaque owns the upper stage; pin the hand-compare strip toward
-   the lower mid so it never sits under the winning cards in the photo. */
-.game3d.banner-victory .showdown-layer {
-    align-items: flex-end;
-    padding-bottom: 6px;
+/* The certificate already shows the hole cards, the board and the hand
+   that won. The compare strip and the top-right card close-up would only
+   sit half-shaded behind the plaque, so the celebration is the certificate. */
+.game3d.banner-victory .showdown-layer,
+.game3d.banner-victory .hud-board {
+    display: none;
 }
 
 /* Shown only after the player takes a pot or the table. Hidden while the
@@ -2541,6 +2597,12 @@ html.scene-street .boot-screen {
     .banner-win .banner-cards { margin: 10px 0 4px; gap: 10px; }
     .banner-win .banner-cards .hud-card { width: 78px; }
     .banner-win .banner-line { font-size: 18px; }
+    .cert-brand { font-size: 11px; letter-spacing: 3px; }
+    .cert-title { font-size: 13px; letter-spacing: 2.5px; }
+    .cert-rule { width: 140px; margin: 7px auto 2px; }
+    .cert-board-label { margin-top: 7px; font-size: 10px; }
+    .cert-board .hud-card { width: 36px; }
+    .cert-footer { font-size: 11px; }
     .hud-winner .hud-card { width: 30px; }
     .showdown-layer {
         top: calc(72px + env(safe-area-inset-top, 0px));
@@ -2610,6 +2672,12 @@ html.scene-street .boot-screen {
     .banner-win .banner-cards { margin: 6px 0 2px; gap: 8px; }
     .banner-win .banner-cards .hud-card { width: 58px; }
     .banner-win .banner-line { font-size: 16px; margin-top: 2px; }
+    .cert-brand { font-size: 10px; letter-spacing: 2.5px; }
+    .cert-title { font-size: 12px; letter-spacing: 2px; margin-top: 1px; }
+    .cert-rule { width: 120px; margin: 5px auto 2px; }
+    .cert-board-label { margin-top: 5px; font-size: 9px; }
+    .cert-board .hud-card { width: 30px; }
+    .cert-footer { margin-top: 4px; font-size: 10px; letter-spacing: 1.5px; }
     .hud-winner .hud-card { width: 28px; }
     /* Compact chrome on short landscape so a 4+ seat wrap still centers. */
     .showdown-layer {
