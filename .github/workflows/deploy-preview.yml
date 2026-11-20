@@ -57,6 +57,18 @@ jobs:
           sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/preview/${BRANCH_SLUG}/\" />|" publish-preview/wwwroot/index.html
           # Pages serves files verbatim; precompressed publish output is dead weight.
           find publish-preview/wwwroot \( -name '*.br' -o -name '*.gz' \) -delete
+          # A full preview is ~200 MB and the site only keeps about two of
+          # them. Point models and audio at the live site and drop those
+          # folders (and the store-design videos) so this preview stays
+          # small enough to survive the next deploy.
+          LIVE="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${REPO_NAME}"
+          find publish-preview/wwwroot/js -type f -name '*.js' ! -path '*/vendor/*' -print0 |
+            xargs -0 -r sed -i \
+              -e "s|'models/|'${LIVE}/models/|g" \
+              -e "s|'audio/|'${LIVE}/audio/|g"
+          rm -rf publish-preview/wwwroot/models \
+                 publish-preview/wwwroot/audio \
+                 publish-preview/wwwroot/appstore-design
           printf '{"version":"%s","built":"%s","preview":"%s","branch":"%s"}\n' \
             "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$BRANCH_SLUG" "$GITHUB_REF_NAME" \
             > publish-preview/wwwroot/version.json
