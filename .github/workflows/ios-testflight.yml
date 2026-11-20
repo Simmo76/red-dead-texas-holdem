@@ -3,7 +3,10 @@ name: iOS TestFlight Build
 # Builds the Capacitor iOS wrapper (Mobile/ios-wrapper) on a macOS runner,
 # signs it, and uploads it to TestFlight.
 #
-# Trigger manually from the Actions tab. One-time setup (see
+# Trigger manually from the Actions tab. Run this workflow on
+# cursor/testflight-what-to-test-dc8d, or on main with "update_notes"
+# checked, to post tools/appstore/what-to-test.txt on the latest build
+# without uploading a new binary. One-time setup (see
 # Mobile/ios-wrapper/README.md "TestFlight builds from CI"):
 #   - Apple Developer Program membership
 #   - App record for com.deadmanshand.app in App Store Connect
