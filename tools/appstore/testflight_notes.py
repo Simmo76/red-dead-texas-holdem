@@ -169,15 +169,26 @@ def upsert_notes(build_id: str, text: str, bearer: str) -> None:
 def main() -> None:
     text = notes_text()
     bearer = token()
+    # Build 32 is the icon upload. It can take several minutes to appear in
+    # the API after fastlane reports a successful upload.
+    minimum_build = 32
     deadline = time.time() + 15 * 60
     while True:
         build = latest_build(bearer)
         attrs = build["attributes"]
         state = attrs.get("processingState")
+        number = int(attrs.get("version") or 0)
         print(
             f"Latest build {attrs.get('version')} uploaded {attrs.get('uploadedDate')} "
             f"is {state}"
         )
+        if number < minimum_build:
+            if time.time() >= deadline:
+                raise SystemExit(f"Build {minimum_build} did not appear before the deadline")
+            print(f"Waiting for build {minimum_build} to appear.")
+            time.sleep(30)
+            bearer = token()
+            continue
         if state == "FAILED":
             raise SystemExit("Latest build failed processing")
         try:
