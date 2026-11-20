@@ -245,7 +245,9 @@
             {
                 @* Someone else took the pot: their two cards sit to the LEFT
                    of the text column so the amount and the reason they won
-                   read beside the hand, not underneath it. *@
+                   read beside the hand, not underneath it. The community
+                   cards stay below, matching the player's victory certificate
+                   so it is clear how that opponent made the winning hand. *@
                 <div class="banner-result-row">
                     @if (BannerHandCards is { Count: > 0 } cards)
                     {
@@ -268,6 +270,16 @@
                         }
                     </div>
                 </div>
+                @if (_shownBoard.Count > 0)
+                {
+                    <div class="cert-board-label">ON THE BOARD</div>
+                    <div class="cert-board" aria-label="Community cards">
+                        @foreach (var card in _shownBoard)
+                        {
+                            <img class="hud-card" src="@CardImage(card)" alt="" />
+                        }
+                    </div>
+                }
             }
             @if (CanReview)
             {

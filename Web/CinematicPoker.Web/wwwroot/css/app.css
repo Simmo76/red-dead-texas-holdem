@@ -866,11 +866,6 @@ html.scene-street .boot-screen {
     gap: 26px;
 }
 
-/* Nudge the opponent result window away from the top-right card HUD. */
-.banner-result {
-    transform: translateX(calc(-50% - clamp(18px, 3vw, 36px)));
-}
-
 .banner-result .banner-cards {
     margin: 0;
     flex-shrink: 0;
@@ -890,24 +885,12 @@ html.scene-street .boot-screen {
     color: rgba(244, 239, 226, 0.85);
 }
 
-/* While an opponent's result banner is up, the five board cards in the
-   top-right window keep quiet: their gold pulse (and the expand-hint
-   button's) would fight the dim veil and pull the eye off the result. */
-.game3d.banner-opponent .hud-board {
-    animation: none;
-    border-color: rgba(216, 178, 92, 0.3);
-    box-shadow: none;
-}
-
-.game3d.banner-opponent .hud-board .board-hint {
-    animation: none;
-}
-
-/* The result plaque grows when the coach button is inside it. Keep the
-   hand-compare strip in the lower half so it does not cover that button. */
+/* The result now contains the winner's cards, hand name and board. Hide
+   the duplicate card HUD and compare strip so the single result plaque
+   reads cleanly, like the player's victory certificate. */
+.game3d.banner-opponent .hud-board,
 .game3d.banner-opponent .showdown-layer {
-    top: 46%;
-    align-items: flex-start;
+    display: none;
 }
 
 /* Solid fill (not a CSS gradient): pokerShot.save() only paints
