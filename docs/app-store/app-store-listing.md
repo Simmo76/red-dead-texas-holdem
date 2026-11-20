@@ -285,7 +285,7 @@ listing itself.
 
 ## 6. App icon
 
-- **Subject:** two large black aces (spades and clubs) filling the frame, a stack of red chips, and a cowboy hat in the foreground, with an orange fire glow so the mark stays readable at home-screen size. No words or title on the icon.
+- **Subject:** two large black aces (spades and clubs) filling the frame, a stack of red chips, and a large cowboy hat in the foreground. A desert sunset and orange flames sit behind the cards so the mark stays readable at home-screen size. No words or title on the icon.
 - No weapon, alcohol, tobacco, character face, or cash stake appears in the icon.
 - The 1024×1024 RGB source is
   `Web/CinematicPoker.Web/wwwroot/appstore-design/icon-1024.jpg`; the native
