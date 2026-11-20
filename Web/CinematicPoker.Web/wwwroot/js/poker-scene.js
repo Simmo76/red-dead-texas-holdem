@@ -251,7 +251,8 @@ function writeTableScene(id) {
 }
 
 // Chosen once per page load. Changing it in settings reloads so the table
-// rebuilds around the new meshes; a missing key stays on the saloon cast.
+// rebuilds around the new meshes; the title menu is not shown again.
+// A missing key stays on the saloon cast.
 const TABLE_SCENE = readTableScene();
 
 // Outfit and head presets from the Cowboy 1 pack (SK_Jacob). Each game deals
@@ -4206,11 +4207,13 @@ window.pokerScene = {
 
   // Persist the choice and reload. The poker clips and music do not change;
   // the next boot only swaps the backdrop and character meshes. The saloon
-  // stays the default when nothing has been saved.
+  // stays the default when nothing has been saved. The player is already
+  // past the title menu, so the reload returns straight to the table.
   setTableScene(id) {
     const next = id === 'street' ? 'street' : 'saloon';
     if (next === TABLE_SCENE) return next;
     writeTableScene(next);
+    try { sessionStorage.setItem('cinematic-poker-in-game', '1'); } catch (e) { }
     location.reload();
     return next;
   },

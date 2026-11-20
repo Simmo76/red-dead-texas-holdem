@@ -72,6 +72,18 @@
     }
 
     var SCENE_KEY = 'cinematic-poker-table-scene';
+    // Set once the player has left the title menu. A scene-change reload
+    // in the same tab reads this and returns to the table, not the menu.
+    // A new visit (sessionStorage cleared) shows the menu again.
+    var IN_GAME_KEY = 'cinematic-poker-in-game';
+
+    function markInGame() {
+        try { sessionStorage.setItem(IN_GAME_KEY, '1'); } catch (e) { }
+    }
+
+    function inGame() {
+        try { return sessionStorage.getItem(IN_GAME_KEY) === '1'; } catch (e) { return false; }
+    }
 
     function scene() {
         try { return localStorage.getItem(SCENE_KEY) === 'street' ? 'street' : 'saloon'; } catch (e) { return 'saloon'; }
@@ -145,6 +157,8 @@
         adoptRoom: adoptRoom,
         hostedRoom: hostedRoom,
         scene: scene,
+        markInGame: markInGame,
+        inGame: inGame,
         followScene: followScene,
         ensureRoom: ensureRoom,
         url: inviteUrl,

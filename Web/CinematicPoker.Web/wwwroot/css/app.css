@@ -77,6 +77,17 @@ html.scene-street .boot-screen {
     background-image: url("../img/intro-splash-street.jpg?v=2");
 }
 
+/* Scene changes reload the page while the player is already seated.
+   Skip the painted title menu and show a plain loader until the table
+   is back. */
+html.resume-play .boot-screen,
+html.scene-street.resume-play .boot-screen {
+    background-image: none;
+    background-color: #0b0d12;
+    justify-content: center;
+    padding-bottom: 0;
+}
+
 .boot-title,
 .boot-subtitle {
     /* Title art is in the splash image; keep DOM text for a11y only. */
@@ -866,11 +877,6 @@ html.scene-street .boot-screen {
     gap: 26px;
 }
 
-/* Nudge the opponent result window away from the top-right card HUD. */
-.banner-result {
-    transform: translateX(calc(-50% - clamp(18px, 3vw, 36px)));
-}
-
 .banner-result .banner-cards {
     margin: 0;
     flex-shrink: 0;
@@ -890,24 +896,12 @@ html.scene-street .boot-screen {
     color: rgba(244, 239, 226, 0.85);
 }
 
-/* While an opponent's result banner is up, the five board cards in the
-   top-right window keep quiet: their gold pulse (and the expand-hint
-   button's) would fight the dim veil and pull the eye off the result. */
-.game3d.banner-opponent .hud-board {
-    animation: none;
-    border-color: rgba(216, 178, 92, 0.3);
-    box-shadow: none;
-}
-
-.game3d.banner-opponent .hud-board .board-hint {
-    animation: none;
-}
-
-/* The result plaque grows when the coach button is inside it. Keep the
-   hand-compare strip in the lower half so it does not cover that button. */
+/* The result now contains the winner's cards, hand name and board. Hide
+   the duplicate card HUD and compare strip so the single result plaque
+   reads cleanly, like the player's victory certificate. */
+.game3d.banner-opponent .hud-board,
 .game3d.banner-opponent .showdown-layer {
-    top: 46%;
-    align-items: flex-start;
+    display: none;
 }
 
 /* Solid fill (not a CSS gradient): pokerShot.save() only paints
@@ -922,6 +916,15 @@ html.scene-street .boot-screen {
         0 0 0 1px rgba(216, 178, 92, 0.22),
         inset 0 1px 0 rgba(255, 233, 168, 0.14);
     padding: 16px 36px 18px;
+    /* Opacity only. pokerShot scales this plaque with a transform so the
+       fade animation must not overwrite that transform. */
+    animation: victory-banner-in 0.35s ease-out;
+    transform-origin: top center;
+}
+
+@keyframes victory-banner-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .banner-win .banner-amount {
@@ -1029,9 +1032,12 @@ html.scene-street .boot-screen {
 
 /* The certificate already shows the hole cards, the board and the hand
    that won. The compare strip and the top-right card close-up would only
-   sit half-shaded behind the plaque, so the celebration is the certificate. */
+   sit half-shaded behind the plaque, so the celebration is the certificate.
+   The green stack pill (name + chips) sits in the bottom-left, which the
+   enlarged plaque covers — hide it until the certificate is dismissed. */
 .game3d.banner-victory .showdown-layer,
-.game3d.banner-victory .hud-board {
+.game3d.banner-victory .hud-board,
+.game3d.banner-victory .hud-stack {
     display: none;
 }
 
@@ -1056,12 +1062,11 @@ html.scene-street .boot-screen {
     min-height: 44px;
 }
 
-/* The certificate plus this button is taller than a short window.
-   Scale from the top edge so Export and the coach stay on screen. */
+/* Short windows: sit the plaque just under the top edge. pokerShot then
+   scales it (top-center, same aspect) so the bottom meets the screen. */
 @media (max-height: 470px) {
     .banner-win {
         top: 4px;
-        transform: translateX(-50%) scale(0.72);
         transform-origin: top center;
     }
 }
@@ -1379,9 +1384,10 @@ html.scene-street .boot-screen {
     animation: fadein-plain 0.3s ease-out;
 }
 
-/* Maximilian's medallion anchors the advisor: the framed plate with the
+/* The coach medallion anchors the advisor: the framed plate with the
    title (and the opened advice) hangs off its right edge, tucked behind
-   the coin, so the coach fronts the advice in both states. */
+   the coin, so the coach fronts the advice in both states. Saloon uses
+   Maximilian; the octagon swaps in Frankie Fast-Hand. */
 .ai-advice-icon {
     flex: 0 0 auto;
     position: relative;
@@ -2663,7 +2669,12 @@ html.scene-street .boot-screen {
 /* -------------------------------------- phones held sideways (iPhone 13) */
 
 @media (max-height: 500px) and (orientation: landscape) {
-    .topbar { padding-top: 6px; }
+    /* The top row already sat 6px under the glass. Left and right used to
+       add another 14–18px on top of the landscape safe area, and iOS
+       reports that inset on BOTH sides even though the notch is only on
+       one. This row is above the housing, so a flat 14px clears the
+       rounded corner and matches the top edge. */
+    .topbar { padding-top: 6px; padding-left: 14px; padding-right: 14px; }
     .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 72%; }
     .chip-btn { padding: 4px 10px; font-size: 10px; }
     .topbar .chip-btn { padding: 6px 13px; min-height: 32px; font-size: 11px; }
@@ -2673,10 +2684,16 @@ html.scene-street .boot-screen {
     /* Clamped just under the compact brand text (bottom edge ~28px in the
        6px-padded 32px topbar row). The topbar buttons sit on the right, so
        they can never collide with this left-pinned pill. */
-    .hud-meters { top: calc(34px + env(safe-area-inset-top)); gap: 8px; }
+    .hud-meters { top: calc(34px + env(safe-area-inset-top)); left: 14px; gap: 8px; }
     .hud-pot { font-size: 16px; padding: 6px 14px; }
     .hud-stack { font-size: 22px; padding: 7px 16px; }
     .hud-stack-icon { width: 22px; height: 22px; flex-basis: 22px; }
+    /* Default keeps the cards off whichever side iOS marks unsafe. Once we
+       know the housing is on the left, the right edge can come in. */
+    .hud-board,
+    .hud-board.expanded { right: max(8px, env(safe-area-inset-right, 0px)); }
+    html.notch-left .hud-board,
+    html.notch-left .hud-board.expanded { right: 8px; }
     .hud-board { top: 42px; gap: 4px; padding: 4px 5px; }
     .hud-card { width: 40px; }
     /* Enlarged: start below the (possibly wrapped) top-bar buttons at 1.3x
@@ -2709,7 +2726,7 @@ html.scene-street .boot-screen {
     /* Compact chrome on short landscape so a 4+ seat wrap still centers. */
     .showdown-layer {
         top: calc(40px + env(safe-area-inset-top, 0px));
-        bottom: calc(72px + max(12px, env(safe-area-inset-bottom, 0px)));
+        bottom: calc(64px + max(8px, env(safe-area-inset-bottom, 0px)));
     }
     .game3d.banner-victory .showdown-layer {
         top: calc(118px + env(safe-area-inset-top, 0px));
@@ -2719,7 +2736,7 @@ html.scene-street .boot-screen {
     .showdown-seat { min-width: 120px; padding: 8px 12px; gap: 6px; }
     .showdown-cards .hud-card { width: 63px; }
     .showdown-name, .showdown-hand { font-size: 17px; }
-    .hud-bottom-row { gap: 8px; padding: 0 calc(14px + env(safe-area-inset-right)) 2px calc(14px + env(safe-area-inset-left)); }
+    .hud-bottom-row { gap: 8px; padding: 0 14px; }
     .actor-card { min-width: 120px; padding: 6px 12px; }
     .actor-name { font-size: 14px; }
     .actor-stack { font-size: 16px; }
@@ -2746,7 +2763,12 @@ html.scene-street .boot-screen {
     .act { padding: 10px 14px; font-size: 12px; flex: 0 1 auto; }
     .actionbar {
         gap: 8px;
-        padding-bottom: calc(8px + max(12px, env(safe-area-inset-bottom, 0px)));
+        /* Corners of this row sit below the notch, so the side inset no
+           longer stacks the full safe area. The bottom stays above the
+           home indicator (about 21px) instead of adding a second pad. */
+        padding-left: 14px;
+        padding-right: 14px;
+        padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
     }
     .actionbar-left, .actionbar-right { gap: 8px; }
     .slider-panel { gap: 4px; }
