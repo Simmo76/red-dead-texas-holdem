@@ -169,9 +169,9 @@ def upsert_notes(build_id: str, text: str, bearer: str) -> None:
 def main() -> None:
     text = notes_text()
     bearer = token()
-    # Build 32 is the icon upload. It can take several minutes to appear in
-    # the API after fastlane reports a successful upload.
-    minimum_build = 32
+    # Build 35 is the table-view chip upload, the newest binary. Earlier
+    # notes landed on build 31 because newer uploads were not listed yet.
+    minimum_build = 35
     deadline = time.time() + 15 * 60
     while True:
         build = latest_build(bearer)
