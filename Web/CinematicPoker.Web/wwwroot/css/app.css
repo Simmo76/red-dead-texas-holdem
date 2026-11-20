@@ -1311,6 +1311,23 @@ html.scene-street.resume-play .boot-screen {
     white-space: nowrap;
 }
 
+.victory-gallery-plaque {
+    position: fixed;
+    left: 50%;
+    bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    z-index: 12;
+    display: block;
+    width: min(92vw, 620px);
+    max-height: clamp(72px, 22vh, 200px);
+    height: auto;
+    object-fit: contain;
+    object-position: center bottom;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
 .victory-cert-body {
     touch-action: inherit;
 }
@@ -1323,6 +1340,10 @@ html.scene-street.resume-play .boot-screen {
 @media (max-height: 470px) {
     .victory-carousel { top: 4px; }
     .victory-carousel-counter { top: -16px; }
+    .victory-gallery-plaque {
+        max-height: clamp(56px, 18vh, 120px);
+        bottom: max(4px, env(safe-area-inset-bottom, 0px));
+    }
 }
 
 /* Short windows: sit the plaque just under the top edge. pokerShot then
@@ -3072,6 +3093,7 @@ html.scene-street.resume-play .boot-screen {
 .game3d.coach-open .ai-advice,
 .game3d.coach-open .banner,
 .game3d.coach-open .victory-carousel,
+.game3d.coach-open .victory-gallery-plaque,
 .game3d.coach-open .result-dim,
 .game3d.coach-open .showdown-layer,
 .game3d.coach-open .showdown-strip,
@@ -3080,6 +3102,7 @@ html.scene-street.resume-play .boot-screen {
 .game3d.coach-open .hud-winner,
 .game3d.coach-panel-only .banner,
 .game3d.coach-panel-only .victory-carousel,
+.game3d.coach-panel-only .victory-gallery-plaque,
 .game3d.coach-panel-only .result-dim {
     display: none !important;
 }
