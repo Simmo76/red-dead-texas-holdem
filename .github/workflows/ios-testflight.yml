@@ -3,10 +3,10 @@ name: iOS TestFlight Build
 # Builds the Capacitor iOS wrapper (Mobile/ios-wrapper) on a macOS runner,
 # signs it, and uploads it to TestFlight.
 #
-# Trigger manually from the Actions tab. Run this workflow on
-# cursor/testflight-what-to-test-dc8d, or on main with "update_notes"
-# checked, to post tools/appstore/what-to-test.txt on the latest build
-# without uploading a new binary. One-time setup (see
+# Trigger manually from the Actions tab. A push to main that changes
+# tools/appstore/what-to-test.txt posts those notes on the latest build
+# and does not upload a new binary. Checking "update_notes" does the same.
+# One-time setup (see
 # Mobile/ios-wrapper/README.md "TestFlight builds from CI"):
 #   - Apple Developer Program membership
 #   - App record for com.deadmanshand.app in App Store Connect
@@ -29,13 +29,52 @@ on:
       - 'Web/CinematicPoker.Web/**'
       - 'Mobile/ios-wrapper/**'
       - '.github/workflows/ios-testflight.yml'
+      - 'tools/appstore/what-to-test.txt'
+      - 'tools/appstore/testflight_notes.py'
 
 jobs:
+  detect:
+    name: Decide notes or upload
+    runs-on: ubuntu-latest
+    outputs:
+      notes: ${{ steps.d.outputs.notes }}
+      app: ${{ steps.d.outputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: d
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "notes=false" >> "$GITHUB_OUTPUT"
+            echo "app=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          before="${{ github.event.before }}"
+          if [ "$before" = "0000000000000000000000000000000000000000" ]; then
+            echo "notes=false" >> "$GITHUB_OUTPUT"
+            echo "app=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(git diff --name-only "$before" "${{ github.sha }}")
+          printf '%s\n' "$files"
+          notes=false
+          app=false
+          printf '%s\n' "$files" | grep -qx 'tools/appstore/what-to-test.txt' && notes=true || true
+          printf '%s\n' "$files" | grep -Eq '^(Web/CinematicPoker.Web/|Mobile/ios-wrapper/)' && app=true || true
+          if [ "$notes" != true ] && printf '%s\n' "$files" | grep -qx '.github/workflows/ios-testflight.yml'; then
+            app=true
+          fi
+          echo "notes=$notes" >> "$GITHUB_OUTPUT"
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+
   update-what-to-test:
     name: Post What to Test notes
+    needs: detect
     if: >-
-      github.event_name == 'workflow_dispatch' &&
-      (inputs.update_notes == true || github.ref == 'refs/heads/cursor/testflight-what-to-test-dc8d')
+      (github.event_name == 'workflow_dispatch' && inputs.update_notes == true) ||
+      (github.event_name == 'push' && needs.detect.outputs.notes == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -57,9 +96,10 @@ jobs:
 
   build-and-upload:
     name: Build, sign and upload to TestFlight
+    needs: detect
     if: >-
-      github.event_name != 'workflow_dispatch' ||
-      (inputs.update_notes != true && github.ref != 'refs/heads/cursor/testflight-what-to-test-dc8d')
+      (github.event_name == 'push' && needs.detect.outputs.app == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.update_notes != true)
     # macos-26 defaults to Xcode 26.x. Apple rejects uploads built with
     # anything older than the iOS 26 SDK (macos-15 defaults to Xcode 16.4).
     runs-on: macos-26
