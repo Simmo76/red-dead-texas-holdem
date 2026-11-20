@@ -166,14 +166,9 @@ def upsert_notes(build_id: str, text: str, bearer: str) -> None:
     print("Created en-US What to Test")
 
 
-def main() -> None:
-    text = notes_text()
-    bearer = token()
-    # Build 35 is the table-view chip upload, the newest binary. Earlier
-    # notes landed on build 31 because newer uploads were not listed yet.
-    minimum_build = 35
-    deadline = time.time() + 15 * 60
+def wait_for_ready(bearer: str, minimum_build: int, deadline: float) -> tuple[dict, str]:
     while True:
+        bearer = token()
         build = latest_build(bearer)
         attrs = build["attributes"]
         state = attrs.get("processingState")
@@ -182,24 +177,36 @@ def main() -> None:
             f"Latest build {attrs.get('version')} uploaded {attrs.get('uploadedDate')} "
             f"is {state}"
         )
-        if number < minimum_build:
-            if time.time() >= deadline:
-                raise SystemExit(f"Build {minimum_build} did not appear before the deadline")
-            print(f"Waiting for build {minimum_build} to appear.")
-            time.sleep(30)
-            bearer = token()
-            continue
-        if state == "FAILED":
-            raise SystemExit("Latest build failed processing")
-        try:
-            upsert_notes(build["id"], text, bearer)
-            break
-        except SystemExit as exc:
-            if state == "VALID" or time.time() >= deadline:
-                raise
-            print(f"{exc}. Waiting for the build to finish processing.")
-            time.sleep(30)
-            bearer = token()
+        if state == "FAILED" and number >= minimum_build:
+            raise SystemExit(f"Build {number} failed processing")
+        if number >= minimum_build and state == "VALID":
+            return build, bearer
+        if time.time() >= deadline:
+            raise SystemExit(
+                f"Build {minimum_build} was not finished processing before the deadline"
+            )
+        print(f"Waiting until build {minimum_build} or newer has finished processing.")
+        time.sleep(30)
+
+
+def main() -> None:
+    text = notes_text()
+    # Build 35 is the table-view chip upload. Wait until Apple has finished
+    # processing it (or a newer build) before writing the notes.
+    minimum_build = int(os.environ.get("MIN_BUILD", "35"))
+    deadline = time.time() + 20 * 60
+    build, bearer = wait_for_ready(token(), minimum_build, deadline)
+    upsert_notes(build["id"], text, bearer)
+    attrs = build["attributes"]
+    version = marketing_version(build["id"], bearer)
+    label = f"{version} ({attrs.get('version')})" if version else str(attrs.get("version"))
+    print(f"What to Test is posted on {label}")
+    # An earlier run can still be writing the previous notes. Post again
+    # after it has had time to finish so this text is the one that remains.
+    time.sleep(90)
+    build, bearer = wait_for_ready(token(), minimum_build, deadline)
+    upsert_notes(build["id"], text, bearer)
+    attrs = build["attributes"]
     version = marketing_version(build["id"], bearer)
     label = f"{version} ({attrs.get('version')})" if version else str(attrs.get("version"))
     print(f"What to Test is posted on {label}")
