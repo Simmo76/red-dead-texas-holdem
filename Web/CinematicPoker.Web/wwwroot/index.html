@@ -25,7 +25,26 @@
          vendored in fonts/ so the game needs no network at all — the
          @font-face declarations live at the top of css/app.css. -->
     <link rel="preload" href="fonts/rye-latin.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="css/app.css?v=45" />
+    <link rel="stylesheet" href="css/app.css?v=46" />
+    <script>
+        // iOS reports the landscape notch inset on both sides. The housing
+        // is only on one edge: window.orientation 90 puts it on the left,
+        // -90 on the right. Mark that before first paint so the card window
+        // can sit on the clear edge. See the short-landscape rules in app.css.
+        (function () {
+            function placeNotch() {
+                var root = document.documentElement;
+                var o = Number(window.orientation);
+                root.classList.remove('notch-left', 'notch-right');
+                if (o === 90) root.classList.add('notch-left');
+                else if (o === -90) root.classList.add('notch-right');
+            }
+            placeNotch();
+            window.addEventListener('orientationchange', function () {
+                setTimeout(placeNotch, 60);
+            });
+        })();
+    </script>
     <script>
         // Paint the boot card for the saved level before the body renders.
         // Selecting OCTAGON reloads, so this is the title the player comes back to.

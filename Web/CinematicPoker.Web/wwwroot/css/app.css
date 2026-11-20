@@ -2658,7 +2658,12 @@ html.scene-street .boot-screen {
 /* -------------------------------------- phones held sideways (iPhone 13) */
 
 @media (max-height: 500px) and (orientation: landscape) {
-    .topbar { padding-top: 6px; }
+    /* The top row already sat 6px under the glass. Left and right used to
+       add another 14–18px on top of the landscape safe area, and iOS
+       reports that inset on BOTH sides even though the notch is only on
+       one. This row is above the housing, so a flat 14px clears the
+       rounded corner and matches the top edge. */
+    .topbar { padding-top: 6px; padding-left: 14px; padding-right: 14px; }
     .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 72%; }
     .chip-btn { padding: 4px 10px; font-size: 10px; }
     .topbar .chip-btn { padding: 6px 13px; min-height: 32px; font-size: 11px; }
@@ -2668,10 +2673,16 @@ html.scene-street .boot-screen {
     /* Clamped just under the compact brand text (bottom edge ~28px in the
        6px-padded 32px topbar row). The topbar buttons sit on the right, so
        they can never collide with this left-pinned pill. */
-    .hud-meters { top: calc(34px + env(safe-area-inset-top)); gap: 8px; }
+    .hud-meters { top: calc(34px + env(safe-area-inset-top)); left: 14px; gap: 8px; }
     .hud-pot { font-size: 16px; padding: 6px 14px; }
     .hud-stack { font-size: 22px; padding: 7px 16px; }
     .hud-stack-icon { width: 22px; height: 22px; flex-basis: 22px; }
+    /* Default keeps the cards off whichever side iOS marks unsafe. Once we
+       know the housing is on the left, the right edge can come in. */
+    .hud-board,
+    .hud-board.expanded { right: max(8px, env(safe-area-inset-right, 0px)); }
+    html.notch-left .hud-board,
+    html.notch-left .hud-board.expanded { right: 8px; }
     .hud-board { top: 42px; gap: 4px; padding: 4px 5px; }
     .hud-card { width: 40px; }
     /* Enlarged: start below the (possibly wrapped) top-bar buttons at 1.3x
@@ -2704,7 +2715,7 @@ html.scene-street .boot-screen {
     /* Compact chrome on short landscape so a 4+ seat wrap still centers. */
     .showdown-layer {
         top: calc(40px + env(safe-area-inset-top, 0px));
-        bottom: calc(72px + max(12px, env(safe-area-inset-bottom, 0px)));
+        bottom: calc(64px + max(8px, env(safe-area-inset-bottom, 0px)));
     }
     .game3d.banner-victory .showdown-layer {
         top: calc(118px + env(safe-area-inset-top, 0px));
@@ -2714,7 +2725,7 @@ html.scene-street .boot-screen {
     .showdown-seat { min-width: 120px; padding: 8px 12px; gap: 6px; }
     .showdown-cards .hud-card { width: 63px; }
     .showdown-name, .showdown-hand { font-size: 17px; }
-    .hud-bottom-row { gap: 8px; padding: 0 calc(14px + env(safe-area-inset-right)) 2px calc(14px + env(safe-area-inset-left)); }
+    .hud-bottom-row { gap: 8px; padding: 0 14px; }
     .actor-card { min-width: 120px; padding: 6px 12px; }
     .actor-name { font-size: 14px; }
     .actor-stack { font-size: 16px; }
@@ -2741,7 +2752,12 @@ html.scene-street .boot-screen {
     .act { padding: 10px 14px; font-size: 12px; flex: 0 1 auto; }
     .actionbar {
         gap: 8px;
-        padding-bottom: calc(8px + max(12px, env(safe-area-inset-bottom, 0px)));
+        /* Corners of this row sit below the notch, so the side inset no
+           longer stacks the full safe area. The bottom stays above the
+           home indicator (about 21px) instead of adding a second pad. */
+        padding-left: 14px;
+        padding-right: 14px;
+        padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
     }
     .actionbar-left, .actionbar-right { gap: 8px; }
     .slider-panel { gap: 4px; }
