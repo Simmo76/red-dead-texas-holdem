@@ -100,7 +100,9 @@
         p = Math.max(-1, Math.min(1, p));
         tr.querySelectorAll('.victory-carousel-slide').forEach(function (slide) {
             var base = readOffset(slide);
-            var v = base - p;
+            // Positive drag (finger right) shifts slides right with the finger;
+            // release thresholds still map that gesture to the previous win.
+            var v = base + p;
             applyState(slide, layoutAt(v));
         });
         return p;
