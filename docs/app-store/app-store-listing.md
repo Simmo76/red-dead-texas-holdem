@@ -285,11 +285,8 @@ listing itself.
 
 ## 6. App icon
 
-- **Subject:** two large aces on a warm card table, with chips softly visible
-  around them. Zero text (the name renders below the icon anyway).
-- No weapon, alcohol, tobacco, character face or gambling stake appears in
-  the icon. This keeps the metadata suitable for a 4+ audience as required by
-  App Review Guideline 2.3.8, independently of the game's 18+ age rating.
+- **Subject:** two large black aces (spades and clubs), a stack of red chips, and a large cowboy hat in the foreground, with orange fire behind the cards so the mark stays readable at home-screen size. No words or title on the icon.
+- No weapon, alcohol, tobacco, character face, or cash stake appears in the icon.
 - The 1024×1024 RGB source is
   `Web/CinematicPoker.Web/wwwroot/appstore-design/icon-1024.jpg`; the native
   PNG is generated from it without transparency or rounded-corner masking.
