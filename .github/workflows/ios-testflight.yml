@@ -61,7 +61,7 @@ jobs:
           printf '%s\n' "$files"
           notes=false
           app=false
-          printf '%s\n' "$files" | grep -qx 'tools/appstore/what-to-test.txt' && notes=true || true
+          printf '%s\n' "$files" | grep -Eq '^(tools/appstore/what-to-test.txt|tools/appstore/testflight_notes.py)$' && notes=true || true
           printf '%s\n' "$files" | grep -Eq '^(Web/CinematicPoker.Web/|Mobile/ios-wrapper/)' && app=true || true
           if [ "$notes" != true ] && printf '%s\n' "$files" | grep -qx '.github/workflows/ios-testflight.yml'; then
             app=true

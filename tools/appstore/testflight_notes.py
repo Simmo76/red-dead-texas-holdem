@@ -18,6 +18,7 @@ import urllib.request
 
 import jwt
 
+# Bundle id of the TestFlight app. The latest non-expired build receives the notes.
 BUNDLE_ID = "com.deadmanshand.app"
 API = "https://api.appstoreconnect.apple.com"
 NOTES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "what-to-test.txt")
