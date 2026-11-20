@@ -1078,9 +1078,9 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .victory-carousel-viewport {
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: min(82vw, 560px);
+    flex: 0 1 auto;
+    width: max-content;
+    max-width: min(88vw, 560px);
     min-height: 120px;
     overflow: visible;
     perspective: 1100px;
@@ -1096,15 +1096,16 @@ html.scene-street.resume-play .boot-screen {
     grid-template: 1fr / 1fr;
     justify-items: center;
     align-items: start;
-    width: 100%;
+    width: max-content;
+    max-width: 100%;
     transform-style: preserve-3d;
 }
 
 .victory-carousel-slide {
     grid-area: 1 / 1;
     position: relative;
-    width: min(72vw, 480px);
-    max-width: 100%;
+    width: max-content;
+    max-width: min(78vw, 520px);
     transform-style: preserve-3d;
     transform-origin: center center;
     backface-visibility: hidden;
@@ -1162,9 +1163,9 @@ html.scene-street.resume-play .boot-screen {
     position: relative;
     left: auto;
     top: auto;
-    width: 100%;
-    max-width: none;
-    margin: 0;
+    width: fit-content;
+    max-width: min(78vw, 520px);
+    margin: 0 auto;
     border-radius: 14px;
     animation: none;
     transform: none;
