@@ -644,15 +644,46 @@ function drawNameTag(label, name, dim) {
 const PLATE_MAX_W = 896;
 const PLATE_H = 192;
 
+// Dealer / blind marks on the overhead plates. The old suffix was a text
+// "sb" / "bb" or a ◈; each is now the matching chip, drawn on the name row.
+const ROLE_CHIP = 92;
+const ROLE_GAP = 12;
+const roleChips = {
+  dealer: new Image(),
+  sb: new Image(),
+  bb: new Image(),
+};
+let lastOverheadRows = null;
+
+function roleChipImage(seat) {
+  const key = seat.dealer ? 'dealer' : seat.sb ? 'sb' : seat.bb ? 'bb' : '';
+  if (!key) return null;
+  const img = roleChips[key];
+  return img.complete && img.naturalWidth ? img : null;
+}
+
+function bootRoleChips() {
+  const src = {
+    dealer: 'img/ui/chip-dealer.png',
+    sb: 'img/ui/chip-small-blind.png',
+    bb: 'img/ui/chip-big-blind.png',
+  };
+  for (const key of Object.keys(src)) {
+    roleChips[key].onload = () => {
+      if (lastOverheadRows && state.overhead) drawOverheadLabels(lastOverheadRows);
+    };
+    roleChips[key].src = src[key];
+  }
+}
+bootRoleChips();
+
 function drawLabel(label, seat) {
-  const key = JSON.stringify([seat.name, seat.stack, seat.status, seat.actor, seat.out, seat.folded, seat.dealer, seat.sb, seat.bb]);
+  const chip = roleChipImage(seat);
+  const key = JSON.stringify([seat.name, seat.stack, seat.status, seat.actor, seat.out, seat.folded, seat.dealer, seat.sb, seat.bb, !!chip]);
   if (key === label.text) return;
   label.text = key;
 
-  let name = seat.name;
-  if (seat.dealer) name += '  ◈';
-  else if (seat.sb) name += '  sb';
-  else if (seat.bb) name += '  bb';
+  const name = seat.name;
   let line = 'OUT';
   if (!seat.out) {
     line = '$' + seat.stack;
@@ -667,9 +698,10 @@ function drawLabel(label, seat) {
   // border: measure both rows and draw a box just wide enough. The cap
   // keeps a runaway status line from walling off half the table.
   ctx.font = NAME_FONT;
-  let needed = ctx.measureText(name).width;
+  const nameWidth = ctx.measureText(name).width;
+  const chipPad = chip ? ROLE_CHIP + ROLE_GAP : 0;
   ctx.font = LINE_FONT;
-  needed = Math.max(needed, ctx.measureText(line).width);
+  let needed = Math.max(nameWidth + chipPad, ctx.measureText(line).width);
   const W = Math.round(THREE.MathUtils.clamp(needed + 88, 512, MAXW));
   const x0 = (MAXW - W) / 2;
   ctx.clearRect(0, 0, MAXW, H);
@@ -682,11 +714,28 @@ function drawLabel(label, seat) {
     ctx.strokeStyle = '#e8b23c'; ctx.lineWidth = 8; ctx.stroke();
   }
 
-  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = seat.out || seat.folded ? '#8a7f70' : '#f0e2c8';
   ctx.font = NAME_FONT;
-  ctx.fillText(name, MAXW / 2, 78, W - 72);
+  if (chip) {
+    // Name plus chip, centred as one group, the way the old suffix sat
+    // immediately after the name. The chip stays on the name row so it
+    // never covers the stack line underneath.
+    const maxInner = W - 72;
+    const drawNameW = Math.min(nameWidth, Math.max(40, maxInner - chipPad));
+    const groupX = (MAXW - (drawNameW + chipPad)) / 2;
+    ctx.textAlign = 'left';
+    ctx.fillText(name, groupX, 78, drawNameW);
+    const muted = seat.out || seat.folded;
+    if (muted) { ctx.save(); ctx.globalAlpha = 0.45; }
+    ctx.drawImage(chip, groupX + drawNameW + ROLE_GAP, 14, ROLE_CHIP, ROLE_CHIP);
+    if (muted) ctx.restore();
+  } else {
+    ctx.textAlign = 'center';
+    ctx.fillText(name, MAXW / 2, 78, W - 72);
+  }
 
+  ctx.textAlign = 'center';
   ctx.font = LINE_FONT;
   if (seat.out) { ctx.fillStyle = '#b0483c'; ctx.fillText('OUT', MAXW / 2, 148); }
   else {
@@ -755,6 +804,7 @@ function ensureOverheadLabels() {
 
 // Redraw every plate from the given snapshot rows (same rows update() gets).
 function drawOverheadLabels(rows) {
+  lastOverheadRows = rows || null;
   if (!state.overhead || !state.scene) return;
   ensureOverheadLabels();
   for (const data of rows || []) {
