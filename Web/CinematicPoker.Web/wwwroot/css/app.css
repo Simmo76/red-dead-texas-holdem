@@ -1062,8 +1062,7 @@ html.scene-street.resume-play .boot-screen {
     min-height: 44px;
 }
 
-/* Victory win gallery — flex row hugs the certificate; arrows sit on
-   its shoulders, not on the screen edge. */
+/* Victory win gallery — Cover Flow row: arrows flank a 3D card stage. */
 .victory-carousel {
     position: absolute;
     left: 50%;
@@ -1078,22 +1077,135 @@ html.scene-street.resume-play .boot-screen {
     pointer-events: none;
 }
 
-.victory-carousel .banner.banner-win {
-    position: relative;
-    left: auto;
-    top: auto;
-    transform: none;
+.victory-carousel-viewport {
     flex: 0 1 auto;
-    max-width: min(78vw, 520px);
-    margin: 0;
+    width: max-content;
+    max-width: min(88vw, 560px);
+    min-height: 120px;
+    overflow: visible;
+    perspective: 1100px;
+    perspective-origin: 50% 42%;
     pointer-events: auto;
     touch-action: pan-x;
     -webkit-user-select: none;
     user-select: none;
 }
 
-.victory-carousel-nav .banner.banner-win {
-    max-width: min(72vw, 480px);
+.victory-carousel-track {
+    display: grid;
+    grid-template: 1fr / 1fr;
+    justify-items: center;
+    align-items: start;
+    width: max-content;
+    max-width: 100%;
+    transform-style: preserve-3d;
+}
+
+.victory-carousel-slide {
+    grid-area: 1 / 1;
+    position: relative;
+    width: max-content;
+    max-width: min(78vw, 520px);
+    transform-style: preserve-3d;
+    transform-origin: center center;
+    backface-visibility: hidden;
+    transition:
+        transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.45s ease,
+        filter 0.45s ease;
+    will-change: transform, opacity;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 1;
+    filter: brightness(0.72);
+}
+
+.victory-carousel-slide-active {
+    transform: translateZ(72px) rotateY(0deg) scale(1);
+    opacity: 1;
+    z-index: 10;
+    pointer-events: auto;
+    filter: brightness(1);
+}
+
+.victory-carousel-slide-prev {
+    transform: translateX(-88%) translateZ(-48px) rotateY(42deg) scale(0.84);
+    opacity: 0.78;
+    z-index: 6;
+}
+
+.victory-carousel-slide-next {
+    transform: translateX(88%) translateZ(-48px) rotateY(-42deg) scale(0.84);
+    opacity: 0.78;
+    z-index: 6;
+}
+
+.victory-carousel-slide-far-prev {
+    transform: translateX(-132%) translateZ(-140px) rotateY(52deg) scale(0.66);
+    opacity: 0.42;
+    z-index: 3;
+}
+
+.victory-carousel-slide-far-next {
+    transform: translateX(132%) translateZ(-140px) rotateY(-52deg) scale(0.66);
+    opacity: 0.42;
+    z-index: 3;
+}
+
+.victory-carousel-slide-hidden {
+    transform: translateZ(-220px) rotateY(0deg) scale(0.45);
+    opacity: 0;
+    z-index: 0;
+    visibility: hidden;
+}
+
+.victory-carousel-slide .banner.banner-win {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: fit-content;
+    max-width: min(78vw, 520px);
+    margin: 0 auto;
+    border-radius: 14px;
+    animation: none;
+    transform: none;
+    pointer-events: inherit;
+    touch-action: inherit;
+    box-shadow:
+        0 18px 48px rgba(0, 0, 0, 0.62),
+        0 0 0 1px rgba(216, 178, 92, 0.22),
+        inset 0 1px 0 rgba(255, 233, 168, 0.14);
+}
+
+.victory-carousel-slide-active .banner.banner-win {
+    animation: victory-carousel-center-in 0.4s ease-out;
+}
+
+@keyframes victory-carousel-center-in {
+    from {
+        opacity: 0.85;
+        filter: brightness(0.9);
+    }
+    to {
+        opacity: 1;
+        filter: brightness(1);
+    }
+}
+
+.victory-carousel-coverflow .victory-carousel-slide-active .banner.banner-win {
+    box-shadow:
+        0 22px 56px rgba(0, 0, 0, 0.68),
+        0 0 0 1px rgba(230, 195, 106, 0.35),
+        inset 0 1px 0 rgba(255, 233, 168, 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .victory-carousel-slide {
+        transition-duration: 0.01ms;
+    }
+    .victory-carousel-slide-active .banner.banner-win {
+        animation: none;
+    }
 }
 
 .victory-nav {
