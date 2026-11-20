@@ -1628,16 +1628,14 @@
                 if (string.IsNullOrEmpty(_playerName))
                     _playerName = "Preview";
             }
-            else if (_victoryGalleryPreview)
-            {
-                _introStarted = true;
-                _settingsLoaded = true;
-                if (string.IsNullOrEmpty(_playerName))
-                    _playerName = "Preview";
-                ShowVictoryGalleryPreview();
-            }
             else
             {
+                if (_victoryGalleryPreview)
+                {
+                    _introStarted = true;
+                    if (string.IsNullOrEmpty(_playerName))
+                        _playerName = "Preview";
+                }
                 if (string.IsNullOrEmpty(_playerName))
                     _playerName = await ReadCachedPlayerNameAsync();
                 _settingsLoaded = true;
@@ -1647,7 +1645,7 @@
                     string saved = "";
                     // A friend's browser never resumes (or overwrites) its own
                     // saved solo game: the host's table is the only game there.
-                    if (!_isGuest)
+                    if (!_isGuest && !_victoryGalleryPreview)
                     {
                         try { saved = await JS.InvokeAsync<string>("pokerSession.load"); }
                         catch (JSException) { }
@@ -1695,6 +1693,8 @@
                     if (_game == null && !string.IsNullOrEmpty(_playerName))
                         StartSessionCore(run: !_isGuest);
                 }
+                if (_victoryGalleryPreview)
+                    ShowVictoryGalleryPreview();
                 StateHasChanged();
                 if (_isGuest && !string.IsNullOrEmpty(_playerName)) _ = ConnectGuestAsync();
                 else _ = ResumeThenRunLoop();
@@ -1716,6 +1716,8 @@
             if (_sceneReady) await SyncBackdropLabel();
             if (_coachPreview) await OpenCoachPreview();
             else if (_resumePlay) await FinishDirectEntry();
+            if (!_coachPreview && _game == null && !string.IsNullOrEmpty(_playerName) && _introStarted)
+                StartSessionCore(run: !_isGuest);
         }
         if (_sceneReady && !_coachOpen) await PushSceneState();
         await FocusCoachPanel();
