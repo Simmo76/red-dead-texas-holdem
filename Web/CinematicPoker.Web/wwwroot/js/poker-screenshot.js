@@ -203,14 +203,12 @@ window.pokerShot = (function () {
       document.querySelector('.banner-win, .overlay-box.table-win');
     if (!root) return 'failed';
 
-    // The action and status live inside the plaque for layout purposes, but
-    // the exported certificate ends immediately before those controls.
-    const action = root.querySelector('.victory-shot');
     const rootRect = root.getBoundingClientRect();
-    const gap = 5 * cumulativeScale(root);
-    const captureHeight = action
-      ? Math.max(1, Math.floor(action.getBoundingClientRect().top - rootRect.top - gap))
-      : rootRect.height;
+    const gap = 4 * cumulativeScale(root);
+    const actions = root.querySelector('.victory-cert-actions');
+    const captureHeight = actions
+      ? Math.max(1, Math.floor(actions.getBoundingClientRect().top - rootRect.top - gap))
+      : Math.max(1, Math.floor(rootRect.height));
 
     let canvas;
     try { canvas = capture(root, captureHeight); }

@@ -201,6 +201,8 @@
         <div class="result-dim" aria-hidden="true"></div>
         @if (_playerWonPot)
         {
+            <img class="victory-gallery-plaque" src="@VictoryGalleryPlaqueImage" alt="Gallery of Wins"
+                 width="2149" height="280" decoding="async" />
             <div class="victory-carousel victory-carousel-coverflow @(_winGallery.Count > 1 ? "victory-carousel-nav" : "")">
                 @if (_winGallery.Count > 1)
                 {
@@ -264,8 +266,6 @@
                     </div>
                 }
             </div>
-            <img class="victory-gallery-plaque" src="@VictoryGalleryPlaqueImage" alt="Gallery of Wins"
-                 width="2149" height="280" decoding="async" />
         }
         else
         {
