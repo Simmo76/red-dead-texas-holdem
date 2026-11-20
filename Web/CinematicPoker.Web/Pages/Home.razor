@@ -5042,6 +5042,8 @@
             coachHeading = _coachReview?.Heading;
         }
 
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "cert-coach-slot");
         if (!string.IsNullOrWhiteSpace(coachWhyWon)
             || !string.IsNullOrWhiteSpace(coachLesson)
             || !string.IsNullOrWhiteSpace(coachHeading))
@@ -5076,7 +5078,10 @@
                 builder.CloseElement();
             }
         }
+        builder.CloseElement();
 
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "cert-board-slot");
         if (boardCards is { Count: > 0 })
         {
             builder.AddMarkupContent(seq++, "<div class=\"cert-board-label\">ON THE BOARD</div>");
@@ -5093,6 +5098,7 @@
             }
             builder.CloseElement();
         }
+        builder.CloseElement();
 
         builder.AddMarkupContent(seq++, "<div class=\"cert-rule\" aria-hidden=\"true\"></div>");
         builder.OpenElement(seq++, "div");
@@ -5101,6 +5107,8 @@
         builder.CloseElement();
         builder.CloseElement();
 
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "victory-cert-actions");
         if (isActive)
         {
             builder.OpenElement(seq++, "button");
@@ -5133,6 +5141,7 @@
                 builder.CloseElement();
             }
         }
+        builder.CloseElement();
 
         builder.CloseElement();
     };

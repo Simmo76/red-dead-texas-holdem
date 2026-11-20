@@ -1136,22 +1136,27 @@ html.scene-street.resume-play .boot-screen {
     transform: translateX(-50%);
     z-index: 12;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     gap: 10px;
     max-width: min(98vw, 100%);
     pointer-events: none;
 }
 
+.victory-carousel-coverflow {
+    --victory-cert-w: min(74vw, 380px);
+    --victory-cert-h: clamp(280px, 58vh, 400px);
+}
+
 .victory-carousel-viewport,
 .victory-swipe-stage {
-    flex: 0 1 auto;
-    width: max-content;
-    max-width: min(88vw, 560px);
-    min-height: 120px;
+    flex: 0 0 auto;
+    width: var(--victory-cert-w, min(74vw, 380px));
+    max-width: var(--victory-cert-w, min(74vw, 380px));
+    min-height: var(--victory-cert-h, 280px);
     overflow: visible;
     perspective: 1100px;
-    perspective-origin: 50% 42%;
+    perspective-origin: 50% 18%;
     pointer-events: auto;
     touch-action: pan-x;
     -webkit-user-select: none;
@@ -1163,7 +1168,7 @@ html.scene-street.resume-play .boot-screen {
     grid-template: 1fr / 1fr;
     justify-items: center;
     align-items: start;
-    width: max-content;
+    width: 100%;
     max-width: 100%;
     transform-style: preserve-3d;
 }
@@ -1171,10 +1176,10 @@ html.scene-street.resume-play .boot-screen {
 .victory-carousel-slide {
     grid-area: 1 / 1;
     position: relative;
-    width: max-content;
-    max-width: min(78vw, 520px);
+    width: var(--victory-cert-w, min(74vw, 380px));
+    max-width: var(--victory-cert-w, min(74vw, 380px));
     transform-style: preserve-3d;
-    transform-origin: center center;
+    transform-origin: top center;
     backface-visibility: hidden;
     transition:
         transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
@@ -1230,18 +1235,64 @@ html.scene-street.resume-play .boot-screen {
     position: relative;
     left: auto;
     top: auto;
-    width: fit-content;
-    max-width: min(78vw, 520px);
+    width: 100%;
+    max-width: 100%;
+    min-height: var(--victory-cert-h, 280px);
+    height: var(--victory-cert-h, 280px);
     margin: 0 auto;
     border-radius: 14px;
     animation: none;
     transform: none;
     pointer-events: inherit;
     touch-action: inherit;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: hidden;
     box-shadow:
         0 18px 48px rgba(0, 0, 0, 0.62),
         0 0 0 1px rgba(216, 178, 92, 0.22),
         inset 0 1px 0 rgba(255, 233, 168, 0.14);
+}
+
+.victory-carousel-slide .victory-cert-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.victory-carousel-slide .cert-board-slot {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 58px;
+}
+
+.victory-carousel-slide .cert-coach-slot {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 100%;
+}
+
+.victory-carousel-slide:not(.victory-carousel-slide-active) .cert-coach-slot {
+    display: none;
+}
+
+.victory-carousel-slide .victory-cert-actions {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 108px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
 }
 
 .victory-carousel-slide-active .banner.banner-win {
@@ -1280,7 +1331,8 @@ html.scene-street.resume-play .boot-screen {
     flex: 0 0 44px;
     width: 44px;
     height: 44px;
-    align-self: center;
+    align-self: flex-start;
+    margin-top: calc((var(--victory-cert-h, 280px) - 44px) * 0.38);
     padding: 0;
     border: 1px solid rgba(230, 195, 106, 0.55);
     border-radius: 50%;
@@ -1334,7 +1386,21 @@ html.scene-street.resume-play .boot-screen {
 
 @media (max-width: 700px) and (orientation: portrait) {
     .victory-carousel { top: 10%; gap: 6px; }
+    .victory-carousel-coverflow {
+        --victory-cert-w: min(82vw, 360px);
+        --victory-cert-h: clamp(300px, 52vh, 400px);
+    }
     .victory-nav { flex-basis: 40px; width: 40px; height: 40px; font-size: 24px; }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .victory-carousel-coverflow {
+        --victory-cert-w: min(46vw, 340px);
+        --victory-cert-h: clamp(188px, 76vh, 268px);
+    }
+    .victory-carousel-slide .victory-cert-actions {
+        min-height: 92px;
+    }
 }
 
 @media (max-height: 470px) {
