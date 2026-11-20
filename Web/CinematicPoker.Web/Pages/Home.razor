@@ -239,6 +239,7 @@
                                 var boardCards = ParseVictoryCards(record.boardCards);
                                 <div @key="record.handNumber"
                                      class="victory-carousel-slide @VictorySlideClass(offset)"
+                                     data-victory-offset="@offset"
                                      aria-hidden="@(offset != 0 ? "true" : "false")">
                                     @RenderVictoryBanner(
                                         record,

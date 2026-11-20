@@ -1196,18 +1196,17 @@ html.scene-street.resume-play .boot-screen {
 
 .victory-carousel-track.victory-carousel-dragging {
     transition: none;
-    transform: translateX(var(--victory-drag-x, 0px));
+    transform: none;
     cursor: grabbing;
-    touch-action: pan-y;
 }
 
 .victory-carousel-dragging .victory-carousel-slide {
-    transition-duration: 0.01ms;
+    transition: none !important;
 }
 
 .victory-carousel-nav .victory-swipe-stage {
     cursor: grab;
-    touch-action: pan-y pinch-zoom;
+    touch-action: none;
 }
 
 .victory-carousel-slide {
