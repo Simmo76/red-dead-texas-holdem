@@ -5216,16 +5216,16 @@
     private void ShowPreviousVictory()
     {
         if (!CanShowPreviousVictory) return;
-        _winGalleryIndex--;
         _ = ResetVictoryCarouselTrackAsync();
+        _winGalleryIndex--;
         StateHasChanged();
     }
 
     private void ShowNextVictory()
     {
         if (!CanShowNextVictory) return;
-        _winGalleryIndex++;
         _ = ResetVictoryCarouselTrackAsync();
+        _winGalleryIndex++;
         StateHasChanged();
     }
 

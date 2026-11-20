@@ -123,6 +123,7 @@
 
     function onPointerDown(e) {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
+        if (e.target && e.target.closest && e.target.closest('.victory-nav')) return;
         var root = carouselRoot(e.target);
         if (!root || skipTarget(e.target)) return;
         var tr = track(root);
