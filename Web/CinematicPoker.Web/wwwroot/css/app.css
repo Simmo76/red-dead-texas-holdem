@@ -1062,6 +1062,65 @@ html.scene-street.resume-play .boot-screen {
     min-height: 44px;
 }
 
+/* Victory win gallery — prev/next sit beside the plaque without
+   changing .banner-win positioning (pokerShot scales from top center). */
+.victory-nav {
+    position: absolute;
+    top: 50%;
+    z-index: 13;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid rgba(230, 195, 106, 0.55);
+    border-radius: 50%;
+    background: rgba(12, 8, 4, 0.88);
+    color: #ffe9a8;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+.victory-nav-prev { left: max(4px, env(safe-area-inset-left, 0px)); }
+.victory-nav-next { right: max(4px, env(safe-area-inset-right, 0px)); }
+
+.victory-nav:disabled {
+    opacity: 0.28;
+    cursor: default;
+}
+
+.victory-carousel-counter {
+    position: absolute;
+    left: 50%;
+    top: calc(7% - 22px);
+    transform: translateX(-50%);
+    z-index: 13;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #c9a24f;
+    pointer-events: none;
+}
+
+.victory-cert-body {
+    touch-action: pan-y;
+}
+
+@media (max-height: 470px) {
+    .victory-carousel-counter { top: calc(4px + 2px); }
+}
+
+@media (max-width: 700px) and (orientation: portrait) {
+    .victory-nav-prev { left: 2px; }
+    .victory-nav-next { right: 2px; }
+    .victory-carousel-counter { top: calc(10% - 20px); }
+}
+
+@media (max-height: 470px) and (orientation: landscape) {
+    .victory-carousel-counter { top: 2px; }
+}
+
 /* Short windows: sit the plaque just under the top edge. pokerShot then
    scales it (top-center, same aspect) so the bottom meets the screen. */
 @media (max-height: 470px) {

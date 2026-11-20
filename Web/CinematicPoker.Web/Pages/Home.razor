@@ -7,6 +7,8 @@
 @using CinematicPoker.Web.Diagnostics
 @using System.Text.Json
 @using System.Text.Json.Serialization
+@using Microsoft.AspNetCore.Components.Web
+@using System.Globalization
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 
@@ -197,41 +199,57 @@
            are the only bright things on screen. Sits above the z:5 HUD
            layers but below .hud-bottom (8) and .banner (12). *@
         <div class="result-dim" aria-hidden="true"></div>
+        @if (_playerWonPot && _winGallery.Count > 1)
+        {
+            <button type="button" class="victory-nav victory-nav-prev"
+                    disabled="@(!CanShowPreviousVictory)" aria-label="Previous win"
+                    @onclick="ShowPreviousVictory" @onclick:stopPropagation="true">&#8249;</button>
+            <button type="button" class="victory-nav victory-nav-next"
+                    disabled="@(!CanShowNextVictory)" aria-label="Next win"
+                    @onclick="ShowNextVictory" @onclick:stopPropagation="true">&#8250;</button>
+            <div class="victory-carousel-counter" aria-live="polite">
+                @(_winGalleryIndex + 1) / @_winGallery.Count
+            </div>
+        }
         <div class="banner @(_playerWonPot ? "banner-win" : "banner-result")">
             @if (_playerWonPot)
             {
                 @* Certificate header — the Victory Screen-Shot captures this
                    plaque, so it carries everything needed to remember the
                    hand: title, pot, your cards, the board, name and date. *@
-                <div class="cert-brand">DEAD MAN'S HAND</div>
-                <div class="cert-title">CERTIFIED VICTOR!</div>
-                <div class="cert-rule" aria-hidden="true"></div>
-                @if (_bannerAmount.HasValue)
-                {
-                    <div class="banner-amount">$@_bannerAmount.Value</div>
-                }
-                @if (BannerHandCards is { Count: > 0 } cards)
-                {
-                    <div class="banner-cards" aria-label="Your winning hand">
-                        @foreach (var card in cards)
-                        {
-                            <img class="hud-card" src="@CardImage(card)" alt="" />
-                        }
-                    </div>
-                }
-                <div class="banner-line">@_banner</div>
-                @if (_shownBoard.Count > 0)
-                {
-                    <div class="cert-board-label">ON THE BOARD</div>
-                    <div class="cert-board" aria-label="Community cards">
-                        @foreach (var card in _shownBoard)
-                        {
-                            <img class="hud-card" src="@CardImage(card)" alt="" />
-                        }
-                    </div>
-                }
-                <div class="cert-rule" aria-hidden="true"></div>
-                <div class="cert-footer">@PlayerName.ToUpperInvariant() &middot; @DateTime.Now.ToString("MMMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture).ToUpperInvariant()</div>
+                <div class="victory-cert-body"
+                     @ontouchstart="OnVictoryTouchStart" @ontouchend="OnVictoryTouchEnd"
+                     @ontouchstart:stopPropagation @ontouchend:stopPropagation>
+                    <div class="cert-brand">DEAD MAN'S HAND</div>
+                    <div class="cert-title">CERTIFIED VICTOR!</div>
+                    <div class="cert-rule" aria-hidden="true"></div>
+                    @if (VictoryDisplayAmount is long amt)
+                    {
+                        <div class="banner-amount">$@amt</div>
+                    }
+                    @if (VictoryDisplayHoleCards is { Count: > 0 } holeCards)
+                    {
+                        <div class="banner-cards" aria-label="Your winning hand">
+                            @foreach (var card in holeCards)
+                            {
+                                <img class="hud-card" src="@CardImage(card)" alt="" />
+                            }
+                        </div>
+                    }
+                    <div class="banner-line">@VictoryDisplayHeadline</div>
+                    @if (VictoryDisplayBoardCards is { Count: > 0 } boardCards)
+                    {
+                        <div class="cert-board-label">ON THE BOARD</div>
+                        <div class="cert-board" aria-label="Community cards">
+                            @foreach (var card in boardCards)
+                            {
+                                <img class="hud-card" src="@CardImage(card)" alt="" />
+                            }
+                        </div>
+                    }
+                    <div class="cert-rule" aria-hidden="true"></div>
+                    <div class="cert-footer">@VictoryDisplayFooter</div>
+                </div>
                 <button type="button" class="act victory-shot" disabled="@_shotBusy"
                         @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true">
                     Export Certificate
@@ -1226,6 +1244,24 @@
     private bool _shotBusy;
     private string _shotStatus;
 
+    private const int MaxVictoryWins = 200;
+    private readonly List<VictoryWinRecord> _winGallery = new();
+    private int _winGalleryIndex;
+    private double? _victoryTouchStartX;
+    private double? _victoryTouchStartY;
+
+    private sealed class VictoryWinRecord
+    {
+        public int version = 1;
+        public int handNumber;
+        public long capturedAtUtcMs;
+        public string playerName;
+        public long amount;
+        public string headline;
+        public string holeCards;
+        public string boardCards;
+    }
+
     // Table-win celebration: the chip count-up on the overlay and the
     // biggest pot the player dragged this table. Reset with each new table.
     private long _haulShown;
@@ -1577,6 +1613,7 @@
         {
             await LoadCoachPersistence();
             await LoadStatsArchive();
+            await LoadWinGallery();
             await BindCoachEscape();
             if (_coachPreview)
             {
@@ -4291,6 +4328,48 @@
         catch (InvalidOperationException) { }
     }
 
+    private async Task LoadWinGallery()
+    {
+        try
+        {
+            string json = await JS.InvokeAsync<string>("pokerWins.load");
+            if (string.IsNullOrEmpty(json)) return;
+            var parsed = JsonSerializer.Deserialize<List<VictoryWinRecord>>(json, SnapshotJson);
+            if (parsed == null) return;
+            _winGallery.Clear();
+            foreach (VictoryWinRecord row in parsed)
+            {
+                if (row != null && row.version == 1)
+                    _winGallery.Add(row);
+            }
+            if (_winGallery.Count > 0)
+                _winGalleryIndex = _winGallery.Count - 1;
+        }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+        catch (JsonException) { await ClearWinGalleryStore(); }
+    }
+
+    private async Task PersistWinGallery()
+    {
+        try
+        {
+            string json = JsonSerializer.Serialize(_winGallery, SnapshotJson);
+            await JS.InvokeVoidAsync("pokerWins.save", json);
+        }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+    }
+
+    private async Task ClearWinGalleryStore()
+    {
+        try { await JS.InvokeVoidAsync("pokerWins.clear"); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+        _winGallery.Clear();
+        _winGalleryIndex = 0;
+    }
+
     private void OpenExportPanel()
     {
         _exportNote = "";
@@ -4706,6 +4785,9 @@
         _statusLine = _bannerAmount.HasValue
             ? $"{statusResult}  ·  ${_bannerAmount.Value}"
             : statusResult;
+
+        if (_playerWonPot)
+            RecordPlayerVictory(humanPayout);
     }
 
     // The overlay may only rename a seat a connected friend actually holds
@@ -4800,6 +4882,123 @@
         if (!_backgroundOn || string.IsNullOrEmpty(clip)) return;
         try { _ = JS.InvokeVoidAsync("pokerAudio.dealer", clip); }
         catch (JSException) { }
+    }
+
+    private VictoryWinRecord ActiveVictoryRecord =>
+        _playerWonPot && _winGallery.Count > 0
+        && _winGalleryIndex >= 0 && _winGalleryIndex < _winGallery.Count
+            ? _winGallery[_winGalleryIndex]
+            : null;
+
+    private long? VictoryDisplayAmount =>
+        ActiveVictoryRecord != null ? ActiveVictoryRecord.amount : _bannerAmount;
+
+    private string VictoryDisplayHeadline =>
+        ActiveVictoryRecord?.headline ?? _banner;
+
+    private IReadOnlyList<Card> VictoryDisplayHoleCards =>
+        ActiveVictoryRecord != null
+            ? ParseVictoryCards(ActiveVictoryRecord.holeCards)
+            : BannerHandCards;
+
+    private IReadOnlyList<Card> VictoryDisplayBoardCards =>
+        ActiveVictoryRecord != null
+            ? ParseVictoryCards(ActiveVictoryRecord.boardCards)
+            : _shownBoard;
+
+    private string VictoryDisplayFooter
+    {
+        get
+        {
+            if (ActiveVictoryRecord != null)
+            {
+                string name = string.IsNullOrEmpty(ActiveVictoryRecord.playerName)
+                    ? PlayerName
+                    : ActiveVictoryRecord.playerName;
+                return $"{name.ToUpperInvariant()} \u00b7 {FormatVictoryDate(ActiveVictoryRecord.capturedAtUtcMs)}";
+            }
+            return $"{PlayerName.ToUpperInvariant()} \u00b7 {DateTime.Now.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture).ToUpperInvariant()}";
+        }
+    }
+
+    private bool CanShowPreviousVictory => _winGalleryIndex > 0;
+
+    private bool CanShowNextVictory =>
+        _winGallery.Count > 0 && _winGalleryIndex < _winGallery.Count - 1;
+
+    private static string FormatVictoryDate(long utcMs) =>
+        DateTimeOffset.FromUnixTimeMilliseconds(utcMs).ToLocalTime()
+            .ToString("MMMM d, yyyy", CultureInfo.InvariantCulture).ToUpperInvariant();
+
+    private static List<Card> ParseVictoryCards(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return new List<Card>();
+        var list = new List<Card>();
+        foreach (string token in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            try { list.Add(Card.Parse(token)); }
+            catch (FormatException) { }
+        }
+        return list;
+    }
+
+    private void RecordPlayerVictory(long humanPayout)
+    {
+        VictoryWinRecord snap = BuildVictorySnapshot(humanPayout);
+        if (_winGallery.Count > 0 && _winGallery[^1].handNumber == snap.handNumber)
+            return;
+        _winGallery.Add(snap);
+        if (_winGallery.Count > MaxVictoryWins)
+            _winGallery.RemoveRange(0, _winGallery.Count - MaxVictoryWins);
+        _winGalleryIndex = _winGallery.Count - 1;
+        _ = PersistWinGallery();
+    }
+
+    private VictoryWinRecord BuildVictorySnapshot(long humanPayout)
+    {
+        IReadOnlyList<Card> hole = BannerHandCards;
+        return new VictoryWinRecord
+        {
+            version = 1,
+            handNumber = _game?.HandNumber ?? 0,
+            capturedAtUtcMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            playerName = PlayerName,
+            amount = humanPayout > 0 ? humanPayout : _bannerAmount ?? 0,
+            headline = _banner ?? "",
+            holeCards = hole is { Count: > 0 } ? HandSequenceLog.FormatCards(hole) : "",
+            boardCards = _shownBoard.Count > 0 ? HandSequenceLog.FormatCards(_shownBoard) : ""
+        };
+    }
+
+    private void ShowPreviousVictory()
+    {
+        if (!CanShowPreviousVictory) return;
+        _winGalleryIndex--;
+    }
+
+    private void ShowNextVictory()
+    {
+        if (!CanShowNextVictory) return;
+        _winGalleryIndex++;
+    }
+
+    private void OnVictoryTouchStart(TouchEventArgs e)
+    {
+        if (e.ChangedTouches.Length == 0) return;
+        _victoryTouchStartX = e.ChangedTouches[0].ClientX;
+        _victoryTouchStartY = e.ChangedTouches[0].ClientY;
+    }
+
+    private void OnVictoryTouchEnd(TouchEventArgs e)
+    {
+        if (_victoryTouchStartX == null || e.ChangedTouches.Length == 0) return;
+        double dx = e.ChangedTouches[0].ClientX - _victoryTouchStartX.Value;
+        double dy = e.ChangedTouches[0].ClientY - (_victoryTouchStartY ?? 0);
+        _victoryTouchStartX = null;
+        _victoryTouchStartY = null;
+        if (Math.Abs(dx) < 48 || Math.Abs(dx) < Math.Abs(dy)) return;
+        if (dx > 0) ShowPreviousVictory();
+        else ShowNextVictory();
     }
 
     private async Task TakeVictoryScreenshot()
