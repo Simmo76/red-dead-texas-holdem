@@ -1062,15 +1062,46 @@ html.scene-street.resume-play .boot-screen {
     min-height: 44px;
 }
 
-/* Victory win gallery — prev/next sit beside the plaque without
-   changing .banner-win positioning (pokerShot scales from top center). */
-.victory-nav {
+/* Victory win gallery — flex row hugs the certificate; arrows sit on
+   its shoulders, not on the screen edge. */
+.victory-carousel {
     position: absolute;
-    top: 50%;
-    z-index: 13;
-    transform: translateY(-50%);
+    left: 50%;
+    top: 7%;
+    transform: translateX(-50%);
+    z-index: 12;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    max-width: min(98vw, 100%);
+    pointer-events: none;
+}
+
+.victory-carousel .banner.banner-win {
+    position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
+    flex: 0 1 auto;
+    max-width: min(78vw, 520px);
+    margin: 0;
+    pointer-events: auto;
+    touch-action: pan-x;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.victory-carousel-nav .banner.banner-win {
+    max-width: min(72vw, 480px);
+}
+
+.victory-nav {
+    position: relative;
+    flex: 0 0 44px;
     width: 44px;
     height: 44px;
+    align-self: center;
     padding: 0;
     border: 1px solid rgba(230, 195, 106, 0.55);
     border-radius: 50%;
@@ -1081,10 +1112,8 @@ html.scene-street.resume-play .boot-screen {
     cursor: pointer;
     pointer-events: auto;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    z-index: 1;
 }
-
-.victory-nav-prev { left: max(4px, env(safe-area-inset-left, 0px)); }
-.victory-nav-next { right: max(4px, env(safe-area-inset-right, 0px)); }
 
 .victory-nav:disabled {
     opacity: 0.28;
@@ -1094,31 +1123,27 @@ html.scene-street.resume-play .boot-screen {
 .victory-carousel-counter {
     position: absolute;
     left: 50%;
-    top: calc(7% - 22px);
+    top: -20px;
     transform: translateX(-50%);
-    z-index: 13;
     font-size: 11px;
     letter-spacing: 2px;
     color: #c9a24f;
     pointer-events: none;
+    white-space: nowrap;
 }
 
 .victory-cert-body {
-    touch-action: pan-y;
-}
-
-@media (max-height: 470px) {
-    .victory-carousel-counter { top: calc(4px + 2px); }
+    touch-action: inherit;
 }
 
 @media (max-width: 700px) and (orientation: portrait) {
-    .victory-nav-prev { left: 2px; }
-    .victory-nav-next { right: 2px; }
-    .victory-carousel-counter { top: calc(10% - 20px); }
+    .victory-carousel { top: 10%; gap: 6px; }
+    .victory-nav { flex-basis: 40px; width: 40px; height: 40px; font-size: 24px; }
 }
 
-@media (max-height: 470px) and (orientation: landscape) {
-    .victory-carousel-counter { top: 2px; }
+@media (max-height: 470px) {
+    .victory-carousel { top: 4px; }
+    .victory-carousel-counter { top: -16px; }
 }
 
 /* Short windows: sit the plaque just under the top edge. pokerShot then
