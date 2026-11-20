@@ -77,6 +77,17 @@ html.scene-street .boot-screen {
     background-image: url("../img/intro-splash-street.jpg?v=2");
 }
 
+/* Scene changes reload the page while the player is already seated.
+   Skip the painted title menu and show a plain loader until the table
+   is back. */
+html.resume-play .boot-screen,
+html.scene-street.resume-play .boot-screen {
+    background-image: none;
+    background-color: #0b0d12;
+    justify-content: center;
+    padding-bottom: 0;
+}
+
 .boot-title,
 .boot-subtitle {
     /* Title art is in the splash image; keep DOM text for a11y only. */

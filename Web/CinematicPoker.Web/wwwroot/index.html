@@ -25,7 +25,7 @@
          vendored in fonts/ so the game needs no network at all — the
          @font-face declarations live at the top of css/app.css. -->
     <link rel="preload" href="fonts/rye-latin.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="css/app.css?v=46" />
+    <link rel="stylesheet" href="css/app.css?v=47" />
     <script>
         // iOS reports the landscape notch inset on both sides. The housing
         // is only on one edge: window.orientation 90 puts it on the left,
@@ -47,11 +47,14 @@
     </script>
     <script>
         // Paint the boot card for the saved level before the body renders.
-        // Selecting OCTAGON reloads, so this is the title the player comes back to.
+        // A scene change reloads too, but the player is already in the hand:
+        // that return is a plain loader, not the title menu.
         (function () {
             try {
                 if (localStorage.getItem('cinematic-poker-table-scene') === 'street')
                     document.documentElement.classList.add('scene-street');
+                if (sessionStorage.getItem('cinematic-poker-in-game') === '1')
+                    document.documentElement.classList.add('resume-play');
             } catch (e) { }
         })();
     </script>
@@ -145,7 +148,7 @@
     <!-- Bump ?v= on scene/audio changes so phones don't serve a stale cache. -->
     <script src="js/poker-log.js?v=1"></script>
     <script src="js/poker-profile.js?v=1"></script>
-    <script src="js/poker-invite.js?v=4"></script>
+    <script src="js/poker-invite.js?v=5"></script>
     <script>
         // Local beta: the Blazor dev server runs on 5000 while the SignalR
         // process runs on 5080. Production keeps both behind one origin.
@@ -162,7 +165,7 @@
     <script src="js/poker-export.js?v=2"></script>
     <script src="js/poker-screenshot.js?v=3"></script>
     <script src="js/poker-hands-zoom.js?v=1"></script>
-    <script type="module" src="js/poker-scene.js?v=117"></script>
+    <script type="module" src="js/poker-scene.js?v=118"></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 

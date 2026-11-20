@@ -1461,6 +1461,9 @@
     {
         if (_introRequested) return;
         _introRequested = true; // the tap doubles as the audio-unlock gesture
+        // Remember that this visit already left the title menu. A later
+        // reload in the same tab (saloon ↔ octagon) returns to the table.
+        MarkInGame();
         _sceneLoading = true;
         StateHasChanged();
         // Hold the title card up — with a visible loading notice — until the
@@ -1552,6 +1555,10 @@
         _playerName = ReadCachedPlayerName();
         _tableScene = ReadSceneSync();
         _settingsLoaded = !string.IsNullOrEmpty(_playerName) || JS is IJSInProcessRuntime;
+        // The title menu is only for a fresh visit. Switching saloon/octagon
+        // reloads this page; that return goes straight back to the table.
+        _resumePlay = ReadInGameSync() && !string.IsNullOrEmpty(_playerName);
+        if (_resumePlay) _introStarted = true;
         ReadInviteRoomFromUrl();
         NoteCoachPreviewFromUrl();
         NoteWinPreviewFromUrl();
@@ -1657,6 +1664,7 @@
             }
             if (_sceneReady) await SyncBackdropLabel();
             if (_coachPreview) await OpenCoachPreview();
+            else if (_resumePlay) await FinishDirectEntry();
         }
         if (_sceneReady && !_coachOpen) await PushSceneState();
         await FocusCoachPanel();
@@ -5033,6 +5041,49 @@
         if (JS is not IJSInProcessRuntime sync) return _tableScene;
         try { return sync.Invoke<string>("pokerInvite.scene") == "street" ? "street" : "saloon"; }
         catch (JSException) { return _tableScene; }
+    }
+
+    // True after the player has passed the title menu in this tab.
+    private bool _resumePlay;
+
+    private bool ReadInGameSync()
+    {
+        if (JS is not IJSInProcessRuntime sync) return false;
+        try { return sync.Invoke<bool>("pokerInvite.inGame"); }
+        catch (JSException) { return false; }
+    }
+
+    private void MarkInGame()
+    {
+        try
+        {
+            if (JS is IJSInProcessRuntime sync)
+                sync.InvokeVoid("pokerInvite.markInGame");
+            else
+                _ = JS.InvokeVoidAsync("pokerInvite.markInGame");
+        }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+    }
+
+    // Scene-change reload: the table is already built (or building) and the
+    // title card stays hidden. No tap, no three-second fade.
+    private async Task FinishDirectEntry()
+    {
+        if (string.IsNullOrEmpty(_playerName))
+        {
+            _resumePlay = false;
+            _introStarted = false;
+            return;
+        }
+        try
+        {
+            await JS.InvokeVoidAsync("pokerScene.lockLandscape");
+            await JS.InvokeVoidAsync("pokerScene.skipIntro");
+        }
+        catch (JSException) { }
+        _introStarted = true;
+        await MaybeShowBoardHint();
     }
 
     private async Task OnTableSceneChanged(ChangeEventArgs e)
