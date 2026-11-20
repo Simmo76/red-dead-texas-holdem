@@ -237,7 +237,7 @@
 
                                 var holeCards = ParseVictoryCards(record.holeCards);
                                 var boardCards = ParseVictoryCards(record.boardCards);
-                                <div @key="record.handNumber"
+                                <div @key="@(record.handNumber + "-" + record.capturedAtUtcMs)"
                                      class="victory-carousel-slide @VictorySlideClass(offset)"
                                      data-victory-offset="@offset"
                                      aria-hidden="@(offset != 0 ? "true" : "false")">
@@ -1999,7 +1999,13 @@
 
     private void StartSessionCore(bool run)
     {
+        int token = ++_loopToken;
         GameLog.Info("session", $"new solo table (run={run}, difficulty={DifficultyNames[_difficulty]}, scene={_tableScene}, quickMode={_quickMode})");
+        if (_game != null)
+        {
+            try { _game.EventEmitted -= OnEngineEvent; }
+            catch (InvalidOperationException) { }
+        }
         if (!_isGuest) ClearWebSession();
         // A name overlay left over from an earlier friends table must not
         // shadow this roster: a stale entry on one seat can duplicate a name
@@ -2056,10 +2062,12 @@
         try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
         catch (InvalidOperationException) { }
         catch (JSException) { }
+        try { _ = JS.InvokeVoidAsync("pokerVictorySwipe.reset"); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
 
-        ++_loopToken;
         if (_winPreview) ShowWinPreview();
-        if (run) _ = RunLoop(_loopToken);
+        if (run) _ = RunLoop(token);
         // Solo (and host-table restarts) never emit a hub "started" line on
         // their own — ping /usage so Render still sees who sat down. Guests
         // are covered by JoinRoom logs.
@@ -2213,6 +2221,8 @@
 
     private async Task RunLoop(int token)
     {
+        try
+        {
         while (token == _loopToken)
         {
             SeatFriendsWithChips();
@@ -2308,6 +2318,11 @@
             DecisionContext context = DecisionContext.ForCurrentActor(_game, EquityIterations);
             SubmitAndBroadcast(npc.DecideAction(context));
             await DrainEvents(token);
+        }
+        }
+        catch (Exception ex)
+        {
+            GameLog.Warn("session", "run loop stopped: " + ex.Message);
         }
     }
 
@@ -4284,9 +4299,14 @@
         OpenExportPanel();
     }
 
-    private void RestartFromSettings()
+    private async Task RestartFromSettings()
     {
         _settingsOpen = false;
+        if (_coachOpen || _coachFlow.ReviewOpen)
+            await CloseCoach(false);
+        try { await JS.InvokeVoidAsync("pokerVictorySwipe.reset"); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
         StartSession();
     }
 
