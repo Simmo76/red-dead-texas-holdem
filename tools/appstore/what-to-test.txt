@@ -1,10 +1,10 @@
 What to test in this build:
 
-• Victory Gallery of Wins: after you win a pot, certificates stack in a Cover Flow carousel at the top. Use ‹ › or slow horizontal drag (cards should follow your finger). Counter shows which win you are on. Each slide keeps its own Poker Coach text (heading, why you won, lesson) when you run coach on that win.
-• Bottom plaque: ornate GALLERY OF WINS banner under the carousel; certificates should not overlap it. Same certificate size on every slide (top-centre).
-• Export Certificate captures the active carousel slide, not only the latest win.
-• Settings → Restart: game should restart cleanly with no red error bar at the bottom.
-• Quick QA on device: play two wins, coach both, swipe between slides and confirm coach copy differs; try arrows if drag feels stiff at the ends.
+• Victory Gallery of Wins: win a pot and browse past certificates in a Cover Flow carousel. GALLERY OF WINS banner is at the top (half size). Certificate fills the rest of the screen to the bottom. Swipe left/right or use the large ‹ › buttons; counter shows position.
+• Each slide keeps its own Poker Coach text when you run feedback on that win. Export Certificate saves the full cert (coach, board, footer) for the active slide—not the export buttons.
+• No slow finger-drag on certificates—swipe only. While the victory screen is up, the pulsing “Tap NEXT HAND” hint on the bottom left should be gone.
+• Settings → Restart: game restarts without the red Blazor error bar.
+• Quick QA: two wins, coach both, swipe slides—coach copy should differ; export one slide and check the PNG.
 • Table view shows the dealer, small blind, and big blind chips on the nameplates.
 • The app icon is the brighter western mark, with aces, chips, and a cowboy hat.
 • Switching between the saloon and the octagon skips the title menu and returns to the hand. The tap-to-play menu only shows on a fresh visit.

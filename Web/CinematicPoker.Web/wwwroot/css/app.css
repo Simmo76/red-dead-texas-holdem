@@ -1107,9 +1107,9 @@ html.scene-street.resume-play .boot-screen {
     display: none;
 }
 
-/* Room for the Gallery of Wins plaque (~7.7:1 art) plus a thin gap. */
+/* Room for the top Gallery of Wins plaque (~7.7:1 art), half prior width. */
 .game3d.banner-victory {
-    --victory-plaque-reserve: min(44vh, 220px, calc(min(96vw, 1240px) / 7.675));
+    --victory-plaque-reserve: min(22vh, 110px, calc(min(48vw, 620px) / 7.675));
 }
 
 /* Shown only after the player takes a pot or the table. Hidden while the
@@ -1153,11 +1153,11 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .game3d.banner-victory .victory-carousel {
-    top: max(4px, env(safe-area-inset-top, 0px));
-    bottom: calc(
-        var(--victory-plaque-reserve, 150px)
-        + max(2px, env(safe-area-inset-bottom, 0px))
-        + 8px);
+    top: calc(
+        var(--victory-plaque-reserve, 80px)
+        + max(4px, env(safe-area-inset-top, 0px))
+        + 6px);
+    bottom: max(6px, env(safe-area-inset-bottom, 0px));
 }
 
 .victory-carousel-coverflow {
@@ -1167,8 +1167,8 @@ html.scene-street.resume-play .boot-screen {
 
 .game3d.banner-victory .victory-carousel-coverflow {
     --victory-cert-h: min(
-        clamp(280px, 58vh, 400px),
-        calc(100vh - var(--victory-plaque-reserve, 150px) - max(48px, env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px)) - 24px));
+        clamp(320px, 72vh, 560px),
+        calc(100vh - var(--victory-plaque-reserve, 80px) - max(48px, env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px)) - 20px));
 }
 
 .victory-carousel-viewport,
@@ -1211,8 +1211,7 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .victory-carousel-nav .victory-swipe-stage {
-    cursor: grab;
-    touch-action: none;
+    touch-action: pan-y pinch-zoom;
 }
 
 .victory-carousel-slide {
@@ -1393,17 +1392,17 @@ html.scene-street.resume-play .boot-screen {
 
 .victory-nav {
     position: relative;
-    flex: 0 0 44px;
-    width: 44px;
-    height: 44px;
+    flex: 0 0 88px;
+    width: 88px;
+    height: 88px;
     align-self: flex-start;
-    margin-top: calc((var(--victory-cert-h, 280px) - 44px) * 0.38);
+    margin-top: calc((var(--victory-cert-h, 280px) - 88px) * 0.38);
     padding: 0;
     border: 1px solid rgba(230, 195, 106, 0.55);
     border-radius: 50%;
     background: rgba(12, 8, 4, 0.88);
     color: #ffe9a8;
-    font-size: 28px;
+    font-size: 56px;
     line-height: 1;
     cursor: pointer;
     pointer-events: auto;
@@ -1431,15 +1430,16 @@ html.scene-street.resume-play .boot-screen {
 .victory-gallery-plaque {
     position: fixed;
     left: 50%;
-    bottom: max(2px, env(safe-area-inset-bottom, 0px));
+    top: max(2px, env(safe-area-inset-top, 0px));
+    bottom: auto;
     transform: translateX(-50%);
-    z-index: 12;
+    z-index: 13;
     display: block;
-    width: min(96vw, 1240px);
-    max-height: min(28vh, 220px);
+    width: min(48vw, 620px);
+    max-height: min(14vh, 110px);
     height: auto;
     object-fit: contain;
-    object-position: center bottom;
+    object-position: center top;
     pointer-events: none;
     user-select: none;
     -webkit-user-drag: none;
@@ -1455,19 +1455,19 @@ html.scene-street.resume-play .boot-screen {
         --victory-cert-w: min(82vw, 360px);
         --victory-cert-h: clamp(300px, 52vh, 400px);
     }
-    .victory-nav { flex-basis: 40px; width: 40px; height: 40px; font-size: 24px; }
+    .victory-nav { flex-basis: 80px; width: 80px; height: 80px; font-size: 48px; }
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
     .game3d.banner-victory {
-        --victory-plaque-reserve: min(22vh, 180px, calc(min(96vw, 1240px) / 7.675));
+        --victory-plaque-reserve: min(11vh, 90px, calc(min(48vw, 620px) / 7.675));
     }
     .victory-carousel-coverflow {
         --victory-cert-w: min(46vw, 340px);
         --victory-cert-h: clamp(188px, 76vh, 268px);
     }
     .victory-gallery-plaque {
-        max-height: min(22vh, 180px);
+        max-height: min(11vh, 90px);
     }
     .victory-cert-actions-row .victory-shot,
     .victory-cert-actions-row .cert-coach {
@@ -1477,15 +1477,18 @@ html.scene-street.resume-play .boot-screen {
 }
 
 @media (max-height: 470px) {
-    .victory-carousel { top: 4px; }
     .victory-carousel-counter { top: -16px; }
     .game3d.banner-victory {
-        --victory-plaque-reserve: min(20vh, 150px, calc(96vw / 7.675));
+        --victory-plaque-reserve: min(10vh, 75px, calc(48vw / 7.675));
     }
     .victory-gallery-plaque {
-        max-height: min(20vh, 150px);
-        bottom: max(1px, env(safe-area-inset-bottom, 0px));
+        max-height: min(10vh, 75px);
+        top: max(1px, env(safe-area-inset-top, 0px));
     }
+}
+
+.game3d.banner-victory .hud-bottom .waiting {
+    display: none;
 }
 
 /* Short windows: sit the plaque just under the top edge. pokerShot then
