@@ -1,7 +1,7 @@
 // Horizontal swipe on the victory certificate (complements Blazor touch
 // handlers; passive:false on move so iOS treats the gesture as a carousel).
 (function (w) {
-    var THRESH = 40;
+    var THRESH = 48;
     var startX = 0;
     var startY = 0;
     var tracking = false;

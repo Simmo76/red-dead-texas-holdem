@@ -4978,7 +4978,8 @@
     {
         int seq = 0;
         builder.OpenElement(seq++, "div");
-        builder.AddAttribute(seq++, "class", "banner banner-win" + (isActive ? " victory-carousel-slide-active-banner" : ""));
+        builder.AddAttribute(seq++, "class",
+            "banner victory-cert-slide" + (isActive ? " banner-win victory-carousel-slide-active-banner" : ""));
         builder.OpenElement(seq++, "div");
         builder.AddAttribute(seq++, "class", "victory-cert-body");
         builder.OpenElement(seq++, "div");
@@ -5111,6 +5112,10 @@
         builder.AddAttribute(seq++, "class", "victory-cert-actions");
         if (isActive)
         {
+            int coachHandNumber = record?.handNumber ?? (_game?.HandNumber ?? 0);
+            bool showCoach = CanReviewVictory(coachHandNumber);
+            builder.OpenElement(seq++, "div");
+            builder.AddAttribute(seq++, "class", "victory-cert-actions-row");
             builder.OpenElement(seq++, "button");
             builder.AddAttribute(seq++, "type", "button");
             builder.AddAttribute(seq++, "class", "act victory-shot");
@@ -5119,17 +5124,7 @@
             builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
             builder.AddContent(seq++, "Export Certificate");
             builder.CloseElement();
-
-            if (!string.IsNullOrEmpty(_shotStatus))
-            {
-                builder.OpenElement(seq++, "div");
-                builder.AddAttribute(seq++, "class", "victory-shot-status");
-                builder.AddContent(seq++, _shotStatus);
-                builder.CloseElement();
-            }
-
-            int coachHandNumber = record?.handNumber ?? (_game?.HandNumber ?? 0);
-            if (CanReviewVictory(coachHandNumber))
+            if (showCoach)
             {
                 builder.OpenElement(seq++, "button");
                 builder.AddAttribute(seq++, "type", "button");
@@ -5138,6 +5133,15 @@
                 builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
                 builder.AddAttribute(seq++, "title", $"Ask {CoachDisplayName} what happened");
                 builder.AddContent(seq++, "Poker Coach Feedback");
+                builder.CloseElement();
+            }
+            builder.CloseElement();
+
+            if (!string.IsNullOrEmpty(_shotStatus))
+            {
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "victory-shot-status");
+                builder.AddContent(seq++, _shotStatus);
                 builder.CloseElement();
             }
         }
@@ -5221,7 +5225,7 @@
         double dy = e.ChangedTouches[0].ClientY - (_victoryTouchStartY ?? 0);
         _victoryTouchStartX = null;
         _victoryTouchStartY = null;
-        if (Math.Abs(dx) < 40 || Math.Abs(dx) < Math.Abs(dy) * 1.2) return;
+        if (Math.Abs(dx) < 48 || Math.Abs(dx) < Math.Abs(dy) * 1.2) return;
         if (dx > 0) ShowPreviousVictory();
         else ShowNextVictory();
     }

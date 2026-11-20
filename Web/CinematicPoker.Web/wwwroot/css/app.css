@@ -1107,6 +1107,11 @@ html.scene-street.resume-play .boot-screen {
     display: none;
 }
 
+/* Room for the doubled Gallery of Wins plaque (~3:1 art) plus a thin gap. */
+.game3d.banner-victory {
+  --victory-plaque-reserve: min(44vh, 400px, calc(min(96vw, 1240px) / 2.75));
+}
+
 /* Shown only after the player takes a pot or the table. Hidden while the
    shot is captured so the button itself stays out of the photo. */
 .victory-shot {
@@ -1143,9 +1148,23 @@ html.scene-street.resume-play .boot-screen {
     pointer-events: none;
 }
 
+.game3d.banner-victory .victory-carousel {
+    top: max(4px, env(safe-area-inset-top, 0px));
+    bottom: calc(
+        var(--victory-plaque-reserve, 150px)
+        + max(2px, env(safe-area-inset-bottom, 0px))
+        + 8px);
+}
+
 .victory-carousel-coverflow {
     --victory-cert-w: min(74vw, 380px);
     --victory-cert-h: clamp(280px, 58vh, 400px);
+}
+
+.game3d.banner-victory .victory-carousel-coverflow {
+    --victory-cert-h: min(
+        clamp(280px, 58vh, 400px),
+        calc(100vh - var(--victory-plaque-reserve, 150px) - max(48px, env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px)) - 24px));
 }
 
 .victory-carousel-viewport,
@@ -1231,6 +1250,7 @@ html.scene-street.resume-play .boot-screen {
     visibility: hidden;
 }
 
+.victory-carousel-slide .banner.victory-cert-slide,
 .victory-carousel-slide .banner.banner-win {
     position: relative;
     left: auto;
@@ -1287,15 +1307,40 @@ html.scene-street.resume-play .boot-screen {
 .victory-carousel-slide .victory-cert-actions {
     flex: 0 0 auto;
     width: 100%;
-    min-height: 108px;
+    min-height: 52px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    gap: 8px;
+    gap: 6px;
+    padding-top: 4px;
 }
 
-.victory-carousel-slide-active .banner.banner-win {
+.victory-cert-actions-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+}
+
+.victory-cert-actions-row .victory-shot,
+.victory-cert-actions-row .cert-coach {
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0;
+    padding: 10px 8px;
+    font-size: 11px;
+    line-height: 1.15;
+    letter-spacing: 0.5px;
+    white-space: normal;
+    text-align: center;
+}
+
+.victory-carousel-slide-active .banner.victory-cert-slide.banner-win {
     animation: victory-carousel-center-in 0.4s ease-out;
 }
 
@@ -1310,7 +1355,7 @@ html.scene-street.resume-play .boot-screen {
     }
 }
 
-.victory-carousel-coverflow .victory-carousel-slide-active .banner.banner-win {
+.victory-carousel-coverflow .victory-carousel-slide-active .banner.victory-cert-slide.banner-win {
     box-shadow:
         0 22px 56px rgba(0, 0, 0, 0.68),
         0 0 0 1px rgba(230, 195, 106, 0.35),
@@ -1321,7 +1366,7 @@ html.scene-street.resume-play .boot-screen {
     .victory-carousel-slide {
         transition-duration: 0.01ms;
     }
-    .victory-carousel-slide-active .banner.banner-win {
+    .victory-carousel-slide-active .banner.victory-cert-slide.banner-win {
         animation: none;
     }
 }
@@ -1366,12 +1411,12 @@ html.scene-street.resume-play .boot-screen {
 .victory-gallery-plaque {
     position: fixed;
     left: 50%;
-    bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    bottom: max(2px, env(safe-area-inset-bottom, 0px));
     transform: translateX(-50%);
     z-index: 12;
     display: block;
-    width: min(92vw, 620px);
-    max-height: clamp(72px, 22vh, 200px);
+    width: min(96vw, 1240px);
+    max-height: min(44vh, 400px);
     height: auto;
     object-fit: contain;
     object-position: center bottom;
@@ -1394,21 +1439,32 @@ html.scene-street.resume-play .boot-screen {
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
+    .game3d.banner-victory {
+        --victory-plaque-reserve: min(36vh, 240px, calc(min(96vw, 1240px) / 2.75));
+    }
     .victory-carousel-coverflow {
         --victory-cert-w: min(46vw, 340px);
         --victory-cert-h: clamp(188px, 76vh, 268px);
     }
-    .victory-carousel-slide .victory-cert-actions {
-        min-height: 92px;
+    .victory-gallery-plaque {
+        max-height: min(36vh, 240px);
+    }
+    .victory-cert-actions-row .victory-shot,
+    .victory-cert-actions-row .cert-coach {
+        font-size: 10px;
+        padding: 8px 6px;
     }
 }
 
 @media (max-height: 470px) {
     .victory-carousel { top: 4px; }
     .victory-carousel-counter { top: -16px; }
+    .game3d.banner-victory {
+        --victory-plaque-reserve: min(32vh, 200px, calc(96vw / 2.75));
+    }
     .victory-gallery-plaque {
-        max-height: clamp(56px, 18vh, 120px);
-        bottom: max(4px, env(safe-area-inset-bottom, 0px));
+        max-height: min(32vh, 200px);
+        bottom: max(1px, env(safe-area-inset-bottom, 0px));
     }
 }
 
