@@ -32,6 +32,13 @@ namespace CinematicPoker.Engine.Coaching
         public CoachHistoryBuffer History => _history;
         public CompletedHandRecord Current => _current;
         /// <summary>
+        /// The hand this recorder just finished, including one rebuilt from a
+        /// round that never saw <c>HandStarted</c>. Cleared when a new sitting
+        /// starts. This is what the result window offers, so a later history
+        /// entry from another sitting cannot hide it.
+        /// </summary>
+        public CompletedHandRecord LastFinished { get; private set; }
+        /// <summary>
         /// Latest hand recorded in this session. Hands restored from storage
         /// belong to earlier sessions and are never offered as "the hand that
         /// just finished": a table resumed mid-hand has no record for that
@@ -41,8 +48,16 @@ namespace CinematicPoker.Engine.Coaching
         {
             get
             {
-                CompletedHandRecord latest = _history.Latest;
-                return latest != null && latest.SessionId == _sessionId ? latest : null;
+                if (LastFinished != null && LastFinished.Complete && LastFinished.SessionId == _sessionId)
+                    return LastFinished;
+                IReadOnlyList<CompletedHandRecord> hands = _history.Hands;
+                for (int i = hands.Count - 1; i >= 0; i--)
+                {
+                    CompletedHandRecord hand = hands[i];
+                    if (hand != null && hand.Complete && hand.SessionId == _sessionId)
+                        return hand;
+                }
+                return null;
             }
         }
 
@@ -50,6 +65,7 @@ namespace CinematicPoker.Engine.Coaching
         {
             _sessionId = string.IsNullOrEmpty(sessionId) ? "session" : sessionId;
             _current = null;
+            LastFinished = null;
         }
 
         /// <summary>
@@ -116,6 +132,13 @@ namespace CinematicPoker.Engine.Coaching
                     CopyAward(award);
                     break;
                 case HandCompleted completed when _current != null && !_current.Complete:
+                    Finish(completed, round, names);
+                    break;
+                case HandCompleted completed when _current == null && round != null:
+                    // A restored table, or a hand whose start was cleared, still
+                    // has the finished round. File that round so the result
+                    // window can offer a review of the hand that just ended.
+                    StartFromFinishedRound(round, names);
                     Finish(completed, round, names);
                     break;
             }
@@ -275,6 +298,32 @@ namespace CinematicPoker.Engine.Coaching
             CopyNames(_current, names);
         }
 
+        private void StartFromFinishedRound(PokerRound round, IReadOnlyDictionary<int, string> names)
+        {
+            _street = CoachStreet.River;
+            _nextDecisionId = 0;
+            _log.Clear();
+            _current = new CompletedHandRecord
+            {
+                SessionId = _sessionId,
+                HandId = _sessionId + ":round:" + round.DealerSeat + ":" + round.PotTotal + ":" + (++_finishedWithoutStart),
+                HeroSeat = _heroSeat,
+                ButtonSeat = round.DealerSeat,
+                SmallBlind = _smallBlind,
+                BigBlind = _bigBlind
+            };
+            foreach (SeatState seat in round.Seats)
+            {
+                _current.StartingStacks[seat.Seat] = seat.StackAtHandStart;
+                if (seat.Seat != _heroSeat) continue;
+                foreach (Card card in seat.HoleCards)
+                    _current.HeroHoleCards.Add(card);
+            }
+            CopyNames(_current, names);
+        }
+
+        private int _finishedWithoutStart;
+
         private void Finish(HandCompleted completed, PokerRound round, IReadOnlyDictionary<int, string> names)
         {
             _current.WonByFolds = completed.WonByFolds;
@@ -294,6 +343,7 @@ namespace CinematicPoker.Engine.Coaching
             }
             CopyNames(_current, names);
             _history.Remember(_current);
+            LastFinished = _current;
         }
 
         private void CopyRevealed(ShowdownStarted showdown)

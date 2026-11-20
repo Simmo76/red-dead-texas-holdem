@@ -219,6 +219,56 @@ namespace CinematicPoker.Engine.Tests
             recorder.Observe(new HandCompleted { WonByFolds = true, StackChanges = new Dictionary<int, long> { { 1, 200 } } }, null, names);
 
             Assert.IsNull(recorder.LastCompleted, "A hand resumed mid-hand has no record; the older session's hand must not stand in for it.");
+            Assert.IsNull(recorder.LastFinished);
+        }
+
+        [Test]
+        public void EachFinishedHandStaysReviewable()
+        {
+            PokerGame game = CreateGame(new long[] { 1000, 1000 });
+            var recorder = new HandReviewRecorder("sitting", 0, 5, 10);
+            var names = new Dictionary<int, string> { { 0, "You" }, { 1, "Sam" } };
+            game.EventEmitted += evt => recorder.Observe(evt, game.CurrentRound, names);
+
+            game.StartHand();
+            FoldAround(game);
+            Assert.IsNotNull(recorder.LastFinished);
+            Assert.AreEqual(1, recorder.LastFinished.HandNumber);
+            string firstId = recorder.LastFinished.HandId;
+
+            game.StartHand();
+            FoldAround(game);
+            Assert.AreEqual(2, recorder.LastFinished.HandNumber);
+            Assert.AreNotEqual(firstId, recorder.LastFinished.HandId);
+            Assert.AreEqual(recorder.LastFinished.HandId, recorder.LastCompleted.HandId);
+        }
+
+        [Test]
+        public void FinishedRoundWithoutAStartIsStillThisSitting()
+        {
+            var history = new CoachHistoryBuffer();
+            CompletedHandRecord old = CoachFixtures.FoldedBlind();
+            old.SessionId = "earlier-session";
+            history.Remember(old);
+
+            PokerGame game = CreateGame(new long[] { 1000, 1000 });
+            var played = new List<PokerEvent>();
+            game.EventEmitted += played.Add;
+            game.StartHand();
+            FoldAround(game);
+
+            var recorder = new HandReviewRecorder("resumed", 0, 5, 10, history);
+            var names = new Dictionary<int, string> { { 0, "You" }, { 1, "Frankie" } };
+            foreach (PokerEvent evt in played)
+            {
+                if (evt is HandStarted) continue;
+                recorder.Observe(evt, game.CurrentRound, names);
+            }
+
+            Assert.IsNotNull(recorder.LastFinished);
+            Assert.AreEqual("resumed", recorder.LastFinished.SessionId);
+            Assert.AreEqual(recorder.LastFinished.HandId, recorder.LastCompleted.HandId);
+            Assert.AreNotEqual(old.HandId, recorder.LastCompleted.HandId);
         }
 
         [Test]

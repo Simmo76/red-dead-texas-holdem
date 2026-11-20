@@ -903,6 +903,13 @@ html.scene-street .boot-screen {
     animation: none;
 }
 
+/* The result plaque grows when the coach button is inside it. Keep the
+   hand-compare strip in the lower half so it does not cover that button. */
+.game3d.banner-opponent .showdown-layer {
+    top: 46%;
+    align-items: flex-start;
+}
+
 /* Solid fill (not a CSS gradient): pokerShot.save() only paints
    backgroundColor, so a gradient would leave a hollow plaque in Photos. */
 .banner-win {
