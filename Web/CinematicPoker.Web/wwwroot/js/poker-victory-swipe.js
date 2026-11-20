@@ -25,8 +25,8 @@
 
     function clampDx(root, dx) {
         var st = stage(root);
-        var w = st ? st.getBoundingClientRect().width : 320;
-        var max = w * MAX_DRAG_RATIO;
+        var width = st ? st.getBoundingClientRect().width : 320;
+        var max = width * MAX_DRAG_RATIO;
         var prev = root.querySelector('.victory-nav-prev:not(:disabled)');
         var next = root.querySelector('.victory-nav-next:not(:disabled)');
         if (!prev && dx > 0) dx *= EDGE_RESIST;
@@ -38,6 +38,15 @@
         tr.style.setProperty('--victory-drag-x', px + 'px');
     }
 
+    function resetAllTracks() {
+        document.querySelectorAll('.victory-carousel-track').forEach(function (tr) {
+            tr.classList.remove('victory-carousel-dragging');
+            setDragX(tr, 0);
+            var root = tr.closest('.victory-carousel-nav');
+            if (root) root.classList.remove('victory-carousel-dragging');
+        });
+    }
+
     function clearDrag(root) {
         if (!root) return;
         var tr = track(root);
@@ -45,6 +54,12 @@
         tr.classList.remove('victory-carousel-dragging');
         root.classList.remove('victory-carousel-dragging');
         setDragX(tr, 0);
+    }
+
+    function scheduleNav(fn) {
+        requestAnimationFrame(function () {
+            requestAnimationFrame(fn);
+        });
     }
 
     function onPointerDown(e) {
@@ -97,11 +112,16 @@
 
         var prev = root.querySelector('.victory-nav-prev:not(:disabled)');
         var next = root.querySelector('.victory-nav-next:not(:disabled)');
-        if (drag.lockHoriz && Math.abs(dx) >= THRESH && Math.abs(dx) > Math.abs(dy) * 1.2) {
-            if (dx > 0 && prev) prev.click();
-            else if (dx < 0 && next) next.click();
-        }
+        var lockHoriz = drag.lockHoriz;
         drag = null;
+
+        if (lockHoriz && Math.abs(dx) >= THRESH && Math.abs(dx) > Math.abs(dy) * 1.2) {
+            if (dx > 0 && prev) {
+                scheduleNav(function () { prev.click(); });
+            } else if (dx < 0 && next) {
+                scheduleNav(function () { next.click(); });
+            }
+        }
     }
 
     function onPointerCancel(e) {
@@ -116,6 +136,8 @@
         document.addEventListener('pointerup', onPointerUp, { passive: true });
         document.addEventListener('pointercancel', onPointerCancel, { passive: true });
     }
+
+  w.pokerVictorySwipe = { reset: resetAllTracks };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', install);

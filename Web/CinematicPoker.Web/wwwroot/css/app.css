@@ -1358,8 +1358,8 @@ html.scene-street.resume-play .boot-screen {
     text-align: center;
 }
 
-.victory-carousel-slide-active .banner.victory-cert-slide.banner-win {
-    animation: victory-carousel-center-in 0.4s ease-out;
+.victory-carousel-coverflow .victory-carousel-slide-active .banner.victory-cert-slide.banner-win {
+    animation: none;
 }
 
 @keyframes victory-carousel-center-in {
@@ -1383,9 +1383,6 @@ html.scene-street.resume-play .boot-screen {
 @media (prefers-reduced-motion: reduce) {
     .victory-carousel-slide {
         transition-duration: 0.01ms;
-    }
-    .victory-carousel-slide-active .banner.victory-cert-slide.banner-win {
-        animation: none;
     }
 }
 

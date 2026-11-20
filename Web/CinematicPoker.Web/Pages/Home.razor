@@ -229,14 +229,16 @@
                             {
                                 var record = _winGallery[slideIndex];
                                 var offset = slideIndex - _winGalleryIndex;
-                                if (Math.Abs(offset) > 3)
+                                if (VictorySlideRenderMaxOffset < int.MaxValue
+                                    && Math.Abs(offset) > VictorySlideRenderMaxOffset)
                                 {
                                     continue;
                                 }
 
                                 var holeCards = ParseVictoryCards(record.holeCards);
                                 var boardCards = ParseVictoryCards(record.boardCards);
-                                <div class="victory-carousel-slide @VictorySlideClass(offset)"
+                                <div @key="record.handNumber"
+                                     class="victory-carousel-slide @VictorySlideClass(offset)"
                                      aria-hidden="@(offset != 0 ? "true" : "false")">
                                     @RenderVictoryBanner(
                                         record,
@@ -4937,6 +4939,11 @@
     private bool CanShowNextVictory =>
         _winGallery.Count > 0 && _winGalleryIndex < _winGallery.Count - 1;
 
+    // Keep every slide in the DOM for smaller galleries so Cover Flow can
+    // transition instead of snapping in off-screen certificates.
+    private int VictorySlideRenderMaxOffset =>
+        _winGallery.Count <= 32 ? int.MaxValue : 4;
+
     private static string VictorySlideClass(int offset) => offset switch
     {
         0 => "victory-carousel-slide-active",
@@ -5187,6 +5194,7 @@
     {
         if (!CanShowPreviousVictory) return;
         _winGalleryIndex--;
+        _ = ResetVictoryCarouselTrackAsync();
         StateHasChanged();
     }
 
@@ -5194,7 +5202,15 @@
     {
         if (!CanShowNextVictory) return;
         _winGalleryIndex++;
+        _ = ResetVictoryCarouselTrackAsync();
         StateHasChanged();
+    }
+
+    private async Task ResetVictoryCarouselTrackAsync()
+    {
+        try { await JS.InvokeVoidAsync("pokerVictorySwipe.reset"); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
     }
 
     private async Task TakeVictoryScreenshot()
