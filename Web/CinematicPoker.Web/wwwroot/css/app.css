@@ -866,11 +866,6 @@ html.scene-street .boot-screen {
     gap: 26px;
 }
 
-/* Nudge the opponent result window away from the top-right card HUD. */
-.banner-result {
-    transform: translateX(calc(-50% - clamp(18px, 3vw, 36px)));
-}
-
 .banner-result .banner-cards {
     margin: 0;
     flex-shrink: 0;
@@ -896,13 +891,6 @@ html.scene-street .boot-screen {
 .game3d.banner-opponent .hud-board,
 .game3d.banner-opponent .showdown-layer {
     display: none;
-}
-
-/* The result plaque grows when the coach button is inside it. Keep the
-   hand-compare strip in the lower half so it does not cover that button. */
-.game3d.banner-opponent .showdown-layer {
-    top: 46%;
-    align-items: flex-start;
 }
 
 /* Solid fill (not a CSS gradient): pokerShot.save() only paints
