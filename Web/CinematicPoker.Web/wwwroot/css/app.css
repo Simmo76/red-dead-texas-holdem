@@ -3503,42 +3503,6 @@ html.scene-street.resume-play .boot-screen {
     letter-spacing: 1px;
 }
 
-.coach-tip {
-    position: absolute;
-    z-index: 23;
-    top: calc(62px + env(safe-area-inset-top, 0px));
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 44px;
-    padding: 6px 8px 6px 14px;
-    border-radius: 999px;
-    border: 1px solid rgba(196, 164, 96, 0.7);
-    background: rgba(16, 11, 8, 0.92);
-    color: #f4ecdc;
-    font-size: 16px;
-}
-
-.coach-tip button {
-    min-height: 36px;
-    min-width: 44px;
-    border-radius: 999px;
-    border: 1px solid var(--gold-dim);
-    background: #2c6e49;
-    color: white;
-    font-family: inherit;
-    letter-spacing: 1px;
-    cursor: pointer;
-}
-
-.coach-tip button.dismiss {
-    background: transparent;
-    color: var(--text);
-    font-size: 18px;
-}
-
 .review-hand {
     border-color: var(--gold);
     color: var(--gold);
@@ -3563,7 +3527,7 @@ html.scene-street.resume-play .boot-screen {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .coach-layer, .coach-panel, .coach-tip,
+    .coach-layer, .coach-panel,
     .actionbar .review-hand,
     .banner .cert-coach { animation: none !important; transition: none !important; }
 }

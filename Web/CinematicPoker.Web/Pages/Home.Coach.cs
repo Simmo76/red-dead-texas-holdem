@@ -51,7 +51,6 @@ namespace CinematicPoker.Web.Pages
         private bool _coachKeyOpen;
         private bool _coachKeyTracked;
         private bool _coachHighlight;
-        private bool _coachTipVisible;
         private bool _coachIntroNote;
         private bool _coachIntroNotePending;
         private bool _coachPreview;
@@ -59,7 +58,6 @@ namespace CinematicPoker.Web.Pages
         private bool _coachLoaded;
         private bool _coachEscapeBound;
         private bool _coachFocusPending;
-        private int _coachHandsSinceTip = 2;
         private int _coachRequest;
         private long _coachSeq;
         private string _coachAutoOpenedHandId;
@@ -164,11 +162,6 @@ namespace CinematicPoker.Web.Pages
                     "every" => CoachMode.EveryHand,
                     _ => CoachMode.OnRequest
                 };
-                string tip = await JS.InvokeAsync<string>("pokerCoachStore.loadTip");
-                if (int.TryParse(tip, NumberStyles.Integer, CultureInfo.InvariantCulture, out int handsSince)
-                    && handsSince >= 0 && handsSince <= 100)
-                    _coachHandsSinceTip = handsSince;
-
                 string historyJson = await JS.InvokeAsync<string>("pokerCoachStore.loadHistory");
                 if (!string.IsNullOrWhiteSpace(historyJson))
                 {
@@ -273,8 +266,7 @@ namespace CinematicPoker.Web.Pages
         // player how to call the coach themselves (POKER COACH button) or keep
         // the automatic visits (EVERY HAND in settings). From the third hand
         // on, the player decides. Closing does not reopen the same hand.
-        // Every-hand mode keeps auto-opening. Notable keeps the tip chip.
-        // Off stays quiet.
+        // Every-hand mode keeps auto-opening. Off stays quiet.
         private async Task OpenCoachAfterHand()
         {
             if (_isGuest || _coachPreview || _remote.Count > 0) return;
@@ -297,14 +289,6 @@ namespace CinematicPoker.Web.Pages
             _ = SaveCoachHistory();
             if (_coachMode == CoachMode.Off) return;
             _ = TrackCoach(CoachAnalytics.Available("local", _coachSessionId, NextSeq(), hand.HandId, ModeKey(_coachMode)));
-            if (_coachMode != CoachMode.Notable) return;
-            _coachHandsSinceTip++;
-            if (_coachHandsSinceTip >= 3 && !_coachOpen)
-            {
-                _coachHandsSinceTip = 0;
-                _coachTipVisible = true;
-            }
-            _ = SaveCoachTip();
         }
 
         public async Task CycleCoachMode()
@@ -316,8 +300,6 @@ namespace CinematicPoker.Web.Pages
                 CoachMode.EveryHand => CoachMode.Notable,
                 _ => CoachMode.Off
             };
-            if (_coachMode != CoachMode.Notable)
-                _coachTipVisible = false;
             if (_coachMode == CoachMode.Off && (_coachOpen || _coachFlow.ReviewOpen))
                 await CloseCoach(false);
             try { await JS.InvokeVoidAsync("pokerCoachStore.saveMode", ModeKey(_coachMode)); }
@@ -355,7 +337,6 @@ namespace CinematicPoker.Web.Pages
             _coachSceneReason = "";
             _coachModel = null;
             _coachClip = null;
-            _coachTipVisible = false;
             _coachIntroNote = _coachIntroNotePending;
             _coachIntroNotePending = false;
             _coachUseScene = _remote.Count == 0;
@@ -485,8 +466,6 @@ namespace CinematicPoker.Web.Pages
                 "local", _coachSessionId, NextSeq(), _coachShownHand?.HandId, code));
         }
 
-        public void DismissCoachTip() => _coachTipVisible = false;
-
         public async Task FocusCoachPanel()
         {
             if (!_coachFocusPending || !_coachOpen) return;
@@ -512,7 +491,6 @@ namespace CinematicPoker.Web.Pages
             _coachHighlight = false;
             _coachShownHand = null;
             _coachFaces.Clear();
-            _coachTipVisible = false;
             _coachIntroNote = false;
             _coachIntroNotePending = false;
             _coachOffer = null;
@@ -653,13 +631,6 @@ namespace CinematicPoker.Web.Pages
                 string json = JsonSerializer.Serialize(file, CoachJson.Options);
                 await JS.InvokeVoidAsync("pokerCoachStore.saveHistory", json);
             }
-            catch (JSException) { }
-            catch (InvalidOperationException) { }
-        }
-
-        private async Task SaveCoachTip()
-        {
-            try { await JS.InvokeVoidAsync("pokerCoachStore.saveTip", _coachHandsSinceTip); }
             catch (JSException) { }
             catch (InvalidOperationException) { }
         }

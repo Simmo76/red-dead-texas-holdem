@@ -17,14 +17,6 @@ window.pokerCoachStore = {
     try { localStorage.setItem('cinematic-poker-coach-history', json); return true; }
     catch (e) { return false; }
   },
-  loadTip() {
-    try { return localStorage.getItem('cinematic-poker-coach-tip') || '2'; }
-    catch (e) { return '2'; }
-  },
-  saveTip(n) {
-    try { localStorage.setItem('cinematic-poker-coach-tip', String(n)); return true; }
-    catch (e) { return false; }
-  },
   prefersReducedMotion() {
     return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   },

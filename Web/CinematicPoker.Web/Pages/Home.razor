@@ -891,15 +891,6 @@
         </div>
     }
 
-    @if (_coachTipVisible && !_coachOpen)
-    {
-        <div class="coach-tip" role="status" @onclick:stopPropagation="true">
-            <span>@CoachDisplayName has a tip</span>
-            <button type="button" @onclick="OpenCoachReview">POKER COACH</button>
-            <button type="button" class="dismiss" @onclick="DismissCoachTip" aria-label="Dismiss tip">×</button>
-        </div>
-    }
-
     @if (_coachOpen && _coachReview != null)
     {
         <div class="coach-layer" role="dialog" aria-modal="@(_coachUseScene ? "true" : "false")" aria-label="Hand review with @CoachDisplayName">
