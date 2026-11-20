@@ -1041,6 +1041,46 @@ html.scene-street.resume-play .boot-screen {
     color: #d8c9a0;
 }
 
+.cert-coach-label {
+    margin-top: 10px;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 2.5px;
+    color: #b89758;
+}
+
+.cert-coach-kicker {
+    margin-top: 4px;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    color: #e8c878;
+}
+
+.cert-coach-copy {
+    margin-top: 5px;
+    font-size: 14px;
+    line-height: 1.35;
+    letter-spacing: 0.5px;
+    color: #f0e6d0;
+    max-width: 36em;
+}
+
+.cert-coach-lesson {
+    margin-top: 6px;
+    font-size: 13px;
+    line-height: 1.35;
+    font-style: italic;
+    color: rgba(244, 239, 226, 0.88);
+    max-width: 36em;
+}
+
+.cert-coach-vote {
+    margin-top: 6px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: rgba(201, 162, 79, 0.85);
+}
+
 @keyframes victory-amount {
     0%, 100% { filter: brightness(1); }
     50% { filter: brightness(1.12); }
@@ -1065,6 +1105,11 @@ html.scene-street.resume-play .boot-screen {
 .game3d.banner-victory .hud-board,
 .game3d.banner-victory .hud-stack {
     display: none;
+}
+
+/* Room for the Gallery of Wins plaque (~7.7:1 art) plus a thin gap. */
+.game3d.banner-victory {
+    --victory-plaque-reserve: min(44vh, 220px, calc(min(96vw, 1240px) / 7.675));
 }
 
 /* Shown only after the player takes a pot or the table. Hidden while the
@@ -1096,24 +1141,49 @@ html.scene-street.resume-play .boot-screen {
     transform: translateX(-50%);
     z-index: 12;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     gap: 10px;
     max-width: min(98vw, 100%);
     pointer-events: none;
 }
 
+.victory-carousel.victory-carousel-nav {
+    isolation: isolate;
+}
+
+.game3d.banner-victory .victory-carousel {
+    top: max(4px, env(safe-area-inset-top, 0px));
+    bottom: calc(
+        var(--victory-plaque-reserve, 150px)
+        + max(2px, env(safe-area-inset-bottom, 0px))
+        + 8px);
+}
+
+.victory-carousel-coverflow {
+    --victory-cert-w: min(74vw, 380px);
+    --victory-cert-h: clamp(280px, 58vh, 400px);
+}
+
+.game3d.banner-victory .victory-carousel-coverflow {
+    --victory-cert-h: min(
+        clamp(280px, 58vh, 400px),
+        calc(100vh - var(--victory-plaque-reserve, 150px) - max(48px, env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px)) - 24px));
+}
+
 .victory-carousel-viewport,
 .victory-swipe-stage {
-    flex: 0 1 auto;
-    width: max-content;
-    max-width: min(88vw, 560px);
-    min-height: 120px;
+    flex: 0 0 auto;
+    width: var(--victory-cert-w, min(74vw, 380px));
+    max-width: var(--victory-cert-w, min(74vw, 380px));
+    min-height: var(--victory-cert-h, 280px);
     overflow: visible;
     perspective: 1100px;
-    perspective-origin: 50% 42%;
+    perspective-origin: 50% 18%;
+    position: relative;
+    z-index: 1;
     pointer-events: auto;
-    touch-action: pan-x;
+    touch-action: pan-y;
     -webkit-user-select: none;
     user-select: none;
 }
@@ -1123,18 +1193,35 @@ html.scene-street.resume-play .boot-screen {
     grid-template: 1fr / 1fr;
     justify-items: center;
     align-items: start;
-    width: max-content;
+    width: 100%;
     max-width: 100%;
     transform-style: preserve-3d;
+    --victory-drag-x: 0px;
+    transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.victory-carousel-track.victory-carousel-dragging {
+    transition: none;
+    transform: none;
+    cursor: grabbing;
+}
+
+.victory-carousel-dragging .victory-carousel-slide {
+    transition: none !important;
+}
+
+.victory-carousel-nav .victory-swipe-stage {
+    cursor: grab;
+    touch-action: none;
 }
 
 .victory-carousel-slide {
     grid-area: 1 / 1;
     position: relative;
-    width: max-content;
-    max-width: min(78vw, 520px);
+    width: var(--victory-cert-w, min(74vw, 380px));
+    max-width: var(--victory-cert-w, min(74vw, 380px));
     transform-style: preserve-3d;
-    transform-origin: center center;
+    transform-origin: top center;
     backface-visibility: hidden;
     transition:
         transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
@@ -1186,26 +1273,98 @@ html.scene-street.resume-play .boot-screen {
     visibility: hidden;
 }
 
+.victory-carousel-slide .banner.victory-cert-slide,
 .victory-carousel-slide .banner.banner-win {
     position: relative;
     left: auto;
     top: auto;
-    width: fit-content;
-    max-width: min(78vw, 520px);
+    width: 100%;
+    max-width: 100%;
+    min-height: var(--victory-cert-h, 280px);
+    height: var(--victory-cert-h, 280px);
     margin: 0 auto;
     border-radius: 14px;
     animation: none;
     transform: none;
     pointer-events: inherit;
     touch-action: inherit;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: hidden;
     box-shadow:
         0 18px 48px rgba(0, 0, 0, 0.62),
         0 0 0 1px rgba(216, 178, 92, 0.22),
         inset 0 1px 0 rgba(255, 233, 168, 0.14);
 }
 
-.victory-carousel-slide-active .banner.banner-win {
-    animation: victory-carousel-center-in 0.4s ease-out;
+.victory-carousel-slide .victory-cert-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.victory-carousel-slide .cert-board-slot {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 58px;
+}
+
+.victory-carousel-slide .cert-coach-slot {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 100%;
+}
+
+.victory-carousel-slide:not(.victory-carousel-slide-active) .cert-coach-slot {
+    display: none;
+}
+
+.victory-carousel-slide .victory-cert-actions {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    padding-top: 4px;
+}
+
+.victory-cert-actions-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+}
+
+.victory-cert-actions-row .victory-shot,
+.victory-cert-actions-row .cert-coach {
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0;
+    padding: 10px 8px;
+    font-size: 11px;
+    line-height: 1.15;
+    letter-spacing: 0.5px;
+    white-space: normal;
+    text-align: center;
+}
+
+.victory-carousel-coverflow .victory-carousel-slide-active .banner.victory-cert-slide.banner-win {
+    animation: none;
 }
 
 @keyframes victory-carousel-center-in {
@@ -1219,7 +1378,7 @@ html.scene-street.resume-play .boot-screen {
     }
 }
 
-.victory-carousel-coverflow .victory-carousel-slide-active .banner.banner-win {
+.victory-carousel-coverflow .victory-carousel-slide-active .banner.victory-cert-slide.banner-win {
     box-shadow:
         0 22px 56px rgba(0, 0, 0, 0.68),
         0 0 0 1px rgba(230, 195, 106, 0.35),
@@ -1230,9 +1389,6 @@ html.scene-street.resume-play .boot-screen {
     .victory-carousel-slide {
         transition-duration: 0.01ms;
     }
-    .victory-carousel-slide-active .banner.banner-win {
-        animation: none;
-    }
 }
 
 .victory-nav {
@@ -1240,7 +1396,8 @@ html.scene-street.resume-play .boot-screen {
     flex: 0 0 44px;
     width: 44px;
     height: 44px;
-    align-self: center;
+    align-self: flex-start;
+    margin-top: calc((var(--victory-cert-h, 280px) - 44px) * 0.38);
     padding: 0;
     border: 1px solid rgba(230, 195, 106, 0.55);
     border-radius: 50%;
@@ -1251,7 +1408,7 @@ html.scene-street.resume-play .boot-screen {
     cursor: pointer;
     pointer-events: auto;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-    z-index: 1;
+    z-index: 30;
 }
 
 .victory-nav:disabled {
@@ -1271,18 +1428,64 @@ html.scene-street.resume-play .boot-screen {
     white-space: nowrap;
 }
 
+.victory-gallery-plaque {
+    position: fixed;
+    left: 50%;
+    bottom: max(2px, env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    z-index: 12;
+    display: block;
+    width: min(96vw, 1240px);
+    max-height: min(28vh, 220px);
+    height: auto;
+    object-fit: contain;
+    object-position: center bottom;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
 .victory-cert-body {
     touch-action: inherit;
 }
 
 @media (max-width: 700px) and (orientation: portrait) {
     .victory-carousel { top: 10%; gap: 6px; }
+    .victory-carousel-coverflow {
+        --victory-cert-w: min(82vw, 360px);
+        --victory-cert-h: clamp(300px, 52vh, 400px);
+    }
     .victory-nav { flex-basis: 40px; width: 40px; height: 40px; font-size: 24px; }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .game3d.banner-victory {
+        --victory-plaque-reserve: min(22vh, 180px, calc(min(96vw, 1240px) / 7.675));
+    }
+    .victory-carousel-coverflow {
+        --victory-cert-w: min(46vw, 340px);
+        --victory-cert-h: clamp(188px, 76vh, 268px);
+    }
+    .victory-gallery-plaque {
+        max-height: min(22vh, 180px);
+    }
+    .victory-cert-actions-row .victory-shot,
+    .victory-cert-actions-row .cert-coach {
+        font-size: 10px;
+        padding: 8px 6px;
+    }
 }
 
 @media (max-height: 470px) {
     .victory-carousel { top: 4px; }
     .victory-carousel-counter { top: -16px; }
+    .game3d.banner-victory {
+        --victory-plaque-reserve: min(20vh, 150px, calc(96vw / 7.675));
+    }
+    .victory-gallery-plaque {
+        max-height: min(20vh, 150px);
+        bottom: max(1px, env(safe-area-inset-bottom, 0px));
+    }
 }
 
 /* Short windows: sit the plaque just under the top edge. pokerShot then
@@ -3032,6 +3235,7 @@ html.scene-street.resume-play .boot-screen {
 .game3d.coach-open .ai-advice,
 .game3d.coach-open .banner,
 .game3d.coach-open .victory-carousel,
+.game3d.coach-open .victory-gallery-plaque,
 .game3d.coach-open .result-dim,
 .game3d.coach-open .showdown-layer,
 .game3d.coach-open .showdown-strip,
@@ -3040,6 +3244,7 @@ html.scene-street.resume-play .boot-screen {
 .game3d.coach-open .hud-winner,
 .game3d.coach-panel-only .banner,
 .game3d.coach-panel-only .victory-carousel,
+.game3d.coach-panel-only .victory-gallery-plaque,
 .game3d.coach-panel-only .result-dim {
     display: none !important;
 }
@@ -3318,42 +3523,6 @@ html.scene-street.resume-play .boot-screen {
     letter-spacing: 1px;
 }
 
-.coach-tip {
-    position: absolute;
-    z-index: 23;
-    top: calc(62px + env(safe-area-inset-top, 0px));
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 44px;
-    padding: 6px 8px 6px 14px;
-    border-radius: 999px;
-    border: 1px solid rgba(196, 164, 96, 0.7);
-    background: rgba(16, 11, 8, 0.92);
-    color: #f4ecdc;
-    font-size: 16px;
-}
-
-.coach-tip button {
-    min-height: 36px;
-    min-width: 44px;
-    border-radius: 999px;
-    border: 1px solid var(--gold-dim);
-    background: #2c6e49;
-    color: white;
-    font-family: inherit;
-    letter-spacing: 1px;
-    cursor: pointer;
-}
-
-.coach-tip button.dismiss {
-    background: transparent;
-    color: var(--text);
-    font-size: 18px;
-}
-
 .review-hand {
     border-color: var(--gold);
     color: var(--gold);
@@ -3378,7 +3547,7 @@ html.scene-street.resume-play .boot-screen {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .coach-layer, .coach-panel, .coach-tip,
+    .coach-layer, .coach-panel,
     .actionbar .review-hand,
     .banner .cert-coach { animation: none !important; transition: none !important; }
 }

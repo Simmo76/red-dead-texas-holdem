@@ -208,14 +208,13 @@
                             disabled="@(!CanShowPreviousVictory)" aria-label="Previous win"
                             @onclick="ShowPreviousVictory" @onclick:stopPropagation="true">&#8249;</button>
                 }
-                <div class="victory-carousel-viewport victory-swipe-stage"
-                     @ontouchstart="OnVictoryTouchStart" @ontouchend="OnVictoryTouchEnd"
-                     @ontouchstart:stopPropagation @ontouchend:stopPropagation>
+                <div class="victory-carousel-viewport victory-swipe-stage">
                     <div class="victory-carousel-track" aria-live="polite">
                         @if (_winGallery.Count == 0)
                         {
                             <div class="victory-carousel-slide victory-carousel-slide-active">
                                 @RenderVictoryBanner(
+                                    null,
                                     VictoryDisplayAmount,
                                     VictoryDisplayHoleCards,
                                     VictoryDisplayHeadline,
@@ -230,16 +229,20 @@
                             {
                                 var record = _winGallery[slideIndex];
                                 var offset = slideIndex - _winGalleryIndex;
-                                if (Math.Abs(offset) > 3)
+                                if (VictorySlideRenderMaxOffset < int.MaxValue
+                                    && Math.Abs(offset) > VictorySlideRenderMaxOffset)
                                 {
                                     continue;
                                 }
 
                                 var holeCards = ParseVictoryCards(record.holeCards);
                                 var boardCards = ParseVictoryCards(record.boardCards);
-                                <div class="victory-carousel-slide @VictorySlideClass(offset)"
+                                <div @key="@(record.handNumber + "-" + record.capturedAtUtcMs)"
+                                     class="victory-carousel-slide @VictorySlideClass(offset)"
+                                     data-victory-offset="@offset"
                                      aria-hidden="@(offset != 0 ? "true" : "false")">
                                     @RenderVictoryBanner(
+                                        record,
                                         record.amount,
                                         holeCards,
                                         record.headline,
@@ -261,6 +264,8 @@
                     </div>
                 }
             </div>
+            <img class="victory-gallery-plaque" src="@VictoryGalleryPlaqueImage" alt="Gallery of Wins"
+                 width="2149" height="280" decoding="async" />
         }
         else
         {
@@ -887,15 +892,6 @@
         </div>
     }
 
-    @if (_coachTipVisible && !_coachOpen)
-    {
-        <div class="coach-tip" role="status" @onclick:stopPropagation="true">
-            <span>@CoachDisplayName has a tip</span>
-            <button type="button" @onclick="OpenCoachReview">POKER COACH</button>
-            <button type="button" class="dismiss" @onclick="DismissCoachTip" aria-label="Dismiss tip">×</button>
-        </div>
-    }
-
     @if (_coachOpen && _coachReview != null)
     {
         <div class="coach-layer" role="dialog" aria-modal="@(_coachUseScene ? "true" : "false")" aria-label="Hand review with @CoachDisplayName">
@@ -1249,13 +1245,11 @@
     private string _shotStatus;
 
     private const string VictoryTrophyImage = "images/victory-trophy.png";
+    private const string VictoryGalleryPlaqueImage = "images/victory-gallery-of-wins.png?v=4";
 
     private const int MaxVictoryWins = 200;
     private readonly List<VictoryWinRecord> _winGallery = new();
     private int _winGalleryIndex;
-    private double? _victoryTouchStartX;
-    private double? _victoryTouchStartY;
-
     private sealed class VictoryWinRecord
     {
         public int version = 1;
@@ -1266,6 +1260,11 @@
         public string headline;
         public string holeCards;
         public string boardCards;
+        public string coachHandId;
+        public string coachHeading;
+        public string coachWhyWon;
+        public string coachLesson;
+        public string coachUserFeedback;
     }
 
     // Table-win celebration: the chip count-up on the overlay and the
@@ -1604,6 +1603,7 @@
         ReadInviteRoomFromUrl();
         NoteCoachPreviewFromUrl();
         NoteWinPreviewFromUrl();
+        NoteVictoryGalleryPreviewFromUrl();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -1630,6 +1630,12 @@
             }
             else
             {
+                if (_victoryGalleryPreview)
+                {
+                    _introStarted = true;
+                    if (string.IsNullOrEmpty(_playerName))
+                        _playerName = "Preview";
+                }
                 if (string.IsNullOrEmpty(_playerName))
                     _playerName = await ReadCachedPlayerNameAsync();
                 _settingsLoaded = true;
@@ -1639,7 +1645,7 @@
                     string saved = "";
                     // A friend's browser never resumes (or overwrites) its own
                     // saved solo game: the host's table is the only game there.
-                    if (!_isGuest)
+                    if (!_isGuest && !_victoryGalleryPreview)
                     {
                         try { saved = await JS.InvokeAsync<string>("pokerSession.load"); }
                         catch (JSException) { }
@@ -1687,6 +1693,8 @@
                     if (_game == null && !string.IsNullOrEmpty(_playerName))
                         StartSessionCore(run: !_isGuest);
                 }
+                if (_victoryGalleryPreview)
+                    ShowVictoryGalleryPreview();
                 StateHasChanged();
                 if (_isGuest && !string.IsNullOrEmpty(_playerName)) _ = ConnectGuestAsync();
                 else _ = ResumeThenRunLoop();
@@ -1708,6 +1716,8 @@
             if (_sceneReady) await SyncBackdropLabel();
             if (_coachPreview) await OpenCoachPreview();
             else if (_resumePlay) await FinishDirectEntry();
+            if (!_coachPreview && _game == null && !string.IsNullOrEmpty(_playerName) && _introStarted)
+                StartSessionCore(run: !_isGuest);
         }
         if (_sceneReady && !_coachOpen) await PushSceneState();
         await FocusCoachPanel();
@@ -1989,7 +1999,13 @@
 
     private void StartSessionCore(bool run)
     {
+        int token = ++_loopToken;
         GameLog.Info("session", $"new solo table (run={run}, difficulty={DifficultyNames[_difficulty]}, scene={_tableScene}, quickMode={_quickMode})");
+        if (_game != null)
+        {
+            try { _game.EventEmitted -= OnEngineEvent; }
+            catch (InvalidOperationException) { }
+        }
         if (!_isGuest) ClearWebSession();
         // A name overlay left over from an earlier friends table must not
         // shadow this roster: a stale entry on one seat can duplicate a name
@@ -2046,10 +2062,12 @@
         try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
         catch (InvalidOperationException) { }
         catch (JSException) { }
+        try { _ = JS.InvokeVoidAsync("pokerVictorySwipe.reset"); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
 
-        ++_loopToken;
         if (_winPreview) ShowWinPreview();
-        if (run) _ = RunLoop(_loopToken);
+        if (run) _ = RunLoop(token);
         // Solo (and host-table restarts) never emit a hub "started" line on
         // their own — ping /usage so Render still sees who sat down. Guests
         // are covered by JoinRoom logs.
@@ -2203,6 +2221,8 @@
 
     private async Task RunLoop(int token)
     {
+        try
+        {
         while (token == _loopToken)
         {
             SeatFriendsWithChips();
@@ -2298,6 +2318,11 @@
             DecisionContext context = DecisionContext.ForCurrentActor(_game, EquityIterations);
             SubmitAndBroadcast(npc.DecideAction(context));
             await DrainEvents(token);
+        }
+        }
+        catch (Exception ex)
+        {
+            GameLog.Warn("session", "run loop stopped: " + ex.Message);
         }
     }
 
@@ -4274,9 +4299,14 @@
         OpenExportPanel();
     }
 
-    private void RestartFromSettings()
+    private async Task RestartFromSettings()
     {
         _settingsOpen = false;
+        if (_coachOpen || _coachFlow.ReviewOpen)
+            await CloseCoach(false);
+        try { await JS.InvokeVoidAsync("pokerVictorySwipe.reset"); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
         StartSession();
     }
 
@@ -4932,6 +4962,11 @@
     private bool CanShowNextVictory =>
         _winGallery.Count > 0 && _winGalleryIndex < _winGallery.Count - 1;
 
+    // Keep every slide in the DOM for smaller galleries so Cover Flow can
+    // transition instead of snapping in off-screen certificates.
+    private int VictorySlideRenderMaxOffset =>
+        _winGallery.Count <= 32 ? int.MaxValue : 4;
+
     private static string VictorySlideClass(int offset) => offset switch
     {
         0 => "victory-carousel-slide-active",
@@ -4949,6 +4984,7 @@
     }
 
     private RenderFragment RenderVictoryBanner(
+        VictoryWinRecord record,
         long? amount,
         IReadOnlyList<Card> holeCards,
         string headline,
@@ -4958,7 +4994,8 @@
     {
         int seq = 0;
         builder.OpenElement(seq++, "div");
-        builder.AddAttribute(seq++, "class", "banner banner-win" + (isActive ? " victory-carousel-slide-active-banner" : ""));
+        builder.AddAttribute(seq++, "class",
+            "banner victory-cert-slide" + (isActive ? " banner-win victory-carousel-slide-active-banner" : ""));
         builder.OpenElement(seq++, "div");
         builder.AddAttribute(seq++, "class", "victory-cert-body");
         builder.OpenElement(seq++, "div");
@@ -5011,6 +5048,57 @@
         builder.AddContent(seq++, headline);
         builder.CloseElement();
 
+        string coachHeading = record?.coachHeading;
+        string coachWhyWon = record?.coachWhyWon;
+        string coachLesson = record?.coachLesson;
+        string coachUserFeedback = record?.coachUserFeedback;
+        if (record == null && ActiveVictoryRecord == null && _playerWonPot)
+        {
+            coachWhyWon = _coachReview?.WhyWon;
+            coachLesson = _coachReview?.Lesson;
+            coachHeading = _coachReview?.Heading;
+        }
+
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "cert-coach-slot");
+        if (!string.IsNullOrWhiteSpace(coachWhyWon)
+            || !string.IsNullOrWhiteSpace(coachLesson)
+            || !string.IsNullOrWhiteSpace(coachHeading))
+        {
+            builder.AddMarkupContent(seq++, "<div class=\"cert-coach-label\">POKER COACH</div>");
+            if (!string.IsNullOrWhiteSpace(coachHeading))
+            {
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "cert-coach-kicker");
+                builder.AddContent(seq++, coachHeading);
+                builder.CloseElement();
+            }
+            if (!string.IsNullOrWhiteSpace(coachWhyWon))
+            {
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "cert-coach-copy");
+                builder.AddContent(seq++, coachWhyWon);
+                builder.CloseElement();
+            }
+            if (!string.IsNullOrWhiteSpace(coachLesson))
+            {
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "cert-coach-lesson");
+                builder.AddContent(seq++, coachLesson);
+                builder.CloseElement();
+            }
+            if (!string.IsNullOrWhiteSpace(coachUserFeedback))
+            {
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "cert-coach-vote");
+                builder.AddContent(seq++, coachUserFeedback == "useful" ? "You marked this tip useful." : "You marked this tip unclear.");
+                builder.CloseElement();
+            }
+        }
+        builder.CloseElement();
+
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "cert-board-slot");
         if (boardCards is { Count: > 0 })
         {
             builder.AddMarkupContent(seq++, "<div class=\"cert-board-label\">ON THE BOARD</div>");
@@ -5027,6 +5115,7 @@
             }
             builder.CloseElement();
         }
+        builder.CloseElement();
 
         builder.AddMarkupContent(seq++, "<div class=\"cert-rule\" aria-hidden=\"true\"></div>");
         builder.OpenElement(seq++, "div");
@@ -5035,8 +5124,14 @@
         builder.CloseElement();
         builder.CloseElement();
 
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "victory-cert-actions");
         if (isActive)
         {
+            int coachHandNumber = record?.handNumber ?? (_game?.HandNumber ?? 0);
+            bool showCoach = CanReviewVictory(coachHandNumber);
+            builder.OpenElement(seq++, "div");
+            builder.AddAttribute(seq++, "class", "victory-cert-actions-row");
             builder.OpenElement(seq++, "button");
             builder.AddAttribute(seq++, "type", "button");
             builder.AddAttribute(seq++, "class", "act victory-shot");
@@ -5045,16 +5140,7 @@
             builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
             builder.AddContent(seq++, "Export Certificate");
             builder.CloseElement();
-
-            if (!string.IsNullOrEmpty(_shotStatus))
-            {
-                builder.OpenElement(seq++, "div");
-                builder.AddAttribute(seq++, "class", "victory-shot-status");
-                builder.AddContent(seq++, _shotStatus);
-                builder.CloseElement();
-            }
-
-            if (CanReview)
+            if (showCoach)
             {
                 builder.OpenElement(seq++, "button");
                 builder.AddAttribute(seq++, "type", "button");
@@ -5065,7 +5151,17 @@
                 builder.AddContent(seq++, "Poker Coach Feedback");
                 builder.CloseElement();
             }
+            builder.CloseElement();
+
+            if (!string.IsNullOrEmpty(_shotStatus))
+            {
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "victory-shot-status");
+                builder.AddContent(seq++, _shotStatus);
+                builder.CloseElement();
+            }
         }
+        builder.CloseElement();
 
         builder.CloseElement();
     };
@@ -5095,6 +5191,9 @@
         if (_winGallery.Count > MaxVictoryWins)
             _winGallery.RemoveRange(0, _winGallery.Count - MaxVictoryWins);
         _winGalleryIndex = _winGallery.Count - 1;
+        TryAttachCoachSnapshot(snap);
+        if (_coachReview != null)
+            ApplyCoachToVictoryRecord(snap, _coachReview);
         _ = PersistWinGallery();
     }
 
@@ -5117,6 +5216,7 @@
     private void ShowPreviousVictory()
     {
         if (!CanShowPreviousVictory) return;
+        _ = ResetVictoryCarouselTrackAsync();
         _winGalleryIndex--;
         StateHasChanged();
     }
@@ -5124,27 +5224,16 @@
     private void ShowNextVictory()
     {
         if (!CanShowNextVictory) return;
+        _ = ResetVictoryCarouselTrackAsync();
         _winGalleryIndex++;
         StateHasChanged();
     }
 
-    private void OnVictoryTouchStart(TouchEventArgs e)
+    private async Task ResetVictoryCarouselTrackAsync()
     {
-        if (_winGallery.Count <= 1 || e.ChangedTouches.Length == 0) return;
-        _victoryTouchStartX = e.ChangedTouches[0].ClientX;
-        _victoryTouchStartY = e.ChangedTouches[0].ClientY;
-    }
-
-    private void OnVictoryTouchEnd(TouchEventArgs e)
-    {
-        if (_winGallery.Count <= 1 || _victoryTouchStartX == null || e.ChangedTouches.Length == 0) return;
-        double dx = e.ChangedTouches[0].ClientX - _victoryTouchStartX.Value;
-        double dy = e.ChangedTouches[0].ClientY - (_victoryTouchStartY ?? 0);
-        _victoryTouchStartX = null;
-        _victoryTouchStartY = null;
-        if (Math.Abs(dx) < 40 || Math.Abs(dx) < Math.Abs(dy) * 1.2) return;
-        if (dx > 0) ShowPreviousVictory();
-        else ShowNextVictory();
+        try { await JS.InvokeVoidAsync("pokerVictorySwipe.reset"); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
     }
 
     private async Task TakeVictoryScreenshot()
@@ -5187,6 +5276,35 @@
 
     private void NoteWinPreviewFromUrl() =>
         _winPreview = Nav.Uri.Contains("winpreview=1", StringComparison.OrdinalIgnoreCase);
+
+    // ?victorygallery=1 opens the stored victory certificate carousel from
+    // localStorage without finishing a live pot win — for preview QA.
+    private bool _victoryGalleryPreview;
+    private bool _victoryGalleryPreviewOpened;
+
+    private void NoteVictoryGalleryPreviewFromUrl()
+    {
+        _victoryGalleryPreview = Nav.Uri.Contains("victorygallery=1", StringComparison.OrdinalIgnoreCase);
+        if (!_victoryGalleryPreview) return;
+        _introStarted = true;
+        if (string.IsNullOrEmpty(_playerName))
+            _playerName = "Preview";
+    }
+
+    private void ShowVictoryGalleryPreview()
+    {
+        if (_victoryGalleryPreviewOpened || _winGallery.Count == 0) return;
+        _victoryGalleryPreviewOpened = true;
+        _playerWonPot = true;
+        VictoryWinRecord record = _winGallery[_winGalleryIndex];
+        _banner = string.IsNullOrEmpty(record.headline) ? "YOU WON" : record.headline;
+        _bannerAmount = record.amount > 0 ? record.amount : null;
+        _bannerReason = null;
+        _awaitingNextHand = true;
+        _statusLine = _bannerAmount.HasValue
+            ? $"{_banner}  ·  ${_bannerAmount.Value}"
+            : _banner;
+    }
 
     private void ShowWinPreview()
     {

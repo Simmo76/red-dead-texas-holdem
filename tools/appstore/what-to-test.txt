@@ -1,6 +1,10 @@
 What to test in this build:
 
-• Victory Cover Flow gallery: each pot you win is saved on this device. Browsing past wins animates certificates in a 3D carousel (arrows or swipe; counter shows position). The header shows gold trophies beside CERTIFIED VICTOR! Export captures the active slide.
+• Victory Gallery of Wins: after you win a pot, certificates stack in a Cover Flow carousel at the top. Use ‹ › or slow horizontal drag (cards should follow your finger). Counter shows which win you are on. Each slide keeps its own Poker Coach text (heading, why you won, lesson) when you run coach on that win.
+• Bottom plaque: ornate GALLERY OF WINS banner under the carousel; certificates should not overlap it. Same certificate size on every slide (top-centre).
+• Export Certificate captures the active carousel slide, not only the latest win.
+• Settings → Restart: game should restart cleanly with no red error bar at the bottom.
+• Quick QA on device: play two wins, coach both, swipe between slides and confirm coach copy differs; try arrows if drag feels stiff at the ends.
 • Table view shows the dealer, small blind, and big blind chips on the nameplates.
 • The app icon is the brighter western mark, with aces, chips, and a cowboy hat.
 • Switching between the saloon and the octagon skips the title menu and returns to the hand. The tap-to-play menu only shows on a fresh visit.
@@ -8,6 +12,4 @@ What to test in this build:
 • Octagon: the advice coin shows Frankie Fast-Hand. The saloon still shows Maximilian.
 • Your win: the victory certificate grows until it meets the bottom of the screen, and the green stack pill hides until you dismiss it.
 • Opponent win: the result window lists the community cards under ON THE BOARD, and the corner card strip stays hidden.
-• Poker Coach Feedback sits inside every result window, including on later hands.
 • Saloon and octagon each seat at least two women.
-• The victory certificate includes the poker coach feedback.
