@@ -1107,9 +1107,9 @@ html.scene-street.resume-play .boot-screen {
     display: none;
 }
 
-/* Room for the trimmed Gallery of Wins plaque (~3.6:1 art) plus a thin gap. */
+/* Room for the Gallery of Wins plaque (~7.7:1 art) plus a thin gap. */
 .game3d.banner-victory {
-    --victory-plaque-reserve: min(44vh, 400px, calc(min(96vw, 1240px) / 3.65));
+    --victory-plaque-reserve: min(44vh, 220px, calc(min(96vw, 1240px) / 7.675));
 }
 
 /* Shown only after the player takes a pot or the table. Hidden while the
@@ -1436,7 +1436,7 @@ html.scene-street.resume-play .boot-screen {
     z-index: 12;
     display: block;
     width: min(96vw, 1240px);
-    max-height: min(44vh, 400px);
+    max-height: min(28vh, 220px);
     height: auto;
     object-fit: contain;
     object-position: center bottom;
@@ -1460,14 +1460,14 @@ html.scene-street.resume-play .boot-screen {
 
 @media (max-height: 500px) and (orientation: landscape) {
     .game3d.banner-victory {
-        --victory-plaque-reserve: min(36vh, 240px, calc(min(96vw, 1240px) / 3.65));
+        --victory-plaque-reserve: min(22vh, 180px, calc(min(96vw, 1240px) / 7.675));
     }
     .victory-carousel-coverflow {
         --victory-cert-w: min(46vw, 340px);
         --victory-cert-h: clamp(188px, 76vh, 268px);
     }
     .victory-gallery-plaque {
-        max-height: min(36vh, 240px);
+        max-height: min(22vh, 180px);
     }
     .victory-cert-actions-row .victory-shot,
     .victory-cert-actions-row .cert-coach {
@@ -1480,10 +1480,10 @@ html.scene-street.resume-play .boot-screen {
     .victory-carousel { top: 4px; }
     .victory-carousel-counter { top: -16px; }
     .game3d.banner-victory {
-        --victory-plaque-reserve: min(32vh, 200px, calc(96vw / 3.65));
+        --victory-plaque-reserve: min(20vh, 150px, calc(96vw / 7.675));
     }
     .victory-gallery-plaque {
-        max-height: min(32vh, 200px);
+        max-height: min(20vh, 150px);
         bottom: max(1px, env(safe-area-inset-bottom, 0px));
     }
 }
