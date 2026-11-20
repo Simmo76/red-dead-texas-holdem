@@ -965,6 +965,32 @@ html.scene-street.resume-play .boot-screen {
    the plaque survives pokerShot's painter (backgroundColor, borders,
    images and text; gradients and pseudo-elements would vanish from the
    saved photo). */
+.cert-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px 16px;
+    margin: 0 auto 2px;
+    max-width: 100%;
+}
+
+.cert-header-text {
+    flex: 0 1 auto;
+    min-width: 0;
+    text-align: center;
+}
+
+.cert-trophy {
+    flex: 0 0 auto;
+    width: 54px;
+    height: auto;
+    max-height: 70px;
+    object-fit: contain;
+    /* Matte black in the source PNG; lighten keeps the gold cup on the plaque. */
+    mix-blend-mode: lighten;
+    filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.5));
+}
+
 .cert-brand {
     font-size: 13px;
     font-weight: bold;
@@ -1077,7 +1103,8 @@ html.scene-street.resume-play .boot-screen {
     pointer-events: none;
 }
 
-.victory-carousel-viewport {
+.victory-carousel-viewport,
+.victory-swipe-stage {
     flex: 0 1 auto;
     width: max-content;
     max-width: min(88vw, 560px);
@@ -2826,6 +2853,8 @@ html.scene-street.resume-play .boot-screen {
     .banner-win .banner-cards { margin: 10px 0 4px; gap: 10px; }
     .banner-win .banner-cards .hud-card { width: 78px; }
     .banner-win .banner-line { font-size: 18px; }
+    .cert-trophy { width: 44px; max-height: 58px; }
+    .cert-header { gap: 8px 10px; }
     .cert-brand { font-size: 11px; letter-spacing: 3px; }
     .cert-title { font-size: 13px; letter-spacing: 2.5px; }
     .cert-rule { width: 140px; margin: 7px auto 2px; }
@@ -2912,6 +2941,7 @@ html.scene-street.resume-play .boot-screen {
     .banner-win .banner-cards { margin: 6px 0 2px; gap: 8px; }
     .banner-win .banner-cards .hud-card { width: 58px; }
     .banner-win .banner-line { font-size: 16px; margin-top: 2px; }
+    .cert-trophy { width: 40px; max-height: 52px; }
     .cert-brand { font-size: 10px; letter-spacing: 2.5px; }
     .cert-title { font-size: 12px; letter-spacing: 2px; margin-top: 1px; }
     .cert-rule { width: 120px; margin: 5px auto 2px; }

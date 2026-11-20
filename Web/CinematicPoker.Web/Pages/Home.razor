@@ -208,7 +208,7 @@
                             disabled="@(!CanShowPreviousVictory)" aria-label="Previous win"
                             @onclick="ShowPreviousVictory" @onclick:stopPropagation="true">&#8249;</button>
                 }
-                <div class="victory-carousel-viewport"
+                <div class="victory-carousel-viewport victory-swipe-stage"
                      @ontouchstart="OnVictoryTouchStart" @ontouchend="OnVictoryTouchEnd"
                      @ontouchstart:stopPropagation @ontouchend:stopPropagation>
                     <div class="victory-carousel-track" aria-live="polite">
@@ -1247,6 +1247,8 @@
     private bool _playerWonPot;
     private bool _shotBusy;
     private string _shotStatus;
+
+    private const string VictoryTrophyImage = "images/victory-trophy.png";
 
     private const int MaxVictoryWins = 200;
     private readonly List<VictoryWinRecord> _winGallery = new();
@@ -4959,8 +4961,26 @@
         builder.AddAttribute(seq++, "class", "banner banner-win" + (isActive ? " victory-carousel-slide-active-banner" : ""));
         builder.OpenElement(seq++, "div");
         builder.AddAttribute(seq++, "class", "victory-cert-body");
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "cert-header");
+        builder.OpenElement(seq++, "img");
+        builder.AddAttribute(seq++, "class", "cert-trophy cert-trophy-left");
+        builder.AddAttribute(seq++, "src", VictoryTrophyImage);
+        builder.AddAttribute(seq++, "alt", "");
+        builder.AddAttribute(seq++, "aria-hidden", "true");
+        builder.CloseElement();
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "cert-header-text");
         builder.AddMarkupContent(seq++, "<div class=\"cert-brand\">DEAD MAN'S HAND</div>");
         builder.AddMarkupContent(seq++, "<div class=\"cert-title\">CERTIFIED VICTOR!</div>");
+        builder.CloseElement();
+        builder.OpenElement(seq++, "img");
+        builder.AddAttribute(seq++, "class", "cert-trophy cert-trophy-right");
+        builder.AddAttribute(seq++, "src", VictoryTrophyImage);
+        builder.AddAttribute(seq++, "alt", "");
+        builder.AddAttribute(seq++, "aria-hidden", "true");
+        builder.CloseElement();
+        builder.CloseElement();
         builder.AddMarkupContent(seq++, "<div class=\"cert-rule\" aria-hidden=\"true\"></div>");
         if (amount is long amt)
         {
