@@ -903,6 +903,13 @@ html.scene-street .boot-screen {
     animation: none;
 }
 
+/* The result plaque grows when the coach button is inside it. Keep the
+   hand-compare strip in the lower half so it does not cover that button. */
+.game3d.banner-opponent .showdown-layer {
+    top: 46%;
+    align-items: flex-start;
+}
+
 /* Solid fill (not a CSS gradient): pokerShot.save() only paints
    backgroundColor, so a gradient would leave a hollow plaque in Photos. */
 .banner-win {
@@ -1041,11 +1048,11 @@ html.scene-street .boot-screen {
 
 /* The plaque covers the bottom action bar, so the coach control lives
    inside it, under Export Certificate. The banner itself ignores clicks. */
-.banner-win .cert-coach {
+.banner .cert-coach {
     pointer-events: auto;
     display: block;
     width: fit-content;
-    margin: 10px auto 0;
+    margin: 12px auto 0;
     min-height: 44px;
 }
 
@@ -1054,7 +1061,7 @@ html.scene-street .boot-screen {
 @media (max-height: 470px) {
     .banner-win {
         top: 4px;
-        transform: translateX(-50%) scale(0.8);
+        transform: translateX(-50%) scale(0.72);
         transform-origin: top center;
     }
 }
@@ -2807,7 +2814,7 @@ html.scene-street .boot-screen {
 /* Same gold pulse as the board expand hint icon, so the coach
    control still reads as the next thing to try after a hand. */
 .actionbar .review-hand,
-.banner-win .cert-coach {
+.banner .cert-coach {
     animation: board-hint-pulse 2s ease-in-out infinite;
 }
 
@@ -3123,5 +3130,5 @@ html.scene-street .boot-screen {
 @media (prefers-reduced-motion: reduce) {
     .coach-layer, .coach-panel, .coach-tip,
     .actionbar .review-hand,
-    .banner-win .cert-coach { animation: none !important; transition: none !important; }
+    .banner .cert-coach { animation: none !important; transition: none !important; }
 }

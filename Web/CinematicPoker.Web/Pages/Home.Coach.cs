@@ -70,8 +70,17 @@ namespace CinematicPoker.Web.Pages
             && !_coachPreview
             && _coachMode != CoachMode.Off
             && !_coachOpen
-            && !_awaitingHuman
-            && _coachRecorder?.LastCompleted is { Complete: true };
+            // A result window is on screen only after the hand has ended, so a
+            // stale "your turn" flag must not hide the coach button there.
+            && (_banner != null || !_awaitingHuman)
+            && ReviewableHand is { Complete: true };
+
+        // Prefer the hand this sitting just finished. History's newest entry
+        // can belong to an earlier sitting once saved hands finish loading.
+        private CompletedHandRecord ReviewableHand =>
+            _coachRecorder?.LastFinished is { Complete: true } finished
+                ? finished
+                : _coachRecorder?.LastCompleted;
 
         private bool CoachCanAdvance =>
             !_coachPreview
@@ -265,7 +274,7 @@ namespace CinematicPoker.Web.Pages
             if (_isGuest || _coachPreview || _remote.Count > 0) return;
             if (_coachOpen || _awaitingHuman) return;
             if (_coachMode != CoachMode.OnRequest && _coachMode != CoachMode.EveryHand) return;
-            CompletedHandRecord hand = _coachRecorder?.LastCompleted;
+            CompletedHandRecord hand = ReviewableHand;
             if (hand == null || !hand.Complete || hand.HandId == _coachAutoOpenedHandId) return;
             bool intro = _coachMode == CoachMode.OnRequest;
             if (intro && hand.HandNumber > 2) return;
@@ -277,7 +286,7 @@ namespace CinematicPoker.Web.Pages
         private void NoteCoachHandReady()
         {
             if (_isGuest || _coachPreview) return;
-            CompletedHandRecord hand = _coachRecorder?.LastCompleted;
+            CompletedHandRecord hand = ReviewableHand;
             if (hand == null || !hand.Complete) return;
             _ = SaveCoachHistory();
             if (_coachMode == CoachMode.Off) return;
@@ -315,9 +324,9 @@ namespace CinematicPoker.Web.Pages
         {
             if (_isGuest) return;
             if (!_coachPreview && _coachMode == CoachMode.Off) return;
-            if (!_coachPreview && _awaitingHuman) return;
+            if (!_coachPreview && _awaitingHuman && _banner == null) return;
 
-            CompletedHandRecord hand = _coachPreview ? _coachPreviewHand : _coachRecorder?.LastCompleted;
+            CompletedHandRecord hand = _coachPreview ? _coachPreviewHand : ReviewableHand;
             if (hand == null || !hand.Complete) return;
 
             _coachService ??= new HandReviewService();
