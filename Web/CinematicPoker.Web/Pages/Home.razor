@@ -1611,6 +1611,7 @@
         ReadInviteRoomFromUrl();
         NoteCoachPreviewFromUrl();
         NoteWinPreviewFromUrl();
+        NoteVictoryGalleryPreviewFromUrl();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -1634,6 +1635,14 @@
                 _settingsLoaded = true;
                 if (string.IsNullOrEmpty(_playerName))
                     _playerName = "Preview";
+            }
+            else if (_victoryGalleryPreview)
+            {
+                _introStarted = true;
+                _settingsLoaded = true;
+                if (string.IsNullOrEmpty(_playerName))
+                    _playerName = "Preview";
+                ShowVictoryGalleryPreview();
             }
             else
             {
@@ -5245,6 +5254,35 @@
 
     private void NoteWinPreviewFromUrl() =>
         _winPreview = Nav.Uri.Contains("winpreview=1", StringComparison.OrdinalIgnoreCase);
+
+    // ?victorygallery=1 opens the stored victory certificate carousel from
+    // localStorage without finishing a live pot win — for preview QA.
+    private bool _victoryGalleryPreview;
+    private bool _victoryGalleryPreviewOpened;
+
+    private void NoteVictoryGalleryPreviewFromUrl()
+    {
+        _victoryGalleryPreview = Nav.Uri.Contains("victorygallery=1", StringComparison.OrdinalIgnoreCase);
+        if (!_victoryGalleryPreview) return;
+        _introStarted = true;
+        if (string.IsNullOrEmpty(_playerName))
+            _playerName = "Preview";
+    }
+
+    private void ShowVictoryGalleryPreview()
+    {
+        if (_victoryGalleryPreviewOpened || _winGallery.Count == 0) return;
+        _victoryGalleryPreviewOpened = true;
+        _playerWonPot = true;
+        VictoryWinRecord record = _winGallery[_winGalleryIndex];
+        _banner = string.IsNullOrEmpty(record.headline) ? "YOU WON" : record.headline;
+        _bannerAmount = record.amount > 0 ? record.amount : null;
+        _bannerReason = null;
+        _awaitingNextHand = true;
+        _statusLine = _bannerAmount.HasValue
+            ? $"{_banner}  ·  ${_bannerAmount.Value}"
+            : _banner;
+    }
 
     private void ShowWinPreview()
     {
