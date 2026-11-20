@@ -247,22 +247,26 @@ window.pokerShot = (function () {
   // ignores the transform, so measuring it does not fight the scale.
   function fitVictoryBanner(banner) {
     if (!banner || !banner.classList.contains('banner-win')) return;
+    const carousel = banner.closest('.victory-carousel');
     const parent = banner.offsetParent;
     if (!parent) return;
     const naturalH = banner.offsetHeight;
     const naturalW = banner.offsetWidth;
     if (naturalH < 1 || naturalW < 1) return;
-    const parentRect = parent.getBoundingClientRect();
+    const anchor = carousel || parent;
+    const anchorRect = anchor.getBoundingClientRect();
     const visual = banner.getBoundingClientRect();
-    const availH = parentRect.bottom - visual.top;
+    const availH = anchorRect.bottom - visual.top;
     // 1px each side so a width-limited plaque (a narrow phone) can still
     // grow until the height gives out, without clipping the gold border.
-    const availW = parentRect.width - 2;
+    const availW = anchorRect.width - 2;
     if (availH < 1 || availW < 1) return;
     let scale = availH / naturalH;
     if (naturalW * scale > availW) scale = availW / naturalW;
     scale = Math.max(0.4, Math.min(4, scale));
-    const next = 'translateX(-50%) scale(' + scale.toFixed(4) + ')';
+    const next = carousel
+      ? 'scale(' + scale.toFixed(4) + ')'
+      : 'translateX(-50%) scale(' + scale.toFixed(4) + ')';
     banner.style.transformOrigin = 'top center';
     if (banner.style.transform !== next) banner.style.transform = next;
   }

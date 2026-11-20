@@ -1,5 +1,6 @@
 What to test in this build:
 
+• Victory gallery: each pot you win is saved on this device. On the victory certificate, use the arrows beside the plaque or swipe left/right to browse past wins (counter shows position). Export captures the slide on screen.
 • Table view shows the dealer, small blind, and big blind chips on the nameplates.
 • The app icon is the brighter western mark, with aces, chips, and a cowboy hat.
 • Switching between the saloon and the octagon skips the title menu and returns to the hand. The tap-to-play menu only shows on a fresh visit.
