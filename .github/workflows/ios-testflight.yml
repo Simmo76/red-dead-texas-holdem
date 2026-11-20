@@ -14,6 +14,11 @@ name: iOS TestFlight Build
 
 on:
   workflow_dispatch:
+    inputs:
+      update_notes:
+        description: Post tools/appstore/what-to-test.txt on the latest build instead of uploading
+        type: boolean
+        default: false
   # Auto-build whenever the iOS wrapper (or this pipeline) changes on main.
   push:
     branches: [main]
@@ -23,8 +28,35 @@ on:
       - '.github/workflows/ios-testflight.yml'
 
 jobs:
+  update-what-to-test:
+    name: Post What to Test notes
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.update_notes == true || github.ref == 'refs/heads/cursor/testflight-what-to-test-dc8d')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install App Store Connect client
+        run: pip install PyJWT cryptography
+
+      - name: Post What to Test on the latest build
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: python tools/appstore/testflight_notes.py
+
   build-and-upload:
     name: Build, sign and upload to TestFlight
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      (inputs.update_notes != true && github.ref != 'refs/heads/cursor/testflight-what-to-test-dc8d')
     # macos-26 defaults to Xcode 26.x. Apple rejects uploads built with
     # anything older than the iOS 26 SDK (macos-15 defaults to Xcode 16.4).
     runs-on: macos-26

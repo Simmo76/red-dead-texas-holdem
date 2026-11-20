@@ -1,0 +1,8 @@
+What to test in this build:
+
+• iPhone landscape: the title, pot, coach, and action buttons sit closer to the left, right, and bottom edges. The card window still clears the notch.
+• Octagon: the advice coin shows Frankie Fast-Hand. The saloon still shows Maximilian.
+• Your win: the victory certificate grows until it meets the bottom of the screen, and the green stack pill hides until you dismiss the certificate.
+• Opponent win: the result window lists the community cards under ON THE BOARD, and the corner card strip stays hidden.
+• Poker Coach Feedback sits inside the victory certificate and the opponent result window, including on later hands.
+• Saloon and octagon each seat at least two women.
