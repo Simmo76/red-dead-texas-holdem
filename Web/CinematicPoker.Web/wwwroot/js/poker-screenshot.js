@@ -199,7 +199,8 @@ window.pokerShot = (function () {
   // 'aborted' — the player closed the share sheet.
   // 'failed' — nothing was written.
   async function save() {
-    const root = document.querySelector('.banner-win, .overlay-box.table-win');
+    const root = document.querySelector('.victory-carousel-slide-active .banner-win') ||
+      document.querySelector('.banner-win, .overlay-box.table-win');
     if (!root) return 'failed';
 
     // The action and status live inside the plaque for layout purposes, but
@@ -247,6 +248,11 @@ window.pokerShot = (function () {
   // ignores the transform, so measuring it does not fight the scale.
   function fitVictoryBanner(banner) {
     if (!banner || !banner.classList.contains('banner-win')) return;
+    const slide = banner.closest('.victory-carousel-slide');
+    if (slide && !slide.classList.contains('victory-carousel-slide-active')) {
+      banner.style.transform = '';
+      return;
+    }
     const carousel = banner.closest('.victory-carousel');
     const parent = banner.offsetParent;
     if (!parent) return;
