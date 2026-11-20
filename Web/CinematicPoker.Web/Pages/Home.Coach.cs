@@ -117,6 +117,12 @@ namespace CinematicPoker.Web.Pages
 
         private string CoachInitial => OctagonCoach ? "F" : "M";
 
+        // The advice medallion is Maximilian in the saloon and Frankie
+        // Fast-Hand, the bald cage fighter, once the table is the octagon.
+        private string CoachAdviceIcon => OctagonCoach
+            ? "img/ui/coach-face-octagon-128.png"
+            : "img/ui/coach-face-128.png";
+
         private string GameRootClass =>
             "game3d"
             + (_hudBoardExpanded ? " board-expanded" : "")

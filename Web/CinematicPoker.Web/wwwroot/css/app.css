@@ -866,11 +866,6 @@ html.scene-street .boot-screen {
     gap: 26px;
 }
 
-/* Nudge the opponent result window away from the top-right card HUD. */
-.banner-result {
-    transform: translateX(calc(-50% - clamp(18px, 3vw, 36px)));
-}
-
 .banner-result .banner-cards {
     margin: 0;
     flex-shrink: 0;
@@ -890,24 +885,12 @@ html.scene-street .boot-screen {
     color: rgba(244, 239, 226, 0.85);
 }
 
-/* While an opponent's result banner is up, the five board cards in the
-   top-right window keep quiet: their gold pulse (and the expand-hint
-   button's) would fight the dim veil and pull the eye off the result. */
-.game3d.banner-opponent .hud-board {
-    animation: none;
-    border-color: rgba(216, 178, 92, 0.3);
-    box-shadow: none;
-}
-
-.game3d.banner-opponent .hud-board .board-hint {
-    animation: none;
-}
-
-/* The result plaque grows when the coach button is inside it. Keep the
-   hand-compare strip in the lower half so it does not cover that button. */
+/* The result now contains the winner's cards, hand name and board. Hide
+   the duplicate card HUD and compare strip so the single result plaque
+   reads cleanly, like the player's victory certificate. */
+.game3d.banner-opponent .hud-board,
 .game3d.banner-opponent .showdown-layer {
-    top: 46%;
-    align-items: flex-start;
+    display: none;
 }
 
 /* Solid fill (not a CSS gradient): pokerShot.save() only paints
@@ -922,6 +905,15 @@ html.scene-street .boot-screen {
         0 0 0 1px rgba(216, 178, 92, 0.22),
         inset 0 1px 0 rgba(255, 233, 168, 0.14);
     padding: 16px 36px 18px;
+    /* Opacity only. pokerShot scales this plaque with a transform so the
+       fade animation must not overwrite that transform. */
+    animation: victory-banner-in 0.35s ease-out;
+    transform-origin: top center;
+}
+
+@keyframes victory-banner-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .banner-win .banner-amount {
@@ -1029,9 +1021,12 @@ html.scene-street .boot-screen {
 
 /* The certificate already shows the hole cards, the board and the hand
    that won. The compare strip and the top-right card close-up would only
-   sit half-shaded behind the plaque, so the celebration is the certificate. */
+   sit half-shaded behind the plaque, so the celebration is the certificate.
+   The green stack pill (name + chips) sits in the bottom-left, which the
+   enlarged plaque covers — hide it until the certificate is dismissed. */
 .game3d.banner-victory .showdown-layer,
-.game3d.banner-victory .hud-board {
+.game3d.banner-victory .hud-board,
+.game3d.banner-victory .hud-stack {
     display: none;
 }
 
@@ -1056,12 +1051,11 @@ html.scene-street .boot-screen {
     min-height: 44px;
 }
 
-/* The certificate plus this button is taller than a short window.
-   Scale from the top edge so Export and the coach stay on screen. */
+/* Short windows: sit the plaque just under the top edge. pokerShot then
+   scales it (top-center, same aspect) so the bottom meets the screen. */
 @media (max-height: 470px) {
     .banner-win {
         top: 4px;
-        transform: translateX(-50%) scale(0.72);
         transform-origin: top center;
     }
 }
@@ -1379,9 +1373,10 @@ html.scene-street .boot-screen {
     animation: fadein-plain 0.3s ease-out;
 }
 
-/* Maximilian's medallion anchors the advisor: the framed plate with the
+/* The coach medallion anchors the advisor: the framed plate with the
    title (and the opened advice) hangs off its right edge, tucked behind
-   the coin, so the coach fronts the advice in both states. */
+   the coin, so the coach fronts the advice in both states. Saloon uses
+   Maximilian; the octagon swaps in Frankie Fast-Hand. */
 .ai-advice-icon {
     flex: 0 0 auto;
     position: relative;
