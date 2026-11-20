@@ -14,6 +14,12 @@
 # the game (~140 MB), so previews are also capped by PREVIEW_BUDGET_MB,
 # newest first — the budget must leave room for the live site and for the
 # current branch's own preview, which the workflow adds after this script.
+# size_in_bytes is the compressed artifact. Unpacked previews are larger, so
+# once one has been measured, later zips are scaled by that expansion and
+# left undownloaded when they would not fit. When the budget is full, the
+# rest of the list is skipped. A zip that still contains .br/.gz files can
+# be smaller after those are deleted; estimating from a stripped preview
+# may then leave a little of the budget unused.
 #
 # Needs GH_TOKEN with actions:read and pull_requests:read, and
 # GITHUB_REPOSITORY.
@@ -31,24 +37,63 @@ TAB="$(printf '\t')"
 # Newest unexpired artifact per slug, then newest slugs first so the size
 # budget favours recent work.
 gh api --paginate "repos/${REPO}/actions/artifacts?per_page=100" \
-  --jq '.artifacts[] | select(.expired == false and (.name | startswith("preview-"))) | [.name, (.id | tostring), .created_at] | @tsv' \
+  --jq '.artifacts[] | select(.expired == false and (.name | startswith("preview-"))) | [.name, (.id | tostring), .created_at, (.size_in_bytes | tostring)] | @tsv' \
   | sort -t "$TAB" -k1,1 -k3,3r \
   | awk -F '\t' '!seen[$1]++' \
   | sort -t "$TAB" -k3,3r > "$WORK/list"
 
 used_mb=0
+# Unpacked bytes per zip byte, from the newest preview measured so far.
+ratio_num=1
+ratio_den=1
 now_epoch="$(date -u +%s)"
 
-while IFS="$TAB" read -r name id created_at; do
+while IFS="$TAB" read -r name id created_at size_bytes; do
   slug="${name#preview-}"
+  size_bytes="${size_bytes:-0}"
+  if ! [[ "$size_bytes" =~ ^[0-9]+$ ]]; then
+    size_bytes=0
+  fi
   if [ -n "$SKIP" ] && [ "$slug" = "$SKIP" ]; then
     continue
+  fi
+  if [ "$used_mb" -ge "$BUDGET_MB" ]; then
+    echo "preview budget full (${used_mb}/${BUDGET_MB} MB); not downloading older previews"
+    break
+  fi
+  if [ "$size_bytes" -gt 0 ]; then
+    est_bytes=$((size_bytes * ratio_num / ratio_den))
+    if [ $((size_bytes * ratio_num % ratio_den)) -ne 0 ]; then
+      est_bytes=$((est_bytes + 1))
+    fi
+    est_mb=$(( (est_bytes + 1048575) / 1048576 ))
+    if [ $((used_mb + est_mb)) -gt "$BUDGET_MB" ]; then
+      echo "::warning::skipping preview ${slug} (~${est_mb} MB): keeping it would exceed the ${BUDGET_MB} MB preview budget"
+      continue
+    fi
   fi
   rm -rf "$WORK/x" && mkdir "$WORK/x"
   if ! gh api "repos/${REPO}/actions/artifacts/${id}/zip" > "$WORK/a.zip" \
       || ! unzip -q "$WORK/a.zip" -d "$WORK/x"; then
     echo "::warning::could not download preview ${slug} (artifact ${id})"
     continue
+  fi
+  # Pages serves files verbatim (no content negotiation), so precompressed
+  # publish artifacts are dead weight. Older artifacts still contain them.
+  find "$WORK/x" \( -name '*.br' -o -name '*.gz' \) -delete
+  size_mb="$(du -sm "$WORK/x" | cut -f1)"
+  # Learn expansion even when this preview is later dropped, so the next
+  # zip that cannot fit is not downloaded.
+  if [ "$size_bytes" -gt 0 ]; then
+    final_bytes=$((size_mb * 1048576))
+    # Ignore a bogus size_in_bytes that would scale later previews by
+    # more than 4x and skip ones that would have fit.
+    if [ "$final_bytes" -gt "$size_bytes" ] \
+        && [ "$final_bytes" -le $((size_bytes * 4)) ] \
+        && [ $((final_bytes * ratio_den)) -gt $((size_bytes * ratio_num)) ]; then
+      ratio_num=$final_bytes
+      ratio_den=$size_bytes
+    fi
   fi
   branch="$(jq -r '.branch // empty' "$WORK/x/version.json" 2>/dev/null || true)"
   if [ -n "$branch" ]; then
@@ -64,10 +109,6 @@ while IFS="$TAB" read -r name id created_at; do
       continue
     fi
   fi
-  # Pages serves files verbatim (no content negotiation), so precompressed
-  # publish artifacts are dead weight. Older artifacts still contain them.
-  find "$WORK/x" \( -name '*.br' -o -name '*.gz' \) -delete
-  size_mb="$(du -sm "$WORK/x" | cut -f1)"
   if [ $((used_mb + size_mb)) -gt "$BUDGET_MB" ]; then
     echo "::warning::skipping preview ${slug} (${size_mb} MB): keeping it would exceed the ${BUDGET_MB} MB preview budget"
     continue
