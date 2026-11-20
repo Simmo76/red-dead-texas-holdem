@@ -167,6 +167,8 @@ def upsert_notes(build_id: str, text: str, bearer: str) -> None:
 
 
 def wait_for_ready(bearer: str, minimum_build: int, deadline: float) -> tuple[dict, str]:
+    # minimum_build 0: wait for the newest upload to reach VALID.
+    # minimum_build N: wait until build N or newer is VALID (CI run_number after upload).
     while True:
         bearer = token()
         build = latest_build(bearer)
@@ -177,23 +179,30 @@ def wait_for_ready(bearer: str, minimum_build: int, deadline: float) -> tuple[di
             f"Latest build {attrs.get('version')} uploaded {attrs.get('uploadedDate')} "
             f"is {state}"
         )
-        if state == "FAILED" and number >= minimum_build:
-            raise SystemExit(f"Build {number} failed processing")
-        if number >= minimum_build and state == "VALID":
+        ready = state == "VALID" and (
+            minimum_build == 0 or number >= minimum_build
+        )
+        if ready:
             return build, bearer
+        if state == "FAILED" and (minimum_build == 0 or number >= minimum_build):
+            raise SystemExit(f"Build {number} failed processing")
         if time.time() >= deadline:
-            raise SystemExit(
-                f"Build {minimum_build} was not finished processing before the deadline"
+            target = (
+                "the newest upload"
+                if minimum_build == 0
+                else f"build {minimum_build} or newer"
             )
-        print(f"Waiting until build {minimum_build} or newer has finished processing.")
+            raise SystemExit(f"{target} was not finished processing before the deadline")
+        if minimum_build == 0:
+            print("Waiting until the newest upload has finished processing.")
+        else:
+            print(f"Waiting until build {minimum_build} or newer has finished processing.")
         time.sleep(30)
 
 
 def main() -> None:
     text = notes_text()
-    # Build 35 is the table-view chip upload. Wait until Apple has finished
-    # processing it (or a newer build) before writing the notes.
-    minimum_build = int(os.environ.get("MIN_BUILD", "35"))
+    minimum_build = int(os.environ.get("MIN_BUILD", "0"))
     deadline = time.time() + 20 * 60
     build, bearer = wait_for_ready(token(), minimum_build, deadline)
     upsert_notes(build["id"], text, bearer)

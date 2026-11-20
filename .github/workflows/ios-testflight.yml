@@ -4,8 +4,10 @@ name: iOS TestFlight Build
 # signs it, and uploads it to TestFlight.
 #
 # Trigger manually from the Actions tab. A push to main that changes
-# tools/appstore/what-to-test.txt posts those notes on the latest build
-# and does not upload a new binary. Checking "update_notes" does the same.
+# tools/appstore/what-to-test.txt alone posts those notes on the latest build
+# and does not upload a new binary. When a push also uploads a new binary,
+# notes are posted after the upload finishes (not in parallel). Checking
+# "update_notes" on a manual run posts notes only.
 # One-time setup (see
 # Mobile/ios-wrapper/README.md "TestFlight builds from CI"):
 #   - Apple Developer Program membership
@@ -74,7 +76,7 @@ jobs:
     needs: detect
     if: >-
       (github.event_name == 'workflow_dispatch' && inputs.update_notes == true) ||
-      (github.event_name == 'push' && needs.detect.outputs.notes == 'true')
+      (github.event_name == 'push' && needs.detect.outputs.notes == 'true' && needs.detect.outputs.app != 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -149,3 +151,33 @@ jobs:
           name: CinematicPoker-iOS
           path: Mobile/ios-wrapper/build/*.ipa
           if-no-files-found: ignore
+
+  post-notes-after-upload:
+    name: Post What to Test after upload
+    needs: [detect, build-and-upload]
+    if: >-
+      always() &&
+      needs.build-and-upload.result == 'success' &&
+      (
+        (github.event_name == 'push' && needs.detect.outputs.app == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.update_notes != true)
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install App Store Connect client
+        run: pip install PyJWT cryptography
+
+      - name: Post What to Test on this CI build
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          MIN_BUILD: ${{ github.run_number }}
+        run: python tools/appstore/testflight_notes.py
