@@ -395,7 +395,8 @@
         @ActorCardFragment
     }
 
-    @* "What would AI do?" — Maximilian, the card-counting pro. On your turn
+    @* "What would AI do?" — the table coach (Maximilian in the saloon,
+       Frankie Fast-Hand in the octagon). On your turn
        only the title button shows; his advice stays hidden until you tap it,
        so the read is never spoiled before you've asked for it. Tap again to
        put it away. It starts hidden again on every new turn. With another
@@ -405,7 +406,7 @@
     {
         <div class="ai-advice @(_adviceCollapsed ? "collapsed" : "")" @onclick="ToggleAdvice"
              title="Tap and @CoachDisplayName counts the cards and tells you what he'd do">
-            <img class="ai-advice-icon" src="img/ui/coach-face-128.png" alt="" aria-hidden="true" />
+            <img class="ai-advice-icon" src="@CoachAdviceIcon" alt="" aria-hidden="true" />
             <div class="ai-advice-plate">
                 <div class="ai-advice-title">POKER <span>COACH</span> ADVICE</div>
                 @if (!_adviceCollapsed && _advice != null)
