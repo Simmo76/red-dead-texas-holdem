@@ -240,6 +240,14 @@
                 {
                     <div class="victory-shot-status">@_shotStatus</div>
                 }
+                @if (CanReview)
+                {
+                    <button type="button" class="act ff review-hand cert-coach" @onclick="OpenCoachReview"
+                            @onclick:stopPropagation="true"
+                            title="Ask @CoachDisplayName what happened">
+                        Poker Coach Feedback
+                    </button>
+                }
             }
             else
             {
@@ -484,7 +492,9 @@
                 else
                 {
                     <div class="actionbar-right">
-                        @if (CanReview)
+                        @* The certificate covers this corner, so the coach
+                           control moves into that window under Export. *@
+                        @if (CanReview && !(_banner != null && _playerWonPot))
                         {
                             <button class="act ff review-hand" @onclick="OpenCoachReview"
                                     title="Ask @CoachDisplayName what happened">

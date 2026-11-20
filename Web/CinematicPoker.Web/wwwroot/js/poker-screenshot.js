@@ -59,6 +59,7 @@ window.pokerShot = (function () {
     return el.classList &&
       (el.classList.contains('victory-shot') ||
        el.classList.contains('victory-shot-status') ||
+       el.classList.contains('cert-coach') ||
        el.classList.contains('intro-overlay'));
   }
 
