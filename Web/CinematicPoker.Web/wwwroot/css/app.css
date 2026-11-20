@@ -1041,6 +1041,46 @@ html.scene-street.resume-play .boot-screen {
     color: #d8c9a0;
 }
 
+.cert-coach-label {
+    margin-top: 10px;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 2.5px;
+    color: #b89758;
+}
+
+.cert-coach-kicker {
+    margin-top: 4px;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    color: #e8c878;
+}
+
+.cert-coach-copy {
+    margin-top: 5px;
+    font-size: 14px;
+    line-height: 1.35;
+    letter-spacing: 0.5px;
+    color: #f0e6d0;
+    max-width: 36em;
+}
+
+.cert-coach-lesson {
+    margin-top: 6px;
+    font-size: 13px;
+    line-height: 1.35;
+    font-style: italic;
+    color: rgba(244, 239, 226, 0.88);
+    max-width: 36em;
+}
+
+.cert-coach-vote {
+    margin-top: 6px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: rgba(201, 162, 79, 0.85);
+}
+
 @keyframes victory-amount {
     0%, 100% { filter: brightness(1); }
     50% { filter: brightness(1.12); }

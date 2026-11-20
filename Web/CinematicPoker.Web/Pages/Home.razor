@@ -216,6 +216,7 @@
                         {
                             <div class="victory-carousel-slide victory-carousel-slide-active">
                                 @RenderVictoryBanner(
+                                    null,
                                     VictoryDisplayAmount,
                                     VictoryDisplayHoleCards,
                                     VictoryDisplayHeadline,
@@ -240,6 +241,7 @@
                                 <div class="victory-carousel-slide @VictorySlideClass(offset)"
                                      aria-hidden="@(offset != 0 ? "true" : "false")">
                                     @RenderVictoryBanner(
+                                        record,
                                         record.amount,
                                         holeCards,
                                         record.headline,
@@ -1266,6 +1268,11 @@
         public string headline;
         public string holeCards;
         public string boardCards;
+        public string coachHandId;
+        public string coachHeading;
+        public string coachWhyWon;
+        public string coachLesson;
+        public string coachUserFeedback;
     }
 
     // Table-win celebration: the chip count-up on the overlay and the
@@ -4949,6 +4956,7 @@
     }
 
     private RenderFragment RenderVictoryBanner(
+        VictoryWinRecord record,
         long? amount,
         IReadOnlyList<Card> holeCards,
         string headline,
@@ -5011,6 +5019,52 @@
         builder.AddContent(seq++, headline);
         builder.CloseElement();
 
+        string coachHeading = record?.coachHeading;
+        string coachWhyWon = record?.coachWhyWon;
+        string coachLesson = record?.coachLesson;
+        string coachUserFeedback = record?.coachUserFeedback;
+        if (record == null && ActiveVictoryRecord == null && _playerWonPot)
+        {
+            coachWhyWon = _coachReview?.WhyWon;
+            coachLesson = _coachReview?.Lesson;
+            coachHeading = _coachReview?.Heading;
+        }
+
+        if (!string.IsNullOrWhiteSpace(coachWhyWon)
+            || !string.IsNullOrWhiteSpace(coachLesson)
+            || !string.IsNullOrWhiteSpace(coachHeading))
+        {
+            builder.AddMarkupContent(seq++, "<div class=\"cert-coach-label\">POKER COACH</div>");
+            if (!string.IsNullOrWhiteSpace(coachHeading))
+            {
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "cert-coach-kicker");
+                builder.AddContent(seq++, coachHeading);
+                builder.CloseElement();
+            }
+            if (!string.IsNullOrWhiteSpace(coachWhyWon))
+            {
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "cert-coach-copy");
+                builder.AddContent(seq++, coachWhyWon);
+                builder.CloseElement();
+            }
+            if (!string.IsNullOrWhiteSpace(coachLesson))
+            {
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "cert-coach-lesson");
+                builder.AddContent(seq++, coachLesson);
+                builder.CloseElement();
+            }
+            if (!string.IsNullOrWhiteSpace(coachUserFeedback))
+            {
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "cert-coach-vote");
+                builder.AddContent(seq++, coachUserFeedback == "useful" ? "You marked this tip useful." : "You marked this tip unclear.");
+                builder.CloseElement();
+            }
+        }
+
         if (boardCards is { Count: > 0 })
         {
             builder.AddMarkupContent(seq++, "<div class=\"cert-board-label\">ON THE BOARD</div>");
@@ -5054,7 +5108,8 @@
                 builder.CloseElement();
             }
 
-            if (CanReview)
+            int coachHandNumber = record?.handNumber ?? (_game?.HandNumber ?? 0);
+            if (CanReviewVictory(coachHandNumber))
             {
                 builder.OpenElement(seq++, "button");
                 builder.AddAttribute(seq++, "type", "button");
@@ -5095,6 +5150,9 @@
         if (_winGallery.Count > MaxVictoryWins)
             _winGallery.RemoveRange(0, _winGallery.Count - MaxVictoryWins);
         _winGalleryIndex = _winGallery.Count - 1;
+        TryAttachCoachSnapshot(snap);
+        if (_coachReview != null)
+            ApplyCoachToVictoryRecord(snap, _coachReview);
         _ = PersistWinGallery();
     }
 

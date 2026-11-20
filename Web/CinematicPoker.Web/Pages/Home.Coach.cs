@@ -333,16 +333,25 @@ namespace CinematicPoker.Web.Pages
             if (!_coachPreview && _awaitingHuman && _banner == null) return;
 
             CompletedHandRecord hand = _coachPreview ? _coachPreviewHand : ReviewableHand;
+            if (!_coachPreview && _playerWonPot && ActiveVictoryRecord is { } victory)
+            {
+                CompletedHandRecord victoryHand = FindCoachHand(victory.handNumber);
+                if (victoryHand != null)
+                    hand = victoryHand;
+            }
             if (hand == null || !hand.Complete) return;
 
             _coachService ??= new HandReviewService();
             _coachShownHand = hand;
             FillFaces(hand);
             _coachReview = _coachService.Explain(hand);
+            if (_playerWonPot)
+                PersistVictoryCoachForHand(hand, _coachReview);
             _coachKeyOpen = false;
             _coachKeyTracked = false;
             _coachHighlight = false;
-            _coachFeedback = null;
+            VictoryWinRecord storedVictory = FindVictoryRecordForHand(hand);
+            _coachFeedback = storedVictory?.coachUserFeedback;
             _coachSceneReason = "";
             _coachModel = null;
             _coachClip = null;
@@ -381,6 +390,8 @@ namespace CinematicPoker.Web.Pages
             }
             if (!_coachFlow.IsCurrent(_coachRequest)) return;
             _coachReview = priced;
+            if (_playerWonPot)
+                PersistVictoryCoachForHand(hand, priced);
             string code = priced.KeyDecision?.ReasonCode;
             if (code == "equity_unavailable" || code == "cancelled")
             {
@@ -468,6 +479,8 @@ namespace CinematicPoker.Web.Pages
         {
             if (string.IsNullOrEmpty(code) || _coachFeedback != null) return;
             _coachFeedback = code;
+            if (_coachShownHand != null && _playerWonPot)
+                PersistVictoryCoachUserFeedback(_coachShownHand, code);
             _ = TrackCoach(CoachAnalytics.Feedback(
                 "local", _coachSessionId, NextSeq(), _coachShownHand?.HandId, code));
         }
@@ -704,6 +717,84 @@ namespace CinematicPoker.Web.Pages
                 if (hash == 0) hash = 1;
                 return hash;
             }
+        }
+
+        private bool CanReviewVictory(int handNumber) =>
+            !_isGuest
+            && !_coachPreview
+            && _coachMode != CoachMode.Off
+            && !_coachOpen
+            && FindCoachHand(handNumber) is { Complete: true };
+
+        private CompletedHandRecord FindCoachHand(int handNumber)
+        {
+            if (handNumber < 1) return null;
+            if (_coachRecorder?.LastFinished is { } last
+                && last.HandNumber == handNumber
+                && last.Complete)
+                return last;
+            IReadOnlyList<CompletedHandRecord> hands = _coachHistory.Hands;
+            for (int i = hands.Count - 1; i >= 0; i--)
+            {
+                CompletedHandRecord row = hands[i];
+                if (row != null && row.Complete && row.HandNumber == handNumber)
+                    return row;
+            }
+            return null;
+        }
+
+        private VictoryWinRecord FindVictoryRecordForHand(CompletedHandRecord hand)
+        {
+            if (hand == null) return null;
+            foreach (VictoryWinRecord row in _winGallery)
+            {
+                if (row.handNumber == hand.HandNumber)
+                    return row;
+            }
+            if (!string.IsNullOrEmpty(hand.HandId))
+            {
+                foreach (VictoryWinRecord row in _winGallery)
+                {
+                    if (hand.HandId == row.coachHandId)
+                        return row;
+                }
+            }
+            return null;
+        }
+
+        private static void ApplyCoachToVictoryRecord(VictoryWinRecord row, HandReview review)
+        {
+            if (row == null || review == null) return;
+            if (!string.IsNullOrEmpty(review.HandId))
+                row.coachHandId = review.HandId;
+            row.coachHeading = review.Heading ?? "";
+            row.coachWhyWon = review.WhyWon ?? "";
+            row.coachLesson = review.Lesson ?? "";
+        }
+
+        private void TryAttachCoachSnapshot(VictoryWinRecord snap)
+        {
+            CompletedHandRecord hand = FindCoachHand(snap.handNumber);
+            if (hand == null) return;
+            snap.coachHandId = hand.HandId;
+            _coachService ??= new HandReviewService();
+            ApplyCoachToVictoryRecord(snap, _coachService.Explain(hand));
+        }
+
+        private void PersistVictoryCoachForHand(CompletedHandRecord hand, HandReview review)
+        {
+            VictoryWinRecord row = FindVictoryRecordForHand(hand);
+            if (row == null || review == null) return;
+            ApplyCoachToVictoryRecord(row, review);
+            _ = PersistWinGallery();
+        }
+
+        private void PersistVictoryCoachUserFeedback(CompletedHandRecord hand, string code)
+        {
+            VictoryWinRecord row = FindVictoryRecordForHand(hand);
+            if (row == null) return;
+            row.coachUserFeedback = code;
+            _ = PersistWinGallery();
         }
 
         public void Dispose()
