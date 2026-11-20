@@ -208,9 +208,7 @@
                             disabled="@(!CanShowPreviousVictory)" aria-label="Previous win"
                             @onclick="ShowPreviousVictory" @onclick:stopPropagation="true">&#8249;</button>
                 }
-                <div class="victory-carousel-viewport victory-swipe-stage"
-                     @ontouchstart="OnVictoryTouchStart" @ontouchend="OnVictoryTouchEnd"
-                     @ontouchstart:stopPropagation @ontouchend:stopPropagation>
+                <div class="victory-carousel-viewport victory-swipe-stage">
                     <div class="victory-carousel-track" aria-live="polite">
                         @if (_winGallery.Count == 0)
                         {
@@ -1249,9 +1247,6 @@
     private const int MaxVictoryWins = 200;
     private readonly List<VictoryWinRecord> _winGallery = new();
     private int _winGalleryIndex;
-    private double? _victoryTouchStartX;
-    private double? _victoryTouchStartY;
-
     private sealed class VictoryWinRecord
     {
         public int version = 1;
@@ -5200,25 +5195,6 @@
         if (!CanShowNextVictory) return;
         _winGalleryIndex++;
         StateHasChanged();
-    }
-
-    private void OnVictoryTouchStart(TouchEventArgs e)
-    {
-        if (_winGallery.Count <= 1 || e.ChangedTouches.Length == 0) return;
-        _victoryTouchStartX = e.ChangedTouches[0].ClientX;
-        _victoryTouchStartY = e.ChangedTouches[0].ClientY;
-    }
-
-    private void OnVictoryTouchEnd(TouchEventArgs e)
-    {
-        if (_winGallery.Count <= 1 || _victoryTouchStartX == null || e.ChangedTouches.Length == 0) return;
-        double dx = e.ChangedTouches[0].ClientX - _victoryTouchStartX.Value;
-        double dy = e.ChangedTouches[0].ClientY - (_victoryTouchStartY ?? 0);
-        _victoryTouchStartX = null;
-        _victoryTouchStartY = null;
-        if (Math.Abs(dx) < 48 || Math.Abs(dx) < Math.Abs(dy) * 1.2) return;
-        if (dx > 0) ShowPreviousVictory();
-        else ShowNextVictory();
     }
 
     private async Task TakeVictoryScreenshot()
