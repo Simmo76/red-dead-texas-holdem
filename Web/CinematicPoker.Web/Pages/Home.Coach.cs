@@ -315,9 +315,11 @@ namespace CinematicPoker.Web.Pages
             if (!_coachPreview && _awaitingHuman && _banner == null) return;
 
             CompletedHandRecord hand = _coachPreview ? _coachPreviewHand : ReviewableHand;
+            // The certificate on screen is a specific win. Review that hand,
+            // not whichever saved hand happens to reuse its hand number.
             if (!_coachPreview && _playerWonPot && ActiveVictoryRecord is { } victory)
             {
-                CompletedHandRecord victoryHand = FindCoachHand(victory.handNumber);
+                CompletedHandRecord victoryHand = FindHandForVictory(victory);
                 if (victoryHand != null)
                     hand = victoryHand;
             }
@@ -690,52 +692,67 @@ namespace CinematicPoker.Web.Pages
             }
         }
 
-        private bool CanReviewVictory(int handNumber) =>
+        private bool CanReviewVictoryRecord(VictoryWinRecord record) =>
             !_isGuest
             && !_coachPreview
             && _coachMode != CoachMode.Off
             && !_coachOpen
-            && FindCoachHand(handNumber) is { Complete: true };
+            && FindHandForVictory(record) != null;
 
-        private CompletedHandRecord FindCoachHand(int handNumber)
+        private CompletedHandRecord FindHandForVictory(VictoryWinRecord snap)
         {
-            if (handNumber < 1) return null;
-            if (_coachRecorder?.LastFinished is { } last
-                && last.HandNumber == handNumber
-                && last.Complete)
-                return last;
-            IReadOnlyList<CompletedHandRecord> hands = _coachHistory.Hands;
-            for (int i = hands.Count - 1; i >= 0; i--)
-            {
-                CompletedHandRecord row = hands[i];
-                if (row != null && row.Complete && row.HandNumber == handNumber)
-                    return row;
-            }
-            return null;
+            if (snap == null) return null;
+            var candidates = new List<CompletedHandRecord>();
+            if (_coachRecorder?.LastFinished is { Complete: true } last)
+                candidates.Add(last);
+            foreach (CompletedHandRecord hand in _coachHistory.Hands)
+                candidates.Add(hand);
+            return VictoryCoachAlignment.FindMatchingHand(
+                snap.handNumber,
+                snap.coachHandId,
+                snap.holeCards,
+                snap.boardCards,
+                snap.headline,
+                candidates);
         }
 
         private VictoryWinRecord FindVictoryRecordForHand(CompletedHandRecord hand)
         {
             if (hand == null) return null;
+            if (_playerWonPot && ActiveVictoryRecord is { } active && VictoryRowMatchesHand(active, hand))
+                return active;
+            VictoryWinRecord found = null;
             foreach (VictoryWinRecord row in _winGallery)
             {
-                if (row.handNumber == hand.HandNumber)
-                    return row;
+                if (VictoryRowMatchesHand(row, hand))
+                    found = row;
             }
-            if (!string.IsNullOrEmpty(hand.HandId))
-            {
-                foreach (VictoryWinRecord row in _winGallery)
-                {
-                    if (hand.HandId == row.coachHandId)
-                        return row;
-                }
-            }
-            return null;
+            return found;
+        }
+
+        private static bool VictoryRowMatchesHand(VictoryWinRecord row, CompletedHandRecord hand)
+        {
+            if (row == null || hand == null || !hand.Complete) return false;
+            if (!VictoryCoachAlignment.HoleAndBoardMatch(row.holeCards, row.boardCards, hand))
+                return false;
+            if (row.handNumber != hand.HandNumber
+                && !VictoryCoachAlignment.SameHand(row.coachHandId, hand.HandId))
+                return false;
+            HandReview review = HandOutcomeExplainer.Build(hand);
+            return VictoryCoachAlignment.CopyAgrees(row.headline, review.Heading, review.WhyWon);
         }
 
         private static void ApplyCoachToVictoryRecord(VictoryWinRecord row, HandReview review)
         {
             if (row == null || review == null) return;
+            if (!VictoryCoachAlignment.CopyAgrees(row.headline, review.Heading, review.WhyWon))
+                return;
+            if (!string.IsNullOrEmpty(row.coachHandId)
+                && !string.IsNullOrEmpty(review.HandId)
+                && !VictoryCoachAlignment.SameHand(row.coachHandId, review.HandId)
+                && VictoryCoachAlignment.CopyAgrees(row.headline, row.coachHeading, row.coachWhyWon)
+                && !string.IsNullOrWhiteSpace(row.coachWhyWon))
+                return;
             if (!string.IsNullOrEmpty(review.HandId))
                 row.coachHandId = review.HandId;
             row.coachHeading = review.Heading ?? "";
@@ -745,11 +762,53 @@ namespace CinematicPoker.Web.Pages
 
         private void TryAttachCoachSnapshot(VictoryWinRecord snap)
         {
-            CompletedHandRecord hand = FindCoachHand(snap.handNumber);
+            CompletedHandRecord hand = FindHandForVictory(snap);
             if (hand == null) return;
-            snap.coachHandId = hand.HandId;
             _coachService ??= new HandReviewService();
             ApplyCoachToVictoryRecord(snap, _coachService.Explain(hand));
+        }
+
+        private void StampVictoryIdentity(VictoryWinRecord snap)
+        {
+            CompletedHandRecord last = _coachRecorder?.LastFinished;
+            if (last == null || !last.Complete || last.HandNumber != snap.handNumber) return;
+            if (!VictoryCoachAlignment.HoleAndBoardMatch(snap.holeCards, snap.boardCards, last)) return;
+            snap.coachHandId = last.HandId;
+        }
+
+        /// <summary>
+        /// Certificates already saved may carry a review from a different hand.
+        /// Replace that copy when the real hand is still on file, and drop it
+        /// when it contradicts the headline.
+        /// </summary>
+        private bool RepairVictoryCoachCopy()
+        {
+            bool changed = false;
+            foreach (VictoryWinRecord row in _winGallery)
+            {
+                if (row == null) continue;
+                if (VictoryCoachAlignment.CopyAgrees(row.headline, row.coachHeading, row.coachWhyWon))
+                    continue;
+                CompletedHandRecord hand = FindHandForVictory(row);
+                if (hand == null)
+                {
+                    row.coachHeading = "";
+                    row.coachWhyWon = "";
+                    row.coachLesson = "";
+                    row.coachUserFeedback = null;
+                    if (!string.IsNullOrEmpty(row.coachHandId))
+                        row.coachHandId = "";
+                    changed = true;
+                    continue;
+                }
+                string previous = row.coachWhyWon;
+                _coachService ??= new HandReviewService();
+                ApplyCoachToVictoryRecord(row, _coachService.Explain(hand));
+                if (!string.Equals(previous, row.coachWhyWon, StringComparison.Ordinal))
+                    row.coachUserFeedback = null;
+                changed = true;
+            }
+            return changed;
         }
 
         private void PersistVictoryCoachForHand(CompletedHandRecord hand, HandReview review)

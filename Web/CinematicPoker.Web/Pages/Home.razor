@@ -4393,6 +4393,8 @@
             }
             if (_winGallery.Count > 0)
                 _winGalleryIndex = _winGallery.Count - 1;
+            if (RepairVictoryCoachCopy())
+                await PersistWinGallery();
         }
         catch (JSException) { }
         catch (InvalidOperationException) { }
@@ -5071,6 +5073,14 @@
             coachLesson = _coachReview?.Lesson;
             coachHeading = _coachReview?.Heading;
         }
+        string coachHeadline = string.IsNullOrEmpty(record?.headline) ? headline : record.headline;
+        if (!VictoryCoachAlignment.CopyAgrees(coachHeadline, coachHeading, coachWhyWon))
+        {
+            coachHeading = "";
+            coachWhyWon = "";
+            coachLesson = "";
+            coachUserFeedback = null;
+        }
 
         builder.OpenElement(seq++, "div");
         builder.AddAttribute(seq++, "class", "cert-coach-slot");
@@ -5141,8 +5151,7 @@
         builder.AddAttribute(seq++, "class", "victory-cert-actions");
         if (isActive)
         {
-            int coachHandNumber = record?.handNumber ?? (_game?.HandNumber ?? 0);
-            bool showCoach = CanReviewVictory(coachHandNumber);
+            bool showCoach = record != null && CanReviewVictoryRecord(record);
             builder.OpenElement(seq++, "div");
             builder.AddAttribute(seq++, "class", "victory-cert-actions-row");
             builder.OpenElement(seq++, "button");
@@ -5198,16 +5207,37 @@
     private void RecordPlayerVictory(long humanPayout)
     {
         VictoryWinRecord snap = BuildVictorySnapshot(humanPayout);
-        if (_winGallery.Count > 0 && _winGallery[^1].handNumber == snap.handNumber)
+        StampVictoryIdentity(snap);
+        if (_winGallery.Count > 0 && IsSameVictory(_winGallery[^1], snap))
             return;
         _winGallery.Add(snap);
         if (_winGallery.Count > MaxVictoryWins)
             _winGallery.RemoveRange(0, _winGallery.Count - MaxVictoryWins);
         _winGalleryIndex = _winGallery.Count - 1;
         TryAttachCoachSnapshot(snap);
-        if (_coachReview != null)
+        // A review left open from an earlier hand stays in _coachReview after
+        // the panel closes. It belongs on this certificate only when it is
+        // the review of this same hand.
+        if (_coachReview != null && VictoryCoachAlignment.SameHand(snap.coachHandId, _coachReview.HandId))
             ApplyCoachToVictoryRecord(snap, _coachReview);
         _ = PersistWinGallery();
+    }
+
+    private static bool IsSameVictory(VictoryWinRecord existing, VictoryWinRecord snap)
+    {
+        if (existing == null || snap == null) return false;
+        if (VictoryCoachAlignment.SameHand(existing.coachHandId, snap.coachHandId))
+            return true;
+        if (existing.handNumber != snap.handNumber) return false;
+        if (!string.Equals(existing.holeCards ?? "", snap.holeCards ?? "", StringComparison.Ordinal))
+            return false;
+        if (!string.Equals(existing.boardCards ?? "", snap.boardCards ?? "", StringComparison.Ordinal))
+            return false;
+        if (!string.IsNullOrEmpty(existing.coachHandId)
+            && !string.IsNullOrEmpty(snap.coachHandId)
+            && !VictoryCoachAlignment.SameHand(existing.coachHandId, snap.coachHandId))
+            return false;
+        return true;
     }
 
     private VictoryWinRecord BuildVictorySnapshot(long humanPayout)
