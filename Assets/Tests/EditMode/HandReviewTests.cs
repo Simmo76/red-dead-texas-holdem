@@ -377,15 +377,31 @@ namespace CinematicPoker.Engine.Tests
         public async Task SidePotOmitsEv()
         {
             var source = new FixedEquitySource(0.9);
-            HeroDecisionSnapshot spot = CoachFixtures.PricedCall(200, 80);
-            spot.SidePotSpot = true;
-            var action = new AcceptedHeroAction { DecisionId = 1, Action = "call", AddedAmount = 80 };
+            HeroDecisionSnapshot spot = new HeroDecisionSnapshot
+            {
+                HeroSeat = 1,
+                HeroCommittedTotal = 50,
+                IncrementalCall = 50,
+                PotBefore = 150,
+                SidePotSpot = true,
+                ActiveOpponents = 1,
+                Street = CoachStreet.Flop,
+                BigBlind = 10,
+                Seats = new List<SeatPublicState>
+                {
+                    new SeatPublicState { Seat = 0, TotalCommitted = 100, Folded = false, AllIn = true },
+                    new SeatPublicState { Seat = 1, TotalCommitted = 50, Folded = false }
+                }
+            };
+            var action = new AcceptedHeroAction { DecisionId = 1, Action = "call", AddedAmount = 50 };
             DecisionAdvice advice = await new DecisionCoach(source).AnalyseAsync(spot, action, LessonKind.PricedCall, 1, CancellationToken.None);
             Assert.IsNull(advice.CallEv);
             Assert.IsNull(advice.BreakEvenEquity);
             Assert.IsNull(advice.EquityShare);
             Assert.AreEqual(0, source.Calls);
-            Assert.That(advice.Lesson, Does.Contain("side-pot"));
+            Assert.That(advice.Lesson, Does.Contain("One thing to try").IgnoreCase);
+            Assert.That(advice.Lesson, Does.Contain("main pot").IgnoreCase);
+            Assert.That(advice.PriceLine, Does.Contain("Main pot"));
         }
 
         [Test]
