@@ -572,14 +572,39 @@ html.scene-street.resume-play .boot-screen {
     box-shadow: inset 0 0 0 3px #1a3d24;
 }
 
+/* Top-right column: community cards, hole pair, then (while collapsed) the
+   current actor's window stacked beneath with a fixed gap so the two panels
+   never overlap. */
+.hud-hand-rail {
+    position: absolute;
+    top: calc(56px + env(safe-area-inset-top));
+    right: calc(18px + env(safe-area-inset-right));
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    z-index: 5;
+    max-width: min(100vw - 36px, 100%);
+    pointer-events: none;
+}
+
+.hud-hand-rail .hud-board,
+.hud-hand-rail .actor-card {
+    pointer-events: auto;
+}
+
+.hud-hand-rail .actor-card {
+    margin-left: 0;
+    order: unset;
+    flex-shrink: 0;
+}
+
 /* Community cards pinned top-right (player's pair beneath), so the whole
    hand reads without zooming. The window is always clickable (expand /
    minimise), so its outline carries the same gold pulse as the "click to
    expand" hint — only the border and glow animate, never the cards inside. */
 .hud-board {
-    position: absolute;
-    top: calc(56px + env(safe-area-inset-top));
-    right: calc(18px + env(safe-area-inset-right));
+    position: relative;
     display: flex;
     flex-direction: column;
     /* The pair hugs the right border, under the last board cards. */
@@ -589,7 +614,6 @@ html.scene-street.resume-play .boot-screen {
     background: rgba(8, 5, 3, 0.55);
     border: 1px solid rgba(216, 178, 92, 0.55);
     border-radius: 8px;
-    z-index: 5;
     cursor: pointer;
     animation: board-window-pulse 2s ease-in-out infinite;
 }
@@ -634,7 +658,6 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .hud-board.card-cue-active {
-    position: absolute;
     border: 2px solid #f3d35f;
     animation: card-window-pulse 1.7s ease-in-out infinite;
 }
@@ -661,9 +684,13 @@ html.scene-street.resume-play .boot-screen {
 
 /* Width grows down and to the left from the original top-right corner. */
 .hud-board.expanded {
-    top: calc(56px + env(safe-area-inset-top));
-    right: calc(18px + env(safe-area-inset-right));
     transform-origin: top right;
+}
+
+/* While enlarged, keep the panel inside the viewport above the bottom HUD. */
+.board-expanded-rail .hud-board.expanded {
+    max-height: min(calc(100dvh - 150px), calc(100vh - 150px));
+    overflow: visible;
 }
 
 /* The enlarged close-up owns the top-right corner: the meters already sit
@@ -899,7 +926,7 @@ html.scene-street.resume-play .boot-screen {
 /* The result now contains the winner's cards, hand name and board. Hide
    the duplicate card HUD and compare strip so the single result plaque
    reads cleanly, like the player's victory certificate. */
-.game3d.banner-opponent .hud-board,
+.game3d.banner-opponent .hud-hand-rail,
 .game3d.banner-opponent .showdown-layer {
     display: none;
 }
@@ -1095,7 +1122,7 @@ html.scene-street.resume-play .boot-screen {
    The green stack pill (name + chips) sits in the bottom-left, which the
    enlarged plaque covers — hide it until the certificate is dismissed. */
 .game3d.banner-victory .showdown-layer,
-.game3d.banner-victory .hud-board,
+.game3d.banner-victory .hud-hand-rail,
 .game3d.banner-victory .hud-stack {
     display: none;
 }
@@ -3035,11 +3062,11 @@ html.scene-street.resume-play .boot-screen {
     .hud-stack { font-size: 20px; padding: 7px 14px; }
     .hud-stack-icon { width: 20px; height: 20px; flex-basis: 20px; }
     /* Below the pot pill so the two never overlap on narrow screens. */
-    .hud-board { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 4px; padding: 4px 5px; }
+    .hud-hand-rail { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 6px; }
+    .hud-board { gap: 4px; padding: 4px 5px; }
     .hud-row { gap: 3px; }
     .hud-card { width: 38px; }
     /* 1.3x larger expanded panel, clamped so five cards never overflow a narrow screen. */
-    .hud-board.expanded { right: calc(10px + env(safe-area-inset-right)); }
     .hud-board.expanded .hud-row { gap: 2px; }
     .hud-board.expanded .hud-card { width: min(196px, calc((100vw - 40px) * 0.546), calc((100vw - 24px) / 5)); }
     .banner { font-size: 18px; top: 24%; }
@@ -3114,15 +3141,15 @@ html.scene-street.resume-play .boot-screen {
     .hud-stack-icon { width: 22px; height: 22px; flex-basis: 22px; }
     /* Default keeps the cards off whichever side iOS marks unsafe. Once we
        know the housing is on the left, the right edge can come in. */
-    .hud-board,
-    .hud-board.expanded { right: max(8px, env(safe-area-inset-right, 0px)); }
-    html.notch-left .hud-board,
-    html.notch-left .hud-board.expanded { right: 8px; }
-    .hud-board { top: 42px; gap: 4px; padding: 4px 5px; }
+    .hud-hand-rail { top: 42px; right: max(8px, env(safe-area-inset-right, 0px)); gap: 6px; }
+    html.notch-left .hud-hand-rail { right: 8px; }
+    .hud-board { gap: 4px; padding: 4px 5px; }
     .hud-card { width: 40px; }
     /* Enlarged: start below the (possibly wrapped) top-bar buttons at 1.3x
        the old close-up size; the last min() term keeps both rows on-screen. */
-    .hud-board.expanded { top: 42px; }
+    .board-expanded-rail .hud-board.expanded {
+        max-height: min(calc(100dvh - 120px), calc(100vh - 120px));
+    }
     .hud-board.expanded .hud-card {
         /* Never below the collapsed 40px, never past the viewport edges. */
         width: max(73px, min(246px, calc((100vw - 350px) * 0.546), calc((100vh - 230px) * 0.983), calc((100vh - 300px) * 0.936), calc((100vh - 85px) * 0.655)));
@@ -3227,7 +3254,7 @@ html.scene-street.resume-play .boot-screen {
 
 .game3d.coach-open .topbar-right,
 .game3d.coach-open .hud-meters,
-.game3d.coach-open .hud-board,
+.game3d.coach-open .hud-hand-rail,
 .game3d.coach-open .ai-advice,
 .game3d.coach-open .banner,
 .game3d.coach-open .victory-carousel,

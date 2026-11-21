@@ -115,6 +115,7 @@
            felt itself, so the floating card window stays out of its way. *@
         @if (!_overheadView)
         {
+        <div class="hud-hand-rail @(_hudBoardExpanded ? "board-expanded-rail" : "")">
         <div class="hud-board @(_hudBoardExpanded ? "expanded" : "") @(ShowCardWindowGlow ? "hint-active" : "")"
              @onclick="ToggleHudBoard" @onclick:stopPropagation="true">
                 <div class="hud-row hud-card-cue-row">
@@ -187,6 +188,13 @@
                         <img class="hud-card" src="@CardImage(card)" alt="" />
                     }
                 </div>
+            }
+        </div>
+            @* Pinned under the card panel on the right so it never stacks on
+               top of the board; the close-up moves the actor to hud-meters. *@
+            @if (HudActor != null && !_hudBoardExpanded)
+            {
+                @ActorCardFragment
             }
         </div>
         }
@@ -417,10 +425,6 @@
        the card is never lost entirely when the meters aren't rendered. *@
     @* The overhead plates already name the actor (gold border) with their
        stack and status, so the floating actor window would only cover them. *@
-    @if (HudActor != null && (!_hudBoardExpanded || Round == null) && !_overheadView)
-    {
-        @ActorCardFragment
-    }
 
     @* "What would AI do?" — the table coach (Maximilian in the saloon,
        Frankie Fast-Hand in the octagon). On your turn
@@ -4853,9 +4857,9 @@
     private PokerPlayer HudActor =>
         _game == null || _sessionOver ? null : _game.CurrentPlayer;
 
-    // The current actor's window has two homes: the bottom row normally,
-    // and the top-left meter column (under the pot pill) while the enlarged
-    // card close-up owns the right edge. Only rendered when HudActor != null.
+    // The current actor's window has two homes: the top-right hand rail
+    // (under the card panel) while collapsed, and the top-left meter column
+    // (under the pot pill) while the enlarged close-up owns the right edge.
     private RenderFragment ActorCardFragment => __builder =>
     {
         PokerPlayer actor = HudActor;
