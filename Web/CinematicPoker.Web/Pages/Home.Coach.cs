@@ -460,7 +460,17 @@ namespace CinematicPoker.Web.Pages
 
         public void SendCoachFeedback(string code)
         {
-            if (string.IsNullOrEmpty(code) || _coachFeedback != null) return;
+            if (string.IsNullOrEmpty(code))
+                return;
+
+            if (string.Equals(_coachFeedback, code, StringComparison.Ordinal))
+            {
+                _coachFeedback = null;
+                if (_coachShownHand != null && _playerWonPot)
+                    PersistVictoryCoachUserFeedback(_coachShownHand, null);
+                return;
+            }
+
             _coachFeedback = code;
             if (_coachShownHand != null && _playerWonPot)
                 PersistVictoryCoachUserFeedback(_coachShownHand, code);
