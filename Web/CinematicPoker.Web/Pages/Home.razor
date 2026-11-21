@@ -4633,7 +4633,10 @@
                 _handHasCompleted = false;
                 if (_sceneReady)
                 {
-                    try { _ = JS.InvokeVoidAsync("pokerScene.resetCamera"); }
+                    // Start-of-hand cinematic: resets the view exactly like
+                    // the old resetCamera call, then sweeps the camera once
+                    // around the table before settling back into the seat.
+                    try { _ = JS.InvokeVoidAsync("pokerScene.playHandIntro"); }
                     catch (JSException) { }
                 }
                 break;
