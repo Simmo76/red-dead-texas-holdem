@@ -229,7 +229,9 @@ namespace CinematicPoker.Engine.Coaching
             if (kind != LessonKind.TerminalAllInCall && kind != LessonKind.LargeCall && kind != LessonKind.PricedCall)
                 return FromSelection(Qualitative(spot, action, kind, NeutralLesson()));
 
-            if (spot.SidePotSpot || spot.ActiveOpponents < 1 || spot.IncrementalCall <= 0)
+            if (spot.SidePotSpot)
+                return SidePotAdvice(spot, action);
+            if (spot.ActiveOpponents < 1 || spot.IncrementalCall <= 0)
                 return SidePotAdvice(spot, action);
 
             string key = CacheKey(spot, action, seed, kind);
@@ -455,15 +457,87 @@ namespace CinematicPoker.Engine.Coaching
         private static DecisionAdvice SidePotAdvice(HeroDecisionSnapshot spot, AcceptedHeroAction action)
         {
             var advice = Blank(spot, action);
-            advice.ReasonCode = spot.ActiveOpponents < 1 ? "no_opponent" : "side_pot";
-            advice.Lesson = spot.ActiveOpponents < 1
-                ? "No one was left to call. There is no price to compare."
-                : "Someone is all-in for less, so this spot needs side-pot analysis. No exact price is shown.";
-            advice.Detail = advice.Lesson + " Equity and break-even are left blank on purpose.";
+            if (spot.ActiveOpponents < 1 || spot.IncrementalCall <= 0)
+            {
+                advice.ReasonCode = spot.ActiveOpponents < 1 ? "no_opponent" : "no_price";
+                advice.Lesson = spot.ActiveOpponents < 1
+                    ? "No one was left to call. There is no price to compare."
+                    : "No call price to compare on this action.";
+                advice.Detail = advice.Lesson;
+                advice.EquityShare = null;
+                advice.BreakEvenEquity = null;
+                advice.CallEv = null;
+                return advice;
+            }
+
+            SidePotCallPrice.Split split = SidePotCallPrice.Analyse(spot);
+            advice.ReasonCode = "side_pot";
+            if (split == null)
+            {
+                advice.Lesson =
+                    "One thing to try: a shorter stack is all-in — name the main-pot price and any side-pot price before you call.";
+                advice.Detail = advice.Lesson + " Full pot odds mix those slices when stacks differ.";
+            }
+            else
+            {
+                advice.Lesson = SidePotLesson(split, spot.IncrementalCall);
+                advice.PriceLine = SidePotPriceLine(split);
+                advice.Detail = SidePotDetail(split);
+            }
+
+            advice.Caveat = "Side-pot spots price each slice of your call, not one blended pot odds number.";
             advice.EquityShare = null;
             advice.BreakEvenEquity = null;
             advice.CallEv = null;
             return advice;
+        }
+
+        private static string SidePotLesson(SidePotCallPrice.Split split, long call)
+        {
+            if (split.CallToSidePot <= 0)
+            {
+                int mainPct = split.MainBreakEven.HasValue ? (int)System.Math.Round(split.MainBreakEven.Value * 100) : 0;
+                return "One thing to try: a shorter stack is all-in. Your " + call + "-chip call only contests the "
+                    + split.MainPotAmount + "-chip main pot"
+                    + (split.MainBreakEven.HasValue ? " — about " + mainPct + "% equity to break even there" : "")
+                    + ", with no new chips in a side pot.";
+            }
+
+            int main = split.MainBreakEven.HasValue ? (int)System.Math.Round(split.MainBreakEven.Value * 100) : 0;
+            int side = split.SideBreakEven.HasValue ? (int)System.Math.Round(split.SideBreakEven.Value * 100) : 0;
+            var lesson = "One thing to try: split the price. " + split.CallToMainPot + " of your " + call
+                + "-chip call goes to the main pot (" + split.MainPotAmount + " chips)";
+            if (split.MainBreakEven.HasValue)
+                lesson += " — about " + main + "% equity to break even on that slice";
+            lesson += ". The other " + split.CallToSidePot + " chips join a side pot";
+            if (split.SidePotAmount > 0)
+                lesson += " (" + split.SidePotAmount + " chips)";
+            if (split.SideBreakEven.HasValue)
+                lesson += " — about " + side + "% needed on that part";
+            lesson += ". Decide each slice on its own.";
+            return lesson;
+        }
+
+        private static string SidePotPriceLine(SidePotCallPrice.Split split)
+        {
+            if (split.CallToSidePot <= 0)
+                return "Main pot: " + split.MainPotAmount + " chips. Your call adds " + split.CallToMainPot
+                    + " chips there.";
+            return "Main pot: " + split.MainPotAmount + " chips (" + split.CallToMainPot + " from this call). Side pot: "
+                + split.SidePotAmount + " chips (" + split.CallToSidePot + " from this call).";
+        }
+
+        private static string SidePotDetail(SidePotCallPrice.Split split)
+        {
+            string main = split.MainBreakEven.HasValue
+                ? "Main slice break-even: " + (int)System.Math.Round(split.MainBreakEven.Value * 100) + "%."
+                : "Main slice break-even was not computed.";
+            if (split.CallToSidePot <= 0)
+                return main + " No side-pot chips are added by this call.";
+            string side = split.SideBreakEven.HasValue
+                ? " Side slice break-even: " + (int)System.Math.Round(split.SideBreakEven.Value * 100) + "%."
+                : "";
+            return main + side + " Showdown equity is not blended across pots.";
         }
 
         private static DecisionAdvice Cancelled(HeroDecisionSnapshot spot, AcceptedHeroAction action)
