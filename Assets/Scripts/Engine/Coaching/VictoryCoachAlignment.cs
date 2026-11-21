@@ -40,6 +40,11 @@ namespace CinematicPoker.Engine.Coaching
             bool hasCopy = !string.IsNullOrWhiteSpace(whyWon) || !string.IsNullOrWhiteSpace(heading);
             if (!hasCopy || string.IsNullOrWhiteSpace(headline)) return true;
 
+            if (whyWon != null
+                && whyWon.IndexOf("no winner is named", StringComparison.OrdinalIgnoreCase) >= 0
+                && HeadlineNamesPotWinner(headline))
+                return false;
+
             bool youWon = headline.StartsWith("YOU WON", StringComparison.Ordinal);
             bool theyHeading = heading != null && heading.IndexOf("THEY", StringComparison.Ordinal) >= 0;
             bool opponentWonLine = whyWon != null
@@ -130,6 +135,15 @@ namespace CinematicPoker.Engine.Coaching
             int beat = slice.IndexOf(" beat ", StringComparison.OrdinalIgnoreCase);
             if (beat >= 0) slice = slice.Substring(0, beat);
             return FirstCategory(slice);
+        }
+
+        private static bool HeadlineNamesPotWinner(string headline)
+        {
+            if (string.IsNullOrWhiteSpace(headline)) return false;
+            return headline.IndexOf("take the pot", StringComparison.OrdinalIgnoreCase) >= 0
+                || headline.IndexOf("takes the pot", StringComparison.OrdinalIgnoreCase) >= 0
+                || headline.StartsWith("YOU WON", StringComparison.Ordinal)
+                || headline.StartsWith("POT SPLIT", StringComparison.Ordinal);
         }
 
         private static string FirstCategory(string text)

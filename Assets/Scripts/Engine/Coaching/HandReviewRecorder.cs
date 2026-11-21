@@ -342,6 +342,7 @@ namespace CinematicPoker.Engine.Coaching
                     _current.EndingStacks[seat.Seat] = seat.Stack;
             }
             CopyNames(_current, names);
+            AwardLedgerBackfill.ApplyToHand(_current);
             _history.Remember(_current);
             LastFinished = _current;
         }

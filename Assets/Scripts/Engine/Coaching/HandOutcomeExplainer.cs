@@ -33,9 +33,10 @@ namespace CinematicPoker.Engine.Coaching
 
             review.Status = ReviewStatus.Ready;
             review.ChipDetail = ChipDetail(hand);
-            review.PotLines = PotLines(hand);
+            IReadOnlyList<PotAwardRecord> awards = AwardLedgerBackfill.Resolve(hand);
+            review.PotLines = PotLines(hand, awards);
 
-            if (hand.Awards == null || hand.Awards.Count == 0)
+            if (awards == null || awards.Count == 0)
             {
                 review.Status = ReviewStatus.Partial;
                 review.Heading = "WHAT HAPPENED";
@@ -44,14 +45,14 @@ namespace CinematicPoker.Engine.Coaching
                 return review;
             }
 
-            bool showdown = hand.Awards.Any(a => !a.ByFold) && !hand.WonByFolds && hand.FinalBoard != null && hand.FinalBoard.Count >= 5;
-            if (!showdown || hand.WonByFolds || hand.Awards.All(a => a.ByFold))
+            bool showdown = awards.Any(a => !a.ByFold) && !hand.WonByFolds && hand.FinalBoard != null && hand.FinalBoard.Count >= 5;
+            if (!showdown || hand.WonByFolds || awards.All(a => a.ByFold))
             {
-                BuildFoldResult(hand, review);
+                BuildFoldResult(hand, review, awards);
                 return review;
             }
 
-            BuildShowdown(hand, review);
+            BuildShowdown(hand, review, awards);
             return review;
         }
 
@@ -59,9 +60,10 @@ namespace CinematicPoker.Engine.Coaching
             CompletedHandRecord hand,
             HandReview review,
             Dictionary<int, HandValue> values,
-            Dictionary<int, List<Card>> fives)
+            Dictionary<int, List<Card>> fives,
+            IReadOnlyList<PotAwardRecord> awards)
         {
-            PotAwardRecord pot = Main(hand);
+            PotAwardRecord pot = Main(awards);
             int winner = -1;
             if (pot?.WinnerSeats != null)
             {
@@ -84,9 +86,9 @@ namespace CinematicPoker.Engine.Coaching
             review.WhyWon = "You folded. " + name + " won the pot at showdown.";
         }
 
-        private static void BuildFoldResult(CompletedHandRecord hand, HandReview review)
+        private static void BuildFoldResult(CompletedHandRecord hand, HandReview review, IReadOnlyList<PotAwardRecord> awards)
         {
-            PotAwardRecord pot = Main(hand);
+            PotAwardRecord pot = Main(awards);
             bool heroWon = pot != null && pot.WinnerSeats != null && pot.WinnerSeats.Contains(hand.HeroSeat);
             review.HighlightCodes = new List<string>();
             if (heroWon)
@@ -105,7 +107,7 @@ namespace CinematicPoker.Engine.Coaching
                 review.WhyWon = name + " collected the pot without a showdown. Strength is unknown.";
         }
 
-        private static void BuildShowdown(CompletedHandRecord hand, HandReview review)
+        private static void BuildShowdown(CompletedHandRecord hand, HandReview review, IReadOnlyList<PotAwardRecord> awards)
         {
             var values = new Dictionary<int, HandValue>();
             var fives = new Dictionary<int, List<Card>>();
@@ -121,38 +123,39 @@ namespace CinematicPoker.Engine.Coaching
 
             if (hand.HeroFolded && !values.ContainsKey(hand.HeroSeat))
             {
-                if (hand.Awards.Count > 1)
+                if (awards.Count > 1)
                 {
-                    BuildMultiPot(hand, review, values, fives);
+                    BuildMultiPot(hand, review, awards, values, fives);
                     review.Heading = "WHAT HAPPENED";
                     if (review.WhyWon != null && review.WhyWon.IndexOf("You folded", StringComparison.Ordinal) < 0)
                         review.WhyWon = "You folded. " + review.WhyWon;
                     return;
                 }
-                DescribeFoldedShowdown(hand, review, values, fives);
+                DescribeFoldedShowdown(hand, review, values, fives, awards);
                 return;
             }
 
-            if (hand.Awards.Count > 1)
+            if (awards.Count > 1)
             {
-                BuildMultiPot(hand, review, values, fives);
+                BuildMultiPot(hand, review, awards, values, fives);
                 return;
             }
 
-            PotAwardRecord pot = Main(hand);
+            PotAwardRecord pot = Main(awards);
             DescribePot(hand, review, pot, values, fives, solePot: true);
         }
 
         private static void BuildMultiPot(
             CompletedHandRecord hand,
             HandReview review,
+            IReadOnlyList<PotAwardRecord> awards,
             Dictionary<int, HandValue> values,
             Dictionary<int, List<Card>> fives)
         {
             bool heroWonAny = false;
             bool heroLostAny = false;
             var bits = new List<string>();
-            foreach (PotAwardRecord pot in hand.Awards.OrderBy(a => a.PotIndex))
+            foreach (PotAwardRecord pot in awards.OrderBy(a => a.PotIndex))
             {
                 bool heroWins = pot.WinnerSeats != null && pot.WinnerSeats.Contains(hand.HeroSeat);
                 bool sole = pot.WinnerSeats != null && pot.WinnerSeats.Count == 1;
@@ -168,8 +171,8 @@ namespace CinematicPoker.Engine.Coaching
                     ? "WHY YOU WON"
                     : heroLostAny ? "WHY THEY WON" : "HAND RESULT";
 
-            PotAwardRecord focus = hand.Awards.FirstOrDefault(a => a.WinnerSeats != null && !a.WinnerSeats.Contains(hand.HeroSeat))
-                ?? Main(hand);
+            PotAwardRecord focus = awards.FirstOrDefault(a => a.WinnerSeats != null && !a.WinnerSeats.Contains(hand.HeroSeat))
+                ?? Main(awards);
             review.HighlightCodes = HighlightsFor(hand, focus, values, fives);
             review.LessonKind = LessonKind.Neutral;
         }
@@ -322,11 +325,11 @@ namespace CinematicPoker.Engine.Coaching
             return winner + " won " + potName + theirCat + ".";
         }
 
-        private static List<string> PotLines(CompletedHandRecord hand)
+        private static List<string> PotLines(CompletedHandRecord hand, IReadOnlyList<PotAwardRecord> awards)
         {
             var lines = new List<string>();
-            if (hand.Awards == null) return lines;
-            foreach (PotAwardRecord pot in hand.Awards.OrderBy(a => a.PotIndex))
+            if (awards == null) return lines;
+            foreach (PotAwardRecord pot in awards.OrderBy(a => a.PotIndex))
             {
                 string name = pot.PotIndex == 0 ? "Main pot" : "Side pot";
                 string who = pot.WinnerSeats == null || pot.WinnerSeats.Count == 0
@@ -383,8 +386,8 @@ namespace CinematicPoker.Engine.Coaching
             return true;
         }
 
-        private static PotAwardRecord Main(CompletedHandRecord hand) =>
-            hand.Awards?.FirstOrDefault(a => a.PotIndex == 0) ?? hand.Awards?.FirstOrDefault();
+        private static PotAwardRecord Main(IReadOnlyList<PotAwardRecord> awards) =>
+            awards?.FirstOrDefault(a => a.PotIndex == 0) ?? awards?.FirstOrDefault();
 
         public static string SeatName(CompletedHandRecord hand, int seat)
         {

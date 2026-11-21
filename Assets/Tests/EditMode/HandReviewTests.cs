@@ -269,6 +269,26 @@ namespace CinematicPoker.Engine.Tests
             Assert.AreEqual("resumed", recorder.LastFinished.SessionId);
             Assert.AreEqual(recorder.LastFinished.HandId, recorder.LastCompleted.HandId);
             Assert.AreNotEqual(old.HandId, recorder.LastCompleted.HandId);
+            Assert.IsNotEmpty(recorder.LastFinished.Awards, "Fold wins must record who took the pot.");
+            HandReview review = new HandReviewService().Explain(recorder.LastFinished);
+            Assert.That(review.WhyWon, Does.Not.Contain("no winner is named"));
+        }
+
+        [Test]
+        public void StackChangesBackfillNamesFoldWinner()
+        {
+            var hand = new CompletedHandRecord
+            {
+                HandId = "backfill",
+                Complete = true,
+                HeroSeat = 0,
+                WonByFolds = true,
+                SeatNames = new Dictionary<int, string> { { 1, "Sam Six-Shot" } },
+                StackChanges = new Dictionary<int, long> { { 0, -50 }, { 1, 50 } }
+            };
+            HandReview review = new HandReviewService().Explain(hand);
+            Assert.That(review.WhyWon, Does.Contain("Sam Six-Shot"));
+            Assert.That(review.WhyWon, Does.Not.Contain("no winner is named"));
         }
 
         [Test]
