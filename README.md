@@ -30,6 +30,14 @@ cd Web/CinematicPoker.Web
 dotnet run          # then open the printed http://localhost:xxxx URL
 ```
 
+### Battery benchmarking (web vs iPhone app)
+
+A hidden battery test harness ships inside the game for comparing battery
+drain between the browser version and the Capacitor iPhone app on the same
+device. Open it with `?battery=1` on the URL, or tap the top-left corner of
+the screen 5 times (works inside the app, which has no URL bar). Protocol
+and interpretation: [`docs/battery-comparison.md`](docs/battery-comparison.md).
+
 ## Architecture
 
 The poker rules are a **pure C# library** with no Unity dependency — no MonoBehaviours, GameObjects, scenes, cameras, animation or UI. The Unity layer is presentation only and observes the engine through events.
