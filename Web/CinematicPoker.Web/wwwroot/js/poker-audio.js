@@ -348,6 +348,9 @@ window.pokerAudio = (function () {
     const INTRO_PART_SECONDS = 8;
     let introAudio = null;
     let introPlaying = false;
+    let introPartIndex = 0;
+    let introPartStartMs = 0;
+    let introPausedElapsed = 0;
 
     function stopIntroAudio() {
         if (introAudio) {
@@ -358,25 +361,44 @@ window.pokerAudio = (function () {
         introPlaying = false;
     }
 
+    function tickIntroFade(a) {
+        const fade = 0.9;
+        const t = (Date.now() - introPartStartMs) / 1000;
+        const vIn = Math.min(1, t / fade);
+        const vOut = Math.max(0, Math.min(1, (INTRO_PART_SECONDS - t) / fade));
+        a.volume = (channels.music ? 0.4 : 0) * Math.min(vIn, vOut);
+        if (t >= INTRO_PART_SECONDS) {
+            clearInterval(a._fadeTimer);
+            a._fadeTimer = null;
+            try { a.pause(); } catch (e) { }
+            playIntroPart(introPartIndex + 1);
+        }
+    }
+
+    function resumeIntroFade() {
+        if (!introPlaying || !introAudio) return;
+        const a = introAudio;
+        if (a._fadeTimer) return;
+        introPartStartMs = Date.now() - introPausedElapsed * 1000;
+        a._fadeTimer = setInterval(function () {
+            if (introAudio !== a) { clearInterval(a._fadeTimer); return; }
+            tickIntroFade(a);
+        }, 100);
+    }
+
     function playIntroPart(index) {
         if (index >= INTRO_PARTS.length) { stopIntroAudio(); startMusic(); return; }
+        introPartIndex = index;
+        introPausedElapsed = 0;
         const a = new Audio(INTRO_PARTS[index]);
         introAudio = a;
         a.volume = 0;
+        introPartStartMs = Date.now();
         const p = a.play();
         if (p) p.catch(function () { });
-        const fade = 0.9, t0 = Date.now();
         a._fadeTimer = setInterval(function () {
             if (introAudio !== a) { clearInterval(a._fadeTimer); return; }
-            const t = (Date.now() - t0) / 1000;
-            const vIn = Math.min(1, t / fade);
-            const vOut = Math.max(0, Math.min(1, (INTRO_PART_SECONDS - t) / fade));
-            a.volume = (channels.music ? 0.4 : 0) * Math.min(vIn, vOut);
-            if (t >= INTRO_PART_SECONDS) {
-                clearInterval(a._fadeTimer);
-                try { a.pause(); } catch (e) { }
-                playIntroPart(index + 1);
-            }
+            tickIntroFade(a);
         }, 100);
     }
 
@@ -487,6 +509,106 @@ window.pokerAudio = (function () {
         startSliderDrag();
     });
     document.addEventListener('pointercancel', stopSliderDrag);
+
+    // Table games (and most mobile games) pause audio when the app or tab is
+    // not in the foreground. Music/podcast apps are the exception; this table
+    // is interactive play, not passive listening.
+    let audioPausedByPage = false;
+    const bedsPausedByPage = { music: false, fading: false, ambience: false, intro: false };
+
+    function pauseShortClipsForPage() {
+        stopSliderDrag();
+        if (voiceSrc) {
+            try { voiceSrc.stop(); } catch (e) { }
+            voiceSrc = null;
+            voicePlaying = false;
+        }
+        if (dealerSrc) {
+            try { dealerSrc.onended = null; dealerSrc.stop(); } catch (e) { }
+            dealerSrc = null;
+            dealerPlaying = false;
+        }
+    }
+
+    function pauseBedsForPageHidden() {
+        bedsPausedByPage.music = false;
+        bedsPausedByPage.fading = false;
+        bedsPausedByPage.ambience = false;
+        bedsPausedByPage.intro = false;
+        if (music && !music.paused) {
+            try { music.pause(); bedsPausedByPage.music = true; } catch (e) { }
+        }
+        if (musicFadingOut && !musicFadingOut.paused) {
+            try { musicFadingOut.pause(); bedsPausedByPage.fading = true; } catch (e) { }
+        }
+        if (ambience && !ambience.paused) {
+            try { ambience.pause(); bedsPausedByPage.ambience = true; } catch (e) { }
+        }
+        if (introPlaying && introAudio) {
+            if (introAudio._fadeTimer) {
+                clearInterval(introAudio._fadeTimer);
+                introAudio._fadeTimer = null;
+            }
+            introPausedElapsed = (Date.now() - introPartStartMs) / 1000;
+            try { introAudio.pause(); bedsPausedByPage.intro = true; } catch (e) { }
+        }
+    }
+
+    function resumeBedsForPageVisible() {
+        if (bedsPausedByPage.intro && introPlaying && introAudio && channels.music) {
+            const p = introAudio.play();
+            if (p) p.catch(function () { });
+            resumeIntroFade();
+        }
+        if (bedsPausedByPage.ambience && ambience && channels.ambience) {
+            const p = ambience.play();
+            if (p) p.catch(function () { });
+        }
+        if (bedsPausedByPage.fading && musicFadingOut && channels.music) {
+            const p = musicFadingOut.play();
+            if (p) p.catch(function () { });
+        }
+        if (bedsPausedByPage.music && music && channels.music) {
+            const p = music.play();
+            if (p) p.catch(function () { });
+        }
+        bedsPausedByPage.music = false;
+        bedsPausedByPage.fading = false;
+        bedsPausedByPage.ambience = false;
+        bedsPausedByPage.intro = false;
+    }
+
+    function setPageAudioActive(active) {
+        if (active) {
+            if (!audioPausedByPage) return;
+            audioPausedByPage = false;
+            const c = ensureCtx();
+            if (c && c.state === 'suspended') {
+                const p = c.resume();
+                if (p) p.catch(function () { });
+            }
+            resumeBedsForPageVisible();
+            return;
+        }
+        if (audioPausedByPage) return;
+        audioPausedByPage = true;
+        pauseShortClipsForPage();
+        pauseBedsForPageHidden();
+        if (ctx && ctx.state === 'running') {
+            try {
+                const p = ctx.suspend();
+                if (p) p.catch(function () { });
+            } catch (e) { }
+        }
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        setPageAudioActive(!document.hidden);
+    });
+    window.addEventListener('pagehide', function () { setPageAudioActive(false); });
+    window.addEventListener('pageshow', function () {
+        if (!document.hidden) setPageAudioActive(true);
+    });
 
     // One dealer call — used for the player's winning-hand category at pot award.
     // Ignored until the first tap unlocks audio, same as SFX.
