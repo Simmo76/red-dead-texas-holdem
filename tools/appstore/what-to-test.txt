@@ -1,5 +1,6 @@
 What to test in this build:
 
+• Poker Coach on a win certificate must describe that win. "YOU WON — everyone folded" should say everyone folded. "YOU WON with three of a kind" should say three of a kind, not a straight or "WHY THEY WON / Their pair beat your pair." Swipe a few older wins and check the coach line against the headline.
 • Victory Gallery of Wins: win a pot and browse past certificates in a Cover Flow carousel. GALLERY OF WINS banner is at the top (half size). Certificate fills the rest of the screen to the bottom. Swipe left/right or use the large ‹ › buttons; counter shows position.
 • Each slide keeps its own Poker Coach text when you run feedback on that win. Export Certificate saves the full cert (coach, board, footer) for the active slide—not the export buttons.
 • No slow finger-drag on certificates—swipe only. While the victory screen is up, the pulsing “Tap NEXT HAND” hint on the bottom left should be gone.
