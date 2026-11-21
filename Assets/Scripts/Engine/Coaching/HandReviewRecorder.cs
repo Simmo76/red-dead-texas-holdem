@@ -342,23 +342,92 @@ namespace CinematicPoker.Engine.Coaching
                     _current.EndingStacks[seat.Seat] = seat.Stack;
             }
             CopyNames(_current, names);
+            BackfillShowdownReveals(round);
             AwardLedgerBackfill.ApplyToHand(_current);
             _history.Remember(_current);
             LastFinished = _current;
         }
 
+        /// <summary>
+        /// When <see cref="ShowdownStarted"/> never reached the recorder (for
+        /// example a hand rebuilt from a finished round), copy only players
+        /// still in the pot — never folded seats.
+        /// </summary>
+        private void BackfillShowdownReveals(PokerRound round)
+        {
+            if (round == null || _current == null || _current.WonByFolds) return;
+            if (_current.FinalBoard == null || _current.FinalBoard.Count < 5) return;
+
+            bool haveHero = false;
+            if (_current.RevealedHands != null)
+            {
+                foreach (RevealedHand shown in _current.RevealedHands)
+                {
+                    if (shown != null && shown.Seat == _heroSeat
+                        && shown.HoleCards != null && shown.HoleCards.Count == 2)
+                    {
+                        haveHero = true;
+                        break;
+                    }
+                }
+            }
+
+            if (haveHero && _current.RevealedHands.Count > 0) return;
+
+            foreach (SeatState seat in round.Seats)
+            {
+                if (seat.Folded || seat.HoleCards == null || seat.HoleCards.Count != 2) continue;
+                bool listed = false;
+                foreach (RevealedHand shown in _current.RevealedHands)
+                {
+                    if (shown != null && shown.Seat == seat.Seat)
+                    {
+                        listed = true;
+                        break;
+                    }
+                }
+                if (listed) continue;
+                _current.RevealedHands.Add(new RevealedHand
+                {
+                    Seat = seat.Seat,
+                    HoleCards = new List<Card>(seat.HoleCards)
+                });
+            }
+
+            EnsureHeroInRevealed();
+        }
+
+        private void EnsureHeroInRevealed()
+        {
+            if (_current.HeroHoleCards == null || _current.HeroHoleCards.Count != 2) return;
+            foreach (RevealedHand shown in _current.RevealedHands)
+            {
+                if (shown != null && shown.Seat == _heroSeat
+                    && shown.HoleCards != null && shown.HoleCards.Count == 2)
+                    return;
+            }
+            _current.RevealedHands.Add(new RevealedHand
+            {
+                Seat = _heroSeat,
+                HoleCards = new List<Card>(_current.HeroHoleCards)
+            });
+        }
+
         private void CopyRevealed(ShowdownStarted showdown)
         {
             _current.RevealedHands.Clear();
-            if (showdown.RevealedHands == null) return;
-            foreach (var kv in showdown.RevealedHands)
+            if (showdown.RevealedHands != null)
             {
-                _current.RevealedHands.Add(new RevealedHand
+                foreach (var kv in showdown.RevealedHands)
                 {
-                    Seat = kv.Key,
-                    HoleCards = kv.Value == null ? new List<Card>() : new List<Card>(kv.Value)
-                });
+                    _current.RevealedHands.Add(new RevealedHand
+                    {
+                        Seat = kv.Key,
+                        HoleCards = kv.Value == null ? new List<Card>() : new List<Card>(kv.Value)
+                    });
+                }
             }
+            EnsureHeroInRevealed();
         }
 
         private void CopyAward(PotAwarded award)

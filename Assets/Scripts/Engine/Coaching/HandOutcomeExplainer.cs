@@ -56,6 +56,22 @@ namespace CinematicPoker.Engine.Coaching
             return review;
         }
 
+        private static void ScoreShownHand(
+            CompletedHandRecord hand,
+            int seat,
+            IReadOnlyList<Card> hole,
+            Dictionary<int, HandValue> values,
+            Dictionary<int, List<Card>> fives)
+        {
+            if (seat < 0 || hole == null || hole.Count != 2) return;
+            if (hand.FinalBoard == null || hand.FinalBoard.Count < 5) return;
+            if (values.ContainsKey(seat)) return;
+            var all = new List<Card>(hole);
+            all.AddRange(hand.FinalBoard);
+            values[seat] = HandEvaluator.Evaluate(all);
+            fives[seat] = BestFiveCards.Select(all);
+        }
+
         private static void DescribeFoldedShowdown(
             CompletedHandRecord hand,
             HandReview review,
@@ -111,15 +127,16 @@ namespace CinematicPoker.Engine.Coaching
         {
             var values = new Dictionary<int, HandValue>();
             var fives = new Dictionary<int, List<Card>>();
-            foreach (RevealedHand shown in hand.RevealedHands)
+            if (hand.RevealedHands != null)
             {
-                if (shown.HoleCards == null || shown.HoleCards.Count != 2) continue;
-                if (hand.FinalBoard == null || hand.FinalBoard.Count < 5) continue;
-                var all = new List<Card>(shown.HoleCards);
-                all.AddRange(hand.FinalBoard);
-                values[shown.Seat] = HandEvaluator.Evaluate(all);
-                fives[shown.Seat] = BestFiveCards.Select(all);
+                foreach (RevealedHand shown in hand.RevealedHands)
+                    ScoreShownHand(hand, shown?.Seat ?? -1, shown?.HoleCards, values, fives);
             }
+            // Hero hole cards are always recorded from CardDealt; the showdown
+            // ledger can omit the hero when the recorder only saw stack deltas.
+            // Do not score a folded hero — the review should say they folded.
+            if (!hand.HeroFolded)
+                ScoreShownHand(hand, hand.HeroSeat, hand.HeroHoleCards, values, fives);
 
             if (hand.HeroFolded && !values.ContainsKey(hand.HeroSeat))
             {
