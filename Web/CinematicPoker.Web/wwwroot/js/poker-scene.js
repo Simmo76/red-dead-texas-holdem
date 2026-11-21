@@ -6,9 +6,10 @@
 // The player is always a random outfit of David Grette's Jacob cowboy.
 // NPC seats draw from Jacob outfits plus the Sheriff, Bandit and Cowboy Girl
 // characters from the same Western series (baked web GLBs; see
-// tools/bake_western_npc.py and tools/bake_cowgirl_npc.py). A distinct female
-// frontier brawler visits from the street cast so both rooms always seat at
-// least two women. No character model ever sits twice at the same table: each
+// tools/bake_western_npc.py and tools/bake_cowgirl_npc.py). The octagon scene
+// always seats two distinct female fighters; the saloon keeps Cowboy Girl as
+// its only woman so the western room never imports arcade bodies. No character
+// model ever sits twice at the same table: each
 // special body takes at most one chair, Jacob seats each wear a different
 // outfit look, and the girl deals a random skin tone each game
 // (GIRL_SKIN_TONES).
@@ -44,8 +45,8 @@ import { createCoachController } from './coach-scene.js?v=8';
 // device):
 //   tier 0  full quality (default)
 //   tier 1  no antialiasing, no shadows, reduced render resolution
-//   tier 2  tier 1 + reduced saloon cast (skips Sheriff/Bandit but keeps both
-//           distinct women), one distinct body/look per seat — the saloon GLB
+//   tier 2  tier 1 + reduced saloon cast (skips Sheriff/Bandit but keeps the
+//           Cowboy Girl), one distinct body/look per seat — the saloon GLB
 //           still loads; alternate backdrops are disabled
 //
 // The penalty is not forever: after enough consecutive clean visits at a
@@ -166,7 +167,7 @@ document.addEventListener('visibilitychange', () => setBootFlag(!document.hidden
 window.addEventListener('pagehide', () => setBootFlag(false));
 
 const GFX_LITE = GFX_TIER >= 1;       // no MSAA / shadows, smaller backbuffer
-const GFX_ULTRA_LITE = GFX_TIER >= 2; // + reduced cast; both distinct women remain
+const GFX_ULTRA_LITE = GFX_TIER >= 2; // + reduced cast; Cowboy Girl remains
 
 // Touch-first devices (phones/tablets) are viewed at arm's length, so they
 // take a lower backbuffer cap than desktop — ~23% fewer shaded pixels, a
@@ -230,11 +231,6 @@ const FIGHTER_URLS = [
   'models/characters/street/Fighter1-variation.glb?v=3',
   'models/characters/street/Fighter2-variation.glb?v=3',
 ];
-// The saloon's western packs contain only one female body. Reuse one distinct
-// generated fighter as a visiting frontier brawler rather than cloning the
-// Cowboy Girl model; this preserves both the two-women minimum and the
-// no-duplicate-model rule.
-const SALOON_FEMALE_GUEST_URL = 'models/characters/street/FemaleFighter2.glb?v=1';
 const TABLE_SCENE_KEY = 'cinematic-poker-table-scene';
 
 function readTableScene() {
@@ -284,7 +280,15 @@ function saloonLookWithHat(look, i) {
 }
 
 function isFemaleSaloonKind(kind) {
-  return kind === 'girl' || kind === 'femaleGuest';
+  return kind === 'girl';
+}
+
+// Older sessions stored a street fighter as a saloon guest; map that seat to
+// a Jacob look so a refresh drops the arcade body without breaking the cast.
+function migrateSaloonPick(pick, seatIndex) {
+  if (!pick || pick.kind !== 'femaleGuest') return pick;
+  const look = WESTERN_LOOKS[seatIndex % WESTERN_LOOKS.length];
+  return { kind: 'jacob', look: saloonLookWithHat(look, seatIndex) };
 }
 
 function buildSaloonLineup() {
@@ -294,10 +298,7 @@ function buildSaloonLineup() {
   })));
   const playerPick = jacobPool[0];
   const girlTone = shuffle([...GIRL_SKIN_TONES])[0];
-  const femaleNpcs = [
-    { kind: 'girl', look: null, skinTone: girlTone },
-    { kind: 'femaleGuest', look: null },
-  ];
+  const femaleNpcs = [{ kind: 'girl', look: null, skinTone: girlTone }];
   const specialNpcs = GFX_ULTRA_LITE
     ? femaleNpcs
     : [{ kind: 'sheriff', look: null }, { kind: 'bandit', look: null }, ...femaleNpcs];
@@ -339,6 +340,20 @@ function assignUniqueFighterModels(lineup) {
       out[swap].model = t;
     }
   }
+  let femaleNpc = out.slice(1).filter((p) => femaleFighterModel(p.model)).length;
+  if (femaleNpc < 2) {
+    const used = new Set(out.map((p) => p.model));
+    const femalePool = FIGHTER_URLS.map((_, i) => i).filter((i) => femaleFighterModel(i));
+    for (let i = 1; i < out.length && femaleNpc < 2; i++) {
+      if (femaleFighterModel(out[i].model)) continue;
+      const free = femalePool.find((m) => !used.has(m));
+      if (free === undefined) break;
+      used.delete(out[i].model);
+      out[i] = { kind: 'fighter', look: null, model: free };
+      used.add(free);
+      femaleNpc++;
+    }
+  }
   return out;
 }
 
@@ -361,7 +376,7 @@ function deriveSaloonFromStreet(streetLineup) {
       if (!lineup.some((p) => p.kind === 'girl')) {
         lineup.push({ kind: 'girl', look: null, skinTone: girlTone });
       } else {
-        lineup.push({ kind: 'femaleGuest', look: null });
+        lineup.push(jacobLooks[(i + streetLineup[i].model) % jacobLooks.length]);
       }
     } else if (!GFX_ULTRA_LITE && !lineup.some((p) => p.kind === 'sheriff')) {
       lineup.push({ kind: 'sheriff', look: null });
@@ -412,7 +427,10 @@ function lockTableCast() {
 
 function resolveTableLineup(streetScene) {
   const locked = readTableCast();
-  if (locked) return streetScene ? locked.street : locked.saloon;
+  if (locked) {
+    if (streetScene) return locked.street;
+    return locked.saloon.map((pick, i) => migrateSaloonPick(pick, i));
+  }
   return streetScene ? buildStreetLineupFresh() : buildSaloonLineup();
 }
 
@@ -2376,16 +2394,14 @@ async function buildScene(canvas) {
   state.seats = [];
   const charPromises = [];
 
-  // Saloon: Jacob plus the Sheriff, Bandit, Cowboy Girl and a distinct female
-  // frontier brawler — each model at most once and at least two women.
+  // Saloon: Jacob plus the Sheriff, Bandit and Cowboy Girl (western bodies only).
   // Street: six distinct arcade fighters, including two distinct women.
-  // Ultra-lite saloon skips Sheriff/Bandit but retains both women.
+  // Ultra-lite saloon skips Sheriff/Bandit but keeps the Cowboy Girl.
   const streetScene = TABLE_SCENE === 'street';
   const jacobModel = streetScene ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Jacob.glb?v=3');
   const sheriffModel = (streetScene || GFX_ULTRA_LITE) ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Sheriff.glb?v=10');
   const banditModel = (streetScene || GFX_ULTRA_LITE) ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/Bandit.glb?v=10');
   const girlModel = streetScene ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/CowboyGirl.glb?v=1');
-  const femaleGuestModel = streetScene ? Promise.resolve(null) : loadGlb(loader, SALOON_FEMALE_GUEST_URL);
   const mightyCatModel = streetScene ? Promise.resolve(null) : loadGlb(loader, 'models/characters/western/mighty-cat.glb?v=9');
   jacobModel.then((g) => { state.jacobGltf = g; });
   banditModel.then((g) => { state.banditGltf = g; });
@@ -2399,9 +2415,12 @@ async function buildScene(canvas) {
   }
   const lineup = resolveTableLineup(streetScene);
   const femaleSeats = lineup.filter((pick) =>
-    pick.kind === 'girl' || pick.kind === 'femaleGuest'
+    pick.kind === 'girl'
       || (pick.kind === 'fighter' && femaleFighterModel(pick.model))).length;
-  if (femaleSeats < 2) throw new Error(`table lineup requires two women; got ${femaleSeats}`);
+  const minWomen = streetScene ? 2 : 1;
+  if (femaleSeats < minWomen) {
+    throw new Error(`table lineup requires ${minWomen} women; got ${femaleSeats}`);
+  }
 
   // Position a seated character at seat i: face the table and plant the
   // idle's hands on the felt. The thinking clip holds the palms at lap
@@ -2562,12 +2581,12 @@ async function buildScene(canvas) {
       seat.chair = chair;
     }
 
-    // Seat 0 is always Jacob; NPC seats may be Jacob, Sheriff, Bandit,
-    // Cowboy Girl or the visiting female brawler. Hats are tinted in the
+    // Seat 0 is always Jacob; NPC seats may be Jacob, Sheriff, Bandit or
+    // Cowboy Girl. Hats are tinted in the
     // seat's accent colour (the HUD paints that player's name in the same
     // colour).
     const pick = lineup[i];
-    const fighterRig = pick.kind === 'fighter' || pick.kind === 'femaleGuest';
+    const fighterRig = pick.kind === 'fighter';
     const spec = {
       look: pick.look, cards: i === 0,
       scale: fighterRig ? FIGHTER_SCALE : WESTERN_SCALE,
@@ -2575,22 +2594,20 @@ async function buildScene(canvas) {
       skinTone: pick.skinTone || null
     };
     charPromises.push(Promise.all([
-      jacobModel, sheriffModel, banditModel, girlModel, femaleGuestModel, mightyCatModel, idleDeal,
+      jacobModel, sheriffModel, banditModel, girlModel, mightyCatModel, idleDeal,
       ...(streetScene ? fighterModels : [])
     ]).then((loaded) => {
       const jacob = loaded[0];
       const sheriff = loaded[1];
       const bandit = loaded[2];
       const girl = loaded[3];
-      const femaleGuest = loaded[4];
-      const mc = loaded[5];
-      const deal = loaded[6];
-      const fighters = loaded.slice(7);
+      const mc = loaded[4];
+      const deal = loaded[5];
+      const fighters = loaded.slice(6);
       spec.idleName = deal[i];
       const gltf = pick.kind === 'sheriff' ? sheriff
         : pick.kind === 'bandit' ? bandit
         : pick.kind === 'girl' ? girl
-        : pick.kind === 'femaleGuest' ? femaleGuest
         : pick.kind === 'fighter' ? fighters[pick.model]
         : jacob;
       // Fighters carry the retargeted poker catalogue on their own bones.
