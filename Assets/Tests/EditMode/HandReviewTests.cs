@@ -512,6 +512,19 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void ShowdownNamesHeroFromHoleCardsWhenRevealsOmitThem()
+        {
+            CompletedHandRecord hand = CoachFixtures.Kicker();
+            hand.RevealedHands = new List<RevealedHand>
+            {
+                new RevealedHand { Seat = 1, HoleCards = new List<Card> { Card.Parse("Ah"), Card.Parse("Kc") } }
+            };
+            HandReview review = new HandReviewService().Explain(hand);
+            Assert.That(review.WhyWon, Does.Not.Contain("saved record"));
+            Assert.That(review.WhyWon, Does.Contain("kicker"));
+        }
+
+        [Test]
         public void WheelIsNamedFromTheEvaluator()
         {
             var hand = CoachFixtures.Kicker();
