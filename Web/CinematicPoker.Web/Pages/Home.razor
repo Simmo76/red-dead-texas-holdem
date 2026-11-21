@@ -4863,14 +4863,15 @@
     private RenderFragment ActorCardFragment => __builder =>
     {
         PokerPlayer actor = HudActor;
-        string role = HudActorRole;
+        string roleChip = HudActorRoleChip;
+        string roleLabel = HudActorRoleLabel;
         string status = HudActorStatusLine;
         <div class="actor-card @(actor.IsHuman ? "you" : "") @(ShownOut(actor.Seat) ? "out" : "")">
             <div class="actor-name" style="color:@SeatColor(actor.Seat)">
                 @DisplayName(actor)
-                @if (!string.IsNullOrEmpty(role))
+                @if (!string.IsNullOrEmpty(roleChip))
                 {
-                    <span class="actor-role">@role</span>
+                    <img class="actor-role" src="@roleChip" alt="@roleLabel" />
                 }
             </div>
             <div class="actor-stack">
@@ -4883,18 +4884,27 @@
         </div>
     };
 
-    private string HudActorRole
+    private string HudActorRoleChip
     {
         get
         {
             if (HudActor == null || Round == null) return null;
             int seat = HudActor.Seat;
-            if (seat == Round.DealerSeat) return "dealer";
-            if (seat == Round.SmallBlindSeat) return "sb";
-            if (seat == Round.BigBlindSeat) return "bb";
+            if (seat == Round.DealerSeat) return "img/ui/chip-dealer.png";
+            if (seat == Round.SmallBlindSeat) return "img/ui/chip-small-blind.png";
+            if (seat == Round.BigBlindSeat) return "img/ui/chip-big-blind.png";
             return null;
         }
     }
+
+    private string HudActorRoleLabel =>
+        HudActorRoleChip switch
+        {
+            "img/ui/chip-dealer.png" => "Dealer",
+            "img/ui/chip-small-blind.png" => "Small blind",
+            "img/ui/chip-big-blind.png" => "Big blind",
+            _ => ""
+        };
 
     private string HudActorStatusLine
     {
