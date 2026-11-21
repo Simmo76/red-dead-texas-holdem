@@ -813,7 +813,7 @@ const PLATE_H = 192;
 
 // Dealer / blind marks on the overhead plates. The old suffix was a text
 // "sb" / "bb" or a ◈; each is now the matching chip, drawn on the name row.
-const ROLE_CHIP = 92;
+const ROLE_CHIP = Math.round(92 * 1.2);
 const ROLE_GAP = 12;
 const roleChips = {
   dealer: new Image(),
@@ -895,7 +895,8 @@ function drawLabel(label, seat) {
     ctx.fillText(name, groupX, 78, drawNameW);
     const muted = seat.out || seat.folded;
     if (muted) { ctx.save(); ctx.globalAlpha = 0.45; }
-    ctx.drawImage(chip, groupX + drawNameW + ROLE_GAP, 14, ROLE_CHIP, ROLE_CHIP);
+    const roleChipY = 14 - (ROLE_CHIP - 92) / 2;
+    ctx.drawImage(chip, groupX + drawNameW + ROLE_GAP, roleChipY, ROLE_CHIP, ROLE_CHIP);
     if (muted) ctx.restore();
   } else {
     ctx.textAlign = 'center';
@@ -1090,8 +1091,8 @@ function makeChipStacks(amount, spread = 0.05) {
 // felt beside its player's cards for the whole hand and slides across the
 // table when the deal passes on. (They used to leave at the flop, but pucks
 // blinking in and out mid-hand read as a rendering glitch.)
-const BUTTON_RADIUS = 0.08;
-const BUTTON_HEIGHT = 0.02;
+const BUTTON_RADIUS = 0.08 * 1.2;
+const BUTTON_HEIGHT = 0.02 * 1.2;
 
 function buttonFaceTexture(lines, bg, fg) {
   const c = document.createElement('canvas');
