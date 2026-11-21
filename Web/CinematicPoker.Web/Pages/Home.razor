@@ -1030,13 +1030,7 @@
                 }
                 <div class="coach-tools">
                     <button type="button" class="@(_coachHighlight ? "active" : null)" aria-pressed="@_coachHighlight" @onclick="ToggleCoachHighlights">@(_coachHighlight ? "HIGHLIGHT ON" : "HIGHLIGHT WINNING CARDS")</button>
-                    <button type="button" class="@(_coachFeedback == "useful" ? "active" : null)" @onclick='() => SendCoachFeedback("useful")'>USEFUL</button>
-                    <button type="button" class="@(_coachFeedback == "unclear" ? "active" : null)" @onclick='() => SendCoachFeedback("unclear")'>UNCLEAR</button>
                 </div>
-                @if (_coachFeedback != null)
-                {
-                    <p class="coach-note">@(_coachFeedback == "useful" ? "Marked useful." : "Marked unclear.")</p>
-                }
                 @if (_coach3dOk == false && _coachSceneReason == "shared-table")
                 {
                     <p class="coach-note">This review stays on the card while friends are at the table.</p>
@@ -1264,7 +1258,6 @@
         public string coachHeading;
         public string coachWhyWon;
         public string coachLesson;
-        public string coachUserFeedback;
     }
 
     // Table-win celebration: the chip count-up on the overlay and the
@@ -5066,7 +5059,6 @@
         string coachHeading = record?.coachHeading;
         string coachWhyWon = record?.coachWhyWon;
         string coachLesson = record?.coachLesson;
-        string coachUserFeedback = record?.coachUserFeedback;
         if (record == null && ActiveVictoryRecord == null && _playerWonPot)
         {
             coachWhyWon = _coachReview?.WhyWon;
@@ -5079,7 +5071,6 @@
             coachHeading = "";
             coachWhyWon = "";
             coachLesson = "";
-            coachUserFeedback = null;
         }
 
         builder.OpenElement(seq++, "div");
@@ -5108,13 +5099,6 @@
                 builder.OpenElement(seq++, "div");
                 builder.AddAttribute(seq++, "class", "cert-coach-lesson");
                 builder.AddContent(seq++, coachLesson);
-                builder.CloseElement();
-            }
-            if (!string.IsNullOrWhiteSpace(coachUserFeedback))
-            {
-                builder.OpenElement(seq++, "div");
-                builder.AddAttribute(seq++, "class", "cert-coach-vote");
-                builder.AddContent(seq++, coachUserFeedback == "useful" ? "You marked this tip useful." : "You marked this tip unclear.");
                 builder.CloseElement();
             }
         }
