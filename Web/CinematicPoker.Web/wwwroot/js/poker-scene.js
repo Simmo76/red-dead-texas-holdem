@@ -12,8 +12,9 @@
 // special body takes at most one chair, Jacob seats each wear a different
 // outfit look, and the girl deals a random skin tone each game
 // (GIRL_SKIN_TONES).
-// Every fresh deal reshuffles the NPC bodies to new random chairs
-// (state.reseatNpcs); only the human player keeps seat 0.
+// Each seat keeps the same body, name colour and chair for the whole
+// session. Switching saloon ↔ octagon reloads only the meshes; names and
+// positions stay put (cinematic-poker-table-cast-v1 in sessionStorage).
 // Check/bet/fold and all table mood idles (sit/observe/hold-cards/win/lose)
 // share one biped catalogue: Sheriff and Bandit GLBs are re-framed onto
 // Jacob's bone axes (tools/retarget_western_biped.mjs), and the girl onto his
@@ -248,6 +249,171 @@ function writeTableScene(id) {
   const next = id === 'street' ? 'street' : 'saloon';
   try { localStorage.setItem(TABLE_SCENE_KEY, next); } catch (e) { }
   return next;
+}
+
+const TABLE_CAST_KEY = 'cinematic-poker-table-cast-v1';
+
+function femaleFighterModel(modelIdx) {
+  return /FemaleFighter/.test(FIGHTER_URLS[modelIdx]);
+}
+
+function readTableCast() {
+  try {
+    const raw = sessionStorage.getItem(TABLE_CAST_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || data.version !== 1) return null;
+    if (!Array.isArray(data.saloon) || !Array.isArray(data.street)) return null;
+    if (data.saloon.length !== SEATS || data.street.length !== SEATS) return null;
+    return data;
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeTableCast(cast) {
+  try { sessionStorage.setItem(TABLE_CAST_KEY, JSON.stringify(cast)); } catch (e) { /* private mode */ }
+}
+
+function clearTableCast() {
+  try { sessionStorage.removeItem(TABLE_CAST_KEY); } catch (e) { /* private mode */ }
+}
+
+function saloonLookWithHat(look, i) {
+  return look.hat ? look : { ...look, hat: 1 + (i % 2), hair: 'cut' };
+}
+
+function isFemaleSaloonKind(kind) {
+  return kind === 'girl' || kind === 'femaleGuest';
+}
+
+function buildSaloonLineup() {
+  const jacobPool = shuffle(WESTERN_LOOKS.map((look, i) => ({
+    kind: 'jacob',
+    look: saloonLookWithHat(look, i),
+  })));
+  const playerPick = jacobPool[0];
+  const girlTone = shuffle([...GIRL_SKIN_TONES])[0];
+  const femaleNpcs = [
+    { kind: 'girl', look: null, skinTone: girlTone },
+    { kind: 'femaleGuest', look: null },
+  ];
+  const specialNpcs = GFX_ULTRA_LITE
+    ? femaleNpcs
+    : [{ kind: 'sheriff', look: null }, { kind: 'bandit', look: null }, ...femaleNpcs];
+  const npcJacob = jacobPool.slice(1, 1 + (SEATS - 1 - specialNpcs.length));
+  const npcPool = shuffle([...npcJacob, ...specialNpcs]);
+  return [playerPick, ...npcPool];
+}
+
+function buildStreetLineupFresh() {
+  const fighterOrder = shuffle(FIGHTER_URLS.map((_, i) => i));
+  if (femaleFighterModel(fighterOrder[0])) {
+    const male = fighterOrder.findIndex((model, i) => i > 0 && !femaleFighterModel(model));
+    if (male > 0) [fighterOrder[0], fighterOrder[male]] = [fighterOrder[male], fighterOrder[0]];
+  }
+  return fighterOrder.slice(0, SEATS).map((model) => ({ kind: 'fighter', look: null, model }));
+}
+
+function assignUniqueFighterModels(lineup) {
+  const used = new Set();
+  const malePool = FIGHTER_URLS.map((_, i) => i).filter((i) => !femaleFighterModel(i));
+  const femalePool = FIGHTER_URLS.map((_, i) => i).filter((i) => femaleFighterModel(i));
+  const take = (pool) => {
+    const free = pool.find((m) => !used.has(m));
+    if (free !== undefined) { used.add(free); return free; }
+    return pool[used.size % pool.length];
+  };
+  const out = lineup.map((pick, i) => {
+    const wantFemale = i > 0 && isFemaleSaloonKind(pick.kind);
+    const model = i === 0
+      ? take(malePool)
+      : (wantFemale ? take(femalePool) : take(malePool));
+    return { kind: 'fighter', look: null, model };
+  });
+  if (femaleFighterModel(out[0].model)) {
+    const swap = out.findIndex((p, idx) => idx > 0 && !femaleFighterModel(p.model));
+    if (swap > 0) {
+      const t = out[0].model;
+      out[0].model = out[swap].model;
+      out[swap].model = t;
+    }
+  }
+  return out;
+}
+
+function deriveStreetFromSaloon(saloonLineup) {
+  return assignUniqueFighterModels(saloonLineup);
+}
+
+function deriveSaloonFromStreet(streetLineup) {
+  const jacobLooks = WESTERN_LOOKS.map((look, i) => ({
+    kind: 'jacob',
+    look: saloonLookWithHat(look, i),
+  }));
+  const playerPick = jacobLooks[0];
+  const girlTone = GIRL_SKIN_TONES[
+    (streetLineup[1]?.model ?? 0) % GIRL_SKIN_TONES.length];
+  const lineup = [playerPick];
+  for (let i = 1; i < SEATS; i++) {
+    const female = femaleFighterModel(streetLineup[i].model);
+    if (female) {
+      if (!lineup.some((p) => p.kind === 'girl')) {
+        lineup.push({ kind: 'girl', look: null, skinTone: girlTone });
+      } else {
+        lineup.push({ kind: 'femaleGuest', look: null });
+      }
+    } else if (!GFX_ULTRA_LITE && !lineup.some((p) => p.kind === 'sheriff')) {
+      lineup.push({ kind: 'sheriff', look: null });
+    } else if (!GFX_ULTRA_LITE && !lineup.some((p) => p.kind === 'bandit')) {
+      lineup.push({ kind: 'bandit', look: null });
+    } else {
+      lineup.push(jacobLooks[(i + streetLineup[i].model) % jacobLooks.length]);
+    }
+  }
+  return lineup;
+}
+
+function lineupFromSeats() {
+  if (!state.seats || state.seats.length !== SEATS) return null;
+  const picks = state.seats.map((seat) => {
+    const ch = seat.char;
+    if (!ch) return null;
+    return {
+      kind: ch.kind,
+      look: ch.castLook || null,
+      model: ch.castModel != null ? ch.castModel : null,
+      skinTone: ch.castSkinTone || null,
+    };
+  });
+  return picks.some((p) => !p) ? null : picks;
+}
+
+function lockTableCast() {
+  const existing = readTableCast();
+  if (existing) return;
+  let saloon;
+  let street;
+  const seated = lineupFromSeats();
+  if (seated) {
+    if (TABLE_SCENE === 'saloon') {
+      saloon = seated;
+      street = deriveStreetFromSaloon(seated);
+    } else {
+      street = seated;
+      saloon = deriveSaloonFromStreet(seated);
+    }
+  } else {
+    saloon = buildSaloonLineup();
+    street = deriveStreetFromSaloon(saloon);
+  }
+  writeTableCast({ version: 1, saloon, street });
+}
+
+function resolveTableLineup(streetScene) {
+  const locked = readTableCast();
+  if (locked) return streetScene ? locked.street : locked.saloon;
+  return streetScene ? buildStreetLineupFresh() : buildSaloonLineup();
 }
 
 // Chosen once per page load. Changing it in settings reloads so the table
@@ -755,7 +921,7 @@ function drawLabel(label, seat) {
 // the player included — gets a floating name/stack plate beside their chair,
 // so the whole table's chip counts read at a glance (the classic mobile
 // poker overhead layout). Plates belong to the SEAT, not the body, so NPC
-// reseating between hands never detaches a name from its stack.
+// each seat keeps its name/stack plate at a fixed chair all session.
 // Plates sit right on the seat ring, over each player, so the camera can
 // come in close; the player's own seat gets no plate (the action bar's
 // stack pill already shows that number) and the freed bottom edge is what
@@ -1216,7 +1382,7 @@ function characterMaterial(material, shirt, meshName, hatTint, mul) {
   m.userData.baseOpacity = m.opacity;
   m.userData.keepTransparent = !!(m.transparent || m.alphaTest > 0);
   // The uTint uniform references this very Color instance, so mutating it
-  // later (per-hand reseating) re-paints the hat in a new seat's accent.
+  // later re-paints the hat when a seat's accent colour changes.
   if (tint) m.userData.hatTint = tint;
   if (m.emissive) m.emissive.setRGB(0, 0, 0);
   if (m.emissiveIntensity !== undefined) m.emissiveIntensity = 0;
@@ -2230,42 +2396,10 @@ async function buildScene(canvas) {
   if (streetScene && fighterModels[0]) {
     fighterModels[0].then((g) => { state.fighterGltf = g; });
   }
-  // Every Jacob look wears a hat so the seat's accent colour always has
-  // somewhere to live; hatless presets borrow a hat (and the matching short
-  // hair so the full hairstyle doesn't clip through the brim). Sheriff and
-  // Bandit already ship with a hat mesh named Hat__1.
-  const withHat = (look, i) => (look.hat ? look : { ...look, hat: 1 + (i % 2), hair: 'cut' });
-  const jacobPool = shuffle(WESTERN_LOOKS.map((look, i) => ({ kind: 'jacob', look: withHat(look, i) })));
-  const playerPick = jacobPool[0];
-  // Both women are mandatory in every saloon tier. Full quality adds Sheriff
-  // and Bandit; ultra-lite fills their chairs with distinct Jacob looks.
-  // The Cowboy Girl draws a random skin tone each game.
-  const girlTone = shuffle([...GIRL_SKIN_TONES])[0];
-  const femaleNpcs = [
-    { kind: 'girl', look: null, skinTone: girlTone },
-    { kind: 'femaleGuest', look: null },
-  ];
-  const specialNpcs = GFX_ULTRA_LITE
-    ? femaleNpcs
-    : [{ kind: 'sheriff', look: null }, { kind: 'bandit', look: null }, ...femaleNpcs];
-  const npcJacob = jacobPool.slice(1, 1 + (SEATS - 1 - specialNpcs.length));
-  const npcPool = shuffle([...npcJacob, ...specialNpcs]);
-  // One fighter per seat, each a different GLB: a plain shuffle of the six
-  // bodies deals every chair a unique model (FIGHTER_URLS.length === SEATS).
-  const fighterOrder = streetScene ? shuffle(fighterUrls.map((_, i) => i)) : [];
-  // Seat 0 is the player's own character and stays male: if the shuffle put
-  // a female fighter there, swap her with the first male further down.
-  const femaleFighter = (model) => /FemaleFighter/.test(fighterUrls[model]);
-  if (streetScene && femaleFighter(fighterOrder[0])) {
-    const male = fighterOrder.findIndex((model, i) => i > 0 && !femaleFighter(model));
-    [fighterOrder[0], fighterOrder[male]] = [fighterOrder[male], fighterOrder[0]];
-  }
-  const lineup = streetScene
-    ? fighterOrder.slice(0, SEATS).map((model) => ({ kind: 'fighter', look: null, model }))
-    : [playerPick, ...npcPool];
+  const lineup = resolveTableLineup(streetScene);
   const femaleSeats = lineup.filter((pick) =>
     pick.kind === 'girl' || pick.kind === 'femaleGuest'
-      || (pick.kind === 'fighter' && femaleFighter(pick.model))).length;
+      || (pick.kind === 'fighter' && femaleFighterModel(pick.model))).length;
   if (femaleSeats < 2) throw new Error(`table lineup requires two women; got ${femaleSeats}`);
 
   // Position a seated character at seat i: face the table and plant the
@@ -2468,6 +2602,9 @@ async function buildScene(canvas) {
       if (!character) return;
       character.variant = i;
       character.kind = pick.kind;
+      character.castLook = pick.look || null;
+      character.castModel = pick.model != null ? pick.model : null;
+      character.castSkinTone = pick.skinTone || null;
       placeSeatedCharacter(character, i, facing);
       if (seat.chair) {
         alignChairToCharacter(seat.chair, character, facing, i);
@@ -2505,53 +2642,6 @@ async function buildScene(canvas) {
   if (headY.length) {
     applyCameraHome();
   }
-
-  // Every new deal sends the NPC bodies (girl included) to freshly
-  // shuffled chairs; only the human player keeps seat 0. Seats sit on a
-  // circle around the origin, so moving a planted character (and the chair
-  // aligned under it) from one seat to another is an exact rigid rotation
-  // about the table's vertical axis — no pose re-measuring. The hat accent
-  // belongs to the SEAT (it matches that player's HUD name colour), so an
-  // arriving body re-tints its hat to the new seat's colour.
-  const reseatUp = new THREE.Vector3(0, 1, 0);
-  state.reseatNpcs = () => {
-    const from = [];
-    for (let i = 1; i < state.seats.length; i++) {
-      if (state.seats[i].char) from.push(i);
-    }
-    if (from.length < 2) return;
-    const to = shuffle(from);
-    const movedChar = from.map((i) => state.seats[i].char);
-    const movedChair = from.map((i) => state.seats[i].chair);
-    const spin = new THREE.Quaternion();
-    const accent = new THREE.Color();
-    for (let k = 0; k < from.length; k++) {
-      const ch = movedChar[k];
-      const chair = movedChair[k];
-      // Rotating about +Y by θ moves a point's planar angle (atan2(z, x))
-      // by −θ, so advancing a seat angle by Δ needs a spin of −Δ.
-      const delta = seatAngle(to[k]) - seatAngle(from[k]);
-      spin.setFromAxisAngle(reseatUp, -delta);
-      ch.root.position.applyAxisAngle(reseatUp, -delta);
-      ch.root.quaternion.premultiply(spin);
-      if (chair) {
-        chair.position.applyAxisAngle(reseatUp, -delta);
-        chair.quaternion.premultiply(spin);
-      }
-      state.seats[to[k]].char = ch;
-      state.seats[to[k]].chair = chair;
-      ch.variant = to[k];
-      if (typeof ch.seatFacing === 'number') ch.seatFacing -= delta;
-      accent.set(SEAT_COLORS[to[k] % SEAT_COLORS.length]);
-      ch.root.traverse((o) => {
-        if (!o.isMesh) return;
-        const mats = Array.isArray(o.material) ? o.material : [o.material];
-        for (const m of mats) {
-          if (m.userData && m.userData.hatTint) m.userData.hatTint.copy(accent);
-        }
-      });
-    }
-  };
 
   // Only the player gets a CardHold palm helper; NPC hole cards stay on felt.
   setupPlayerArms();
@@ -4262,11 +4352,16 @@ window.pokerScene = {
   setTableScene(id) {
     const next = id === 'street' ? 'street' : 'saloon';
     if (next === TABLE_SCENE) return next;
+    lockTableCast();
     writeTableScene(next);
     try { sessionStorage.setItem('cinematic-poker-in-game', '1'); } catch (e) { }
     location.reload();
     return next;
   },
+
+  lockTableCast,
+
+  clearTableCast,
 
   async init(canvasId, hudRef) {
     // The HUD ref is remembered up front so a felt tap can flip the page
@@ -4316,15 +4411,6 @@ window.pokerScene = {
       updateHole(snapshot.hole || []);
     }
     if (!prev || prev.pot !== snapshot.pot) updatePot(snapshot.pot);
-
-    // A fresh deal (new hole cards) reshuffles every NPC body to a random
-    // chair, so the girl — and everyone else — sits somewhere new each hand.
-    // The very first deal keeps the build-time lineup (already random).
-    if (prev && state.reseatNpcs
-        && snapshot.hole && snapshot.hole.length === 2
-        && JSON.stringify(prev.hole) !== JSON.stringify(snapshot.hole)) {
-      state.reseatNpcs();
-    }
 
     const seats = snapshot.seats || [];
     // The C# snapshot captures the actor once before serializing the rows.

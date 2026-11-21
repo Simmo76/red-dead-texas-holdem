@@ -17,6 +17,7 @@
         try {
             sessionStorage.removeItem(ROOM_KEY);
             sessionStorage.removeItem(HOSTING_KEY);
+            sessionStorage.removeItem('cinematic-poker-table-cast-v1');
         } catch (e) { }
     })();
 
