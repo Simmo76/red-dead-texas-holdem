@@ -15,4 +15,4 @@ What to test in this build:
 • Octagon: the advice coin shows Frankie Fast-Hand. The saloon still shows Maximilian.
 • Your win: the victory certificate grows until it meets the bottom of the screen, and the green stack pill hides until you dismiss it.
 • Opponent win: the result window lists the community cards under ON THE BOARD, and the corner card strip stays hidden.
-• Saloon and octagon each seat at least two women.
+• Saloon keeps western bodies only (Cowboy Girl is the lone woman); octagon seats two women.
