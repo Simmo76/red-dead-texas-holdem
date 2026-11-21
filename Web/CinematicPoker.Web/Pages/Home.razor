@@ -1735,9 +1735,18 @@
         }
     }
 
+    private bool _tableCastLocked;
+
     private async Task PushSceneState()
     {
         if (_game == null) return;
+        if (!_tableCastLocked)
+        {
+            _tableCastLocked = true;
+            try { await JS.InvokeVoidAsync("pokerScene.lockTableCast"); }
+            catch (JSException) { }
+            catch (InvalidOperationException) { }
+        }
 
         // Capture the actor once for the whole snapshot. Reading CurrentSeat
         // independently while building each row made the scene's actor flag
@@ -1866,6 +1875,9 @@
     private void ClearWebSession()
     {
         try { _ = JS.InvokeVoidAsync("pokerSession.clear"); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+        try { _ = JS.InvokeVoidAsync("pokerScene.clearTableCast"); }
         catch (JSException) { }
         catch (InvalidOperationException) { }
     }
@@ -2067,6 +2079,7 @@
         catch (InvalidOperationException) { }
 
         if (_winPreview) ShowWinPreview();
+        _tableCastLocked = false;
         if (run) _ = RunLoop(token);
         // Solo (and host-table restarts) never emit a hub "started" line on
         // their own — ping /usage so Render still sees who sat down. Guests
