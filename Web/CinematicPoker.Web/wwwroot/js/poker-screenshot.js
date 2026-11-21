@@ -182,6 +182,48 @@ window.pokerShot = (function () {
     return true;
   }
 
+  // Victory gallery certs scroll inside .victory-cert-body. Expand that pane
+  // for one layout pass so export paints every line, not only the viewport.
+  function beginFullCertLayout(root) {
+    const body = root.querySelector('.victory-cert-body');
+    if (!body) return null;
+    const state = {
+      body: body,
+      scrollTop: body.scrollTop,
+      rootHeight: root.style.height,
+      rootMinHeight: root.style.minHeight,
+      rootOverflow: root.style.overflow,
+      bodyFlex: body.style.flex,
+      bodyHeight: body.style.height,
+      bodyMinHeight: body.style.minHeight,
+      bodyOverflow: body.style.overflow,
+    };
+    body.scrollTop = 0;
+    root.style.height = 'auto';
+    root.style.minHeight = '0';
+    root.style.overflow = 'visible';
+    body.style.flex = '0 0 auto';
+    body.style.height = 'auto';
+    body.style.minHeight = '0';
+    body.style.overflow = 'visible';
+    return state;
+  }
+
+  function endFullCertLayout(state) {
+    if (!state) return;
+    const root = state.body.parentElement;
+    if (root) {
+      root.style.height = state.rootHeight;
+      root.style.minHeight = state.rootMinHeight;
+      root.style.overflow = state.rootOverflow;
+    }
+    state.body.style.flex = state.bodyFlex;
+    state.body.style.height = state.bodyHeight;
+    state.body.style.minHeight = state.bodyMinHeight;
+    state.body.style.overflow = state.bodyOverflow;
+    state.body.scrollTop = state.scrollTop;
+  }
+
   function downloadBlob(blob, fileName) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -203,16 +245,22 @@ window.pokerShot = (function () {
       document.querySelector('.banner-win, .overlay-box.table-win');
     if (!root) return 'failed';
 
-    const rootRect = root.getBoundingClientRect();
-    const gap = 4 * cumulativeScale(root);
-    const actions = root.querySelector('.victory-cert-actions');
-    const captureHeight = actions
-      ? Math.max(1, Math.floor(actions.getBoundingClientRect().top - rootRect.top - gap))
-      : Math.max(1, Math.floor(rootRect.height));
-
+    const layout = beginFullCertLayout(root);
     let canvas;
-    try { canvas = capture(root, captureHeight); }
-    catch (e) { return 'failed'; }
+    try {
+      void root.offsetHeight;
+      const rootRect = root.getBoundingClientRect();
+      const gap = 4 * cumulativeScale(root);
+      const actions = root.querySelector('.victory-cert-actions');
+      const captureHeight = actions
+        ? Math.max(1, Math.floor(actions.getBoundingClientRect().top - rootRect.top - gap))
+        : Math.max(1, Math.floor(rootRect.height));
+      canvas = capture(root, captureHeight);
+    } catch (e) {
+      return 'failed';
+    } finally {
+      endFullCertLayout(layout);
+    }
     if (!canvas || isBlank(canvas)) return 'failed';
 
     let blob;
