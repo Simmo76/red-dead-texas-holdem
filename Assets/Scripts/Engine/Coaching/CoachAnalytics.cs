@@ -21,9 +21,6 @@ namespace CinematicPoker.Engine.Coaching
         public static AnalyticsEvent KeyDecision(string playerId, string sessionId, long sequence, string handId, string reasonCode) =>
             Make(AnalyticsSchema.Events.ReviewKeyDecisionOpened, playerId, sessionId, sequence, handId, null, reasonCode, null, null, null);
 
-        public static AnalyticsEvent Feedback(string playerId, string sessionId, long sequence, string handId, string reasonCode) =>
-            Make(AnalyticsSchema.Events.ReviewFeedback, playerId, sessionId, sequence, handId, null, reasonCode, null, null, null);
-
         public static AnalyticsEvent ModeChanged(string playerId, string sessionId, long sequence, string mode) =>
             Make(AnalyticsSchema.Events.CoachModeChanged, playerId, sessionId, sequence, null, mode, null, null, null, null);
 

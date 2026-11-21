@@ -44,7 +44,6 @@ namespace CinematicPoker.Web.Pages
         private string _coachSceneReason = "";
         private string _coachModel;
         private string _coachClip;
-        private string _coachFeedback;
         private bool _coachOpen;
         private bool _coachUseScene;
         private bool? _coach3dOk;
@@ -334,8 +333,6 @@ namespace CinematicPoker.Web.Pages
             _coachKeyOpen = false;
             _coachKeyTracked = false;
             _coachHighlight = false;
-            VictoryWinRecord storedVictory = FindVictoryRecordForHand(hand);
-            _coachFeedback = storedVictory?.coachUserFeedback;
             _coachSceneReason = "";
             _coachModel = null;
             _coachClip = null;
@@ -456,16 +453,6 @@ namespace CinematicPoker.Web.Pages
                 catch (JSException) { }
                 catch (InvalidOperationException) { }
             }
-        }
-
-        public void SendCoachFeedback(string code)
-        {
-            if (string.IsNullOrEmpty(code) || _coachFeedback != null) return;
-            _coachFeedback = code;
-            if (_coachShownHand != null && _playerWonPot)
-                PersistVictoryCoachUserFeedback(_coachShownHand, code);
-            _ = TrackCoach(CoachAnalytics.Feedback(
-                "local", _coachSessionId, NextSeq(), _coachShownHand?.HandId, code));
         }
 
         public async Task FocusCoachPanel()
@@ -795,17 +782,13 @@ namespace CinematicPoker.Web.Pages
                     row.coachHeading = "";
                     row.coachWhyWon = "";
                     row.coachLesson = "";
-                    row.coachUserFeedback = null;
                     if (!string.IsNullOrEmpty(row.coachHandId))
                         row.coachHandId = "";
                     changed = true;
                     continue;
                 }
-                string previous = row.coachWhyWon;
                 _coachService ??= new HandReviewService();
                 ApplyCoachToVictoryRecord(row, _coachService.Explain(hand));
-                if (!string.Equals(previous, row.coachWhyWon, StringComparison.Ordinal))
-                    row.coachUserFeedback = null;
                 changed = true;
             }
             return changed;
@@ -816,14 +799,6 @@ namespace CinematicPoker.Web.Pages
             VictoryWinRecord row = FindVictoryRecordForHand(hand);
             if (row == null || review == null) return;
             ApplyCoachToVictoryRecord(row, review);
-            _ = PersistWinGallery();
-        }
-
-        private void PersistVictoryCoachUserFeedback(CompletedHandRecord hand, string code)
-        {
-            VictoryWinRecord row = FindVictoryRecordForHand(hand);
-            if (row == null) return;
-            row.coachUserFeedback = code;
             _ = PersistWinGallery();
         }
 

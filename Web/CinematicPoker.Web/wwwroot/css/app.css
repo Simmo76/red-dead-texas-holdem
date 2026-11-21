@@ -1074,13 +1074,6 @@ html.scene-street.resume-play .boot-screen {
     max-width: 36em;
 }
 
-.cert-coach-vote {
-    margin-top: 6px;
-    font-size: 11px;
-    letter-spacing: 1px;
-    color: rgba(201, 162, 79, 0.85);
-}
-
 @keyframes victory-amount {
     0%, 100% { filter: brightness(1); }
     50% { filter: brightness(1.12); }

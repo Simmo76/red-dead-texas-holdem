@@ -34,7 +34,6 @@ namespace CinematicPoker.Engine.Telemetry
             public const string ReviewOpened = "review_opened";
             public const string ReviewClosed = "review_closed";
             public const string ReviewKeyDecisionOpened = "review_key_decision_opened";
-            public const string ReviewFeedback = "review_feedback";
             public const string CoachModeChanged = "coach_mode_changed";
             public const string CoachAnalysisFailed = "coach_analysis_failed";
 
@@ -93,7 +92,7 @@ namespace CinematicPoker.Engine.Telemetry
             Events.EnvironmentSelected,
             Events.CoachingReportViewed,
             Events.ReviewAvailable, Events.ReviewOpened, Events.ReviewClosed,
-            Events.ReviewKeyDecisionOpened, Events.ReviewFeedback,
+            Events.ReviewKeyDecisionOpened,
             Events.CoachModeChanged, Events.CoachAnalysisFailed,
             Events.PackStoreViewed, Events.PackViewed,
             Events.PackPurchaseStarted, Events.PackPurchaseCompleted, Events.PackPurchaseFailed,
