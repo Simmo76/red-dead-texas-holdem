@@ -134,7 +134,9 @@ namespace CinematicPoker.Engine.Coaching
             }
             // Hero hole cards are always recorded from CardDealt; the showdown
             // ledger can omit the hero when the recorder only saw stack deltas.
-            ScoreShownHand(hand, hand.HeroSeat, hand.HeroHoleCards, values, fives);
+            // Do not score a folded hero — the review should say they folded.
+            if (!hand.HeroFolded)
+                ScoreShownHand(hand, hand.HeroSeat, hand.HeroHoleCards, values, fives);
 
             if (hand.HeroFolded && !values.ContainsKey(hand.HeroSeat))
             {
