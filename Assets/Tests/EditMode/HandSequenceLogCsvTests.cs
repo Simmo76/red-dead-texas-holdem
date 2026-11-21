@@ -30,7 +30,7 @@ namespace CinematicPoker.Engine.Tests
             {
                 StartingStack = rules.StartingStack,
                 CurrentStack = game.GetPlayer(0).Stack,
-                Difficulty = "AI NORMAL",
+                Difficulty = "NORMAL",
                 PlayMode = "CINEMATIC",
                 Backdrop = "SALOON"
             });
@@ -40,7 +40,7 @@ namespace CinematicPoker.Engine.Tests
             Assert.That(csv, Does.Contain(",2"));
             Assert.That(csv, Does.Contain("Hand,Result,Your Cards,Board"));
             Assert.That(csv, Does.Contain("Difficulty"));
-            Assert.That(csv, Does.Contain("AI NORMAL"));
+            Assert.That(csv, Does.Contain("NORMAL"));
             Assert.That(csv, Does.Contain("Starting Stack"));
             Assert.Greater(csv.Split('\n').Count(l => l.Length > 0 && char.IsDigit(l[0])), 0);
         }
