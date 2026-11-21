@@ -690,7 +690,7 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .board-expanded .hud-meters .actor-name { font-size: 14px; }
-.board-expanded .hud-meters .actor-role { font-size: 12px; margin-left: 6px; }
+.board-expanded .hud-meters .actor-role { width: 18px; height: 18px; margin-left: 6px; }
 .board-expanded .hud-meters .actor-stack { font-size: 15px; margin-top: 1px; }
 .board-expanded .hud-meters .actor-status { font-size: 11px; }
 
@@ -1771,10 +1771,11 @@ html.scene-street.resume-play .boot-screen {
 
 .actor-role {
     margin-left: 8px;
-    font-size: 14px;
-    letter-spacing: 1px;
-    color: var(--text-dim);
-    text-transform: lowercase;
+    width: 22px;
+    height: 22px;
+    vertical-align: -4px;
+    object-fit: contain;
+    display: inline-block;
 }
 
 .actor-stack {
