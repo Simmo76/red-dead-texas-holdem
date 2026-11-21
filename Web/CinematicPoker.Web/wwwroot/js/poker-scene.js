@@ -1442,7 +1442,7 @@ function chairMaterial(material) {
   m.userData.baseOpacity = m.opacity;
   m.userData.foldChairShader = null;
   m.onBeforeCompile = (shader) => {
-    shader.uniforms.uChairGrey = { value: 0 };
+    shader.uniforms.uChairGrey = { value: m.userData.foldGrey || 0 };
     shader.fragmentShader = 'uniform float uChairGrey;\n' +
       shader.fragmentShader.replace('#include <dithering_fragment>', `
         float chairLuma = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
@@ -1457,16 +1457,18 @@ function chairMaterial(material) {
 function updateChairFold(chair, weight) {
   if (!chair) return;
   const w = Math.max(0, Math.min(1, weight));
-  const ghost = w > 0.001;
   const materials = chair.userData.foldMaterials || [];
   for (const m of materials) {
-    const wantTransparent = ghost || m.userData.keepTransparent;
+    // Stay in the opaque pass: transparent chairs were erased by the folded
+    // body's depth prepass and never cast floor shadows.
+    const wantTransparent = !!m.userData.keepTransparent;
     if (m.transparent !== wantTransparent) {
       m.transparent = wantTransparent;
       m.needsUpdate = true;
     }
-    m.depthWrite = !ghost;
-    m.opacity = (m.userData.baseOpacity ?? 1) * (1 - w * 0.55);
+    m.depthWrite = true;
+    m.opacity = m.userData.baseOpacity ?? 1;
+    m.userData.foldGrey = w;
     if (m.userData.foldChairShader) {
       m.userData.foldChairShader.uniforms.uChairGrey.value = w;
     }
@@ -4503,13 +4505,18 @@ window.pokerScene = {
       // Folded players (the human included) sit out the rest of the hand as
       // grey ghosts with arms folded; the flag clears when the next hand
       // deals, so colour and the thinking idle come back on their own.
-      // Chairs leave with the fold so the ghost floats free of furniture.
+      // Their chair stays, greyed to match the ghost (see updateChairFold).
       const foldedOut = (!!data.folded || !!data.out);
       if (seat.char) {
         seat.char.setOut(!!data.out);
         seat.char.setFolded(foldedOut);
       }
-      if (seat.chair) seat.chair.visible = !data.out;
+      if (seat.chair) {
+        seat.chair.visible = !data.out;
+        if (!data.out) {
+          updateChairFold(seat.chair, data.folded ? 1 : 0);
+        }
+      }
       if (data.human && data.seat !== 0) {
         if (!seat.nameTag) {
           seat.nameTag = makeLabel();
