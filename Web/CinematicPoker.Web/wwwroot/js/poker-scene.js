@@ -553,6 +553,7 @@ const state = {
   potChips: null,
   cardHold: null,       // community card being press-and-held (expands 2x)
   fx: [],               // live celebration particle systems
+  dealAnim: null,       // hole-card deal sequence (synced to shuffle/deal audio)
   saloon: null,         // backdrop group (saloon or boxing arena)
   tableScene: TABLE_SCENE,
   eyeHeight: EYE_HEIGHT,
@@ -586,6 +587,7 @@ function markActivity() {
 function sceneBusy() {
   return !!(state.intro && state.intro.active)
     || !!(state.zoom && state.zoom.active)
+    || !!(state.dealAnim && state.dealAnim.active)
     || (state.fx && state.fx.length > 0)
     || performance.now() - state.lastActivity < IDLE_AFTER_MS;
 }
@@ -3279,6 +3281,198 @@ function launchCelebration() {
 // puts chips in the middle.
 const POT_POS = new THREE.Vector3(-0.06, TABLE_TOP, -0.18);
 
+// ---- hole-card deal from the shoe (hand start) --------------------------------
+
+const DECK_POS = new THREE.Vector3();
+const _dealStart = new THREE.Vector3();
+const _dealEnd = new THREE.Vector3();
+const _dealQuatA = new THREE.Quaternion();
+const _dealQuatB = new THREE.Quaternion();
+const _dealEuler = new THREE.Euler();
+
+function deckWorldPos(dealerSeat) {
+  const ds = Number.isInteger(dealerSeat) && dealerSeat >= 0 ? dealerSeat : 0;
+  DECK_POS.copy(seatPos(ds, TABLE_RADIUS * 0.12));
+  DECK_POS.y = TABLE_TOP + 0.07;
+  return DECK_POS;
+}
+
+function restNpcHoleCard(seatIndex, cardIndex) {
+  const basePos = seatPos(seatIndex, TABLE_RADIUS - 0.33);
+  const facing = seatAngle(seatIndex);
+  const yaw = Math.PI / 2 - facing;
+  const tx = -Math.sin(facing);
+  const tz = Math.cos(facing);
+  const cardW = CARD_W * 0.85;
+  const offset = (cardIndex === 0 ? -1 : 1) * (cardW / 2 + 0.006);
+  _dealEnd.set(
+    basePos.x + tx * offset,
+    TABLE_TOP + 0.004,
+    basePos.z + tz * offset);
+  _dealEuler.set(-(Math.PI / 2), yaw, 0, 'YXZ');
+  _dealQuatB.setFromEuler(_dealEuler);
+  return { pos: _dealEnd.clone(), quat: _dealQuatB.clone() };
+}
+
+function restPlayerHoleCard(cardIndex) {
+  const spacing = 0.145 + 0.012;
+  _dealEnd.set(
+    (cardIndex - 0.5) * spacing,
+    TABLE_TOP + 0.03,
+    TABLE_RADIUS - 0.24);
+  _dealEuler.set(-(Math.PI / 2), 0, cardIndex === 0 ? -0.1 : 0.1, 'YXZ');
+  _dealQuatB.setFromEuler(_dealEuler);
+  return { pos: _dealEnd.clone(), quat: _dealQuatB.clone() };
+}
+
+function applyPlayerHoleMaterial(card) {
+  card.material.depthTest = true;
+  card.material.depthWrite = true;
+  card.renderOrder = HELD_CARD_RENDER_ORDER;
+  card.material.stencilWrite = true;
+  card.material.stencilRef = HELD_CARD_STENCIL_REF;
+  card.material.stencilFunc = THREE.AlwaysStencilFunc;
+  card.material.stencilZPass = THREE.ReplaceStencilOp;
+}
+
+function finishDealAnimIfIdle() {
+  const d = state.dealAnim;
+  if (!d || !d.active) return;
+  if (d.inFlight > 0 || d.shuffleLeft > 0) return;
+  d.active = false;
+  if (state.holeCards.length >= 2) d.holeDealt = true;
+}
+
+function spawnDealShuffle(dealerSeat) {
+  const origin = deckWorldPos(dealerSeat);
+  const stack = new THREE.Group();
+  stack.position.copy(origin);
+  state.scene.add(stack);
+  const cards = [];
+  for (let i = 0; i < 4; i++) {
+    const mesh = makeCard('img/cards/back.png', 0.11, true);
+    mesh.position.set((Math.random() - 0.5) * 0.01, i * 0.003, (Math.random() - 0.5) * 0.01);
+    mesh.rotation.set(-0.15 + Math.random() * 0.08, Math.random() * 0.3, (Math.random() - 0.5) * 0.12);
+    stack.add(mesh);
+    cards.push(mesh);
+  }
+  state.dealAnim = state.dealAnim || {};
+  state.dealAnim.shuffleLeft = (state.dealAnim.shuffleLeft || 0) + 1;
+  state.fx.push({
+    kind: 'dealShuffle',
+    group: stack,
+    cards,
+    life: 0.72,
+    age: 0,
+    phase: Math.random() * Math.PI * 2,
+  });
+}
+
+function landHoleCard(fx) {
+  const mesh = fx.mesh;
+  const seat = fx.seat;
+  mesh.position.copy(fx.endPos);
+  mesh.quaternion.copy(fx.endQuat);
+  mesh.visible = true;
+
+  if (seat === 0) {
+    if (fx.facePath) {
+      mesh.material.map = texture(fx.facePath);
+      mesh.material.needsUpdate = true;
+    }
+    applyPlayerHoleMaterial(mesh);
+    addZoomGlow(mesh);
+    state.holeCards.push(mesh);
+    if (state.holeCards.length >= 2) {
+      layoutHoleCards();
+    } else {
+      const spacing = 0.145 + 0.012;
+      placeTableCard(
+        mesh,
+        (fx.cardIndex - 0.5) * spacing,
+        0.64,
+        0,
+        fx.cardIndex === 0 ? -0.1 : 0.1);
+      state.scene.add(mesh);
+    }
+  } else {
+    const seatObj = state.seats[seat];
+    if (seatObj) {
+      seatObj.cards.push(mesh);
+      seatObj.cardSig = 'backs';
+    }
+    state.scene.add(mesh);
+  }
+  if (state.dealAnim) state.dealAnim.inFlight = Math.max(0, state.dealAnim.inFlight - 1);
+  finishDealAnimIfIdle();
+}
+
+function spawnFlyingHoleCard(seat, cardIndex, facePath, dealerSeat) {
+  if (!state.scene) return;
+  const path = facePath || 'img/cards/back.png';
+  const w = seat === 0 ? 0.145 : CARD_W * 0.85;
+  const mesh = makeCard(path, w, true);
+  const origin = deckWorldPos(dealerSeat);
+  mesh.position.copy(origin);
+  _dealQuatA.setFromEuler(new THREE.Euler(-0.55, 0, (Math.random() - 0.5) * 0.25));
+  mesh.quaternion.copy(_dealQuatA);
+  mesh.visible = false;
+  state.scene.add(mesh);
+
+  const rest = seat === 0
+    ? restPlayerHoleCard(cardIndex)
+    : restNpcHoleCard(seat, cardIndex);
+
+  if (state.dealAnim) state.dealAnim.inFlight = (state.dealAnim.inFlight || 0) + 1;
+  markActivity();
+  state.fx.push({
+    kind: 'holeDeal',
+    mesh,
+    seat,
+    cardIndex,
+    facePath: facePath || null,
+    start: origin.clone(),
+    endPos: rest.pos,
+    endQuat: rest.quat,
+    startQuat: _dealQuatA.clone(),
+    life: 0.38,
+    age: 0,
+    arc: 0.07 + Math.random() * 0.03,
+  });
+}
+
+function startHandDealAnim(dealerSeat) {
+  if (!state.ready) return;
+  markActivity();
+  clearGroupChildren(state.holeCards, state.scene);
+  for (const seat of state.seats) {
+    clearGroupChildren(seat.cards, state.scene);
+    seat.cardSig = 'none';
+  }
+  state.dealAnim = {
+    active: true,
+    dealerSeat: Number.isInteger(dealerSeat) ? dealerSeat : 0,
+    inFlight: 0,
+    shuffleLeft: 0,
+  };
+  spawnDealShuffle(state.dealAnim.dealerSeat);
+}
+
+function queueHoleCardDeal(seat, cardIndex, facePath, delayMs) {
+  if (!state.ready) return;
+  const delay = Math.max(0, delayMs || 0);
+  const dealerSeat = state.dealAnim
+    ? state.dealAnim.dealerSeat
+  : 0;
+  if (!state.dealAnim || !state.dealAnim.active) {
+    startHandDealAnim(dealerSeat);
+  }
+  setTimeout(() => {
+    if (!state.scene) return;
+    spawnFlyingHoleCard(seat, cardIndex, facePath || null, dealerSeat);
+  }, delay);
+}
+
 function spawnChipToss(seatIndex, count = 3) {
   const from = seatPos(seatIndex, TABLE_RADIUS - 0.18);
   for (let i = 0; i < count; i++) {
@@ -3328,6 +3522,37 @@ function updateFx(dt) {
       fx.mesh.position.y += Math.sin(t * Math.PI) * fx.arc;
       if (t < 1) fx.mesh.rotation.x += fx.spin * dt;
       if (fx.age < fx.life + 0.35) continue;
+    } else if (fx.kind === 'dealShuffle') {
+      const t = THREE.MathUtils.clamp(fx.age / fx.life, 0, 1);
+      const deck = deckWorldPos(state.dealAnim ? state.dealAnim.dealerSeat : 0);
+      fx.group.position.set(
+        deck.x + Math.sin(fx.age * 14 + fx.phase) * 0.006 * (1 - t * 0.5),
+        deck.y + Math.sin(fx.age * 18 + fx.phase) * 0.008 * (1 - t),
+        deck.z + Math.cos(fx.age * 12 + fx.phase) * 0.006 * (1 - t * 0.5));
+      fx.group.rotation.y = Math.sin(fx.age * 11 + fx.phase) * 0.35 * (1 - t * 0.6);
+      for (let c = 0; c < fx.cards.length; c++) {
+        const card = fx.cards[c];
+        card.position.x = Math.sin(fx.age * 22 + c * 1.7) * 0.012 * (1 - t);
+        card.rotation.z = Math.sin(fx.age * 16 + c) * 0.08 * (1 - t);
+      }
+      if (fx.age < fx.life) continue;
+      state.scene.remove(fx.group);
+      for (const card of fx.cards) card.material.dispose();
+      if (state.dealAnim) {
+        state.dealAnim.shuffleLeft = Math.max(0, state.dealAnim.shuffleLeft - 1);
+        finishDealAnimIfIdle();
+      }
+    } else if (fx.kind === 'holeDeal') {
+      const t = THREE.MathUtils.clamp(fx.age / fx.life, 0, 1);
+      const ease = 1 - Math.pow(1 - t, 2.4);
+      fx.mesh.visible = true;
+      fx.mesh.position.lerpVectors(fx.start, fx.endPos, ease);
+      fx.mesh.position.y += Math.sin(t * Math.PI) * fx.arc;
+      _dealQuatA.copy(fx.startQuat);
+      _dealQuatB.copy(fx.endQuat);
+      fx.mesh.quaternion.slerpQuaternions(_dealQuatA, _dealQuatB, ease);
+      if (t < 1) continue;
+      landHoleCard(fx);
     } else {
       const emitting = fx.age < fx.duration;
       let alive = false;
@@ -3357,7 +3582,11 @@ function updateFx(dt) {
     state.scene.remove(fx.mesh);
     // Chip tosses borrow the shared pooled chip geometry/material — disposing
     // those would tear the buffers out from under every chip on the table.
-    if (fx.kind !== 'chip') {
+    if (fx.kind === 'dealShuffle') {
+      // group children disposed above
+    } else if (fx.kind === 'holeDeal') {
+      // mesh kept on the table; only the flight wrapper is removed
+    } else if (fx.kind !== 'chip') {
       fx.mesh.geometry.dispose();
       fx.mesh.material.dispose();
     }
@@ -3758,6 +3987,13 @@ function heroHoleCardsInHand() {
 }
 
 function updateHole(paths) {
+  if (state.dealAnim && state.dealAnim.active) return;
+  if (state.dealAnim && state.dealAnim.holeDealt
+      && paths.length === state.holeCards.length) {
+    delete state.dealAnim.holeDealt;
+    layoutHoleCards();
+    return;
+  }
   clearGroupChildren(state.holeCards, state.scene);
   for (let i = 0; i < paths.length; i++) {
     const card = makeCard(paths[i], 0.145, true);
@@ -4480,8 +4716,9 @@ window.pokerScene = {
       const expectedCardCount = seatCardCount(data.seat, visualData);
       const cardsPresent = seat.cards.length === expectedCardCount
         && seat.cards.every(card => card.parent);
-      if (seat.cardSig !== expectedCardSig
-          || !cardsPresent) {
+      if (!(state.dealAnim && state.dealAnim.active)
+          && (seat.cardSig !== expectedCardSig
+          || !cardsPresent)) {
         updateSeatCards(seat, data.seat, visualData);
       }
       // Reconcile against the objects actually attached to the scene, not
@@ -4624,6 +4861,14 @@ window.pokerScene = {
 
   // Fireworks and sparklers when the player takes a pot. Stay on the
   // seated table camera so opponent hole cards remain readable.
+  beginHandDeal(dealerSeat) {
+    startHandDealAnim(dealerSeat);
+  },
+
+  dealHoleCard(seat, cardIndex, facePath, delayMs) {
+    queueHoleCardDeal(seat, cardIndex, facePath, delayMs);
+  },
+
   celebrate() {
     if (!state.ready) return;
     markActivity();
