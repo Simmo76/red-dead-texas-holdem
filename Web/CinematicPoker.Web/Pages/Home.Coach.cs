@@ -27,7 +27,8 @@ namespace CinematicPoker.Web.Pages
         private readonly CoachHistoryBuffer _coachHistory = new CoachHistoryBuffer();
         private readonly CoachFlowController _coachFlow = new CoachFlowController();
         private readonly List<string> _coachMetrics = new List<string>();
-        private readonly List<CoachCardFace> _coachFaces = new List<CoachCardFace>();
+        private readonly List<CoachCardFace> _coachBoardFaces = new List<CoachCardFace>();
+        private readonly List<CoachPlayerHand> _coachPlayerHands = new List<CoachPlayerHand>();
 
         private HandReviewRecorder _coachRecorder;
         private HandReviewService _coachService;
@@ -405,7 +406,8 @@ namespace CinematicPoker.Web.Pages
             _coachHighlight = false;
             _coachShownHand = null;
             _coachIntroNote = false;
-            _coachFaces.Clear();
+            _coachBoardFaces.Clear();
+            _coachPlayerHands.Clear();
             ReplaceCts();
             await TrackCoach(CoachAnalytics.Closed("local", _coachSessionId, NextSeq(), handId, mode, viewSeconds));
             await HideCoachScene();
@@ -426,7 +428,7 @@ namespace CinematicPoker.Web.Pages
                 await CloseCoach(false);
         }
 
-        public async Task ToggleKeyDecision()
+        public Task ToggleKeyDecision()
         {
             _coachKeyOpen = !_coachKeyOpen;
             if (_coachKeyOpen && !_coachKeyTracked)
@@ -436,7 +438,7 @@ namespace CinematicPoker.Web.Pages
                 _ = TrackCoach(CoachAnalytics.KeyDecision(
                     "local", _coachSessionId, NextSeq(), _coachShownHand?.HandId, code));
             }
-            await Task.CompletedTask;
+            return Task.CompletedTask;
         }
 
         public async Task ToggleCoachHighlights()
@@ -482,7 +484,8 @@ namespace CinematicPoker.Web.Pages
             _coachKeyOpen = false;
             _coachHighlight = false;
             _coachShownHand = null;
-            _coachFaces.Clear();
+            _coachBoardFaces.Clear();
+            _coachPlayerHands.Clear();
             _coachIntroNote = false;
             _coachIntroNotePending = false;
             _coachOffer = null;
@@ -563,32 +566,59 @@ namespace CinematicPoker.Web.Pages
 
         private void FillFaces(CompletedHandRecord hand)
         {
-            _coachFaces.Clear();
+            _coachBoardFaces.Clear();
+            _coachPlayerHands.Clear();
             if (hand == null) return;
-            // One row per hand so a narrow panel wraps a pair together
-            // instead of slicing cards off the end of a single strip.
-            int row = 0;
-            AddFaces(hand.FinalBoard, row++);
-            AddFaces(hand.HeroHoleCards, row++);
-            if (hand.RevealedHands == null) return;
-            foreach (RevealedHand shown in hand.RevealedHands)
+            AddFaces(_coachBoardFaces, hand.FinalBoard);
+
+            var seats = new SortedSet<int>();
+            if (hand.HeroHoleCards != null && hand.HeroHoleCards.Count > 0)
+                seats.Add(hand.HeroSeat);
+            if (hand.RevealedHands != null)
             {
-                if (shown == null || shown.Seat == hand.HeroSeat) continue;
-                AddFaces(shown.HoleCards, row++);
+                foreach (RevealedHand shown in hand.RevealedHands)
+                {
+                    if (shown == null || shown.HoleCards == null || shown.HoleCards.Count == 0) continue;
+                    seats.Add(shown.Seat);
+                }
+            }
+
+            foreach (int seat in seats)
+            {
+                IReadOnlyList<Card> holes = seat == hand.HeroSeat
+                    ? hand.HeroHoleCards
+                    : hand.RevealedHands?.FirstOrDefault(s => s != null && s.Seat == seat)?.HoleCards;
+                if (holes == null || holes.Count == 0) continue;
+                var faces = new List<CoachCardFace>();
+                AddFaces(faces, holes);
+                if (faces.Count == 0) continue;
+                _coachPlayerHands.Add(new CoachPlayerHand
+                {
+                    Label = CoachSeatLabel(hand, seat),
+                    Faces = faces
+                });
             }
         }
 
-        private void AddFaces(IReadOnlyList<Card> cards, int row)
+        private string CoachSeatLabel(CompletedHandRecord hand, int seat)
+        {
+            if (seat == hand.HeroSeat)
+                return PlayerName;
+            if (hand.SeatNames != null && hand.SeatNames.TryGetValue(seat, out string saved) && !string.IsNullOrEmpty(saved))
+                return saved;
+            return NameOf(seat);
+        }
+
+        private void AddFaces(List<CoachCardFace> target, IReadOnlyList<Card> cards)
         {
             if (cards == null || cards.Count == 0) return;
             foreach (Card card in cards)
             {
-                _coachFaces.Add(new CoachCardFace
+                target.Add(new CoachCardFace
                 {
                     Src = CardImage(card),
                     Alt = SpokenCard(card),
                     Code = BestFiveCards.Code(card),
-                    Row = row
                 });
             }
         }
@@ -830,7 +860,12 @@ namespace CinematicPoker.Web.Pages
             public string Src;
             public string Alt;
             public string Code;
-            public int Row;
+        }
+
+        private sealed class CoachPlayerHand
+        {
+            public string Label;
+            public List<CoachCardFace> Faces;
         }
 
         private sealed class CoachSceneResult
