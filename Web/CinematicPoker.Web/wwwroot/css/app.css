@@ -925,9 +925,11 @@ html.scene-street.resume-play .boot-screen {
 
 /* The result now contains the winner's cards, hand name and board. Hide
    the duplicate card HUD and compare strip so the single result plaque
-   reads cleanly, like the player's victory certificate. */
-.game3d.banner-opponent .hud-hand-rail,
-.game3d.banner-opponent .showdown-layer {
+   reads cleanly, like the player's victory certificate. Multi-way
+   showdowns keep the scrollable compare strip until NEXT HAND — see
+   .showdown-with-banner. */
+.game3d.banner-opponent:not(.showdown-with-banner) .hud-hand-rail,
+.game3d.banner-opponent:not(.showdown-with-banner) .showdown-layer {
     display: none;
 }
 
@@ -1121,10 +1123,34 @@ html.scene-street.resume-play .boot-screen {
    sit half-shaded behind the plaque, so the celebration is the certificate.
    The green stack pill (name + chips) sits in the bottom-left, which the
    enlarged plaque covers — hide it until the certificate is dismissed. */
-.game3d.banner-victory .showdown-layer,
+.game3d.banner-victory:not(.showdown-with-banner) .showdown-layer,
 .game3d.banner-victory .hud-hand-rail,
 .game3d.banner-victory .hud-stack {
     display: none;
+}
+
+/* Three+ seats: result banner on top, hand-compare scrolls underneath until
+   NEXT HAND. Pin the banner high and let the strip own the lower stage. */
+.game3d.showdown-with-banner .banner {
+    top: 6%;
+    max-width: min(92vw, 520px);
+    max-height: min(38vh, 280px);
+    overflow-y: auto;
+    pointer-events: auto;
+}
+
+.game3d.showdown-with-banner .showdown-layer {
+    display: flex;
+    align-items: flex-end;
+    z-index: 11;
+    top: auto;
+    bottom: calc(96px + max(16px, env(safe-area-inset-bottom, 0px)));
+    max-height: min(42vh, 340px);
+}
+
+.game3d.showdown-with-banner .showdown-strip {
+    max-height: 100%;
+    pointer-events: auto;
 }
 
 /* Room for the top Gallery of Wins plaque (~7.7:1 art), half prior width. */

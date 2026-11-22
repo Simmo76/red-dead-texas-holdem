@@ -126,6 +126,7 @@ namespace CinematicPoker.Web.Pages
             + (_shotBusy ? " shot-busy" : "")
             + (_banner != null && _playerWonPot ? " banner-victory" : "")
             + (_banner != null && !_playerWonPot ? " banner-opponent" : "")
+            + (KeepShowdownWithResultBanner ? " showdown-with-banner" : "")
             + (_coachOpen && _coachUseScene ? " coach-open" : "")
             + (_coachOpen && !_coachUseScene ? " coach-panel-only" : "")
             + (_coachOpen && _awaitingHuman ? " coach-live" : "");
