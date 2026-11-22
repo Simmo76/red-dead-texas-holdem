@@ -3680,7 +3680,8 @@ html.scene-street.resume-play .boot-screen {
 }
 
 /* Shown whenever HighlightCodes is set — fold wins, fold losses with
-   known winner cards, and showdowns alike (see HandOutcomeExplainer). */
+   known winner cards, and showdowns alike (see HandOutcomeExplainer).
+   Closing coach note is hand-specific (HandClosingInsight / PR #315). */
 .coach-actions .act.highlight {
     background: #e2c36a;
     border-color: #c4a24a;

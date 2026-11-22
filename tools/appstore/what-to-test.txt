@@ -1,5 +1,10 @@
 What to test in this build:
 
+New — hand-specific coach closing note (PR #315)
+• Poker Coach → SEE KEY DECISION. The last paragraph is about THIS hand (winner, kicker, board texture, or the priced spot) — not the old fixed “If everyone shows their cards…” disclaimer.
+• Finish a showdown and a hand with no priced decision. Both footers should give a useful takeaway; they must not repeat the same methodology wall every time.
+• Method (when shown) stays plain language. The closing note is separate and must change with the cards.
+
 New — HIGHLIGHT after a fold loss (PR #313)
 • Fold a hand (river is fine) so the opponent takes the pot and their cards show on Poker Coach.
 • HIGHLIGHT ON/OFF must sit beside SEE KEY DECISION — not missing just because you lost.
@@ -12,7 +17,6 @@ New — pot no longer covers the title (PR #309)
 
 New — coach method in plain words, hand review on iPhone (PR #307)
 • Poker Coach → SEE KEY DECISION. Method is everyday language: thousands of pretend hands, every leftover card equally likely, or every hand the other player could still hold. No “Monte Carlo.”
-• The note under the review says every possible hand counts, even ones a careful player would fold, and a tie is included because the pot would be split.
 • iPhone, held sideways: HAND REVIEW (why the hand was won or lost, and one thing to try) is on screen when the coach opens. Swipe the card for the cards and SEE KEY DECISION.
 
 New — two women at every table (PR #308)
