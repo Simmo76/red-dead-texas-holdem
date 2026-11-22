@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The exact same pure C# engine that Unity and the test suite use. -->
+    <!-- The exact same pure C# engine that Unity and the test suite use, including post-hand coaching. -->
     <ProjectReference Include="../../DotNet/CinematicPoker.Engine/CinematicPoker.Engine.csproj" />
   </ItemGroup>
 
