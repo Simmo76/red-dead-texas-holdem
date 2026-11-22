@@ -223,6 +223,27 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void FoldWinCopiesWinnerHoleCardsForCoach()
+        {
+            PokerGame game = CreateGame(new long[] { 1000, 1000 });
+            var recorder = new HandReviewRecorder("fold-win", 0, 5, 10);
+            var names = new Dictionary<int, string> { { 0, "You" }, { 1, "Frankie" } };
+            game.EventEmitted += evt => recorder.Observe(evt, game.CurrentRound, names);
+            game.StartHand();
+            Assert.IsTrue(game.GetLegalActions().CanFold, "Hero should be able to fold to let the opponent win.");
+            game.SubmitAction(PlayerAction.Fold());
+
+            CompletedHandRecord record = recorder.LastFinished;
+            Assert.IsNotNull(record);
+            Assert.IsTrue(record.WonByFolds);
+            RevealedHand opponent = record.RevealedHands?.FirstOrDefault(shown => shown != null && shown.Seat == 1);
+            Assert.IsNotNull(opponent, "Fold wins should show the winner's cards in the coach, same as the result banner.");
+            Assert.AreEqual(2, opponent.HoleCards.Count);
+            HandReview review = new HandReviewService().Explain(record);
+            Assert.IsEmpty(review.HighlightCodes, "Fold wins have no made hand to highlight.");
+        }
+
+        [Test]
         public void EachFinishedHandStaysReviewable()
         {
             PokerGame game = CreateGame(new long[] { 1000, 1000 });
@@ -352,7 +373,7 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
-        public void HiddenOpponentCardsNeverReachTheRecord()
+        public void FoldWinBackfillsWinnerHoleCardsWithoutShowdownHighlights()
         {
             var deck = StackedDeck.Parse("7c", "Qh", "2d", "Jh");
             PokerGame game = CreateGame(new long[] { 1000, 1000 }, deck);
@@ -366,12 +387,16 @@ namespace CinematicPoker.Engine.Tests
 
             CompletedHandRecord record = recorder.LastCompleted;
             Assert.IsTrue(record.HeroFolded);
-            Assert.IsEmpty(record.RevealedHands);
-            Assert.IsFalse(ContainsCard(record, "Qh"));
-            Assert.IsFalse(ContainsCard(record, "Jh"));
+            Assert.IsTrue(record.WonByFolds);
+            RevealedHand opponent = record.RevealedHands?.FirstOrDefault(shown => shown != null && shown.Seat == 1);
+            Assert.IsNotNull(opponent, "Fold wins copy the winner's hole cards for the post-hand coach.");
+            Assert.AreEqual(2, opponent.HoleCards.Count);
+            Assert.IsTrue(ContainsCard(record, "Qh"));
+            Assert.IsTrue(ContainsCard(record, "Jh"));
             Assert.IsTrue(ContainsCard(record, "7c"));
             HandReview review = new HandReviewService().Explain(record);
             Assert.That(review.WhyWon, Does.Contain("without a showdown"));
+            Assert.IsEmpty(review.HighlightCodes);
         }
 
         [Test]

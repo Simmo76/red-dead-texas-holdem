@@ -1066,9 +1066,12 @@
                 <div class="coach-actions">
                     <button type="button" class="act call" @onclick="ToggleKeyDecision" aria-expanded="@_coachKeyOpen" aria-controls="coach-key-decision">@(_coachKeyOpen ? "HIDE KEY DECISION" : "SEE KEY DECISION")</button>
                 </div>
-                <div class="coach-tools">
-                    <button type="button" class="@(_coachHighlight ? "active" : null)" aria-pressed="@_coachHighlight" @onclick="ToggleCoachHighlights">@(_coachHighlight ? "HIGHLIGHT ON" : "HIGHLIGHT WINNING CARDS")</button>
-                </div>
+                @if (CoachCanHighlight)
+                {
+                    <div class="coach-tools">
+                        <button type="button" class="@(_coachHighlight ? "active" : null)" aria-pressed="@_coachHighlight" @onclick="ToggleCoachHighlights">@(_coachHighlight ? "HIGHLIGHT ON" : "HIGHLIGHT WINNING CARDS")</button>
+                    </div>
+                }
                 <p class="coach-foot">POST-HAND ADVICE</p>
                 </div>
             </section>

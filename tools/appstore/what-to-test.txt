@@ -1,5 +1,9 @@
 What to test in this build:
 
+New — coach fold-win (PR #300)
+• Opponent wins with “everyone else folded.” Open Poker Coach: dock shows board, your cards, and the winner’s hole cards (match the result banner).
+• On that hand, HIGHLIGHT WINNING CARDS should be hidden. After a showdown, the button should still mark the winning five.
+
 New — table win overlay (PR #292)
 • Win the table (solo). Victory plaque: full fanned cards at top (not clipped), “★ WINNER TAKES ALL ★” on one line.
 • Session over: no Continue Game; green **SIT NEW TABLE** (keeps stack, new table). Bust still maroon **RESTART**.

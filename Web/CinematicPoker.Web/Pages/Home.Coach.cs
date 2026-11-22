@@ -96,6 +96,9 @@ namespace CinematicPoker.Web.Pages
             && _coachShownHand.RevealedHands != null
             && _coachShownHand.RevealedHands.Count > 0;
 
+        private bool CoachCanHighlight =>
+            _coachReview?.HighlightCodes != null && _coachReview.HighlightCodes.Count > 0;
+
         private string CoachModeLabel => _coachMode switch
         {
             CoachMode.Off => "OFF",
