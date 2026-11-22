@@ -6,8 +6,9 @@ namespace CinematicPoker.Engine.Coaching
 {
     /// <summary>
     /// Passive hand recorder. It copies public facts off engine events and
-    /// never deals, bets, or reads the deck. Opponent hole cards are kept
-    /// only when a showdown event reveals them.
+    /// never deals, bets, or reads the deck. Opponent hole cards come from
+    /// showdown events, or from the fold-winner backfill that matches the
+    /// result banner when everyone else folded.
     /// </summary>
     public sealed class HandReviewRecorder
     {
@@ -351,6 +352,7 @@ namespace CinematicPoker.Engine.Coaching
             }
             CopyNames(_current, names);
             BackfillShowdownReveals(round);
+            BackfillFoldWinnerReveals(round);
             AwardLedgerBackfill.ApplyToHand(_current);
             _history.Remember(_current);
             LastFinished = _current;
@@ -400,6 +402,67 @@ namespace CinematicPoker.Engine.Coaching
             }
 
             EnsureHeroInRevealed();
+        }
+
+        /// <summary>
+        /// When the pot is taken without showdown, copy the winner's hole cards
+        /// so the post-hand coach can show the same hand the result banner does.
+        /// </summary>
+        private void BackfillFoldWinnerReveals(PokerRound round)
+        {
+            if (round == null || _current == null || !_current.WonByFolds) return;
+            if (_current.RevealedHands == null)
+                _current.RevealedHands = new List<RevealedHand>();
+
+            var winners = new HashSet<int>();
+            foreach (PotAwardRecord award in _current.Awards)
+            {
+                if (award?.WinnerSeats == null) continue;
+                foreach (int seat in award.WinnerSeats)
+                    winners.Add(seat);
+            }
+            if (winners.Count == 0)
+            {
+                foreach (SeatState seat in round.Seats)
+                {
+                    if (seat.InHand && !seat.Folded)
+                        winners.Add(seat.Seat);
+                }
+            }
+
+            foreach (int seat in winners)
+            {
+                if (seat == _heroSeat) continue;
+                SeatState state = null;
+                foreach (SeatState s in round.Seats)
+                {
+                    if (s.Seat == seat) { state = s; break; }
+                }
+                if (state?.HoleCards == null || state.HoleCards.Count != 2) continue;
+
+                RevealedHand existing = null;
+                foreach (RevealedHand shown in _current.RevealedHands)
+                {
+                    if (shown != null && shown.Seat == seat)
+                    {
+                        existing = shown;
+                        break;
+                    }
+                }
+                var copy = new List<Card>(state.HoleCards);
+                if (existing == null)
+                {
+                    _current.RevealedHands.Add(new RevealedHand
+                    {
+                        Seat = seat,
+                        HoleCards = copy
+                    });
+                }
+                else if (existing.HoleCards == null || existing.HoleCards.Count != 2)
+                {
+                    existing.HoleCards = copy;
+                }
+            }
         }
 
         private void EnsureHeroInRevealed()
