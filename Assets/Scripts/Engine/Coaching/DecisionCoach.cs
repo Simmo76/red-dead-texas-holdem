@@ -57,7 +57,7 @@ namespace CinematicPoker.Engine.Coaching
             return new EquityEstimate
             {
                 Share = share,
-                Method = "Monte Carlo, uniform random hands",
+                Method = "We dealt out thousands of pretend hands for the other players. Every card still in the deck had an equal chance, and we counted how often your hand would win.",
                 Samples = samples,
                 Exact = false
             };
@@ -103,7 +103,7 @@ namespace CinematicPoker.Engine.Coaching
             return new EquityEstimate
             {
                 Share = samples == 0 ? 0 : share / samples,
-                Method = "Exact enumeration of unseen hands",
+                Method = "We went through every hand the other player could still have. Each leftover hand counted the same, and we counted how often your hand would win.",
                 Samples = samples,
                 Exact = true
             };
@@ -301,12 +301,13 @@ namespace CinematicPoker.Engine.Coaching
                 : null;
             advice.Caveat = spot.PlayersBehind > 0
                 ? "Someone could still bet after you. The price ignores that."
-                : "Uniform random hands are a rough baseline, not a tight player's raising range.";
-            advice.Detail = advice.PriceLine
-                + " Method: " + estimate.Method
-                + ". Samples: " + estimate.Samples + "."
-                + (estimate.Exact ? "" : " This is a bounded sample, not every possible hand.")
-                + " " + advice.Caveat;
+                : "A careful player would fold many of those hands. This is a rough guide, not how a cautious player really bets.";
+            string how = estimate.Exact
+                ? "We checked every hand that was still possible."
+                : "We tried " + estimate.Samples + " pretend hands, not every hand that was possible.";
+            advice.Detail = string.IsNullOrEmpty(advice.PriceLine)
+                ? how + " " + advice.Caveat
+                : advice.PriceLine + " " + how + " " + advice.Caveat;
 
             string where = StreetPhrase(spot.Street);
             if (close)

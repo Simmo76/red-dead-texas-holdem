@@ -12,10 +12,10 @@ namespace CinematicPoker.Engine.Coaching
     public sealed class HandReviewService
     {
         public const string Assumptions =
-            "At showdown, the result uses the saved awards and the evaluator. " +
-            "A decision lesson uses only the cards and bets you had at the time. " +
-            "Uniform random hands are a rough baseline, not a reconstruction of a raising range. " +
-            "Equity is an expected share of the pot, including ties.";
+            "If everyone shows their cards, the winner comes from the chips that were paid and the best five-card hand. " +
+            "A tip about one decision only uses the cards and bets you could see at that moment. " +
+            "The estimate gives every possible hand an equal chance, even hands a careful player would fold. " +
+            "Your share of the pot includes ties, when the pot would be split.";
 
         private readonly DecisionCoach _coach;
         private readonly Queue<string> _shown = new Queue<string>();

@@ -532,7 +532,7 @@ namespace CinematicPoker.Engine.Tests
             Assert.IsNotNull(first.EquityShare);
             Assert.Greater(first.EquityShare.Value, 0);
             Assert.Less(first.EquityShare.Value, 1);
-            Assert.That(first.Method, Does.Contain("Exact").Or.Contain("uniform").IgnoreCase);
+            Assert.That(first.Method, Does.Contain("every hand").Or.Contain("pretend hands").IgnoreCase);
         }
 
         [Test]
@@ -546,7 +546,7 @@ namespace CinematicPoker.Engine.Tests
             DecisionAdvice a = await coach.AnalyseAsync(spot, action, LessonKind.PricedCall, 99, CancellationToken.None);
             DecisionAdvice b = await coach.AnalyseAsync(spot, action, LessonKind.PricedCall, 99, CancellationToken.None);
             Assert.AreEqual(a.EquityShare, b.EquityShare);
-            Assert.That(a.Method, Does.Contain("Monte Carlo"));
+            Assert.That(a.Method, Does.Contain("thousands of pretend hands"));
         }
 
         [Test]

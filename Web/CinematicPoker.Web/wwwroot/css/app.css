@@ -42,7 +42,10 @@ html, body {
     color: var(--text);
     font-family: Georgia, "Times New Roman", serif;
     overflow: hidden;
-    touch-action: none;
+    /* Panning stays on so the coach card can scroll. The table canvas
+       still opts out below, and overscroll-behavior stops a pull-to-refresh. */
+    touch-action: manipulation;
+    overscroll-behavior: none;
 }
 
 #app { height: 100%; }
@@ -3761,6 +3764,35 @@ html.scene-street.resume-play .boot-screen {
         width: 72px;
         height: 72px;
     }
+}
+
+/* Phone landscape is short. The pinned card row was eating the panel and
+   leaving the hand review inside a nested scroller that never reached the
+   screen. One scroll, with the review first, keeps that section in view. */
+@media (max-height: 520px) {
+    .coach-panel {
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-y;
+        overscroll-behavior: contain;
+    }
+    .coach-scroll {
+        flex: 0 0 auto;
+        min-height: auto;
+        overflow: visible;
+    }
+    .coach-dock {
+        flex: 0 0 auto;
+        max-height: none;
+        overflow: visible;
+    }
+    .coach-name { font-size: 18px; letter-spacing: 1px; }
+    .coach-role { font-size: 11px; letter-spacing: 1.5px; }
+    .coach-rule { margin: 8px 0 6px; }
+    .coach-section-title { font-size: 16px; }
+    .coach-block { margin-top: 8px; gap: 8px; }
+    .coach-copy { font-size: 14px; }
+    .coach-chips { margin-top: 8px; font-size: 13px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
