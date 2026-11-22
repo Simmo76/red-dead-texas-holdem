@@ -349,49 +349,46 @@ namespace CinematicPoker.Engine.Coaching
         }
 
         /// <summary>
-        /// When <see cref="ShowdownStarted"/> never reached the recorder (for
-        /// example a hand rebuilt from a finished round), copy only players
-        /// still in the pot — never folded seats.
+        /// Copy every player still in the pot at showdown. A partial reveal
+        /// (only the hero, or a hand rebuilt from a finished round) must not
+        /// skip the other live hands — those cards are what the review window
+        /// draws and what the winning-card highlight is chosen from. Folded
+        /// seats stay hidden.
         /// </summary>
         private void BackfillShowdownReveals(PokerRound round)
         {
             if (round == null || _current == null || _current.WonByFolds) return;
             if (_current.FinalBoard == null || _current.FinalBoard.Count < 5) return;
-
-            bool haveHero = false;
-            if (_current.RevealedHands != null)
-            {
-                foreach (RevealedHand shown in _current.RevealedHands)
-                {
-                    if (shown != null && shown.Seat == _heroSeat
-                        && shown.HoleCards != null && shown.HoleCards.Count == 2)
-                    {
-                        haveHero = true;
-                        break;
-                    }
-                }
-            }
-
-            if (haveHero && _current.RevealedHands.Count > 0) return;
+            if (_current.RevealedHands == null)
+                _current.RevealedHands = new List<RevealedHand>();
 
             foreach (SeatState seat in round.Seats)
             {
                 if (seat.Folded || seat.HoleCards == null || seat.HoleCards.Count != 2) continue;
-                bool listed = false;
+                RevealedHand existing = null;
                 foreach (RevealedHand shown in _current.RevealedHands)
                 {
                     if (shown != null && shown.Seat == seat.Seat)
                     {
-                        listed = true;
+                        existing = shown;
                         break;
                     }
                 }
-                if (listed) continue;
-                _current.RevealedHands.Add(new RevealedHand
+                if (existing != null && existing.HoleCards != null && existing.HoleCards.Count == 2)
+                    continue;
+                var copy = new List<Card>(seat.HoleCards);
+                if (existing == null)
                 {
-                    Seat = seat.Seat,
-                    HoleCards = new List<Card>(seat.HoleCards)
-                });
+                    _current.RevealedHands.Add(new RevealedHand
+                    {
+                        Seat = seat.Seat,
+                        HoleCards = copy
+                    });
+                }
+                else
+                {
+                    existing.HoleCards = copy;
+                }
             }
 
             EnsureHeroInRevealed();

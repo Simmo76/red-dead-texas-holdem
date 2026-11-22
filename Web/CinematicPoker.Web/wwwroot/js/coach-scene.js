@@ -585,40 +585,96 @@ export function createCoachController(deps) {
     }
   }
 
+  // Filename only, so "img/cards/hearts_8.png" and a rooted copy of the
+  // same face still count as the same card when the highlight list arrives.
+  function cardKey(url) {
+    const text = String(url || '');
+    const path = text.split('?')[0].split('#')[0];
+    const slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+    return (slash >= 0 ? path.slice(slash + 1) : path).toLowerCase();
+  }
+
+  function highlightSet(urls) {
+    const set = new Set();
+    const list = urls == null ? [] : Array.from(urls);
+    list.forEach((url) => {
+      if (!url) return;
+      set.add(String(url));
+      set.add(cardKey(url));
+    });
+    return set;
+  }
+
+  function isHighlighted(set, url) {
+    return !!(url && (set.has(url) || set.has(cardKey(url))));
+  }
+
   function layCards(payload) {
     clearCards();
     if (!payload || !cardGroup) return;
-    const highlights = new Set(payload.highlights || []);
-    const board = payload.board || [];
-    board.forEach((url, i) => {
-      const x = (i - (board.length - 1) / 2) * 0.2;
-      placeCard(url, x, 0.02, highlights.has(url));
+    const hot = highlightSet(payload.highlights);
+    const board = (payload.board || []).filter(Boolean);
+    const hands = [];
+    const hero = (payload.hero || []).filter(Boolean);
+    if (hero.length) hands.push(hero);
+    (payload.revealed || []).forEach((pair) => {
+      const cards = (pair || []).filter(Boolean);
+      if (cards.length) hands.push(cards);
     });
-    const hero = payload.hero || [];
-    hero.forEach((url, i) => {
-      placeCard(url, -0.12 + i * 0.16, 0.48, highlights.has(url), 0.2);
+
+    // The advice panel covers the right half of the frame, and the camera
+    // looks across the felt at a shallow angle. Cards past about z = 0.15
+    // drop below the screen, which is why hole cards used to vanish while
+    // the board stayed. Keep every row on the left-center felt: the board
+    // nearest the camera, hole cards stepping back toward the coach.
+    const rows = [];
+    if (board.length) rows.push(board);
+    let current = [];
+    hands.forEach((hand) => {
+      if (current.length && current.length + hand.length > 4) {
+        rows.push(current);
+        current = [];
+      }
+      current = current.concat(hand);
     });
-    const revealed = payload.revealed || [];
-    revealed.forEach((pair, row) => {
-      (pair || []).forEach((url, i) => {
-        placeCard(url, -0.55 + row * 0.34 + i * 0.12, -0.42, highlights.has(url), 0.15);
+    if (current.length) rows.push(current);
+    if (!rows.length) return;
+
+    const scale = rows.length > 5 ? 0.13 : rows.length > 3 ? 0.145 : 0.16;
+    const pitch = scale * 1.22;
+    const span = Math.max(0, rows.length - 1);
+    const gapZ = Math.min(scale * 1.9, span > 0 ? 0.78 / span : 0);
+    const zNear = -0.06;
+    rows.forEach((row, r) => {
+      const z = zNear - r * gapZ;
+      const width = (row.length - 1) * pitch;
+      const x0 = -0.18 - width / 2;
+      row.forEach((url, i) => {
+        placeCard(url, x0 + i * pitch, z, isHighlighted(hot, url), scale);
       });
     });
   }
 
-  function placeCard(url, x, z, hot, scale = 0.18) {
+  function placeCard(url, x, z, hot, scale = 0.16) {
+    // Tilt the face toward the camera. A flat card at this angle hides a
+    // thin coplanar rim, so the gold frame never read as "on".
+    const tilt = -Math.PI / 2 + 0.48;
     const mat = new THREE.MeshBasicMaterial({ map: texture(url) });
     const card = new THREE.Mesh(cardGeometry(scale, scale * 1.36), mat);
-    card.rotation.x = -Math.PI / 2;
-    card.position.set(x, TABLE_TOP + 0.01, z);
+    card.rotation.x = tilt;
+    card.position.set(x, TABLE_TOP + 0.06, z);
     card.userData.url = url;
+    card.frustumCulled = false;
+    card.renderOrder = 2;
     if (hot) {
       const rim = new THREE.Mesh(
-        cardGeometry(scale + 0.02, scale * 1.36 + 0.02),
+        cardGeometry(scale + 0.055, scale * 1.36 + 0.055),
         new THREE.MeshBasicMaterial({ color: 0xe2c36a })
       );
-      rim.rotation.x = -Math.PI / 2;
-      rim.position.set(x, TABLE_TOP + 0.008, z);
+      rim.rotation.x = tilt;
+      rim.position.set(x, TABLE_TOP + 0.04, z);
+      rim.frustumCulled = false;
+      rim.renderOrder = 1;
       cardGroup.add(rim);
     }
     cardGroup.add(card);
@@ -669,7 +725,7 @@ export function createCoachController(deps) {
       if (!presenting) return;
       const payload = api._lastPayload;
       if (!payload) return;
-      payload.highlights = urls || [];
+      payload.highlights = urls == null ? [] : Array.from(urls);
       layCards(payload);
     },
 

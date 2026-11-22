@@ -442,6 +442,9 @@ namespace CinematicPoker.Web.Pages
         public async Task ToggleCoachHighlights()
         {
             _coachHighlight = !_coachHighlight;
+            // Paint the panel rings before the scene redraw, so a slow or
+            // failed WebGL call cannot leave the button on with unmarked cards.
+            StateHasChanged();
             if (_coach3dOk == true)
             {
                 try
@@ -562,26 +565,30 @@ namespace CinematicPoker.Web.Pages
         {
             _coachFaces.Clear();
             if (hand == null) return;
-            AddFaces(hand.FinalBoard);
-            AddFaces(hand.HeroHoleCards);
+            // One row per hand so a narrow panel wraps a pair together
+            // instead of slicing cards off the end of a single strip.
+            int row = 0;
+            AddFaces(hand.FinalBoard, row++);
+            AddFaces(hand.HeroHoleCards, row++);
             if (hand.RevealedHands == null) return;
             foreach (RevealedHand shown in hand.RevealedHands)
             {
                 if (shown == null || shown.Seat == hand.HeroSeat) continue;
-                AddFaces(shown.HoleCards);
+                AddFaces(shown.HoleCards, row++);
             }
         }
 
-        private void AddFaces(IReadOnlyList<Card> cards)
+        private void AddFaces(IReadOnlyList<Card> cards, int row)
         {
-            if (cards == null) return;
+            if (cards == null || cards.Count == 0) return;
             foreach (Card card in cards)
             {
                 _coachFaces.Add(new CoachCardFace
                 {
                     Src = CardImage(card),
                     Alt = SpokenCard(card),
-                    Code = BestFiveCards.Code(card)
+                    Code = BestFiveCards.Code(card),
+                    Row = row
                 });
             }
         }
@@ -590,7 +597,12 @@ namespace CinematicPoker.Web.Pages
         {
             if (!_coachHighlight || string.IsNullOrEmpty(code) || _coachReview?.HighlightCodes == null)
                 return null;
-            return _coachReview.HighlightCodes.Contains(code) ? "hot" : null;
+            foreach (string highlight in _coachReview.HighlightCodes)
+            {
+                if (string.Equals(highlight, code, StringComparison.OrdinalIgnoreCase))
+                    return "hot";
+            }
+            return null;
         }
 
         private static string SpokenCard(Card card) => card.Rank + " of " + card.Suit;
@@ -818,6 +830,7 @@ namespace CinematicPoker.Web.Pages
             public string Src;
             public string Alt;
             public string Code;
+            public int Row;
         }
 
         private sealed class CoachSceneResult

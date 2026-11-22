@@ -292,6 +292,40 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void PartialShowdownRevealStillKeepsEveryLiveHand()
+        {
+            var deck = StackedDeck.Parse("As", "Qh", "Kd", "Jh", "Ah", "Kh", "8h", "8c", "2s");
+            PokerGame game = CreateGame(new long[] { 1000, 1000 }, deck);
+            var recorder = new HandReviewRecorder("partial-reveal", 0, 5, 10);
+            var names = new Dictionary<int, string> { { 0, "You" }, { 1, "Billie Quickdraw" } };
+            game.EventEmitted += evt =>
+            {
+                if (evt is ShowdownStarted showdown)
+                {
+                    var heroOnly = new Dictionary<int, IReadOnlyList<Card>>();
+                    if (showdown.RevealedHands != null && showdown.RevealedHands.TryGetValue(0, out IReadOnlyList<Card> hole))
+                        heroOnly[0] = hole;
+                    recorder.Observe(new ShowdownStarted { RevealedHands = heroOnly }, game.CurrentRound, names);
+                    return;
+                }
+                recorder.Observe(evt, game.CurrentRound, names);
+            };
+            game.StartHand();
+            CheckCallDown(game);
+
+            CompletedHandRecord record = recorder.LastCompleted;
+            Assert.IsNotNull(record);
+            Assert.IsFalse(record.WonByFolds);
+            RevealedHand opponent = record.RevealedHands.FirstOrDefault(shown => shown != null && shown.Seat == 1);
+            Assert.IsNotNull(opponent, "The winner's hole cards have to reach the review.");
+            Assert.AreEqual(2, opponent.HoleCards.Count);
+            HandReview review = new HandReviewService().Explain(record);
+            Assert.IsNotEmpty(review.HighlightCodes, "A showdown with both hands saved can mark the winning cards.");
+            Assert.That(review.HighlightCodes, Does.Contain("Qh"));
+            Assert.That(review.HighlightCodes, Does.Contain("Jh"));
+        }
+
+        [Test]
         public void HiddenOpponentCardsNeverReachTheRecord()
         {
             var deck = StackedDeck.Parse("7c", "Qh", "2d", "Jh");

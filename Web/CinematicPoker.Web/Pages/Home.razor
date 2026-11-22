@@ -913,6 +913,7 @@
                 </div>
             }
             <section class="coach-panel" tabindex="-1" @ref="_coachPanelRef" @onclick:stopPropagation="true" @onkeydown="OnCoachKey">
+                <div class="coach-scroll">
                 <h2 class="coach-name">@CoachDisplayNameUpper</h2>
                 <p class="coach-role">YOUR TABLE COACH</p>
                 <hr class="coach-rule" />
@@ -961,26 +962,6 @@
                         <p class="coach-chips">@line</p>
                     }
                 }
-                @if (_coachFaces.Count > 0)
-                {
-                    <div class="coach-cards" aria-label="Cards from this hand">
-                        @foreach (var face in _coachFaces)
-                        {
-                            <img src="@face.Src" alt="@face.Alt" class="@CoachHot(face.Code)" />
-                        }
-                    </div>
-                }
-                <div class="coach-actions">
-                    <button type="button" class="act call" @onclick="ToggleKeyDecision" aria-expanded="@_coachKeyOpen">SEE KEY DECISION</button>
-                    @if (CoachCanAdvance)
-                    {
-                        <button type="button" class="act bet" @onclick="() => CloseCoach(true)">@CoachAdvanceLabel</button>
-                    }
-                    else
-                    {
-                        <button type="button" class="act bet" @onclick="() => CloseCoach(false)">BACK TO TABLE</button>
-                    }
-                </div>
                 @if (_coachKeyOpen)
                 {
                     <div class="coach-detail">
@@ -1032,9 +1013,6 @@
                         }
                     </div>
                 }
-                <div class="coach-tools">
-                    <button type="button" class="@(_coachHighlight ? "active" : null)" aria-pressed="@_coachHighlight" @onclick="ToggleCoachHighlights">@(_coachHighlight ? "HIGHLIGHT ON" : "HIGHLIGHT WINNING CARDS")</button>
-                </div>
                 @if (_coach3dOk == false && _coachSceneReason == "shared-table")
                 {
                     <p class="coach-note">This review stays on the card while friends are at the table.</p>
@@ -1043,7 +1021,38 @@
                 {
                     <p class="coach-note">Saloon view: @_coachSceneReason. The written advice is on this card.</p>
                 }
+                </div>
+                <div class="coach-dock">
+                @if (_coachFaces.Count > 0)
+                {
+                    <div class="coach-cards" aria-label="Cards from this hand">
+                        @foreach (var row in _coachFaces.GroupBy(face => face.Row))
+                        {
+                            <div class="coach-card-row">
+                                @foreach (var face in row)
+                                {
+                                    <img src="@face.Src" alt="@face.Alt" class="@CoachHot(face.Code)" />
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                <div class="coach-actions">
+                    <button type="button" class="act call" @onclick="ToggleKeyDecision" aria-expanded="@_coachKeyOpen">SEE KEY DECISION</button>
+                    @if (CoachCanAdvance)
+                    {
+                        <button type="button" class="act bet" @onclick="() => CloseCoach(true)">@CoachAdvanceLabel</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="act bet" @onclick="() => CloseCoach(false)">BACK TO TABLE</button>
+                    }
+                </div>
+                <div class="coach-tools">
+                    <button type="button" class="@(_coachHighlight ? "active" : null)" aria-pressed="@_coachHighlight" @onclick="ToggleCoachHighlights">@(_coachHighlight ? "HIGHLIGHT ON" : "HIGHLIGHT WINNING CARDS")</button>
+                </div>
                 <p class="coach-foot">POST-HAND ADVICE</p>
+                </div>
             </section>
         </div>
     }
