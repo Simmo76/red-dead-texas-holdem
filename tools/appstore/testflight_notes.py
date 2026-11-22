@@ -4,6 +4,9 @@
 Uses the same App Store Connect API key as the TestFlight lane:
 ASC_KEY_ID, ASC_ISSUER_ID, and ASC_KEY_P8_BASE64. Notes are read from
 what-to-test.txt beside this script, or from WHAT_TO_TEST when that is set.
+
+When editing what-to-test.txt: replace the "New" bullets each release instead
+of appending; keep "Quick pass" to a short, non-overlapping smoke list.
 """
 
 from __future__ import annotations
