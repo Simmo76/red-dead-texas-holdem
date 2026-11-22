@@ -4551,29 +4551,41 @@
         StateHasChanged();
     }
 
+    // The hand-compare strip (every seat still in the hand, including the
+    // player's) is what is on screen from the reveal until the pot banner
+    // replaces it. Three seats wrap, so the third hand sits below the fold
+    // and has to be scrolled into view. That whole beat — the reveal dwell,
+    // the breath before the pot is pushed, and the pot push itself while
+    // the strip is still up — stays readable for ShowdownReadScale times
+    // the original pacing. Fold-wins never show that strip, so they keep
+    // the shorter pot timing.
+    private const int ShowdownReadScale = 3;
+
     // Dwell time BEFORE presenting the given queued event: let the current
     // street sink in before hands are revealed, and the reveal sink in
-    // before the pot is pushed. Nothing moves on the table during these
-    // waits, so they are kept short — the dwell AFTER the reveal is where
-    // the reading time lives — and DrainEvents narrates them in the status
+    // before the pot is pushed. DrainEvents narrates these in the status
     // line so the pause reads as pacing, not as the game stalling while it
     // "works out the winner".
     private int PauseBefore(PokerEvent next) => next switch
     {
         FlopDealt or TurnDealt or RiverDealt => _quickMode ? 900 : 1400,
         ShowdownStarted => _quickMode ? 800 : 1200,
+        PotAwarded when _showdownView.Count > 0 => (_quickMode ? 500 : 800) * ShowdownReadScale,
         PotAwarded => _quickMode ? 500 : 800,
         _ => 0
     };
 
-    // Extra dwell AFTER the current event is on screen: read opponent hole
-    // cards at showdown, then let the pot push (and the player's win
-    // celebration) play out before HandCompleted brings up the result
-    // banner. The banner itself holds until NEXT HAND is tapped, so these
-    // dwells only delay the announcement — keep them tight.
+    // Extra dwell AFTER the current event is on screen. ShowdownStarted is
+    // the time to read every revealed hand. A showdown pot award keeps that
+    // same strip up (winners marked) until HandCompleted brings the result
+    // banner, which hides the strip; both of those dwells are scaled.
+    // The banner itself then holds until NEXT HAND is tapped.
     private int PauseAfter(PokerEvent evt) => evt switch
     {
-        ShowdownStarted => _quickMode ? 1400 : 2200,
+        ShowdownStarted => (_quickMode ? 1400 : 2200) * ShowdownReadScale,
+        PotAwarded award when award.WinningHand.HasValue => (award.WinnerSeats.Contains(0)
+            ? (_quickMode ? 1600 : 2400)
+            : (_quickMode ? 1200 : 1800)) * ShowdownReadScale,
         PotAwarded award => award.WinnerSeats.Contains(0)
             ? (_quickMode ? 1600 : 2400)
             : (_quickMode ? 1200 : 1800),
