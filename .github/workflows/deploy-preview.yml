@@ -90,7 +90,7 @@ jobs:
       cancel-in-progress: false
     environment:
       name: github-pages-preview
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -155,8 +155,22 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      # upload-pages-artifact reports success before the artifact is visible
+      # to deploy-pages. The list then contains only the branch preview
+      # artifact, and the deploy fails with "No artifacts named github-pages".
+      - name: Wait for the Pages artifact to be listed
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 20
+
+      - name: Deploy again
+        id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v4
 
       - name: Publish preview link to the pull request
+        if: steps.deployment.outcome == 'success' || steps.deployment_retry.outcome == 'success'
         uses: actions/github-script@v7
         with:
           script: |
