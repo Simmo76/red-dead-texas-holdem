@@ -1,19 +1,10 @@
-What to test in this build:
+What to test in this build
 
-• Victory certificate and Export Certificate: POKER COACH shows WHY YOU WON and the outcome line only—no italic coach tip (e.g. no "Reading the price you were offered."). Full tips still appear in Poker Coach Feedback.
-• Post-hand Poker Coach: only HIGHLIGHT (or HIGHLIGHT ON) remains—USEFUL, UNCLEAR, and “Marked …” feedback are gone.
-• Poker Coach after someone else wins: the banner names the winner (e.g. "Sam Six-Shot takes the pot"). Open POKER COACH — WHAT HAPPENED must name who collected the pot, not "no winner is named."
-• Poker Coach on a win certificate must describe that win. "YOU WON — everyone folded" should say everyone folded. "YOU WON with three of a kind" should say three of a kind, not a straight or "WHY THEY WON / Their pair beat your pair." Swipe a few older wins and check the coach line against the headline.
-• Victory Gallery of Wins: win a pot and browse past certificates in a Cover Flow carousel. GALLERY OF WINS banner is at the top (half size). Certificate fills the rest of the screen to the bottom. Swipe left/right or use the large ‹ › buttons; counter shows position.
-• Each slide keeps its own Poker Coach why-you-won line when you run feedback on that win. Export Certificate saves the cert (coach heading + outcome, board, footer) without the italic tip—for the active slide, not the export buttons.
-• No slow finger-drag on certificates—swipe only. While the victory screen is up, the pulsing “Tap NEXT HAND” hint on the bottom left should be gone.
-• Settings → Restart: game restarts without the red Blazor error bar.
-• Quick QA: two wins, coach both, swipe slides—coach copy should differ; export one slide and check the PNG.
-• Table view shows the dealer, small blind, and big blind chips on the nameplates.
-• The app icon is the brighter western mark, with aces, chips, and a cowboy hat.
-• Switching between the saloon and the octagon skips the title menu and returns to the hand. The tap-to-play menu only shows on a fresh visit.
-• iPhone landscape: the title, pot, coach, and action buttons sit closer to the screen edges. The card window still clears the notch.
-• Octagon: the advice coin shows Frankie Fast-Hand. The saloon still shows Maximilian.
-• Your win: the victory certificate grows until it meets the bottom of the screen, and the green stack pill hides until you dismiss it.
-• Opponent win: the result window lists the community cards under ON THE BOARD, and the corner card strip stays hidden.
-• Saloon keeps western bodies only (Cowboy Girl is the lone woman); octagon seats two women.
+New
+• Victory certificate and Export Certificate: POKER COACH shows WHY YOU WON and the outcome only—no italic tip. Full lessons stay in Poker Coach Feedback.
+
+Quick pass (smoke — not every build changed these)
+• Gallery of Wins: swipe between past wins; coach line on each slide matches that hand; export one PNG (cert only, no buttons).
+• Poker Coach panel: HIGHLIGHT-only feedback; when you lose, it names who won the pot; copy agrees with the certificate headline.
+• Win banner fills the screen; opponent-win banner lists the board; certificate swipe only (no drag); Settings → Restart has no red error bar.
+• Saloon coach Maximilian, octagon Frankie; changing venue skips the title menu and returns to the hand; table view shows dealer / SB / BB on nameplates.
