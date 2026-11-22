@@ -326,6 +326,32 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void HeroFoldThenShowdownRunoutKeepsBoardForCoach()
+        {
+            var deck = StackedDeck.Parse(
+                "As", "Kd", "7c", "2d", "Jh",
+                "Ah", "Kh", "8h", "8c", "2s", "9c", "3d", "5s", "4h");
+            PokerGame game = CreateGame(new long[] { 1000, 1000, 1000 }, deck);
+            var recorder = new HandReviewRecorder("spectate", 0, 5, 10);
+            var names = new Dictionary<int, string>
+            {
+                { 0, "You" }, { 1, "Simon" }, { 2, "Steve" }
+            };
+            game.EventEmitted += evt => recorder.Observe(evt, game.CurrentRound, names);
+            game.StartHand();
+            HeroDecisionSnapshot offer = recorder.CaptureOffer(game.CurrentRound, game.GetLegalActions());
+            game.SubmitAction(PlayerAction.Fold());
+            recorder.Accept(offer, PlayerAction.Fold());
+            CheckCallDown(game);
+
+            CompletedHandRecord record = recorder.LastCompleted;
+            Assert.IsNotNull(record);
+            Assert.IsTrue(record.HeroFolded);
+            Assert.GreaterOrEqual(record.FinalBoard.Count, 5,
+                "Coach review should show the full board after watching a runout.");
+        }
+
+        [Test]
         public void HiddenOpponentCardsNeverReachTheRecord()
         {
             var deck = StackedDeck.Parse("7c", "Qh", "2d", "Jh");

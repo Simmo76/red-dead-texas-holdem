@@ -337,7 +337,15 @@ namespace CinematicPoker.Engine.Coaching
             }
             if (round != null)
             {
-                _current.FinalBoard = new List<Card>(round.Board);
+                // Street events may already have built FinalBoard while the
+                // UI was still pacing. Do not wipe that with an empty board
+                // if the round snapshot arrives late (fold-and-watch, all-in
+                // runouts that flush many events at once).
+                var fromRound = round.Board != null
+                    ? new List<Card>(round.Board)
+                    : new List<Card>();
+                if (fromRound.Count > 0 || _current.FinalBoard.Count == 0)
+                    _current.FinalBoard = fromRound;
                 foreach (SeatState seat in round.Seats)
                     _current.EndingStacks[seat.Seat] = seat.Stack;
             }
