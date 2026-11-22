@@ -1,5 +1,10 @@
 What to test in this build:
 
+New — HIGHLIGHT after a fold loss (PR #313)
+• Fold a hand (river is fine) so the opponent takes the pot and their cards show on Poker Coach.
+• HIGHLIGHT ON/OFF must sit beside SEE KEY DECISION — not missing just because you lost.
+• Tap HIGHLIGHT ON: the winner’s best five ring. The write-up names their hand; it must not say strength is unknown when those cards are on screen.
+
 New — pot no longer covers the title (PR #309)
 • Start a hand. In the top-left, POT $… sits under DEAD MAN'S HAND — the pill must not sit on top of the title.
 • With music on (>> tune visible) plus RULES / HANDS / bird's eye / SETTINGS / INVITE FRIEND, check the top chip row on a phone in landscape: those primary chips stay on one line and SETTINGS is never covered by the hand window. Title and pot stay stacked top-left.

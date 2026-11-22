@@ -118,6 +118,31 @@ namespace CinematicPoker.Engine.Coaching
             int winner = pot?.WinnerSeats != null && pot.WinnerSeats.Count > 0 ? pot.WinnerSeats[0] : -1;
             string name = SeatName(hand, winner);
             review.Heading = "WHAT HAPPENED";
+            // The coach already backfills the winner's hole cards on a fold
+            // loss. Mark those cards (best five when the board is complete)
+            // so HIGHLIGHT ON works the same way as a hero fold-win.
+            IReadOnlyList<Card> winnerHole = HoleCardsForSeat(hand, winner);
+            if (winnerHole != null && winnerHole.Count == 2)
+            {
+                review.HighlightCodes = HoleOrBestFiveHighlights(winnerHole, hand.FinalBoard);
+                if (hand.FinalBoard != null && hand.FinalBoard.Count >= 5)
+                {
+                    var all = new List<Card>(winnerHole);
+                    all.AddRange(hand.FinalBoard);
+                    HandValue value = HandEvaluator.Evaluate(all);
+                    string with = " with " + WithArticle(CategoryPhrase(value));
+                    review.WhyWon = hand.HeroFolded
+                        ? "You folded; " + name + " collected the pot" + with + "."
+                        : name + " collected the pot" + with + ".";
+                    return;
+                }
+
+                review.WhyWon = hand.HeroFolded
+                    ? "You folded; " + name + " collected the pot without a showdown."
+                    : name + " collected the pot without a showdown.";
+                return;
+            }
+
             if (hand.HeroFolded)
                 review.WhyWon = "You folded; " + name + " collected the pot without a showdown. Strength is unknown.";
             else
@@ -399,18 +424,37 @@ namespace CinematicPoker.Engine.Coaching
         /// board, mark the best five you would have played; otherwise only the
         /// two hole cards that collected the pot.
         /// </summary>
-        private static List<string> FoldWinHighlights(CompletedHandRecord hand)
+        private static List<string> FoldWinHighlights(CompletedHandRecord hand) =>
+            HoleOrBestFiveHighlights(hand.HeroHoleCards, hand.FinalBoard);
+
+        /// <summary>
+        /// Same highlight rule for a fold-loss: ring the winner's best five
+        /// when the board is complete, otherwise just their two hole cards.
+        /// </summary>
+        private static List<string> HoleOrBestFiveHighlights(IReadOnlyList<Card> hole, IReadOnlyList<Card> board)
         {
-            if (hand.HeroHoleCards == null || hand.HeroHoleCards.Count != 2)
+            if (hole == null || hole.Count != 2)
                 return new List<string>();
-            if (hand.FinalBoard != null && hand.FinalBoard.Count >= 5)
+            if (board != null && board.Count >= 5)
             {
-                var all = new List<Card>(hand.HeroHoleCards);
-                all.AddRange(hand.FinalBoard);
+                var all = new List<Card>(hole);
+                all.AddRange(board);
                 return Codes(BestFiveCards.Select(all));
             }
 
-            return Codes(hand.HeroHoleCards);
+            return Codes(hole is List<Card> list ? list : new List<Card>(hole));
+        }
+
+        private static IReadOnlyList<Card> HoleCardsForSeat(CompletedHandRecord hand, int seat)
+        {
+            if (seat < 0 || hand.RevealedHands == null) return null;
+            foreach (RevealedHand shown in hand.RevealedHands)
+            {
+                if (shown != null && shown.Seat == seat
+                    && shown.HoleCards != null && shown.HoleCards.Count == 2)
+                    return shown.HoleCards;
+            }
+            return null;
         }
 
         private static bool EntirelyOnBoard(List<Card> five, IReadOnlyList<Card> board)

@@ -221,6 +221,45 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void HeroFoldLossWithFullBoardHighlightsWinnersBestFive()
+        {
+            // Matches the coach card after a river fold: full board, winner's
+            // hole cards backfilled, HIGHLIGHT must still appear so the player
+            // can see which five took the pot.
+            CompletedHandRecord hand = CoachFixtures.FoldedBlind();
+            hand.HeroFolded = true;
+            hand.WonByFolds = true;
+            hand.HeroHoleCards = new List<Card> { Card.Parse("As"), Card.Parse("8c") };
+            hand.FinalBoard = new List<Card>
+            {
+                Card.Parse("Ks"), Card.Parse("3d"), Card.Parse("6c"), Card.Parse("4s"), Card.Parse("7d")
+            };
+            hand.RevealedHands = new List<RevealedHand>
+            {
+                new RevealedHand
+                {
+                    Seat = 1,
+                    HoleCards = new List<Card> { Card.Parse("Kh"), Card.Parse("Kc") }
+                }
+            };
+            hand.Awards[0].WinnerSeats = new List<int> { 1 };
+            hand.Awards[0].Payouts = new Dictionary<int, long> { { 1, 140 } };
+            hand.HeroNet = -65;
+            hand.SeatNames[1] = "Jesse Deadeye";
+
+            HandReview review = new HandReviewService().Explain(hand);
+
+            Assert.AreEqual("WHAT HAPPENED", review.Heading);
+            Assert.That(review.WhyWon, Does.Contain("Jesse Deadeye"));
+            Assert.That(review.WhyWon, Does.Contain("three of a kind"));
+            Assert.That(review.WhyWon, Does.Not.Contain("unknown"));
+            CollectionAssert.AreEquivalent(
+                new[] { "Kh", "Kc", "Ks", "7d", "6c" },
+                review.HighlightCodes,
+                "Fold losses with a full board highlight the winner's best five.");
+        }
+
+        [Test]
         public async Task HeroFoldWinDoesNotTeachSidePotSlices()
         {
             CompletedHandRecord hand = CoachFixtures.FoldedBlind();
@@ -330,8 +369,17 @@ namespace CinematicPoker.Engine.Tests
             Assert.IsNotNull(opponent, "Fold wins should show the winner's cards in the coach, same as the result banner.");
             Assert.AreEqual(2, opponent.HoleCards.Count);
             HandReview review = new HandReviewService().Explain(record);
-            Assert.IsEmpty(review.HighlightCodes,
-                "When the hero folded, there is no hero hand to highlight on a fold win.");
+            Assert.IsNotEmpty(review.HighlightCodes,
+                "When the coach shows the winner's cards after a fold loss, HIGHLIGHT must be available.");
+            // CoachBoardRunout fills the remaining streets for the coach card,
+            // so the highlight is the winner's best five — not only the holes.
+            var expected = new List<Card>(opponent.HoleCards);
+            expected.AddRange(record.FinalBoard);
+            CollectionAssert.AreEquivalent(
+                BestFiveCards.Select(expected).ConvertAll(BestFiveCards.Code),
+                review.HighlightCodes);
+            Assert.That(review.WhyWon, Does.Not.Contain("unknown"),
+                "Cards are on the coach card, so strength is not unknown.");
         }
 
         [Test]
@@ -487,7 +535,9 @@ namespace CinematicPoker.Engine.Tests
             Assert.IsTrue(ContainsCard(record, "7c"));
             HandReview review = new HandReviewService().Explain(record);
             Assert.That(review.WhyWon, Does.Contain("without a showdown"));
-            Assert.IsEmpty(review.HighlightCodes);
+            Assert.That(review.WhyWon, Does.Not.Contain("unknown"));
+            CollectionAssert.AreEquivalent(new[] { "Qh", "Jh" }, review.HighlightCodes,
+                "Preflop fold losses highlight the winner's two hole cards shown on the coach.");
         }
 
         [Test]
