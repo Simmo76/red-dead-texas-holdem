@@ -585,72 +585,42 @@ export function createCoachController(deps) {
     }
   }
 
-  // Kenney face paths like img/cards/hearts_K.png → engine codes (Kh).
-  function codeFromUrl(url) {
-    if (!url) return '';
-    const m = String(url).match(/\/(clubs|diamonds|hearts|spades)_([^./]+)\.png$/i);
-    if (!m) return '';
-    const suit = { clubs: 'c', diamonds: 'd', hearts: 'h', spades: 's' }[m[1].toLowerCase()];
-    if (!suit) return '';
-    const rank = m[2] === '10' ? 'T' : m[2].toUpperCase();
-    return rank + suit;
-  }
-
-  function highlightSet(payload) {
-    const codes = new Set(payload.highlightCodes || []);
-    const urls = new Set(payload.highlights || []);
-    return (url) => {
-      if (codes.size > 0) return codes.has(codeFromUrl(url));
-      return urls.has(url);
-    };
-  }
-
   function layCards(payload) {
     clearCards();
     if (!payload || !cardGroup) return;
-    const isHot = highlightSet(payload);
+    const highlights = new Set(payload.highlights || []);
     const board = payload.board || [];
     board.forEach((url, i) => {
       const x = (i - (board.length - 1) / 2) * 0.2;
-      placeCard(url, x, 0.02, isHot(url));
+      placeCard(url, x, 0.02, highlights.has(url));
     });
     const hero = payload.hero || [];
     hero.forEach((url, i) => {
-      placeCard(url, -0.12 + i * 0.16, 0.48, isHot(url), 0.2);
+      placeCard(url, -0.12 + i * 0.16, 0.48, highlights.has(url), 0.2);
     });
     const revealed = payload.revealed || [];
     revealed.forEach((pair, row) => {
       (pair || []).forEach((url, i) => {
-        placeCard(url, -0.55 + row * 0.34 + i * 0.12, -0.42, isHot(url), 0.15);
+        placeCard(url, -0.55 + row * 0.34 + i * 0.12, -0.42, highlights.has(url), 0.15);
       });
     });
   }
 
   function placeCard(url, x, z, hot, scale = 0.18) {
-    const pad = hot ? scale * 0.14 : 0;
-    if (hot) {
-      const rim = new THREE.Mesh(
-        cardGeometry(scale + pad, scale * 1.36 + pad),
-        new THREE.MeshBasicMaterial({
-          color: 0xf0d060,
-          side: THREE.DoubleSide,
-          depthWrite: false,
-        })
-      );
-      rim.rotation.x = -Math.PI / 2;
-      rim.position.set(x, TABLE_TOP + 0.0097, z);
-      rim.renderOrder = 0;
-      cardGroup.add(rim);
-    }
-    const mat = new THREE.MeshBasicMaterial({
-      map: texture(url),
-      color: hot ? 0xfffff2 : 0xffffff,
-    });
+    const mat = new THREE.MeshBasicMaterial({ map: texture(url) });
     const card = new THREE.Mesh(cardGeometry(scale, scale * 1.36), mat);
     card.rotation.x = -Math.PI / 2;
     card.position.set(x, TABLE_TOP + 0.01, z);
-    card.renderOrder = 1;
     card.userData.url = url;
+    if (hot) {
+      const rim = new THREE.Mesh(
+        cardGeometry(scale + 0.02, scale * 1.36 + 0.02),
+        new THREE.MeshBasicMaterial({ color: 0xe2c36a })
+      );
+      rim.rotation.x = -Math.PI / 2;
+      rim.position.set(x, TABLE_TOP + 0.008, z);
+      cardGroup.add(rim);
+    }
     cardGroup.add(card);
   }
 
@@ -695,18 +665,11 @@ export function createCoachController(deps) {
       };
     },
 
-    setHighlights(urls, codes) {
+    setHighlights(urls) {
       if (!presenting) return;
       const payload = api._lastPayload;
       if (!payload) return;
       payload.highlights = urls || [];
-      if (codes && codes.length) {
-        payload.highlightCodes = codes;
-      } else if (urls && urls.length) {
-        payload.highlightCodes = urls.map(codeFromUrl).filter(Boolean);
-      } else {
-        payload.highlightCodes = [];
-      }
       layCards(payload);
     },
 
@@ -763,7 +726,6 @@ export function createCoachController(deps) {
       hero: payload.hero || [],
       revealed: payload.revealed || [],
       highlights: payload.highlights || [],
-      highlightCodes: payload.highlightCodes || [],
       reducedMotion: payload.reducedMotion,
     } : null;
     return show(payload);

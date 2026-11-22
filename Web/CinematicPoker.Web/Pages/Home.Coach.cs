@@ -126,7 +126,6 @@ namespace CinematicPoker.Web.Pages
             + (_shotBusy ? " shot-busy" : "")
             + (_banner != null && _playerWonPot ? " banner-victory" : "")
             + (_banner != null && !_playerWonPot ? " banner-opponent" : "")
-            + (KeepShowdownWithResultBanner ? " showdown-with-banner" : "")
             + (_coachOpen && _coachUseScene ? " coach-open" : "")
             + (_coachOpen && !_coachUseScene ? " coach-panel-only" : "")
             + (_coachOpen && _awaitingHuman ? " coach-live" : "");
@@ -449,13 +448,11 @@ namespace CinematicPoker.Web.Pages
                 {
                     await JS.InvokeVoidAsync(
                         "pokerCoach.setHighlights",
-                        _coachHighlight ? HighlightUrls() : Array.Empty<string>(),
-                        _coachHighlight ? HighlightCodesArray() : Array.Empty<string>());
+                        _coachHighlight ? HighlightUrls() : Array.Empty<string>());
                 }
                 catch (JSException) { }
                 catch (InvalidOperationException) { }
             }
-            StateHasChanged();
         }
 
         public async Task FocusCoachPanel()
@@ -520,13 +517,7 @@ namespace CinematicPoker.Web.Pages
             _coachClip = result?.clip;
             if (_coach3dOk == true && _coachHighlight)
             {
-                try
-                {
-                    await JS.InvokeVoidAsync(
-                        "pokerCoach.setHighlights",
-                        HighlightUrls(),
-                        HighlightCodesArray());
-                }
+                try { await JS.InvokeVoidAsync("pokerCoach.setHighlights", HighlightUrls()); }
                 catch (JSException) { }
             }
             StateHasChanged();
@@ -551,13 +542,9 @@ namespace CinematicPoker.Web.Pages
                 hero,
                 revealed,
                 highlights = _coachHighlight ? HighlightUrls() : Array.Empty<string>(),
-                highlightCodes = _coachHighlight ? HighlightCodesArray() : Array.Empty<string>(),
                 reducedMotion = reduced
             };
         }
-
-        private string[] HighlightCodesArray() =>
-            _coachReview?.HighlightCodes?.ToArray() ?? Array.Empty<string>();
 
         private string[] HighlightUrls()
         {
@@ -757,7 +744,7 @@ namespace CinematicPoker.Web.Pages
                 row.coachHandId = review.HandId;
             row.coachHeading = review.Heading ?? "";
             row.coachWhyWon = review.WhyWon ?? "";
-            row.coachLesson = "";
+            row.coachLesson = review.Lesson ?? "";
         }
 
         private void TryAttachCoachSnapshot(VictoryWinRecord snap)
