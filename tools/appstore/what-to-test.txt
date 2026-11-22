@@ -1,5 +1,10 @@
 What to test in this build:
 
+New (coach key decision and hand layout)
+• Open Poker Coach after a showdown. Row 1 is the board; row 2 shows every showdown player's two-card hand on one line, with that player's name under their pair.
+• Tap SEE KEY DECISION. The street, board, action, and price breakdown appear in the dock next to the buttons (not only in the scroll area above). Tap again — HIDE KEY DECISION — to collapse it.
+• Tap HIGHLIGHT WINNING CARDS and confirm the gold frame still matches the winning five on the board and in the dock.
+
 New (coach cards and highlight)
 • Open Poker Coach after a showdown. The review window and the felt show the whole hand: the board, your two cards, and each opponent who reached showdown.
 • Tap HIGHLIGHT WINNING CARDS. It switches to HIGHLIGHT ON and puts a gold frame on the five cards that made the winning hand, both in the window and on the table.
