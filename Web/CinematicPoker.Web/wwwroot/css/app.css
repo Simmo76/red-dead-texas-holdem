@@ -3211,6 +3211,14 @@ html.scene-street.resume-play .boot-screen {
         top: calc(118px + env(safe-area-inset-top, 0px));
         align-items: flex-end;
     }
+    .game3d.showdown-with-banner .banner {
+        top: 3%;
+        max-height: min(30vh, 160px);
+    }
+    .game3d.showdown-with-banner .showdown-layer {
+        max-height: min(34vh, 190px);
+        bottom: calc(64px + max(8px, env(safe-area-inset-bottom, 0px));
+    }
     .showdown-strip { gap: 15px; padding: 12px 15px; max-width: min(570px, 90vw); }
     .showdown-seat { min-width: 120px; padding: 8px 12px; gap: 6px; }
     .showdown-cards .hud-card { width: 63px; }
