@@ -1,7 +1,9 @@
 What to test in this build:
 
-New (build after PR #290 revert to post–#280)
-• This binary rolls back overlay, multi-way showdown banner, victory-cert coach-tip, and coach-highlight changes merged after #280. Confirm the weird regressions from those builds are gone.
+New (showdown hand compare)
+• At a three-player showdown, the screen listing every hand, including yours, stays up twice as long as before so you can scroll to the third hand. It then goes to the pot plaque ("Sam Six-Shot takes the pot").
+• Cinematic is about 10 seconds. Quick Play is about 6 seconds. NEXT HAND still waits for your tap.
+• A pot won because everyone else folded does not show that hand list, and that result should still appear at the old speed.
 • Poker Coach showdown: should still explain wins/losses without “your cards were not in the saved record” (#280 fix kept).
 
 • Post-hand Poker Coach: only HIGHLIGHT (or HIGHLIGHT ON) remains—USEFUL, UNCLEAR, and “Marked …” feedback are gone.
