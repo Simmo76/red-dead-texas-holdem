@@ -228,6 +228,10 @@ namespace CinematicPoker.Engine.Coaching
         public List<string> PotLines { get; set; } = new List<string>();
         public List<string> HighlightCodes { get; set; } = new List<string>();
         public DecisionAdvice KeyDecision { get; set; }
+        /// <summary>
+        /// Closing note under the key decision. Hand-specific takeaway from the
+        /// finished cards and priced spot — not a fixed methodology disclaimer.
+        /// </summary>
         public string Assumptions { get; set; }
         public LessonKind LessonKind { get; set; }
     }

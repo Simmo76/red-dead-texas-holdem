@@ -11,12 +11,6 @@ namespace CinematicPoker.Engine.Coaching
     /// </summary>
     public sealed class HandReviewService
     {
-        public const string Assumptions =
-            "If everyone shows their cards, the winner comes from the chips that were paid and the best five-card hand. " +
-            "A tip about one decision only uses the cards and bets you could see at that moment. " +
-            "The estimate gives every possible hand an equal chance, even hands a careful player would fold. " +
-            "Your share of the pot includes ties, when the pot would be split.";
-
         private readonly DecisionCoach _coach;
         private readonly Queue<string> _shown = new Queue<string>();
         private const int ShownWindow = 5;
@@ -30,7 +24,6 @@ namespace CinematicPoker.Engine.Coaching
         public HandReview Explain(CompletedHandRecord hand)
         {
             HandReview review = HandOutcomeExplainer.Build(hand);
-            review.Assumptions = Assumptions;
             if (hand == null || !hand.Complete)
                 return review;
 
@@ -67,6 +60,7 @@ namespace CinematicPoker.Engine.Coaching
                     Caveat = "With the information you had then."
                 };
             }
+            review.Assumptions = HandClosingInsight.Build(hand, review, selection, review.KeyDecision);
             return review;
         }
 
@@ -106,6 +100,7 @@ namespace CinematicPoker.Engine.Coaching
             review.KeyDecision = advice;
             review.LessonKind = selection.Kind;
             review.Lesson = PanelLesson(hand, selection, advice);
+            review.Assumptions = HandClosingInsight.Build(hand, review, selection, advice);
             if (advice.Cancelled || advice.ReasonCode == "equity_unavailable")
                 review.Status = ReviewStatus.Partial;
             return review;
