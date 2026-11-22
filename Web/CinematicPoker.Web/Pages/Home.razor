@@ -57,7 +57,16 @@
         </div>
     }
     <header class="topbar">
-        <div class="brand">DEAD MAN'S <span>HAND</span></div>
+        @* Brand + pot share one left column so the pot always stacks under
+           the title. Absolute top offsets used to collide when the right-side
+           chips wrapped and vertically recentered the brand. *@
+        <div class="topbar-left">
+            <div class="brand">DEAD MAN'S <span>HAND</span></div>
+            @if (Round != null)
+            {
+                <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b></div>
+            }
+        </div>
         <div class="topbar-right">
             @if (CanReview && _handHasCompleted && _awaitingNextHand)
             {
@@ -106,16 +115,15 @@
 
     @if (Round != null)
     {
-        <div class="hud-meters">
-            <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b></div>
-            @* While the enlarged card close-up owns the right edge, the
-               current actor's window joins this column under the pot pill
-               so the big cards can never cover it. *@
-            @if (_hudBoardExpanded && HudActor != null && !_overheadView)
-            {
+        @* Pot lives under the brand in the topbar. This column only keeps
+           the current-actor window while the enlarged card close-up owns
+           the right edge, so those big cards can never cover it. *@
+        @if (_hudBoardExpanded && HudActor != null && !_overheadView)
+        {
+            <div class="hud-meters">
                 @ActorCardFragment
-            }
-        </div>
+            </div>
+        }
 
         @* The overhead view already shows the board and every stack on the
            felt itself, so the floating card window stays out of its way. *@
@@ -426,9 +434,8 @@
         </section>
     }
 
-    @* Expanded close-up moves this window up under the pot pill instead
-       (see the hud-meters block above). Round == null is a safety net so
-       the card is never lost entirely when the meters aren't rendered. *@
+    @* Expanded close-up moves this window up under the brand+pot column
+       (see the hud-meters block above). *@
     @* The overhead plates already name the actor (gold border) with their
        stack and status, so the floating actor window would only cover them. *@
 
