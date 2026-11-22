@@ -744,7 +744,10 @@ namespace CinematicPoker.Web.Pages
                 row.coachHandId = review.HandId;
             row.coachHeading = review.Heading ?? "";
             row.coachWhyWon = review.WhyWon ?? "";
-            row.coachLesson = review.Lesson ?? "";
+            // The certificate shows why the pot was won. The lesson (including
+            // the priced-call line "Reading the price you were offered.") stays
+            // in the Poker Coach panel, not on the plaque.
+            row.coachLesson = "";
         }
 
         private void TryAttachCoachSnapshot(VictoryWinRecord snap)
