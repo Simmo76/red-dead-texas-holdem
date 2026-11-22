@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Settings row preview — Dead Man's Hand</title>
+  <link rel="stylesheet" href="css/app.css" />
+  <style>
+    /* Layout-only preview of the topbar + hand window at iPhone landscape size. */
+    html, body { background: #1a100c; }
+    .preview-note {
+      position: fixed;
+      left: 12px;
+      bottom: 12px;
+      z-index: 20;
+      max-width: 320px;
+      padding: 10px 14px;
+      border: 1px solid rgba(216, 178, 92, 0.45);
+      border-radius: 10px;
+      background: rgba(8, 5, 3, 0.88);
+      color: #e8e4d8;
+      font: 13px/1.4 Georgia, "Times New Roman", serif;
+    }
+    .preview-note strong { color: #d8b25c; }
+    .preview-stage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    /* Force the short-landscape rules used on iPhone sideways (~844×390 CSS px). */
+    .phone-frame {
+      position: relative;
+      width: min(844px, 100%);
+      height: min(390px, 100%);
+      overflow: hidden;
+      border: 1px solid rgba(216, 178, 92, 0.35);
+      border-radius: 12px;
+      background:
+        radial-gradient(ellipse at 50% 40%, rgba(80, 50, 30, 0.55), transparent 60%),
+        #0e0906;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+    }
+    .phone-frame .topbar {
+      padding-top: 6px;
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .phone-frame .topbar-right { gap: 6px; max-width: 78%; }
+    .phone-frame .topbar-actions { gap: 6px; flex-wrap: nowrap; }
+    .phone-frame .chip-btn { padding: 4px 8px; font-size: 10px; }
+    .phone-frame .topbar .chip-btn { padding: 6px 10px; min-height: 32px; font-size: 11px; letter-spacing: 1px; }
+    .phone-frame .chip-gear { font-size: 14px; }
+    .phone-frame .brand { font-size: 12px; letter-spacing: 2px; min-height: 32px; }
+    .phone-frame .hud-pot { font-size: 16px; padding: 6px 14px; }
+    .phone-frame .hud-hand-rail {
+      top: 48px;
+      right: 8px;
+      gap: 6px;
+    }
+    .phone-frame .hud-board { gap: 4px; padding: 4px 5px; }
+    .phone-frame .hud-card { width: 40px; }
+  </style>
+</head>
+<body>
+  <div class="preview-stage">
+    <div class="phone-frame game3d" aria-label="iPhone landscape layout preview">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="brand">DEAD MAN'S <span>HAND</span></div>
+          <div class="hud-pot">POT&nbsp;<b>$15</b></div>
+        </div>
+        <div class="topbar-right">
+          <div class="topbar-actions">
+            <button class="chip-btn" type="button"><span class="chip-gear" aria-hidden="true">?</span> RULES</button>
+            <button class="chip-btn" type="button">&gt;&gt; tune</button>
+            <button class="chip-btn" type="button"><span class="chip-gear" aria-hidden="true">♠</span> HANDS</button>
+            <button class="chip-btn" type="button"><span class="chip-gear" aria-hidden="true">◎</span> bird's eye</button>
+            <button class="chip-btn topbar-settings" type="button">
+              <span class="chip-gear" aria-hidden="true">⚙</span> SETTINGS
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div class="hud-hand-rail">
+        <div class="hud-board">
+          <div class="hud-row hud-card-cue-row">
+            <img class="hud-card facedown" src="img/cards/back.png" alt="" />
+            <img class="hud-card facedown" src="img/cards/back.png" alt="" />
+            <img class="hud-card facedown" src="img/cards/back.png" alt="" />
+            <img class="hud-card" src="img/cards/clubs_6.png" alt="" />
+            <img class="hud-card" src="img/cards/hearts_7.png" alt="" />
+          </div>
+          <div class="hud-row hud-hole hud-card-cue-row">
+            <img class="hud-card" src="img/cards/clubs_6.png" alt="" />
+            <img class="hud-card" src="img/cards/hearts_7.png" alt="" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="preview-note">
+    <strong>Layout preview</strong> of the SETTINGS fix at iPhone landscape size.
+    SETTINGS stays on the top chip row and sits above the hand window.
+    Full 3D game ships via the PR / GitHub Pages.
+  </p>
+</body>
+</html>

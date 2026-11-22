@@ -4261,7 +4261,7 @@ window.pokerScene = {
   async init(canvasId, hudRef) {
     // The HUD ref is remembered up front so a felt tap can flip the page
     // into the overhead view (via OnOverheadChanged) even before the
-    // TABLE VIEW button has ever been pressed.
+    // bird's eye (overhead) button has ever been pressed.
     if (hudRef) state.overheadRef = hudRef;
     if (state.ready) return true;
     if (state.buildFailed) return false;

@@ -155,7 +155,9 @@ html.scene-street.resume-play .boot-screen {
     padding-left: calc(18px + env(safe-area-inset-left));
     padding-right: calc(18px + env(safe-area-inset-right));
     background: linear-gradient(180deg, rgba(8, 5, 3, 0.85), rgba(8, 5, 3, 0));
-    z-index: 5;
+    /* Above the hand rail (z-index 5) so SETTINGS and the other top chips
+       stay visible and tappable when the card window sits under this row. */
+    z-index: 8;
 }
 
 .topbar-left {
@@ -190,7 +192,28 @@ html.scene-street.resume-play .boot-screen {
     flex: 0 0 auto;
 }
 
-.topbar-right { display: flex; gap: 12px; }
+/* Primary chips stay on one row; invite may sit beside them. */
+.topbar-right {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 12px;
+    min-width: 0;
+}
+
+.topbar-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.topbar-settings {
+    flex: 0 0 auto;
+}
 
 .chip-btn {
     background: var(--panel);
@@ -3100,10 +3123,11 @@ html.scene-street.resume-play .boot-screen {
 
 @media (max-width: 620px) and (orientation: portrait) {
     .topbar { padding-left: calc(10px + env(safe-area-inset-left)); padding-right: calc(10px + env(safe-area-inset-right)); }
-    /* The buttons don't fit beside the brand on a phone: let them wrap. */
-    .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    /* Keep the primary chip row on one line on narrow phones. */
+    .topbar-right { gap: 6px; }
+    .topbar-actions { gap: 6px; }
     .chip-btn { padding: 5px 10px; font-size: 10px; letter-spacing: 1px; }
-    .topbar .chip-btn { padding: 7px 13px; min-height: 34px; font-size: 11px; }
+    .topbar .chip-btn { padding: 7px 10px; min-height: 34px; font-size: 11px; letter-spacing: 1px; }
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; min-height: 34px; }
     /* Actor card under the compact brand + pot stack. */
@@ -3180,9 +3204,11 @@ html.scene-street.resume-play .boot-screen {
        one. This row is above the housing, so a flat 14px clears the
        rounded corner and matches the top edge. */
     .topbar { padding-top: 6px; padding-left: 14px; padding-right: 14px; }
-    .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 72%; }
-    .chip-btn { padding: 4px 10px; font-size: 10px; }
-    .topbar .chip-btn { padding: 6px 13px; min-height: 32px; font-size: 11px; }
+    /* Short labels + tighter chips so the whole primary row fits beside the brand. */
+    .topbar-right { gap: 6px; max-width: 78%; }
+    .topbar-actions { gap: 6px; }
+    .chip-btn { padding: 4px 8px; font-size: 10px; }
+    .topbar .chip-btn { padding: 6px 10px; min-height: 32px; font-size: 11px; letter-spacing: 1px; }
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; min-height: 32px; }
     /* Actor card under the compact landscape brand + pot stack. */
@@ -3190,9 +3216,9 @@ html.scene-street.resume-play .boot-screen {
     .hud-pot { font-size: 16px; padding: 6px 14px; }
     .hud-stack { font-size: 22px; padding: 7px 16px; }
     .hud-stack-icon { width: 22px; height: 22px; flex-basis: 22px; }
-    /* Default keeps the cards off whichever side iOS marks unsafe. Once we
-       know the housing is on the left, the right edge can come in. */
-    .hud-hand-rail { top: 42px; right: max(8px, env(safe-area-inset-right, 0px)); gap: 6px; }
+    /* Clear the first chip row (6px pad + 32px button + gap). SETTINGS lives
+       on that row, so the hand window must start below it. */
+    .hud-hand-rail { top: 48px; right: max(8px, env(safe-area-inset-right, 0px)); gap: 6px; }
     html.notch-left .hud-hand-rail { right: 8px; }
     .hud-board { gap: 4px; padding: 4px 5px; }
     .hud-card { width: 40px; }
