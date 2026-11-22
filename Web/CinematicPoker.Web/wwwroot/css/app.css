@@ -3453,18 +3453,21 @@ html.scene-street.resume-play .boot-screen {
     flex-wrap: wrap;
     gap: 6px;
     margin-top: 12px;
+    /* Room for the winning-card ring; outlines were clipped by .coach-panel overflow. */
+    padding: 4px 2px;
 }
 
 .coach-cards img {
     width: 42px;
     height: auto;
     border-radius: 3px;
+    box-sizing: border-box;
+    border: 3px solid transparent;
 }
 
 .coach-cards img.hot {
-    outline: 3px solid #e2c36a;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 2px #e2c36a;
+    border-color: #e2c36a;
+    box-shadow: 0 0 10px rgba(226, 195, 106, 0.95), 0 0 0 1px rgba(226, 195, 106, 0.65);
 }
 
 .coach-actions {
