@@ -449,11 +449,13 @@ namespace CinematicPoker.Web.Pages
                 {
                     await JS.InvokeVoidAsync(
                         "pokerCoach.setHighlights",
-                        _coachHighlight ? HighlightUrls() : Array.Empty<string>());
+                        _coachHighlight ? HighlightUrls() : Array.Empty<string>(),
+                        _coachHighlight ? HighlightCodesArray() : Array.Empty<string>());
                 }
                 catch (JSException) { }
                 catch (InvalidOperationException) { }
             }
+            StateHasChanged();
         }
 
         public async Task FocusCoachPanel()
@@ -518,7 +520,13 @@ namespace CinematicPoker.Web.Pages
             _coachClip = result?.clip;
             if (_coach3dOk == true && _coachHighlight)
             {
-                try { await JS.InvokeVoidAsync("pokerCoach.setHighlights", HighlightUrls()); }
+                try
+                {
+                    await JS.InvokeVoidAsync(
+                        "pokerCoach.setHighlights",
+                        HighlightUrls(),
+                        HighlightCodesArray());
+                }
                 catch (JSException) { }
             }
             StateHasChanged();
@@ -543,9 +551,13 @@ namespace CinematicPoker.Web.Pages
                 hero,
                 revealed,
                 highlights = _coachHighlight ? HighlightUrls() : Array.Empty<string>(),
+                highlightCodes = _coachHighlight ? HighlightCodesArray() : Array.Empty<string>(),
                 reducedMotion = reduced
             };
         }
+
+        private string[] HighlightCodesArray() =>
+            _coachReview?.HighlightCodes?.ToArray() ?? Array.Empty<string>();
 
         private string[] HighlightUrls()
         {
