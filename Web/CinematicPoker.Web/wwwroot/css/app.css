@@ -925,11 +925,9 @@ html.scene-street.resume-play .boot-screen {
 
 /* The result now contains the winner's cards, hand name and board. Hide
    the duplicate card HUD and compare strip so the single result plaque
-   reads cleanly, like the player's victory certificate. Multi-way
-   showdowns keep the scrollable compare strip until NEXT HAND — see
-   .showdown-with-banner. */
-.game3d.banner-opponent:not(.showdown-with-banner) .hud-hand-rail,
-.game3d.banner-opponent:not(.showdown-with-banner) .showdown-layer {
+   reads cleanly, like the player's victory certificate. */
+.game3d.banner-opponent .hud-hand-rail,
+.game3d.banner-opponent .showdown-layer {
     display: none;
 }
 
@@ -1123,34 +1121,10 @@ html.scene-street.resume-play .boot-screen {
    sit half-shaded behind the plaque, so the celebration is the certificate.
    The green stack pill (name + chips) sits in the bottom-left, which the
    enlarged plaque covers — hide it until the certificate is dismissed. */
-.game3d.banner-victory:not(.showdown-with-banner) .showdown-layer,
+.game3d.banner-victory .showdown-layer,
 .game3d.banner-victory .hud-hand-rail,
 .game3d.banner-victory .hud-stack {
     display: none;
-}
-
-/* Three+ seats: result banner on top, hand-compare scrolls underneath until
-   NEXT HAND. Pin the banner high and let the strip own the lower stage. */
-.game3d.showdown-with-banner .banner {
-    top: 6%;
-    max-width: min(92vw, 520px);
-    max-height: min(38vh, 280px);
-    overflow-y: auto;
-    pointer-events: auto;
-}
-
-.game3d.showdown-with-banner .showdown-layer {
-    display: flex;
-    align-items: flex-end;
-    z-index: 11;
-    top: auto;
-    bottom: calc(96px + max(16px, env(safe-area-inset-bottom, 0px)));
-    max-height: min(42vh, 340px);
-}
-
-.game3d.showdown-with-banner .showdown-strip {
-    max-height: 100%;
-    pointer-events: auto;
 }
 
 /* Room for the top Gallery of Wins plaque (~7.7:1 art), half prior width. */
@@ -2325,16 +2299,6 @@ html.scene-street.resume-play .boot-screen {
     animation: overlayfade 0.4s ease-out;
 }
 
-/* Table-win plaques are tall; top-align so the fanned cards are not
-   sliced off when the viewport is short (portrait phones). */
-.overlay.win-celebration {
-    align-items: flex-start;
-    padding: max(12px, env(safe-area-inset-top, 0px)) 12px
-        max(12px, env(safe-area-inset-bottom, 0px));
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
 @keyframes overlayfade {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -2386,11 +2350,12 @@ html.scene-street.resume-play .boot-screen {
 .overlay-box.table-win {
     position: relative;
     overflow-x: hidden;
-    overflow-y: visible;
-    max-height: none;
+    overflow-y: auto;
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
     scrollbar-width: thin;
     scrollbar-color: var(--gold-dim) transparent;
-    padding: 52px 56px 28px;
+    padding: 40px 56px 36px;
     gap: 22px;
     border: 2px solid var(--gold);
     background-color: #241709;
@@ -2466,10 +2431,8 @@ html.scene-street.resume-play .boot-screen {
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    height: 88px;
-    margin-bottom: 0;
-    padding-top: 10px;
-    overflow: visible;
+    height: 76px;
+    margin-bottom: -4px;
 }
 
 .win-card {
@@ -2625,9 +2588,9 @@ html.scene-street.resume-play .boot-screen {
 /* Landscape phones: the table-win plaque holds a lot of celebration, so
    compact everything to keep it on one short screen without scrolling. */
 @media (max-height: 540px) {
-    .overlay-box.table-win { padding: 20px 30px 12px; gap: 9px; }
+    .overlay-box.table-win { padding: 16px 30px 14px; gap: 9px; }
     .overlay-box.table-win .overlay-title { font-size: 22px; }
-    .win-cards { height: 54px; padding-top: 6px; margin-bottom: 0; }
+    .win-cards { height: 46px; margin-bottom: -2px; }
     .win-card { width: 32px; height: 44px; font-size: 11px; margin: 0 -5px; border-radius: 4px; }
     .win-card i { font-size: 10px; }
     .win-card:nth-child(1) { --y: 10px; }
@@ -3221,14 +3184,6 @@ html.scene-street.resume-play .boot-screen {
     .game3d.banner-victory .showdown-layer {
         top: calc(118px + env(safe-area-inset-top, 0px));
         align-items: flex-end;
-    }
-    .game3d.showdown-with-banner .banner {
-        top: 3%;
-        max-height: min(30vh, 160px);
-    }
-    .game3d.showdown-with-banner .showdown-layer {
-        max-height: min(34vh, 190px);
-        bottom: calc(64px + max(8px, env(safe-area-inset-bottom, 0px));
     }
     .showdown-strip { gap: 15px; padding: 12px 15px; max-width: min(570px, 90vw); }
     .showdown-seat { min-width: 120px; padding: 8px 12px; gap: 6px; }

@@ -641,6 +641,8 @@
                                 <div class="victory-shot-status">@_shotStatus</div>
                             }
                         }
+                        <button class="act call big restart-btn" @onclick="ContinueGame">CONTINUE GAME</button>
+                        <div class="overlay-blurb">@ContinueGameBlurb</div>
                         <button class="act allin big restart-btn" @onclick="StartSession">RESTART</button>
                         <button class="act small" @onclick="OpenExportPanel">EXPORT STATS</button>
                     }
@@ -1324,6 +1326,12 @@
         HumanIsBusted ? "See game over"
         : _game is { HasHumanWon: true } ? "Continue with your stack"
         : "Go to the next hand";
+
+    private string ContinueGameBlurb =>
+        _game == null ? ""
+        : _humanLost
+            ? $"Buy back in for ${_game.Rules.StartingStack}. Opponents keep their stacks."
+            : $"Keep ${(_game.Human?.Stack ?? 0)} and sit a new table.";
 
     private void FastForward() => _skipRequested = true;
 
@@ -4562,14 +4570,10 @@
     // cards at showdown, then let the pot push (and the player's win
     // celebration) play out before HandCompleted brings up the result
     // banner. The banner itself holds until NEXT HAND is tapped, so these
-    // dwells only delay the announcement — keep them tight. Three-way (or
-    // more) compares need a longer dwell before the pot push so the strip is
-    // still readable when the result banner appears.
+    // dwells only delay the announcement — keep them tight.
     private int PauseAfter(PokerEvent evt) => evt switch
     {
-        ShowdownStarted => MultiWayShowdown
-            ? (_quickMode ? 2800 : 4800)
-            : (_quickMode ? 1400 : 2200),
+        ShowdownStarted => _quickMode ? 1400 : 2200,
         PotAwarded award => award.WinnerSeats.Contains(0)
             ? (_quickMode ? 1600 : 2400)
             : (_quickMode ? 1200 : 1800),
@@ -5068,9 +5072,11 @@
 
         string coachHeading = record?.coachHeading;
         string coachWhyWon = record?.coachWhyWon;
+        string coachLesson = record?.coachLesson;
         if (record == null && ActiveVictoryRecord == null && _playerWonPot)
         {
             coachWhyWon = _coachReview?.WhyWon;
+            coachLesson = _coachReview?.Lesson;
             coachHeading = _coachReview?.Heading;
         }
         string coachHeadline = string.IsNullOrEmpty(record?.headline) ? headline : record.headline;
@@ -5078,11 +5084,13 @@
         {
             coachHeading = "";
             coachWhyWon = "";
+            coachLesson = "";
         }
 
         builder.OpenElement(seq++, "div");
         builder.AddAttribute(seq++, "class", "cert-coach-slot");
         if (!string.IsNullOrWhiteSpace(coachWhyWon)
+            || !string.IsNullOrWhiteSpace(coachLesson)
             || !string.IsNullOrWhiteSpace(coachHeading))
         {
             builder.AddMarkupContent(seq++, "<div class=\"cert-coach-label\">POKER COACH</div>");
@@ -5098,6 +5106,13 @@
                 builder.OpenElement(seq++, "div");
                 builder.AddAttribute(seq++, "class", "cert-coach-copy");
                 builder.AddContent(seq++, coachWhyWon);
+                builder.CloseElement();
+            }
+            if (!string.IsNullOrWhiteSpace(coachLesson))
+            {
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "cert-coach-lesson");
+                builder.AddContent(seq++, coachLesson);
                 builder.CloseElement();
             }
         }
@@ -5296,8 +5311,8 @@
 
     // ?winpreview=1 shows the table-win overlay as soon as the first session
     // starts, with sample numbers — a test hook for the victory screen, same
-    // idea as ?coachpreview=1 for the coach panel. One-shot: RESTART
-    // behaves normally afterwards.
+    // idea as ?coachpreview=1 for the coach panel. One-shot: CONTINUE GAME
+    // and RESTART behave normally afterwards.
     private bool _winPreview;
 
     private void NoteWinPreviewFromUrl() =>
@@ -5443,13 +5458,6 @@
     private bool ShowShowdownCompare =>
         _showdownView.Count > 0
         && !(_playerWonPot && _showdownView.TrueForAll(r => r.Seat == 0));
-
-    private bool MultiWayShowdown => _showdownView.Count >= 3;
-
-    // Keep every seat readable under the result plaque until NEXT HAND when
-    // three or more hands were revealed.
-    private bool KeepShowdownWithResultBanner =>
-        _banner != null && MultiWayShowdown && ShowShowdownCompare;
 
     private void RememberShownHand(int seat, IReadOnlyList<Card> hole, bool winner)
     {
