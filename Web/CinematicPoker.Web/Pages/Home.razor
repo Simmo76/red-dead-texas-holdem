@@ -5072,11 +5072,9 @@
 
         string coachHeading = record?.coachHeading;
         string coachWhyWon = record?.coachWhyWon;
-        string coachLesson = record?.coachLesson;
         if (record == null && ActiveVictoryRecord == null && _playerWonPot)
         {
             coachWhyWon = _coachReview?.WhyWon;
-            coachLesson = _coachReview?.Lesson;
             coachHeading = _coachReview?.Heading;
         }
         string coachHeadline = string.IsNullOrEmpty(record?.headline) ? headline : record.headline;
@@ -5084,13 +5082,11 @@
         {
             coachHeading = "";
             coachWhyWon = "";
-            coachLesson = "";
         }
 
         builder.OpenElement(seq++, "div");
         builder.AddAttribute(seq++, "class", "cert-coach-slot");
         if (!string.IsNullOrWhiteSpace(coachWhyWon)
-            || !string.IsNullOrWhiteSpace(coachLesson)
             || !string.IsNullOrWhiteSpace(coachHeading))
         {
             builder.AddMarkupContent(seq++, "<div class=\"cert-coach-label\">POKER COACH</div>");
@@ -5106,13 +5102,6 @@
                 builder.OpenElement(seq++, "div");
                 builder.AddAttribute(seq++, "class", "cert-coach-copy");
                 builder.AddContent(seq++, coachWhyWon);
-                builder.CloseElement();
-            }
-            if (!string.IsNullOrWhiteSpace(coachLesson))
-            {
-                builder.OpenElement(seq++, "div");
-                builder.AddAttribute(seq++, "class", "cert-coach-lesson");
-                builder.AddContent(seq++, coachLesson);
                 builder.CloseElement();
             }
         }

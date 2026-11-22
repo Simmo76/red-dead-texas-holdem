@@ -744,7 +744,7 @@ namespace CinematicPoker.Web.Pages
                 row.coachHandId = review.HandId;
             row.coachHeading = review.Heading ?? "";
             row.coachWhyWon = review.WhyWon ?? "";
-            row.coachLesson = review.Lesson ?? "";
+            row.coachLesson = "";
         }
 
         private void TryAttachCoachSnapshot(VictoryWinRecord snap)
