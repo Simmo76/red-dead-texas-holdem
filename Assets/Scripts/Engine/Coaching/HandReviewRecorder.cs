@@ -347,6 +347,7 @@ namespace CinematicPoker.Engine.Coaching
                     : new List<Card>();
                 if (fromRound.Count > 0 || _current.FinalBoard.Count == 0)
                     _current.FinalBoard = fromRound;
+                CoachBoardRunout.CompleteForCoach(_current, round);
                 foreach (SeatState seat in round.Seats)
                     _current.EndingStacks[seat.Seat] = seat.Stack;
             }

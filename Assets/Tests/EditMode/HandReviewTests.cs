@@ -167,6 +167,25 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void FoldWinAfterAllInBackfillsBoardForCoach()
+        {
+            var deck = new Deck(424242);
+            PokerGame game = CreateGame(new long[] { 1000, 1000 }, deck);
+            var recorder = new HandReviewRecorder("all-in-fold", 0, 5, 10);
+            var names = new Dictionary<int, string> { { 0, "You" }, { 1, "Villain" } };
+            game.EventEmitted += evt => recorder.Observe(evt, game.CurrentRound, names);
+            game.StartHand();
+            game.SubmitAction(PlayerAction.AllIn());
+            game.SubmitAction(PlayerAction.Fold());
+
+            CompletedHandRecord record = recorder.LastFinished;
+            Assert.IsNotNull(record);
+            Assert.IsTrue(record.WonByFolds);
+            Assert.AreEqual(5, record.FinalBoard.Count,
+                "Coach review should show the full table board after a fold win.");
+        }
+
+        [Test]
         public void HeroWinsBecauseEveryoneFolded()
         {
             CompletedHandRecord hand = CoachFixtures.FoldedBlind();
