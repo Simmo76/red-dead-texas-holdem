@@ -1,5 +1,9 @@
 What to test in this build:
 
+New — next song (PR #306)
+• With music on, NEXT SONG sits in the top bar beside RULES. Tap it and the current song fades into the next one.
+• Settings → SOUND → turn MUSIC off. NEXT SONG disappears. Turn MUSIC back on and the button returns.
+
 New — key decision beside the coach (PR #305)
 • Open Poker Coach. SEE KEY DECISION and HIGHLIGHT ON/OFF sit on one row under the cards.
 • Tap SEE KEY DECISION: the write-up opens in its own window immediately to the right of the coach, and the coach shifts left so the character stays in frame. Tap again and that window closes.
@@ -28,11 +32,6 @@ New — hero fold-win coach (PR #301)
 
 New — opponent fold-win cards (PR #300)
 • Opponent wins with “everyone else folded.” Open Poker Coach: dock shows board, your cards, and the winner’s hole cards (match the result banner).
-
-New — table win overlay (PR #292)
-• Win the table (solo). Victory plaque: full fanned cards at top (not clipped), “WINNER TAKES ALL” on one line.
-• Session over: no Continue Game; green SIT NEW TABLE (keeps stack, new table). Bust still maroon RESTART.
-• Short landscape: no red bar under the plaque; in-hand HUD and Settings Restart unchanged.
 
 Also verify (recent builds)
 • Open Poker Coach after a showdown. Row 1 is the board; row 2 shows every showdown player's two-card hand, name under each pair. SEE KEY DECISION opens the write-up beside the coach, not inside the card.

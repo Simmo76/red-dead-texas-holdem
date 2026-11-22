@@ -68,6 +68,12 @@
             <button class="chip-btn" @onclick="OpenRules" title="How to play Texas Hold'em">
                 <span class="chip-gear" aria-hidden="true">?</span> RULES
             </button>
+            @if (_musicOn)
+            {
+                <button class="chip-btn" @onclick="NextSong" title="Skip to the next song">
+                    <span class="chip-gear" aria-hidden="true">♪</span> NEXT SONG
+                </button>
+            }
             <button class="chip-btn" @onclick="OpenHandRankings" title="Poker hand rankings">
                 <span class="chip-gear" aria-hidden="true">♠</span> HANDS
             </button>
@@ -5692,6 +5698,12 @@
             effects = _backgroundOn,
             ambience = _backgroundOn
         });
+    }
+
+    private void NextSong()
+    {
+        if (!_musicOn) return;
+        _ = JS.InvokeVoidAsync("pokerAudio.nextSong");
     }
 
     private static readonly Dictionary<string, string[]> SoundGroups = new()

@@ -449,6 +449,22 @@ window.pokerAudio = (function () {
         } catch (e) { }
     }
 
+    // Skip the current bed (or the intro score) and fade in another track
+    // from the same backdrop. No-op while the MUSIC channel is off.
+    function nextSong() {
+        if (!channels.music) return;
+        if (introPlaying) {
+            stopIntroAudio();
+            startMusic({ fadeIn: true });
+            return;
+        }
+        if (music && !music._crossfading) {
+            beginMusicCrossfade(music);
+            return;
+        }
+        if (!music) startMusic({ fadeIn: true });
+    }
+
     // Stops the music beds only — ambience (background crowd) keeps going.
     function stopMusicTracks() {
         disposeMusic(music);
@@ -745,6 +761,7 @@ window.pokerAudio = (function () {
             stopIntroAudio();
             startMusic();
         },
+        nextSong: nextSong,
         // Keep the audio bed in sync with the selected 3D backdrop. The
         // Blazor HUD calls this after reading the persisted scene choice.
         setScene: function (name) {
