@@ -176,6 +176,56 @@ namespace CinematicPoker.Engine.Tests
             hand.HeroNet = 10;
             HandReview review = new HandReviewService().Explain(hand);
             Assert.AreEqual("You won because everyone else folded.", review.WhyWon);
+            CollectionAssert.AreEquivalent(new[] { "7c", "2d" }, review.HighlightCodes,
+                "Fold wins highlight the hole cards that collected the pot.");
+        }
+
+        [Test]
+        public async Task HeroFoldWinDoesNotTeachSidePotSlices()
+        {
+            CompletedHandRecord hand = CoachFixtures.FoldedBlind();
+            hand.HeroFolded = false;
+            hand.WonByFolds = true;
+            hand.Awards[0].WinnerSeats = new List<int> { 0 };
+            hand.Awards[0].Payouts = new Dictionary<int, long> { { 0, 15 } };
+            hand.HeroNet = 10;
+            hand.HeroHoleCards = new List<Card> { Card.Parse("Ac"), Card.Parse("9d") };
+            var spot = new HeroDecisionSnapshot
+            {
+                DecisionId = 1,
+                HeroSeat = 0,
+                Street = CoachStreet.Preflop,
+                IncrementalCall = 35,
+                PotBefore = 50,
+                SidePotSpot = true,
+                ActiveOpponents = 1,
+                BigBlind = 10,
+                HeroHoleCards = new List<Card> { Card.Parse("Ac"), Card.Parse("9d") },
+                Seats = new List<SeatPublicState>
+                {
+                    new SeatPublicState { Seat = 0, TotalCommitted = 15, Folded = false },
+                    new SeatPublicState { Seat = 1, TotalCommitted = 50, Folded = false, AllIn = true }
+                }
+            };
+            hand.Decisions = new List<HeroDecisionSnapshot> { spot };
+            hand.HeroActions = new List<AcceptedHeroAction>
+            {
+                new AcceptedHeroAction { DecisionId = 1, Action = "call", AddedAmount = 35 }
+            };
+
+            HandReview review = await new HandReviewService(new DecisionCoach(new FixedEquitySource(0.4)))
+                .ReviewAsync(hand, seed: 3, CancellationToken.None);
+
+            Assert.AreEqual("You won because everyone else folded.", review.WhyWon);
+            Assert.That(review.Lesson, Does.Not.Contain("side pot").IgnoreCase);
+            Assert.That(review.Lesson, Does.Not.Contain("Side-pot").IgnoreCase);
+            Assert.IsNotNull(review.KeyDecision);
+            Assert.That(review.KeyDecision.Caveat ?? "", Does.Not.Contain("Side-pot").IgnoreCase);
+            Assert.That(review.KeyDecision.Lesson ?? "", Does.Not.Contain("side pot").IgnoreCase);
+            Assert.That(review.KeyDecision.Detail ?? "", Does.Not.Contain("side pot").IgnoreCase);
+            Assert.That(review.KeyDecision.PriceLine ?? "", Does.Not.Contain("Side pot").IgnoreCase);
+            CollectionAssert.AreEquivalent(new[] { "Ac", "9d" }, review.HighlightCodes);
+            Assert.IsTrue(spot.SidePotSpot, "Review must not leave the saved spot mutated.");
         }
 
         [Test]
@@ -240,7 +290,8 @@ namespace CinematicPoker.Engine.Tests
             Assert.IsNotNull(opponent, "Fold wins should show the winner's cards in the coach, same as the result banner.");
             Assert.AreEqual(2, opponent.HoleCards.Count);
             HandReview review = new HandReviewService().Explain(record);
-            Assert.IsEmpty(review.HighlightCodes, "Fold wins have no made hand to highlight.");
+            Assert.IsEmpty(review.HighlightCodes,
+                "When the hero folded, there is no hero hand to highlight on a fold win.");
         }
 
         [Test]

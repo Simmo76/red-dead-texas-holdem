@@ -111,6 +111,9 @@ namespace CinematicPoker.Engine.Coaching
             {
                 review.Heading = "WHY YOU WON";
                 review.WhyWon = "You won because everyone else folded.";
+                // No showdown five-card hand — mark the hole cards that
+                // collected the pot so "HIGHLIGHT WINNING CARDS" still works.
+                review.HighlightCodes = Codes(hand.HeroHoleCards);
                 return;
             }
 

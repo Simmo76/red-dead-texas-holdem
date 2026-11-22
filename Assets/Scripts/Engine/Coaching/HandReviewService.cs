@@ -79,14 +79,64 @@ namespace CinematicPoker.Engine.Coaching
             if (!NeedsPrice(selection.Kind) || selection.Spot == null || selection.Action == null)
                 return review;
 
-            DecisionAdvice advice = await _coach.AnalyseAsync(
-                selection.Spot, selection.Action, selection.Kind, seed, cancellationToken, deadlineUtc);
+            HeroDecisionSnapshot spot = selection.Spot;
+            // A fold-out ends the hand before side-pot slices matter. Price the
+            // call as one pot so the panel does not contradict "everyone folded".
+            bool clearedSidePot = false;
+            if (HeroWonByFolds(hand) && spot.SidePotSpot)
+            {
+                spot.SidePotSpot = false;
+                clearedSidePot = true;
+            }
+
+            DecisionAdvice advice;
+            try
+            {
+                advice = await _coach.AnalyseAsync(
+                    spot, selection.Action, selection.Kind, seed, cancellationToken, deadlineUtc);
+            }
+            finally
+            {
+                if (clearedSidePot) spot.SidePotSpot = true;
+            }
+
+            if (HeroWonByFolds(hand) && advice != null && advice.ReasonCode == "side_pot")
+                advice = FoldWinAdvice(advice);
+
             review.KeyDecision = advice;
             review.LessonKind = selection.Kind;
             review.Lesson = PanelLesson(hand, selection, advice);
             if (advice.Cancelled || advice.ReasonCode == "equity_unavailable")
                 review.Status = ReviewStatus.Partial;
             return review;
+        }
+
+        private static bool HeroWonByFolds(CompletedHandRecord hand)
+        {
+            if (hand == null || !hand.WonByFolds || hand.HeroFolded) return false;
+            if (hand.Awards == null) return hand.HeroNet > 0;
+            foreach (PotAwardRecord pot in hand.Awards)
+            {
+                if (pot?.WinnerSeats != null && pot.WinnerSeats.Contains(hand.HeroSeat))
+                    return true;
+            }
+            return false;
+        }
+
+        private static DecisionAdvice FoldWinAdvice(DecisionAdvice sidePot)
+        {
+            return new DecisionAdvice
+            {
+                DecisionId = sidePot.DecisionId,
+                Street = sidePot.Street,
+                ActionTaken = sidePot.ActionTaken,
+                RecordedAction = sidePot.RecordedAction,
+                BoardText = sidePot.BoardText,
+                ReasonCode = "fold_win",
+                Caveat = "With the information you had then.",
+                Lesson = "You took the pot without a showdown. One thing to try: when pressure wins the hand, the size of your bet mattered more than the hand you held.",
+                Detail = "The hand ended when everyone else folded, so sliced pot prices are not the story of this result."
+            };
         }
 
         /// <summary>
