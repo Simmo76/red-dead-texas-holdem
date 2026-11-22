@@ -572,6 +572,131 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void AFoldFacingABetOutranksAnEarlierCall()
+        {
+            CompletedHandRecord hand = FoldedAfterACall();
+            LessonSelection selected = DecisionCoach.Select(hand);
+            Assert.AreEqual(LessonKind.PricedFold, selected.Kind);
+            Assert.AreEqual(2, selected.Spot.DecisionId);
+        }
+
+        [Test]
+        public async Task FoldedHandWithAFlushBoardDoesNotRepeatTheFavourableCallLine()
+        {
+            var source = new FixedEquitySource(0.2);
+            CompletedHandRecord hand = FoldedAfterACall();
+            hand.FinalBoard = new List<Card>
+            {
+                Card.Parse("Ac"), Card.Parse("9c"), Card.Parse("4d"), Card.Parse("8c"), Card.Parse("2h")
+            };
+            HandReview review = await new HandReviewService(new DecisionCoach(source))
+                .ReviewAsync(hand, 1, CancellationToken.None);
+
+            Assert.AreEqual("fold", review.KeyDecision.ActionTaken);
+            Assert.That(review.Lesson, Does.Contain("third club"));
+            Assert.That(review.Lesson, Does.Not.Contain("favourable price"));
+            Assert.That(review.Lesson, Does.Not.Contain("bad call"));
+        }
+
+        [Test]
+        public async Task RoutineFavourableCallYieldsToTheBoard()
+        {
+            var source = new FixedEquitySource(0.5);
+            CompletedHandRecord hand = CoachFixtures.Kicker();
+            hand.FinalBoard = new List<Card>
+            {
+                Card.Parse("Ac"), Card.Parse("9c"), Card.Parse("4d"), Card.Parse("8c"), Card.Parse("2h")
+            };
+            HeroDecisionSnapshot spot = CoachFixtures.PricedCall(100, 20);
+            spot.VisibleBoard = hand.FinalBoard;
+            hand.Decisions.Add(spot);
+            hand.HeroActions.Add(new AcceptedHeroAction { DecisionId = 1, Action = "call", AddedAmount = 20 });
+
+            HandReview review = await new HandReviewService(new DecisionCoach(source))
+                .ReviewAsync(hand, 1, CancellationToken.None);
+
+            Assert.AreEqual("call", review.KeyDecision.ActionTaken);
+            Assert.That(review.Lesson, Does.Contain("third club"));
+            Assert.That(review.Lesson, Does.Not.Contain("favourable price"));
+            Assert.That(review.KeyDecision.Lesson, Does.Contain("favourable price"));
+        }
+
+        [Test]
+        public async Task FoldingAGoodPriceStaysTheLessonOnAFlushBoard()
+        {
+            var source = new FixedEquitySource(0.8);
+            CompletedHandRecord hand = CoachFixtures.FoldedBlind();
+            hand.FinalBoard = new List<Card>
+            {
+                Card.Parse("Ac"), Card.Parse("9c"), Card.Parse("4d"), Card.Parse("8c"), Card.Parse("2h")
+            };
+            HeroDecisionSnapshot spot = CoachFixtures.PricedCall(100, 20);
+            spot.CanCheck = false;
+            hand.Decisions.Add(spot);
+            hand.HeroActions.Add(new AcceptedHeroAction { DecisionId = 1, Action = "fold" });
+
+            HandReview review = await new HandReviewService(new DecisionCoach(source))
+                .ReviewAsync(hand, 1, CancellationToken.None);
+
+            Assert.That(review.Lesson, Does.Contain("Folding"));
+            Assert.That(review.Lesson, Does.Contain("favourable"));
+            Assert.That(review.Lesson, Does.Not.Contain("third club"));
+        }
+
+        [Test]
+        public async Task LargeFavourableCallIsNotReplacedByTheBoard()
+        {
+            var source = new FixedEquitySource(0.6);
+            CompletedHandRecord hand = CoachFixtures.Kicker();
+            hand.FinalBoard = new List<Card>
+            {
+                Card.Parse("Ah"), Card.Parse("Kh"), Card.Parse("8h"), Card.Parse("2c"), Card.Parse("9d")
+            };
+            HeroDecisionSnapshot spot = CoachFixtures.PricedCall(100, 80);
+            spot.BigBlind = 10;
+            spot.HeroStack = 1000;
+            hand.Decisions.Add(spot);
+            hand.HeroActions.Add(new AcceptedHeroAction { DecisionId = 1, Action = "call", AddedAmount = 80 });
+
+            HandReview review = await new HandReviewService(new DecisionCoach(source))
+                .ReviewAsync(hand, 1, CancellationToken.None);
+
+            Assert.AreEqual(LessonKind.LargeCall, review.LessonKind);
+            Assert.That(review.Lesson, Does.Contain("favourable price"));
+            Assert.That(review.Lesson, Does.Not.Contain("third heart"));
+        }
+
+        [Test]
+        public async Task RepeatedFinePriceDoesNotReuseTheSameTry()
+        {
+            var source = new FixedEquitySource(0.1);
+            var service = new HandReviewService(new DecisionCoach(source));
+
+            HandReview first = await service.ReviewAsync(PricedFoldHand("fold-1", 100, 100), 1, CancellationToken.None);
+            HandReview second = await service.ReviewAsync(SmallCallHand("call-2"), 1, CancellationToken.None);
+
+            Assert.That(first.Lesson, Does.Contain("matched the price"));
+            Assert.AreNotEqual(first.Lesson, second.Lesson);
+            Assert.That(second.Lesson, Does.Not.Contain("matched the price"));
+            Assert.That(second.Lesson, Does.Not.Contain("favourable price"));
+            Assert.That(second.Lesson, Does.Not.Contain("bad call"));
+        }
+
+        [Test]
+        public async Task AShortPriceIsStillShownAfterAFineCall()
+        {
+            var source = new FixedEquitySource(0.5);
+            var service = new HandReviewService(new DecisionCoach(source));
+            HandReview fine = await service.ReviewAsync(SmallCallHand("fine"), 1, CancellationToken.None);
+            Assert.That(fine.Lesson, Does.Contain("favourable price"));
+
+            source.Share = 0.1;
+            HandReview shortCall = await service.ReviewAsync(PricedCallHand("short", 40, 40), 1, CancellationToken.None);
+            Assert.That(shortCall.Lesson, Does.Contain("to break even"));
+            Assert.That(shortCall.Lesson, Does.Not.Contain("favourable price"));
+        }
+
+        [Test]
         public void AnalyticsEventsCarryNoCards()
         {
             var evt = CoachAnalytics.Opened("local", "sess", 1, "sess:4", "request", true);
@@ -594,6 +719,68 @@ namespace CinematicPoker.Engine.Tests
             {
                 writer.WriteStringValue(BestFiveCards.Code(value));
             }
+        }
+
+        private static CompletedHandRecord FoldedAfterACall()
+        {
+            CompletedHandRecord hand = CoachFixtures.FoldedBlind();
+            hand.HandId = "fold-after-call";
+            hand.HeroFolded = true;
+            hand.WonByFolds = true;
+            hand.FinalBoard = new List<Card>
+            {
+                Card.Parse("Ah"), Card.Parse("Kd"), Card.Parse("9c"), Card.Parse("5s"), Card.Parse("2h")
+            };
+            HeroDecisionSnapshot call = CoachFixtures.PricedCall(80, 20);
+            call.DecisionId = 1;
+            call.Street = CoachStreet.Flop;
+            call.HandId = hand.HandId;
+            HeroDecisionSnapshot fold = CoachFixtures.PricedCall(180, 80);
+            fold.DecisionId = 2;
+            fold.Street = CoachStreet.River;
+            fold.CanCheck = false;
+            fold.HandId = hand.HandId;
+            hand.Decisions.Add(call);
+            hand.Decisions.Add(fold);
+            hand.HeroActions.Add(new AcceptedHeroAction { DecisionId = 1, Action = "call", AddedAmount = 20 });
+            hand.HeroActions.Add(new AcceptedHeroAction { DecisionId = 2, Action = "fold" });
+            return hand;
+        }
+
+        private static CompletedHandRecord PricedFoldHand(string id, long pot, long call)
+        {
+            CompletedHandRecord hand = CoachFixtures.FoldedBlind();
+            hand.HandId = id;
+            hand.HeroFolded = true;
+            hand.FinalBoard = new List<Card>
+            {
+                Card.Parse("Ah"), Card.Parse("Kd"), Card.Parse("9c"), Card.Parse("5s"), Card.Parse("2h")
+            };
+            HeroDecisionSnapshot spot = CoachFixtures.PricedCall(pot, call);
+            spot.HandId = id;
+            spot.CanCheck = false;
+            hand.Decisions.Add(spot);
+            hand.HeroActions.Add(new AcceptedHeroAction { DecisionId = 1, Action = "fold" });
+            return hand;
+        }
+
+        private static CompletedHandRecord SmallCallHand(string id) => PricedCallHand(id, 100, 5);
+
+        private static CompletedHandRecord PricedCallHand(string id, long pot, long call)
+        {
+            CompletedHandRecord hand = CoachFixtures.Kicker();
+            hand.HandId = id;
+            hand.HeroFolded = false;
+            hand.FinalBoard = new List<Card>
+            {
+                Card.Parse("Ah"), Card.Parse("Kd"), Card.Parse("9c"), Card.Parse("5s"), Card.Parse("2h")
+            };
+            HeroDecisionSnapshot spot = CoachFixtures.PricedCall(pot, call);
+            spot.HandId = id;
+            spot.VisibleBoard = hand.FinalBoard;
+            hand.Decisions.Add(spot);
+            hand.HeroActions.Add(new AcceptedHeroAction { DecisionId = 1, Action = "call", AddedAmount = call });
+            return hand;
         }
 
         private static bool ContainsCard(CompletedHandRecord record, string code)

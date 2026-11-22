@@ -168,6 +168,7 @@ namespace CinematicPoker.Engine.Coaching
             LessonSelection terminal = null;
             LessonSelection large = null;
             LessonSelection priced = null;
+            LessonSelection pricedFold = null;
             LessonSelection freeCheck = null;
             LessonSelection raise = null;
 
@@ -194,6 +195,15 @@ namespace CinematicPoker.Engine.Coaching
                         priced = pick;
                     }
                 }
+                else if (IsPricedFold(spot, action))
+                {
+                    // A fold for a price is the decision the result describes.
+                    // An earlier routine call must not replace it with the same
+                    // "the call was fine" line on every folded hand.
+                    var pick = Qualitative(spot, action, LessonKind.PricedFold, "Reading the price you folded.");
+                    if (pricedFold == null || spot.IncrementalCall > pricedFold.Spot.IncrementalCall)
+                        pricedFold = pick;
+                }
                 else if (IsUnpricedRaise(action))
                 {
                     raise = Qualitative(spot, action, LessonKind.UnpricedRaise, RaiseLesson());
@@ -203,6 +213,7 @@ namespace CinematicPoker.Engine.Coaching
             if (terminal != null) return terminal;
             if (large != null) return large;
             if (freeCheck != null) return freeCheck;
+            if (pricedFold != null) return pricedFold;
             if (priced != null) return priced;
             if (raise != null && !BoardHasFlushTexture(hand)) return raise;
             return BoardOrNeutral(hand);
@@ -226,7 +237,8 @@ namespace CinematicPoker.Engine.Coaching
                 return FromSelection(Qualitative(spot, action, kind, FreeCheckLesson()));
             if (kind == LessonKind.UnpricedRaise)
                 return FromSelection(Qualitative(spot, action, kind, RaiseLesson()));
-            if (kind != LessonKind.TerminalAllInCall && kind != LessonKind.LargeCall && kind != LessonKind.PricedCall)
+            if (kind != LessonKind.TerminalAllInCall && kind != LessonKind.LargeCall
+                && kind != LessonKind.PricedCall && kind != LessonKind.PricedFold)
                 return FromSelection(Qualitative(spot, action, kind, NeutralLesson()));
 
             if (spot.SidePotSpot)
@@ -296,15 +308,18 @@ namespace CinematicPoker.Engine.Coaching
                 + (estimate.Exact ? "" : " This is a bounded sample, not every possible hand.")
                 + " " + advice.Caveat;
 
+            string where = StreetPhrase(spot.Street);
             if (close)
             {
                 advice.ReasonCode = "close_price";
-                advice.Lesson = "Close decision under this estimate. When the price is this close, either call or fold can be fine.";
+                advice.Lesson = "The price " + where + " was close (" + bePct + "% to break even, about " + eqPct
+                    + "% estimated). Either call or fold can be fine.";
             }
             else if (called && ahead)
             {
                 advice.ReasonCode = "favourable_call";
-                advice.Lesson = "The call had a favourable price under this estimate. One hand's result doesn't make it a bad call.";
+                advice.Lesson = "Calling " + where + " had a favourable price (" + bePct + "% to break even, about " + eqPct
+                    + "% estimated). One hand's result doesn't make it a bad call.";
             }
             else if (called && !ahead)
             {
@@ -314,12 +329,14 @@ namespace CinematicPoker.Engine.Coaching
             else if (!called && ahead)
             {
                 advice.ReasonCode = "folded_favourable_price";
-                advice.Lesson = "Folding gave up a price that looked favourable under this estimate.";
+                advice.Lesson = "Folding " + where + " gave up a price that looked favourable (" + bePct
+                    + "% needed, about " + eqPct + "% estimated).";
             }
             else
             {
                 advice.ReasonCode = "folded_short_price";
-                advice.Lesson = "Folding matched the price under this estimate. Winning the pot was not required.";
+                advice.Lesson = "Folding " + where + " matched the price (" + bePct + "% needed, about " + eqPct
+                    + "% estimated). Winning the pot was not required.";
             }
 
             if (spot.CanCheck)
@@ -330,6 +347,16 @@ namespace CinematicPoker.Engine.Coaching
 
             _cache[key] = advice;
             return advice;
+        }
+
+        /// <summary>
+        /// A board note is something to try. Skip it when the hero folded
+        /// before the flop — they never saw the suit land.
+        /// </summary>
+        public static string ActionableBoardLesson(CompletedHandRecord hand)
+        {
+            if (FoldedBeforeFlop(hand)) return null;
+            return BoardLesson(hand);
         }
 
         public static string BoardLesson(CompletedHandRecord hand)
@@ -398,6 +425,9 @@ namespace CinematicPoker.Engine.Coaching
 
         private static bool IsFreeCheckFold(HeroDecisionSnapshot spot, AcceptedHeroAction action) =>
             action.Action == "fold" && spot.CanCheck;
+
+        private static bool IsPricedFold(HeroDecisionSnapshot spot, AcceptedHeroAction action) =>
+            action.Action == "fold" && spot.IncrementalCall > 0 && !spot.CanCheck;
 
         private static bool IsUnpricedRaise(AcceptedHeroAction action) =>
             action.Action == "bet" || action.Action == "raise" ||
@@ -585,6 +615,14 @@ namespace CinematicPoker.Engine.Coaching
             foreach (Card card in cards) parts.Add(BestFiveCards.Code(card));
             return string.Join(" ", parts);
         }
+
+        private static string StreetPhrase(CoachStreet street) => street switch
+        {
+            CoachStreet.Preflop => "before the flop",
+            CoachStreet.Flop => "on the flop",
+            CoachStreet.Turn => "on the turn",
+            _ => "on the river"
+        };
 
         private static string SuitWord(Suit suit) => suit switch
         {

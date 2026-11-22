@@ -179,7 +179,8 @@ namespace CinematicPoker.Engine.Coaching
         FreeCheckFold,
         UnpricedRaise,
         BoardAwareness,
-        Neutral
+        Neutral,
+        PricedFold
     }
 
     public sealed class LessonSelection

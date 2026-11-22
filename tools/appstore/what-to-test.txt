@@ -1,6 +1,12 @@
 What to test in this build:
 
-New (showdown hand compare)
+New (coach “one thing to try”)
+• Play several hands and open Poker Coach. “ONE THING TO TRY” should not keep repeating “The call had a favourable price… One hand's result doesn't make it a bad call.”
+• If you folded, the note should be about that fold, or about the board (for example the third club), not about an earlier small call that was fine.
+• A big call can still say the price was favourable. It should name the street and the percents. See key decision still shows the price.
+• The same “you were fine” reassurance should not be the note on every review.
+
+Showdown hand compare (previous build)
 • At a three-player showdown, the screen listing every hand, including yours, stays up twice as long as before so you can scroll to the third hand. It then goes to the pot plaque ("Sam Six-Shot takes the pot").
 • Cinematic is about 10 seconds. Quick Play is about 6 seconds. NEXT HAND still waits for your tap.
 • A pot won because everyone else folded does not show that hand list, and that result should still appear at the old speed.
