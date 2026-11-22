@@ -585,42 +585,53 @@ export function createCoachController(deps) {
     }
   }
 
+  // Card texture paths must match whether Blazor passes a leading slash.
+  function cardUrlKey(url) {
+    if (!url) return '';
+    return String(url).replace(/^\//, '');
+  }
+
   function layCards(payload) {
     clearCards();
     if (!payload || !cardGroup) return;
-    const highlights = new Set(payload.highlights || []);
+    const highlights = new Set((payload.highlights || []).map(cardUrlKey));
     const board = payload.board || [];
     board.forEach((url, i) => {
       const x = (i - (board.length - 1) / 2) * 0.2;
-      placeCard(url, x, 0.02, highlights.has(url));
+      placeCard(url, x, 0.02, highlights.has(cardUrlKey(url)));
     });
     const hero = payload.hero || [];
     hero.forEach((url, i) => {
-      placeCard(url, -0.12 + i * 0.16, 0.48, highlights.has(url), 0.2);
+      placeCard(url, -0.12 + i * 0.16, 0.48, highlights.has(cardUrlKey(url)), 0.2);
     });
     const revealed = payload.revealed || [];
     revealed.forEach((pair, row) => {
       (pair || []).forEach((url, i) => {
-        placeCard(url, -0.55 + row * 0.34 + i * 0.12, -0.42, highlights.has(url), 0.15);
+        placeCard(url, -0.55 + row * 0.34 + i * 0.12, -0.42, highlights.has(cardUrlKey(url)), 0.15);
       });
     });
   }
 
   function placeCard(url, x, z, hot, scale = 0.18) {
-    const mat = new THREE.MeshBasicMaterial({ map: texture(url) });
-    const card = new THREE.Mesh(cardGeometry(scale, scale * 1.36), mat);
-    card.rotation.x = -Math.PI / 2;
-    card.position.set(x, TABLE_TOP + 0.01, z);
-    card.userData.url = url;
+    const cardH = scale * 1.36;
+    const lift = TABLE_TOP + 0.012;
     if (hot) {
+      const pad = 0.045;
       const rim = new THREE.Mesh(
-        cardGeometry(scale + 0.02, scale * 1.36 + 0.02),
-        new THREE.MeshBasicMaterial({ color: 0xe2c36a })
+        cardGeometry(scale + pad, cardH + pad),
+        new THREE.MeshBasicMaterial({ color: 0xe2c36a, depthTest: true })
       );
       rim.rotation.x = -Math.PI / 2;
-      rim.position.set(x, TABLE_TOP + 0.008, z);
+      rim.position.set(x, lift + 0.002, z);
+      rim.renderOrder = 2;
       cardGroup.add(rim);
     }
+    const mat = new THREE.MeshBasicMaterial({ map: texture(url) });
+    const card = new THREE.Mesh(cardGeometry(scale, cardH), mat);
+    card.rotation.x = -Math.PI / 2;
+    card.position.set(x, lift, z);
+    card.userData.url = url;
+    card.renderOrder = hot ? 3 : 1;
     cardGroup.add(card);
   }
 

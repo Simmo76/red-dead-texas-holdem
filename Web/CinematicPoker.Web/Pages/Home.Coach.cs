@@ -453,6 +453,7 @@ namespace CinematicPoker.Web.Pages
                 catch (JSException) { }
                 catch (InvalidOperationException) { }
             }
+            StateHasChanged();
         }
 
         public async Task FocusCoachPanel()
