@@ -11,7 +11,7 @@ New — coach bottom nav (PR #299)
 
 New — hero fold-win coach (PR #301)
 • Win because everyone else folded. Why You Won still says that. ONE THING TO TRY / SEE KEY DECISION must not talk about side pots.
-• HIGHLIGHT WINNING CARDS lights your hole cards on that fold win. When you folded and someone else took the pot by folds, the button still has nothing to mark.
+• HIGHLIGHT WINNING CARDS on a fold win: with a full board in the dock, gold frame marks the best five (board + holes), not only your two hole cards. Preflop fold wins still light only the holes. When you folded and someone else took the pot by folds, the button still has nothing to mark.
 
 New — opponent fold-win cards (PR #300)
 • Opponent wins with “everyone else folded.” Open Poker Coach: dock shows board, your cards, and the winner’s hole cards (match the result banner).

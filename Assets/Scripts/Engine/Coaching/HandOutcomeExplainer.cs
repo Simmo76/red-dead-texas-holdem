@@ -111,9 +111,7 @@ namespace CinematicPoker.Engine.Coaching
             {
                 review.Heading = "WHY YOU WON";
                 review.WhyWon = "You won because everyone else folded.";
-                // No showdown five-card hand — mark the hole cards that
-                // collected the pot so "HIGHLIGHT WINNING CARDS" still works.
-                review.HighlightCodes = Codes(hand.HeroHoleCards);
+                review.HighlightCodes = FoldWinHighlights(hand);
                 return;
             }
 
@@ -394,6 +392,25 @@ namespace CinematicPoker.Engine.Coaching
             if (cards == null) return codes;
             foreach (Card card in cards) codes.Add(BestFiveCards.Code(card));
             return codes;
+        }
+
+        /// <summary>
+        /// Fold wins have no showdown ledger. When the coach still shows a full
+        /// board, mark the best five you would have played; otherwise only the
+        /// two hole cards that collected the pot.
+        /// </summary>
+        private static List<string> FoldWinHighlights(CompletedHandRecord hand)
+        {
+            if (hand.HeroHoleCards == null || hand.HeroHoleCards.Count != 2)
+                return new List<string>();
+            if (hand.FinalBoard != null && hand.FinalBoard.Count >= 5)
+            {
+                var all = new List<Card>(hand.HeroHoleCards);
+                all.AddRange(hand.FinalBoard);
+                return Codes(BestFiveCards.Select(all));
+            }
+
+            return Codes(hand.HeroHoleCards);
         }
 
         private static bool EntirelyOnBoard(List<Card> five, IReadOnlyList<Card> board)

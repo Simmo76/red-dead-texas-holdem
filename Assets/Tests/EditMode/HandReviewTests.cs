@@ -196,7 +196,28 @@ namespace CinematicPoker.Engine.Tests
             HandReview review = new HandReviewService().Explain(hand);
             Assert.AreEqual("You won because everyone else folded.", review.WhyWon);
             CollectionAssert.AreEquivalent(new[] { "7c", "2d" }, review.HighlightCodes,
-                "Fold wins highlight the hole cards that collected the pot.");
+                "Preflop fold wins highlight only the hole cards that collected the pot.");
+        }
+
+        [Test]
+        public void HeroFoldWinWithFullBoardHighlightsBestFive()
+        {
+            CompletedHandRecord hand = CoachFixtures.FoldedBlind();
+            hand.HeroFolded = false;
+            hand.WonByFolds = true;
+            hand.HeroHoleCards = new List<Card> { Card.Parse("Js"), Card.Parse("3c") };
+            hand.FinalBoard = new List<Card>
+            {
+                Card.Parse("Td"), Card.Parse("Ah"), Card.Parse("5h"), Card.Parse("Jc"), Card.Parse("3s")
+            };
+            hand.Awards[0].WinnerSeats = new List<int> { 0 };
+            hand.Awards[0].Payouts = new Dictionary<int, long> { { 0, 15 } };
+            hand.HeroNet = 10;
+            HandReview review = new HandReviewService().Explain(hand);
+            CollectionAssert.AreEquivalent(
+                new[] { "Js", "Jc", "3s", "3c", "Ah" },
+                review.HighlightCodes,
+                "When the coach shows a full board, fold-win highlights match the best five.");
         }
 
         [Test]
