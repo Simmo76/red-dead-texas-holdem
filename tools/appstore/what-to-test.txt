@@ -1,12 +1,17 @@
 What to test in this build:
 
+New — key decision beside the coach (PR #305)
+• Open Poker Coach. SEE KEY DECISION and HIGHLIGHT ON/OFF sit on one row under the cards.
+• Tap SEE KEY DECISION: the write-up opens in its own window immediately to the right of the coach, and the coach shifts left so the character stays in frame. Tap again and that window closes.
+• HIGHLIGHT ON fills gold and rings the winning cards. HIGHLIGHT OFF stays an outline on the same row.
+
 New — showdown hand list (PR #303)
 • Three-player showdown: the hand-compare overlay shows all three players on one row (you plus two NPCs), with cards and hand names under each seat — not two on top and one wrapped below.
 • Four or more players at showdown: first row holds three seats; any extra seats wrap to a second row.
 • Portrait and landscape on iPhone: long outlaw names should still fit without breaking the single-row layout for three-way pots.
 
 New — fold-win highlights (PR #304)
-• Win because everyone else folded with a full board in Poker Coach. HIGHLIGHT WINNING CARDS must ring all five of your best hand (board + holes), not only your two hole cards. Preflop steals still highlight holes only.
+• Win because everyone else folded with a full board in Poker Coach. HIGHLIGHT ON must ring all five of your best hand (board + holes), not only your two hole cards. Preflop steals still highlight holes only.
 
 New — coach board on uncontested wins (PR #302)
 • Go all-in and win when everyone folds (or take any pot with no showdown). Open Poker Coach: felt and card dock show all five community cards plus your hole cards, not only your two cards.
@@ -19,7 +24,7 @@ New — coach bottom nav (PR #299)
 
 New — hero fold-win coach (PR #301)
 • Win because everyone else folded. Why You Won still says that. ONE THING TO TRY / SEE KEY DECISION must not talk about side pots.
-• HIGHLIGHT WINNING CARDS on a fold win: with a full board in the dock, gold frame marks the best five (board + holes), not only your two hole cards. Preflop fold wins still light only the holes. When you folded and someone else took the pot by folds, the button still has nothing to mark.
+• On a fold win, HIGHLIGHT ON with a full board in the dock marks the best five (board + holes), not only your two hole cards. Preflop fold wins still light only the holes. When you folded and someone else took the pot by folds, the button still has nothing to mark.
 
 New — opponent fold-win cards (PR #300)
 • Opponent wins with “everyone else folded.” Open Poker Coach: dock shows board, your cards, and the winner’s hole cards (match the result banner).
@@ -30,8 +35,8 @@ New — table win overlay (PR #292)
 • Short landscape: no red bar under the plaque; in-hand HUD and Settings Restart unchanged.
 
 Also verify (recent builds)
-• Open Poker Coach after a showdown. Row 1 is the board; row 2 shows every showdown player's two-card hand, name under each pair. SEE KEY DECISION / HIDE KEY DECISION toggles the dock breakdown.
-• After a showdown, HIGHLIGHT WINNING CARDS still marks the winning five on the board and in the dock.
+• Open Poker Coach after a showdown. Row 1 is the board; row 2 shows every showdown player's two-card hand, name under each pair. SEE KEY DECISION opens the write-up beside the coach, not inside the card.
+• After a showdown, HIGHLIGHT ON still marks the winning five on the board and in the dock.
 • Victory certificate: POKER COACH and WHY YOU WON on the plaque; ONE THING TO TRY only inside the coach panel.
 • ONE THING TO TRY should not repeat the same “favourable price” line every hand.
 • Three-way showdown hand list stays up long enough to read (Cinematic ~10s, Quick ~6s); fold wins skip the list.

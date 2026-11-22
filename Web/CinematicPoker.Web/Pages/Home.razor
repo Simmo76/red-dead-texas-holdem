@@ -903,7 +903,7 @@
 
     @if (_coachOpen && _coachReview != null)
     {
-        <div class="coach-layer" role="dialog" aria-modal="@(_coachUseScene ? "true" : "false")" aria-label="Hand review with @CoachDisplayName">
+        <div class="coach-layer @(_coachKeyOpen ? "key-open" : null)" role="dialog" aria-modal="@(_coachUseScene ? "true" : "false")" aria-label="Hand review with @CoachDisplayName">
             <button type="button" class="coach-back" @onclick="() => CloseCoach(false)" @onclick:stopPropagation="true" @onkeydown="OnCoachKey">
                 ← BACK TO TABLE
             </button>
@@ -1012,69 +1012,67 @@
                         }
                     </div>
                 }
-                @if (_coachKeyOpen)
-                {
-                    <div id="coach-key-decision" class="coach-detail">
-                        @if (_coachReview.KeyDecision == null)
-                        {
-                            <p>This lesson is about the hand as a whole. No single priced decision was selected.</p>
-                        }
-                        else
-                        {
-                            @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.Caveat))
-                            {
-                                <p>@_coachReview.KeyDecision.Caveat</p>
-                            }
-                            <p>Street: @_coachReview.KeyDecision.Street</p>
-                            <p>Board: @_coachReview.KeyDecision.BoardText</p>
-                            <p>Action: @_coachReview.KeyDecision.ActionTaken</p>
-                            @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.RecordedAction))
-                            {
-                                <p>@_coachReview.KeyDecision.RecordedAction</p>
-                            }
-                            @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.PriceLine))
-                            {
-                                <p>@_coachReview.KeyDecision.PriceLine</p>
-                            }
-                            @if (_coachReview.KeyDecision.EquityShare.HasValue || _coachReview.KeyDecision.ReasonCode == "equity_unavailable" || _coachReview.KeyDecision.ReasonCode == "cancelled")
-                            {
-                                <p>Estimated share: @CoachPct(_coachReview.KeyDecision.EquityShare)</p>
-                            }
-                            @if (_coachReview.KeyDecision.BreakEvenEquity.HasValue)
-                            {
-                                <p>Break-even: @CoachPct(_coachReview.KeyDecision.BreakEvenEquity)</p>
-                            }
-                            @if (_coachReview.KeyDecision.CallEv.HasValue)
-                            {
-                                <p>Call value: @CoachChips(_coachReview.KeyDecision.CallEv)</p>
-                            }
-                            @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.Detail))
-                            {
-                                <p>@_coachReview.KeyDecision.Detail</p>
-                            }
-                            @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.Method))
-                            {
-                                <p>Method: @_coachReview.KeyDecision.Method</p>
-                            }
-                        }
-                        @if (!string.IsNullOrEmpty(_coachReview.Assumptions))
-                        {
-                            <p>@_coachReview.Assumptions</p>
-                        }
-                    </div>
-                }
                 <div class="coach-actions">
-                    <button type="button" class="act call" @onclick="ToggleKeyDecision" aria-expanded="@_coachKeyOpen" aria-controls="coach-key-decision">@(_coachKeyOpen ? "HIDE KEY DECISION" : "SEE KEY DECISION")</button>
+                    <button type="button" class="act call @(_coachKeyOpen ? "on" : null)" @onclick="ToggleKeyDecision" aria-expanded="@_coachKeyOpen" aria-controls="coach-key-decision">SEE KEY DECISION</button>
+                    @if (CoachCanHighlight)
+                    {
+                        <button type="button" class="act highlight @(_coachHighlight ? "on" : "off")" aria-pressed="@_coachHighlight" @onclick="ToggleCoachHighlights">@(_coachHighlight ? "HIGHLIGHT ON" : "HIGHLIGHT OFF")</button>
+                    }
                 </div>
-                @if (CoachCanHighlight)
-                {
-                    <div class="coach-tools">
-                        <button type="button" class="@(_coachHighlight ? "active" : null)" aria-pressed="@_coachHighlight" @onclick="ToggleCoachHighlights">@(_coachHighlight ? "HIGHLIGHT ON" : "HIGHLIGHT WINNING CARDS")</button>
-                    </div>
-                }
                 <p class="coach-foot">POST-HAND ADVICE</p>
                 </div>
             </section>
+            @if (_coachKeyOpen)
+            {
+                <aside id="coach-key-decision" class="coach-key-panel" @onclick:stopPropagation="true" @onkeydown="OnCoachKey">
+                    @if (_coachReview.KeyDecision == null)
+                    {
+                        <p>This lesson is about the hand as a whole. No single priced decision was selected.</p>
+                    }
+                    else
+                    {
+                        @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.Caveat))
+                        {
+                            <p>@_coachReview.KeyDecision.Caveat</p>
+                        }
+                        <p>Street: @_coachReview.KeyDecision.Street</p>
+                        <p>Board: @_coachReview.KeyDecision.BoardText</p>
+                        <p>Action: @_coachReview.KeyDecision.ActionTaken</p>
+                        @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.RecordedAction))
+                        {
+                            <p>@_coachReview.KeyDecision.RecordedAction</p>
+                        }
+                        @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.PriceLine))
+                        {
+                            <p>@_coachReview.KeyDecision.PriceLine</p>
+                        }
+                        @if (_coachReview.KeyDecision.EquityShare.HasValue || _coachReview.KeyDecision.ReasonCode == "equity_unavailable" || _coachReview.KeyDecision.ReasonCode == "cancelled")
+                        {
+                            <p>Estimated share: @CoachPct(_coachReview.KeyDecision.EquityShare)</p>
+                        }
+                        @if (_coachReview.KeyDecision.BreakEvenEquity.HasValue)
+                        {
+                            <p>Break-even: @CoachPct(_coachReview.KeyDecision.BreakEvenEquity)</p>
+                        }
+                        @if (_coachReview.KeyDecision.CallEv.HasValue)
+                        {
+                            <p>Call value: @CoachChips(_coachReview.KeyDecision.CallEv)</p>
+                        }
+                        @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.Detail))
+                        {
+                            <p>@_coachReview.KeyDecision.Detail</p>
+                        }
+                        @if (!string.IsNullOrEmpty(_coachReview.KeyDecision.Method))
+                        {
+                            <p>Method: @_coachReview.KeyDecision.Method</p>
+                        }
+                    }
+                    @if (!string.IsNullOrEmpty(_coachReview.Assumptions))
+                    {
+                        <p>@_coachReview.Assumptions</p>
+                    }
+                </aside>
+            }
         </div>
     }
 </div>

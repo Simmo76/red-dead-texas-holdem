@@ -3344,6 +3344,9 @@ html.scene-street.resume-play .boot-screen {
 .coach-layer {
     /* 18px inset + 44px nav pill + 12px gap under the panel. */
     --coach-nav-clearance: calc(74px + env(safe-area-inset-bottom, 0px));
+    /* Two windows share the right side once the key decision is open. */
+    --coach-side-width: min(540px, calc((100% - 72px) * 0.38));
+    --coach-side-gap: 14px;
     position: absolute;
     inset: 0;
     z-index: 24;
@@ -3430,6 +3433,34 @@ html.scene-street.resume-play .boot-screen {
     background: rgba(18, 12, 8, 0.94);
     color: #f4ecdc;
     box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+/* Key decision sits in its own window, immediately to the right of the coach. */
+.coach-layer.key-open .coach-panel {
+    width: var(--coach-side-width);
+    right: calc(18px + env(safe-area-inset-right, 0px) + var(--coach-side-width) + var(--coach-side-gap));
+}
+
+.coach-key-panel {
+    pointer-events: auto;
+    position: absolute;
+    top: env(safe-area-inset-top, 0px);
+    right: calc(18px + env(safe-area-inset-right, 0px));
+    bottom: var(--coach-nav-clearance);
+    width: var(--coach-side-width);
+    overflow: auto;
+    padding: 26px 28px 20px;
+    border-radius: 0 0 18px 18px;
+    border: 1px solid rgba(196, 164, 96, 0.85);
+    background: rgba(12, 9, 6, 0.94);
+    color: #f4ecdc;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+    font-size: 20px;
+    line-height: 1.38;
+}
+
+.coach-key-panel p {
+    margin: 0 0 18px;
 }
 
 .coach-name {
@@ -3581,17 +3612,40 @@ html.scene-street.resume-play .boot-screen {
 
 .coach-actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 10px;
-    margin-top: 18px;
+    margin-top: 12px;
 }
 
 .coach-actions .act {
     flex: 1 1 0;
-    min-height: 44px;
-    font-size: 15px;
-    letter-spacing: 1px;
-    padding: 10px 12px;
+    min-width: 0;
+    min-height: 48px;
+    font-size: 14px;
+    letter-spacing: 0.6px;
+    line-height: 1.15;
+    padding: 10px 8px;
+}
+
+.coach-actions .act.call {
+    background: #2f8f58;
+    border-color: #1d5c38;
+}
+
+.coach-actions .act.call.on {
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.38);
+}
+
+.coach-actions .act.highlight {
+    background: #e2c36a;
+    border-color: #c4a24a;
+    color: #1a120c;
+}
+
+.coach-actions .act.highlight.off {
+    background: transparent;
+    color: #f3ead7;
+    border-color: #c4a460;
 }
 
 .coach-foot {
@@ -3675,6 +3729,10 @@ html.scene-street.resume-play .boot-screen {
 }
 
 @media (max-width: 900px), (max-height: 520px) {
+    .coach-layer {
+        --coach-side-width: calc(50% - 22px - env(safe-area-inset-right, 0px));
+        --coach-side-gap: 8px;
+    }
     .coach-panel {
         top: env(safe-area-inset-top, 0px);
         right: calc(10px + env(safe-area-inset-right, 0px));
@@ -3682,6 +3740,17 @@ html.scene-street.resume-play .boot-screen {
         width: calc(50% - 16px - env(safe-area-inset-right, 0px));
         padding: 16px 14px 12px;
     }
+    .coach-layer.key-open .coach-panel {
+        width: var(--coach-side-width);
+        right: calc(10px + env(safe-area-inset-right, 0px) + var(--coach-side-width) + var(--coach-side-gap));
+    }
+    .coach-key-panel {
+        right: calc(10px + env(safe-area-inset-right, 0px));
+        padding: 16px 14px 12px;
+        font-size: 16px;
+    }
+    .coach-key-panel p { margin-bottom: 12px; }
+    .coach-actions .act { font-size: 12px; letter-spacing: 0.2px; padding: 8px 4px; }
     .coach-name { font-size: 22px; letter-spacing: 2px; }
     .coach-section-title { font-size: 18px; }
     .coach-card-row img { width: 32px; }
@@ -3695,7 +3764,7 @@ html.scene-street.resume-play .boot-screen {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .coach-layer, .coach-panel, .coach-back, .coach-next,
+    .coach-layer, .coach-panel, .coach-key-panel, .coach-back, .coach-next,
     .actionbar .review-hand,
     .banner .cert-coach { animation: none !important; transition: none !important; }
 }
