@@ -68,32 +68,37 @@
             }
         </div>
         <div class="topbar-right">
-            @if (CanReview && _handHasCompleted && _awaitingNextHand)
-            {
-                <button class="chip-btn review-hand" @onclick="OpenCoachReview" title="Ask the poker coach about the last hand">
-                    POKER COACH
+            @* Wrappable chips stay in .topbar-actions. SETTINGS is a sibling so
+               it always stays on the first row beside them and never drops
+               under the top-right hand window when the row wraps. *@
+            <div class="topbar-actions">
+                @if (CanReview && _handHasCompleted && _awaitingNextHand)
+                {
+                    <button class="chip-btn review-hand" @onclick="OpenCoachReview" title="Ask the poker coach about the last hand">
+                        POKER COACH
+                    </button>
+                }
+                <button class="chip-btn" @onclick="OpenRules" title="How to play Texas Hold'em">
+                    <span class="chip-gear" aria-hidden="true">?</span> RULES
                 </button>
-            }
-            <button class="chip-btn" @onclick="OpenRules" title="How to play Texas Hold'em">
-                <span class="chip-gear" aria-hidden="true">?</span> RULES
-            </button>
-            @if (_musicOn)
-            {
-                <button class="chip-btn" @onclick="NextSong" title="Skip to the next song">
-                    <span class="chip-gear" aria-hidden="true">♪</span> NEXT SONG
+                @if (_musicOn)
+                {
+                    <button class="chip-btn" @onclick="NextSong" title="Skip to the next song">
+                        <span class="chip-gear" aria-hidden="true">♪</span> NEXT SONG
+                    </button>
+                }
+                <button class="chip-btn" @onclick="OpenHandRankings" title="Poker hand rankings">
+                    <span class="chip-gear" aria-hidden="true">♠</span> HANDS
                 </button>
-            }
-            <button class="chip-btn" @onclick="OpenHandRankings" title="Poker hand rankings">
-                <span class="chip-gear" aria-hidden="true">♠</span> HANDS
-            </button>
-            @if (_sceneReady)
-            {
-                <button class="chip-btn @(_overheadView ? "active" : "")" @onclick="ToggleOverheadView"
-                        title="@(_overheadView ? "Back to your seat" : "Overhead camera — see every player's remaining chips")">
-                    <span class="chip-gear" aria-hidden="true">◎</span> @(_overheadView ? "SEAT VIEW" : "TABLE VIEW")
-                </button>
-            }
-            <button class="chip-btn" @onclick="OpenSettings" title="Game settings">
+                @if (_sceneReady)
+                {
+                    <button class="chip-btn @(_overheadView ? "active" : "")" @onclick="ToggleOverheadView"
+                            title="@(_overheadView ? "Back to your seat" : "Overhead camera — see every player's remaining chips")">
+                        <span class="chip-gear" aria-hidden="true">◎</span> @(_overheadView ? "SEAT VIEW" : "TABLE VIEW")
+                    </button>
+                }
+            </div>
+            <button class="chip-btn topbar-settings" @onclick="OpenSettings" title="Game settings">
                 <span class="chip-gear" aria-hidden="true">⚙</span> SETTINGS
             </button>
             @if (ShowInviteButton && !_isGuest)
