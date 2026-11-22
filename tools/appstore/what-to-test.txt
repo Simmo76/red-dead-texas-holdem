@@ -1,5 +1,10 @@
 What to test in this build:
 
+New — pot no longer covers the title (PR #309)
+• Start a hand. In the top-left, POT $… sits under DEAD MAN'S HAND — the pill must not sit on top of the title.
+• With music on (NEXT SONG visible) plus RULES / HANDS / TABLE VIEW / SETTINGS / INVITE FRIEND, shrink the window or rotate so those chips wrap onto a second row. Title and pot must stay stacked top-left with no overlap.
+• Expand the community-card close-up: pot stays under the title; the actor card still appears under that stack on the left.
+
 New — coach method in plain words, hand review on iPhone (PR #307)
 • Poker Coach → SEE KEY DECISION. Method is everyday language: thousands of pretend hands, every leftover card equally likely, or every hand the other player could still hold. No “Monte Carlo.”
 • The note under the review says every possible hand counts, even ones a careful player would fold, and a tie is included because the pot would be split.

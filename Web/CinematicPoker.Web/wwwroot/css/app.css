@@ -145,7 +145,10 @@ html.scene-street.resume-play .boot-screen {
     left: 0;
     right: 0;
     display: flex;
-    align-items: center;
+    /* flex-start keeps the brand+pot column pinned to the top when the
+       right-side chips wrap onto a second row. align-items: center used to
+       drop the title onto the pot pill. */
+    align-items: flex-start;
     justify-content: space-between;
     padding: 10px 18px;
     padding-top: calc(10px + env(safe-area-inset-top));
@@ -155,15 +158,37 @@ html.scene-street.resume-play .boot-screen {
     z-index: 5;
 }
 
+.topbar-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    flex: 0 0 auto;
+    min-width: 0;
+    /* Stay under the right-side chips when they wrap. */
+    max-width: calc(100% - 12px);
+    padding-right: 12px;
+}
+
 .brand {
     font-size: 17px;
     letter-spacing: 5px;
     font-weight: bold;
     color: var(--text);
     text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+    /* Match the 40px topbar chip height so the title stays optically
+       centred with a single row of buttons. */
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
 }
 
 .brand span { color: var(--gold); }
+
+.topbar-left .hud-pot {
+    /* Pot is in document flow under the brand — no absolute top needed. */
+    flex: 0 0 auto;
+}
 
 .topbar-right { display: flex; gap: 12px; }
 
@@ -220,7 +245,9 @@ html.scene-street.resume-play .boot-screen {
 
 .friend-seat-pill {
     position: absolute;
-    top: calc(104px + env(safe-area-inset-top));
+    /* Clears the brand (40px) + gap + pot pill (~32px) under the topbar
+       padding, with a little spare when the right-side chips wrap. */
+    top: calc(100px + env(safe-area-inset-top));
     left: calc(18px + env(safe-area-inset-left));
     z-index: 6;
     max-width: calc(100vw - 36px);
@@ -505,18 +532,15 @@ html.scene-street.resume-play .boot-screen {
 
 .hud-meters {
     position: absolute;
-    /* Clamped directly under the "DEAD MAN'S HAND" title: the brand text
-       is centred in the topbar's 40px button row (10px padding above), so
-       its bottom edge lands around 46px. The topbar buttons live on the
-       right, leaving this left column clear. */
-    top: calc(46px + env(safe-area-inset-top));
-    /* Pinned to the top-left corner (under the title) in EVERY state, so
-       the pot never drifts towards the centre of the screen. The friend
-       pill below starts at 104px, clearing this row. */
+    /* Actor card only (pot lives under the brand in .topbar-left). Sit
+       just below the brand + pot stack: 10px pad + 40px brand + 8px gap +
+       ~32px pot + 8px breathing room. */
+    top: calc(98px + env(safe-area-inset-top));
     left: calc(18px + env(safe-area-inset-left));
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
     z-index: 5;
 }
 
@@ -696,17 +720,12 @@ html.scene-street.resume-play .boot-screen {
     overflow: visible;
 }
 
-/* The enlarged close-up owns the top-right corner: the meters already sit
-   on the left edge; stack them vertically and shrink them a notch so the
-   two can never collide. */
-.board-expanded .hud-meters {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-}
-
-.board-expanded .hud-stack { font-size: 16px; padding: 6px 12px; }
+/* The enlarged close-up owns the top-right corner: shrink the left-column
+   pot (in the topbar) and actor card a notch so nothing competes with the
+   big cards. */
+.board-expanded .topbar-left .hud-pot,
 .board-expanded .hud-pot { font-size: 13px; padding: 5px 12px; }
+.board-expanded .hud-stack { font-size: 16px; padding: 6px 12px; }
 
 /* The current actor's window joins the same column under the pot pill
    (moved there in the markup), shrunk to match its neighbours so the
@@ -3086,15 +3105,12 @@ html.scene-street.resume-play .boot-screen {
     .chip-btn { padding: 5px 10px; font-size: 10px; letter-spacing: 1px; }
     .topbar .chip-btn { padding: 7px 13px; min-height: 34px; font-size: 11px; }
     .chip-gear { font-size: 14px; }
-    .brand { font-size: 12px; letter-spacing: 2px; }
-
-    /* Left-aligned just under the title: the wrapped second row of topbar
-       buttons owns the right, so the pot can hug the brand's baseline. */
-    .hud-meters { top: calc(40px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); transform: none; flex-direction: column; align-items: flex-start; gap: 6px; }
+    .brand { font-size: 12px; letter-spacing: 2px; min-height: 34px; }
+    /* Actor card under the compact brand + pot stack. */
+    .hud-meters { top: calc(90px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); }
     .hud-pot { font-size: 15px; padding: 6px 14px; }
     .hud-stack { font-size: 20px; padding: 7px 14px; }
     .hud-stack-icon { width: 20px; height: 20px; flex-basis: 20px; }
-    /* Below the pot pill so the two never overlap on narrow screens. */
     .hud-hand-rail { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 6px; }
     .hud-board { gap: 4px; padding: 4px 5px; }
     .hud-row { gap: 3px; }
@@ -3168,12 +3184,9 @@ html.scene-street.resume-play .boot-screen {
     .chip-btn { padding: 4px 10px; font-size: 10px; }
     .topbar .chip-btn { padding: 6px 13px; min-height: 32px; font-size: 11px; }
     .chip-gear { font-size: 14px; }
-    .brand { font-size: 12px; letter-spacing: 2px; }
-
-    /* Clamped just under the compact brand text (bottom edge ~28px in the
-       6px-padded 32px topbar row). The topbar buttons sit on the right, so
-       they can never collide with this left-pinned pill. */
-    .hud-meters { top: calc(34px + env(safe-area-inset-top)); left: 14px; gap: 8px; }
+    .brand { font-size: 12px; letter-spacing: 2px; min-height: 32px; }
+    /* Actor card under the compact landscape brand + pot stack. */
+    .hud-meters { top: calc(84px + env(safe-area-inset-top)); left: 14px; gap: 6px; }
     .hud-pot { font-size: 16px; padding: 6px 14px; }
     .hud-stack { font-size: 22px; padding: 7px 16px; }
     .hud-stack-icon { width: 22px; height: 22px; flex-basis: 22px; }
@@ -3297,6 +3310,7 @@ html.scene-street.resume-play .boot-screen {
 /* ------------------------------------------------------------- post-hand coach */
 
 .game3d.coach-open .topbar-right,
+.game3d.coach-open .topbar-left .hud-pot,
 .game3d.coach-open .hud-meters,
 .game3d.coach-open .hud-hand-rail,
 .game3d.coach-open .ai-advice,
