@@ -904,10 +904,14 @@
     @if (_coachOpen && _coachReview != null)
     {
         <div class="coach-layer" role="dialog" aria-modal="@(_coachUseScene ? "true" : "false")" aria-label="Hand review with @CoachDisplayName">
-            @if (_coachUseScene)
+            <button type="button" class="coach-back" @onclick="() => CloseCoach(false)" @onclick:stopPropagation="true" @onkeydown="OnCoachKey">
+                ← BACK TO TABLE
+            </button>
+            @if (CoachCanAdvance)
             {
-                <button type="button" class="coach-back" @onclick="() => CloseCoach(false)" @onclick:stopPropagation="true" @onkeydown="OnCoachKey">
-                    ← BACK TO TABLE
+                <button type="button" class="coach-next" @onclick="() => CloseCoach(true)" @onclick:stopPropagation="true" @onkeydown="OnCoachKey"
+                        title="@(_game != null && _game.HasHumanLost ? "Continue with your stack" : "Go to the next hand")">
+                    @CoachAdvanceLabel →
                 </button>
             }
             @if (_coach3dOk != true)
@@ -1061,14 +1065,6 @@
                 }
                 <div class="coach-actions">
                     <button type="button" class="act call" @onclick="ToggleKeyDecision" aria-expanded="@_coachKeyOpen" aria-controls="coach-key-decision">@(_coachKeyOpen ? "HIDE KEY DECISION" : "SEE KEY DECISION")</button>
-                    @if (CoachCanAdvance)
-                    {
-                        <button type="button" class="act bet" @onclick="() => CloseCoach(true)">@CoachAdvanceLabel</button>
-                    }
-                    else
-                    {
-                        <button type="button" class="act bet" @onclick="() => CloseCoach(false)">BACK TO TABLE</button>
-                    }
                 </div>
                 <div class="coach-tools">
                     <button type="button" class="@(_coachHighlight ? "active" : null)" aria-pressed="@_coachHighlight" @onclick="ToggleCoachHighlights">@(_coachHighlight ? "HIGHLIGHT ON" : "HIGHLIGHT WINNING CARDS")</button>

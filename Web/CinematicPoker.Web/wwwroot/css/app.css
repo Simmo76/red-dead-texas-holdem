@@ -3334,11 +3334,10 @@ html.scene-street.resume-play .boot-screen {
              calc(16px + env(safe-area-inset-left, 0px));
 }
 
-.coach-back {
+.coach-back,
+.coach-next {
     pointer-events: auto;
     position: absolute;
-    top: calc(14px + env(safe-area-inset-top, 0px));
-    right: calc(18px + env(safe-area-inset-right, 0px));
     z-index: 2;
     min-height: 44px;
     min-width: 44px;
@@ -3351,6 +3350,16 @@ html.scene-street.resume-play .boot-screen {
     font-size: 16px;
     letter-spacing: 2px;
     cursor: pointer;
+}
+
+.coach-back {
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    left: calc(18px + env(safe-area-inset-left, 0px));
+}
+
+.coach-next {
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    right: calc(18px + env(safe-area-inset-right, 0px));
 }
 
 .coach-portrait {
@@ -3666,7 +3675,7 @@ html.scene-street.resume-play .boot-screen {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .coach-layer, .coach-panel,
+    .coach-layer, .coach-panel, .coach-back, .coach-next,
     .actionbar .review-hand,
     .banner .cert-coach { animation: none !important; transition: none !important; }
 }

@@ -75,8 +75,8 @@ const APP = 'http://localhost:5180/';
         }
         coachDone = true;
       }
-      // Advance: NEXT HAND inside the coach, else close.
-      if (!(await clickIf('.coach-panel button:has-text("NEXT HAND")'))) {
+      // Advance: NEXT HAND on the coach chrome, else close.
+      if (!(await clickIf('.coach-layer .coach-next'))) {
         await page.keyboard.press('Escape');
       }
       await page.waitForTimeout(2500);
