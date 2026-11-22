@@ -1,6 +1,10 @@
 What to test in this build:
 
-New (coach “one thing to try”)
+New (victory certificate)
+• Win a pot. The certificate still shows POKER COACH, WHY YOU WON, and the board. It does not show the italic tip, including “Reading the price you were offered.” or “When the third diamond lands, pause before calling a big bet.”
+• Tap Poker Coach Feedback. ONE THING TO TRY stays in that panel, not on the plaque.
+
+Coach “one thing to try” (previous build)
 • Play several hands and open Poker Coach. “ONE THING TO TRY” should not keep repeating “The call had a favourable price… One hand's result doesn't make it a bad call.”
 • If you folded, the note should be about that fold, or about the board (for example the third club), not about an earlier small call that was fine.
 • A big call can still say the price was favourable. It should name the street and the percents. See key decision still shows the price.
