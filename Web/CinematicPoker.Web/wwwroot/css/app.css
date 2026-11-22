@@ -3324,6 +3324,8 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .coach-layer {
+    /* 18px inset + 44px nav pill + 12px gap under the panel. */
+    --coach-nav-clearance: calc(74px + env(safe-area-inset-bottom, 0px));
     position: absolute;
     inset: 0;
     z-index: 24;
@@ -3393,9 +3395,9 @@ html.scene-street.resume-play .boot-screen {
 .coach-panel {
     pointer-events: auto;
     position: absolute;
-    top: calc(68px + env(safe-area-inset-top, 0px));
+    top: env(safe-area-inset-top, 0px);
     right: calc(18px + env(safe-area-inset-right, 0px));
-    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    bottom: var(--coach-nav-clearance);
     left: auto;
     /* Right half only. The left half stays open so Maximilian stays in frame. */
     width: calc(50% - 28px - env(safe-area-inset-right, 0px));
@@ -3405,7 +3407,7 @@ html.scene-street.resume-play .boot-screen {
     flex-direction: column;
     overflow: hidden;
     padding: 18px 22px 12px;
-    border-radius: 18px;
+    border-radius: 0 0 18px 18px;
     border: 1px solid rgba(196, 164, 96, 0.85);
     background: rgba(18, 12, 8, 0.94);
     color: #f4ecdc;
@@ -3656,9 +3658,9 @@ html.scene-street.resume-play .boot-screen {
 
 @media (max-width: 900px), (max-height: 520px) {
     .coach-panel {
-        top: calc(64px + env(safe-area-inset-top, 0px));
+        top: env(safe-area-inset-top, 0px);
         right: calc(10px + env(safe-area-inset-right, 0px));
-        bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+        bottom: var(--coach-nav-clearance);
         width: calc(50% - 16px - env(safe-area-inset-right, 0px));
         padding: 16px 14px 12px;
     }

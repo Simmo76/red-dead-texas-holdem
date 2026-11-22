@@ -910,7 +910,7 @@
             @if (CoachCanAdvance)
             {
                 <button type="button" class="coach-next" @onclick="() => CloseCoach(true)" @onclick:stopPropagation="true" @onkeydown="OnCoachKey"
-                        title="@(_game != null && _game.HasHumanLost ? "Continue with your stack" : "Go to the next hand")">
+                        title="Go to the next hand">
                     @CoachAdvanceLabel →
                 </button>
             }

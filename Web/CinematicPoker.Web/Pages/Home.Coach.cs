@@ -104,8 +104,7 @@ namespace CinematicPoker.Web.Pages
             _ => "ON REQUEST"
         };
 
-        private string CoachAdvanceLabel =>
-            _game != null && _game.HasHumanLost ? "CONTINUE" : "NEXT HAND";
+        private string CoachAdvanceLabel => "NEXT HAND";
 
         // Saloon reviews are Maximilian, the eye-patch bandit. Octagon reviews
         // are Frankie Fast-Hand, the bald cage fighter coach.
