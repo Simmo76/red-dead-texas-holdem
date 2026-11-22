@@ -192,7 +192,7 @@ html.scene-street.resume-play .boot-screen {
     flex: 0 0 auto;
 }
 
-/* nowrap keeps SETTINGS on the first chip row; only .topbar-actions wraps. */
+/* Primary chips stay on one row; invite may sit beside them. */
 .topbar-right {
     display: flex;
     flex-wrap: nowrap;
@@ -204,7 +204,7 @@ html.scene-street.resume-play .boot-screen {
 
 .topbar-actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
     align-items: center;
     gap: 12px;
@@ -3123,11 +3123,11 @@ html.scene-street.resume-play .boot-screen {
 
 @media (max-width: 620px) and (orientation: portrait) {
     .topbar { padding-left: calc(10px + env(safe-area-inset-left)); padding-right: calc(10px + env(safe-area-inset-right)); }
-    /* Secondary chips may wrap; SETTINGS stays on the first row. */
-    .topbar-right { gap: 8px; }
-    .topbar-actions { gap: 8px; }
+    /* Keep the primary chip row on one line on narrow phones. */
+    .topbar-right { gap: 6px; }
+    .topbar-actions { gap: 6px; }
     .chip-btn { padding: 5px 10px; font-size: 10px; letter-spacing: 1px; }
-    .topbar .chip-btn { padding: 7px 13px; min-height: 34px; font-size: 11px; }
+    .topbar .chip-btn { padding: 7px 10px; min-height: 34px; font-size: 11px; letter-spacing: 1px; }
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; min-height: 34px; }
     /* Actor card under the compact brand + pot stack. */
@@ -3204,11 +3204,11 @@ html.scene-street.resume-play .boot-screen {
        one. This row is above the housing, so a flat 14px clears the
        rounded corner and matches the top edge. */
     .topbar { padding-top: 6px; padding-left: 14px; padding-right: 14px; }
-    /* Cap the whole right cluster; SETTINGS stays on row one via nowrap. */
-    .topbar-right { gap: 8px; max-width: 72%; }
-    .topbar-actions { gap: 8px; }
-    .chip-btn { padding: 4px 10px; font-size: 10px; }
-    .topbar .chip-btn { padding: 6px 13px; min-height: 32px; font-size: 11px; }
+    /* Short labels + tighter chips so the whole primary row fits beside the brand. */
+    .topbar-right { gap: 6px; max-width: 78%; }
+    .topbar-actions { gap: 6px; }
+    .chip-btn { padding: 4px 8px; font-size: 10px; }
+    .topbar .chip-btn { padding: 6px 10px; min-height: 32px; font-size: 11px; letter-spacing: 1px; }
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; min-height: 32px; }
     /* Actor card under the compact landscape brand + pot stack. */

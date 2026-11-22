@@ -68,9 +68,8 @@
             }
         </div>
         <div class="topbar-right">
-            @* Wrappable chips stay in .topbar-actions. SETTINGS is a sibling so
-               it always stays on the first row beside them and never drops
-               under the top-right hand window when the row wraps. *@
+            @* One nowrap chip row: short labels keep RULES / >> tune / HANDS /
+               bird's eye / SETTINGS on a single line above the hand window. *@
             <div class="topbar-actions">
                 @if (CanReview && _handHasCompleted && _awaitingNextHand)
                 {
@@ -84,7 +83,7 @@
                 @if (_musicOn)
                 {
                     <button class="chip-btn" @onclick="NextSong" title="Skip to the next song">
-                        <span class="chip-gear" aria-hidden="true">♪</span> NEXT SONG
+                        &gt;&gt; tune
                     </button>
                 }
                 <button class="chip-btn" @onclick="OpenHandRankings" title="Poker hand rankings">
@@ -94,13 +93,13 @@
                 {
                     <button class="chip-btn @(_overheadView ? "active" : "")" @onclick="ToggleOverheadView"
                             title="@(_overheadView ? "Back to your seat" : "Overhead camera — see every player's remaining chips")">
-                        <span class="chip-gear" aria-hidden="true">◎</span> @(_overheadView ? "SEAT VIEW" : "TABLE VIEW")
+                        <span class="chip-gear" aria-hidden="true">◎</span> @(_overheadView ? "seat view" : "bird's eye")
                     </button>
                 }
+                <button class="chip-btn topbar-settings" @onclick="OpenSettings" title="Game settings">
+                    <span class="chip-gear" aria-hidden="true">⚙</span> SETTINGS
+                </button>
             </div>
-            <button class="chip-btn topbar-settings" @onclick="OpenSettings" title="Game settings">
-                <span class="chip-gear" aria-hidden="true">⚙</span> SETTINGS
-            </button>
             @if (ShowInviteButton && !_isGuest)
             {
                 <button class="chip-btn invite-btn" @onclick="OpenInvite" title="Invite a friend to this table">

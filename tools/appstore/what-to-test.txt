@@ -2,7 +2,7 @@ What to test in this build:
 
 New — pot no longer covers the title (PR #309)
 • Start a hand. In the top-left, POT $… sits under DEAD MAN'S HAND — the pill must not sit on top of the title.
-• With music on (NEXT SONG visible) plus RULES / HANDS / TABLE VIEW / SETTINGS / INVITE FRIEND, shrink the window or rotate so those chips wrap onto a second row. Title and pot must stay stacked top-left with no overlap.
+• With music on (>> tune visible) plus RULES / HANDS / bird's eye / SETTINGS / INVITE FRIEND, check the top chip row on a phone in landscape: those primary chips stay on one line and SETTINGS is never covered by the hand window. Title and pot stay stacked top-left.
 • Expand the community-card close-up: pot stays under the title; the actor card still appears under that stack on the left.
 
 New — coach method in plain words, hand review on iPhone (PR #307)
@@ -16,8 +16,9 @@ New — two women at every table (PR #308)
 • Reload a table saved from an older build that only had one woman. It should now have two.
 
 New — next song (PR #306)
-• With music on, NEXT SONG sits in the top bar beside RULES. Tap it and the current song fades into the next one.
-• Settings → SOUND → turn MUSIC off. NEXT SONG disappears. Turn MUSIC back on and the button returns.
+• With music on, >> tune sits in the top bar beside RULES. Tap it and the current song fades into the next one.
+• Settings → SOUND → turn MUSIC off. >> tune disappears. Turn MUSIC back on and the button returns.
+• bird's eye toggles the overhead camera; while overhead it reads seat view.
 
 New — key decision beside the coach (PR #305)
 • Open Poker Coach. SEE KEY DECISION and HIGHLIGHT ON/OFF sit on one row under the cards.
