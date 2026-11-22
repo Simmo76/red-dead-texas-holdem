@@ -1,6 +1,7 @@
 What to test in this build
 
 New
+• Three-way showdown: hand-compare strip stays scrollable under the result banner until NEXT HAND; longer dwell before the plaque on 3+ seats.
 • Victory certificate and Export Certificate: POKER COACH shows WHY YOU WON and the outcome only—no italic tip. Full lessons stay in Poker Coach Feedback.
 
 Quick pass (smoke — not every build changed these)
