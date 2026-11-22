@@ -1,4 +1,4 @@
 # Bump the line below to force a TestFlight build when a change lives
 # outside Mobile/ios-wrapper (the iOS workflow auto-runs only when files
 # under this folder, or the workflow itself, change on main).
-build: 2026-11-22 TestFlight after coach bottom nav (#299) + fold-win coach (#301)
+build: 2026-11-22 TestFlight after PR #302 coach board on fold / all-in wins

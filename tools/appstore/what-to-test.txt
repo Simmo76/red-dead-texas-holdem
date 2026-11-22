@@ -1,5 +1,9 @@
 What to test in this build:
 
+New — coach board on uncontested wins (PR #302)
+• Go all-in and win when everyone folds (or take any pot with no showdown). Open Poker Coach: felt and card dock show all five community cards plus your hole cards, not only your two cards.
+• Fold-win highlights stay off unless the existing fold-win highlight rules apply; full showdown hands unchanged.
+
 New — coach bottom nav (PR #299)
 • Open Poker Coach with the saloon scene. ← BACK TO TABLE is bottom-left; NEXT HAND → is bottom-right when the table can advance. Both use the same dark gold-border pill; neither sits inside the coach card.
 • Coach panel top is flush with the screen top; its bottom clears the Next Hand button. SEE KEY DECISION stays in the card.

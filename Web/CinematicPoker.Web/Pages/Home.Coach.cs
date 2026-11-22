@@ -596,6 +596,9 @@ namespace CinematicPoker.Web.Pages
                 hand.FinalBoard.Clear();
                 hand.FinalBoard.AddRange(live);
             }
+
+            if (hand.FinalBoard.Count < 5 && hand.WonByFolds && Round != null)
+                CoachBoardRunout.CompleteForCoach(hand, Round);
         }
 
         private async Task SyncCoachTableScene(CompletedHandRecord hand)
