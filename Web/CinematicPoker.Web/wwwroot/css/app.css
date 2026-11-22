@@ -1576,14 +1576,18 @@ html.scene-street.resume-play .boot-screen {
 }
 
 /* Hand-compare window: 1.5x the previous size (cards + type) so the
-   YOU-vs-them read is obvious. Height is capped to the stage so a 4+
-   seat wrap scrolls inside the frame instead of clipping off-screen. */
+   YOU-vs-them read is obvious. Three seats share one row; a fourth wraps
+   to the next. Height is capped to the stage so a 5+ seat wrap scrolls
+   inside the frame instead of clipping off-screen. */
 .showdown-strip {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, max-content);
     justify-content: center;
-    gap: 27px;
-    max-width: min(840px, 92vw);
+    justify-items: center;
+    column-gap: 27px;
+    row-gap: 27px;
+    width: max-content;
+    max-width: min(840px, 98vw);
     max-height: 100%;
     overflow-x: hidden;
     overflow-y: auto;
@@ -1601,7 +1605,8 @@ html.scene-street.resume-play .boot-screen {
     flex-direction: column;
     align-items: center;
     gap: 9px;
-    min-width: 165px;
+    min-width: 0;
+    max-width: 100%;
     padding: 12px 18px;
     border-radius: 15px;
 }
@@ -1616,6 +1621,9 @@ html.scene-street.resume-play .boot-screen {
     letter-spacing: 2.25px;
     color: var(--text-dim);
     text-transform: uppercase;
+    text-align: center;
+    max-width: 12.5em;
+    overflow-wrap: anywhere;
 }
 
 .showdown-seat.winner .showdown-name { color: var(--gold); }
@@ -3117,8 +3125,13 @@ html.scene-street.resume-play .boot-screen {
     .game3d.banner-victory .showdown-layer {
         top: calc(168px + env(safe-area-inset-top, 0px));
     }
-    .showdown-strip { gap: 18px; padding: 15px 18px; max-width: min(630px, 94vw); }
-    .showdown-seat { min-width: 132px; padding: 9px 12px; gap: 8px; }
+    .showdown-strip {
+        column-gap: 18px;
+        row-gap: 18px;
+        padding: 15px 18px;
+        max-width: min(720px, 98vw);
+    }
+    .showdown-seat { padding: 9px 12px; gap: 8px; }
     .showdown-cards .hud-card { width: 69px; }
     .showdown-name, .showdown-hand { font-size: 18px; }
     .hud-bottom-row { gap: 8px; padding: 0 calc(10px + env(safe-area-inset-right)) 2px calc(10px + env(safe-area-inset-left)); }
@@ -3206,8 +3219,13 @@ html.scene-street.resume-play .boot-screen {
         top: calc(118px + env(safe-area-inset-top, 0px));
         align-items: flex-end;
     }
-    .showdown-strip { gap: 15px; padding: 12px 15px; max-width: min(570px, 90vw); }
-    .showdown-seat { min-width: 120px; padding: 8px 12px; gap: 6px; }
+    .showdown-strip {
+        column-gap: 15px;
+        row-gap: 15px;
+        padding: 12px 15px;
+        max-width: min(720px, 98vw);
+    }
+    .showdown-seat { padding: 8px 12px; gap: 6px; }
     .showdown-cards .hud-card { width: 63px; }
     .showdown-name, .showdown-hand { font-size: 17px; }
     .hud-bottom-row { gap: 8px; padding: 0 14px; }
