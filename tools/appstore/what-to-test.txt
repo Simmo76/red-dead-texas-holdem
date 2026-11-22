@@ -1,32 +1,19 @@
 What to test in this build:
 
-New — pot no longer covers the title (PR #309)
-• Start a hand. In the top-left, POT $… sits under DEAD MAN'S HAND — the pill must not sit on top of the title.
-• With music on (>> tune visible) plus RULES / HANDS / bird's eye / SETTINGS / INVITE FRIEND, check the top chip row on a phone in landscape: those primary chips stay on one line and SETTINGS is never covered by the hand window. Title and pot stay stacked top-left.
-• Expand the community-card close-up: pot stays under the title; the actor card still appears under that stack on the left.
+New — topbar chips on one row (PR #311)
+• RULES / >> tune / HANDS / bird's eye / SETTINGS stay on one top row in iPhone landscape. SETTINGS is never covered by the hand window.
+• >> tune (was NEXT SONG) skips to the next track when music is on; it hides when Settings → SOUND turns MUSIC off.
+• bird's eye (was TABLE VIEW) opens the overhead camera; the chip reads seat view until you tap back.
 
-New — coach method in plain words, hand review on iPhone (PR #307)
-• Poker Coach → SEE KEY DECISION. Method is everyday language: thousands of pretend hands, every leftover card equally likely, or every hand the other player could still hold. No “Monte Carlo.”
-• The note under the review says every possible hand counts, even ones a careful player would fold, and a tie is included because the pot would be split.
-• iPhone, held sideways: HAND REVIEW (why the hand was won or lost, and one thing to try) is on screen when the coach opens. Swipe the card for the cards and SEE KEY DECISION.
-
-New — two women at every table (PR #308)
-• Saloon: two Cowboy Girls stay seated the whole session, each with a different skin tone. Sheriff and Bandit are still there. Table View should show both women.
-• Octagon: two different female fighters stay seated the whole session. You stay a man. In Settings, switch between Saloon and Octagon; both rooms keep two women.
-• Reload a table saved from an older build that only had one woman. It should now have two.
-
-New — next song (PR #306)
-• With music on, >> tune sits in the top bar beside RULES. Tap it and the current song fades into the next one.
-• Settings → SOUND → turn MUSIC off. >> tune disappears. Turn MUSIC back on and the button returns.
-• bird's eye toggles the overhead camera; while overhead it reads seat view.
-
-New — key decision beside the coach (PR #305)
-• Open Poker Coach. SEE KEY DECISION and HIGHLIGHT ON/OFF sit on one row under the cards.
-• Tap SEE KEY DECISION: the write-up opens beside the coach (coach shifts left). Tap again to close. HIGHLIGHT ON rings the winning cards.
+Also new this week
+• Pot sits under DEAD MAN'S HAND — never on top of the title (PR #309). Expand the card close-up: pot stays under the title; actor card still stacks under it on the left.
+• Poker Coach method is everyday language (no “Monte Carlo”); HAND REVIEW shows on iPhone landscape when the coach opens (PR #307).
+• Two women at every table in saloon and octagon; older one-woman saves upgrade on reload (PR #308).
+• SEE KEY DECISION sits beside the coach; HIGHLIGHT ON rings the winning cards (PR #305).
 
 Also verify (recent builds)
-• Showdown hand list: three players on one row; four+ wrap. HIGHLIGHT ON marks the winning five. Fold-wins with a full board highlight all five of your best hand.
-• Uncontested / fold-win coach: board + holes on felt and dock, not holes alone.
-• Victory certificate: POKER COACH and WHY YOU WON on the plaque; ONE THING TO TRY only inside the coach panel (not the same “favourable price” line every hand).
+• Showdown hand list: three players on one row; four+ wrap. HIGHLIGHT ON marks the winning five.
+• Uncontested / fold-win coach: board + holes on felt and dock.
+• Victory certificate: POKER COACH and WHY YOU WON on the plaque; ONE THING TO TRY only inside the coach panel.
 • Opponent win banner names the winner; coach WHAT HAPPENED matches who took the pot.
 • Win gallery carousel, export certificate, saloon/octagon switch, landscape HUD insets, dealer/SB/BB chips on nameplates.
