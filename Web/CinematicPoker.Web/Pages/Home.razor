@@ -591,7 +591,7 @@
                         <span class="win-card"><b>8</b><i>♠</i></span>
                         <span class="win-card"><b>8</b><i>♣</i></span>
                     </div>
-                    <div class="win-eyebrow">★ WINNER TAKES ALL ★</div>
+                    <div class="win-eyebrow" aria-hidden="true"><span class="win-eyebrow-text">★ WINNER TAKES ALL ★</span></div>
                     <div class="overlay-title">@_sessionOverMessage</div>
                     <div class="win-haul">
                         <div class="win-haul-label">RIDES OFF WITH</div>
@@ -641,9 +641,14 @@
                                 <div class="victory-shot-status">@_shotStatus</div>
                             }
                         }
-                        <button class="act call big restart-btn" @onclick="ContinueGame">CONTINUE GAME</button>
-                        <div class="overlay-blurb">@ContinueGameBlurb</div>
-                        <button class="act allin big restart-btn" @onclick="StartSession">RESTART</button>
+                        @if (_humanWon)
+                        {
+                            <button class="act call big restart-btn" @onclick="ContinueGame">SIT NEW TABLE</button>
+                        }
+                        else
+                        {
+                            <button class="act allin big restart-btn" @onclick="StartSession">RESTART</button>
+                        }
                         <button class="act small" @onclick="OpenExportPanel">EXPORT STATS</button>
                     }
                     else
@@ -1353,12 +1358,6 @@
         : _game is { HasHumanWon: true } ? "Continue with your stack"
         : "Go to the next hand";
 
-    private string ContinueGameBlurb =>
-        _game == null ? ""
-        : _humanLost
-            ? $"Buy back in for ${_game.Rules.StartingStack}. Opponents keep their stacks."
-            : $"Keep ${(_game.Human?.Stack ?? 0)} and sit a new table.";
-
     private void FastForward() => _skipRequested = true;
 
     // One tap, no more waits: every remaining pacing pause in this hand is
@@ -1650,6 +1649,13 @@
                 _settingsLoaded = true;
                 if (string.IsNullOrEmpty(_playerName))
                     _playerName = "Preview";
+            }
+            else if (_winPreview)
+            {
+                _introStarted = true;
+                _settingsLoaded = true;
+                if (string.IsNullOrEmpty(_playerName))
+                    _playerName = "Jt";
             }
             else
             {
@@ -5346,8 +5352,8 @@
 
     // ?winpreview=1 shows the table-win overlay as soon as the first session
     // starts, with sample numbers — a test hook for the victory screen, same
-    // idea as ?coachpreview=1 for the coach panel. One-shot: CONTINUE GAME
-    // and RESTART behave normally afterwards.
+    // idea as ?coachpreview=1 for the coach panel. One-shot: RESTART
+    // behaves normally afterwards.
     private bool _winPreview;
 
     private void NoteWinPreviewFromUrl() =>

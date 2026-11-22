@@ -2299,6 +2299,21 @@ html.scene-street.resume-play .boot-screen {
     animation: overlayfade 0.4s ease-out;
 }
 
+/* Table-win plaques are tall; top-align and scroll the backdrop so the
+   fanned cards and footer actions are never vertically cropped. */
+.overlay.win-celebration {
+    align-items: flex-start;
+    padding: max(12px, env(safe-area-inset-top, 0px)) 12px
+        max(12px, env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.win-celebration .overlay-box.table-win {
+    flex-shrink: 0;
+    margin: 0 auto;
+}
+
 @keyframes overlayfade {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -2349,13 +2364,11 @@ html.scene-street.resume-play .boot-screen {
    screenshot compositor only paints solid colors and text. */
 .overlay-box.table-win {
     position: relative;
-    overflow-x: hidden;
-    overflow-y: auto;
-    max-height: calc(100vh - 20px);
-    max-height: calc(100dvh - 20px);
+    overflow: visible;
+    max-height: none;
     scrollbar-width: thin;
     scrollbar-color: var(--gold-dim) transparent;
-    padding: 40px 56px 36px;
+    padding: 20px 56px 28px;
     gap: 22px;
     border: 2px solid var(--gold);
     background-color: #241709;
@@ -2418,11 +2431,16 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .win-eyebrow {
-    font-size: 13px;
-    letter-spacing: 5px;
+    margin-bottom: -10px;
+}
+
+.win-eyebrow-text {
+    display: inline-block;
+    white-space: nowrap;
+    font-size: clamp(10px, 2.4vw, 13px);
+    letter-spacing: clamp(2px, 0.55vw, 5px);
     color: #e6c36a;
     text-shadow: 0 0 12px rgba(230, 195, 106, 0.4);
-    margin-bottom: -10px;
 }
 
 /* Dead man's hand fanned over the plaque, dealt card by card. The final
@@ -2431,8 +2449,10 @@ html.scene-street.resume-play .boot-screen {
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    height: 76px;
-    margin-bottom: -4px;
+    min-height: 96px;
+    margin-bottom: 4px;
+    padding-top: 14px;
+    overflow: visible;
 }
 
 .win-card {
@@ -2588,14 +2608,15 @@ html.scene-street.resume-play .boot-screen {
 /* Landscape phones: the table-win plaque holds a lot of celebration, so
    compact everything to keep it on one short screen without scrolling. */
 @media (max-height: 540px) {
-    .overlay-box.table-win { padding: 16px 30px 14px; gap: 9px; }
+    .overlay-box.table-win { padding: 14px 30px 12px; gap: 9px; }
     .overlay-box.table-win .overlay-title { font-size: 22px; }
-    .win-cards { height: 46px; margin-bottom: -2px; }
+    .win-cards { min-height: 58px; padding-top: 8px; margin-bottom: 2px; }
     .win-card { width: 32px; height: 44px; font-size: 11px; margin: 0 -5px; border-radius: 4px; }
     .win-card i { font-size: 10px; }
     .win-card:nth-child(1) { --y: 10px; }
     .win-card:nth-child(5) { --y: 10px; }
-    .win-eyebrow { font-size: 10px; letter-spacing: 3px; margin-bottom: -4px; }
+    .win-eyebrow { margin-bottom: -4px; }
+    .win-eyebrow-text { font-size: 10px; letter-spacing: 3px; }
     .win-haul { gap: 2px; margin-top: -4px; }
     .win-amount { font-size: 30px; }
     .win-stats { margin-top: -4px; }
@@ -3242,10 +3263,11 @@ html.scene-street.resume-play .boot-screen {
     .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
     .overlay-box.table-win { padding: 24px 28px 22px; gap: 14px; }
     .overlay-box.table-win .overlay-title { font-size: 26px; letter-spacing: 2px; }
-    .win-cards { height: 60px; }
+    .win-cards { min-height: 72px; padding-top: 10px; }
     .win-card { width: 38px; height: 53px; font-size: 13px; margin: 0 -6px; }
     .win-card i { font-size: 12px; }
-    .win-eyebrow { font-size: 11px; letter-spacing: 3.5px; margin-bottom: -6px; }
+    .win-eyebrow { margin-bottom: -6px; }
+    .win-eyebrow-text { font-size: 11px; letter-spacing: 3.5px; }
     .win-amount { font-size: 36px; }
     .win-stat { padding: 0 12px; }
     .win-stat-num { font-size: 17px; }
