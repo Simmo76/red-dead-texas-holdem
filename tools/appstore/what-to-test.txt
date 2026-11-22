@@ -1,5 +1,10 @@
 What to test in this build:
 
+New — showdown hand list (PR #303)
+• Three-player showdown: the hand-compare overlay shows all three players on one row (you plus two NPCs), with cards and hand names under each seat — not two on top and one wrapped below.
+• Four or more players at showdown: first row holds three seats; any extra seats wrap to a second row.
+• Portrait and landscape on iPhone: long outlaw names should still fit without breaking the single-row layout for three-way pots.
+
 New — fold-win highlights (PR #304)
 • Win because everyone else folded with a full board in Poker Coach. HIGHLIGHT WINNING CARDS must ring all five of your best hand (board + holes), not only your two hole cards. Preflop steals still highlight holes only.
 
