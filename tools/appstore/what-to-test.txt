@@ -1,5 +1,10 @@
 What to test in this build:
 
+New — coach method in plain words, hand review on iPhone (PR #307)
+• Poker Coach → SEE KEY DECISION. Method is everyday language: thousands of pretend hands, every leftover card equally likely, or every hand the other player could still hold. No “Monte Carlo.”
+• The note under the review says every possible hand counts, even ones a careful player would fold, and a tie is included because the pot would be split.
+• iPhone, held sideways: HAND REVIEW (why the hand was won or lost, and one thing to try) is on screen when the coach opens. Swipe the card for the cards and SEE KEY DECISION.
+
 New — two women at every table (PR #308)
 • Saloon: two Cowboy Girls stay seated the whole session, each with a different skin tone. Sheriff and Bandit are still there. Table View should show both women.
 • Octagon: two different female fighters stay seated the whole session. You stay a man. In Settings, switch between Saloon and Octagon; both rooms keep two women.
@@ -25,11 +30,6 @@ New — fold-win highlights (PR #304)
 New — coach board on uncontested wins (PR #302)
 • Go all-in and win when everyone folds (or take any pot with no showdown). Open Poker Coach: felt and card dock show all five community cards plus your hole cards, not only your two cards.
 • Fold-win dock still shows all five community cards plus your holes when the runout is known.
-
-New — coach bottom nav (PR #299)
-• Open Poker Coach with the saloon scene. ← BACK TO TABLE is bottom-left; NEXT HAND → is bottom-right when the table can advance. Both use the same dark gold-border pill; neither sits inside the coach card.
-• Coach panel top is flush with the screen top; its bottom clears the Next Hand button. SEE KEY DECISION stays in the card.
-• Advance control always says NEXT HAND (never Continue) on the coach chrome.
 
 Also verify (recent builds)
 • Open Poker Coach after a showdown. Row 1 is the board; row 2 shows every showdown player's two-card hand, name under each pair. SEE KEY DECISION opens the write-up beside the coach, not inside the card.
