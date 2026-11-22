@@ -1743,7 +1743,7 @@
 
     private bool _tableCastLocked;
 
-    private async Task PushSceneState()
+    private async Task PushSceneState(CompletedHandRecord handReview = null)
     {
         if (_game == null) return;
         if (!_tableCastLocked)
@@ -1800,15 +1800,23 @@
             };
         }).ToArray();
 
+        IReadOnlyList<Card> boardCards = handReview?.FinalBoard is { Count: > 0 } reviewBoard
+            ? reviewBoard
+            : _shownBoard;
+        string[] holeImages;
+        if (handReview?.HeroHoleCards is { Count: 2 } reviewHoles)
+            holeImages = reviewHoles.Select(CardImage).ToArray();
+        else if (SeatOf(0) is { Folded: true })
+            holeImages = Array.Empty<string>(); // folding mucks your cards during live play
+        else
+            holeImages = HoleCardsOf(0).Select(CardImage).ToArray();
+
         var snapshot = new
         {
             pot = Round?.PotTotal ?? 0,
             actorSeat,
-            board = _shownBoard.Select(CardImage).ToArray(),
-            // Folding mucks your cards: they leave your hand immediately.
-            hole = SeatOf(0) is { Folded: true }
-                ? Array.Empty<string>()
-                : HoleCardsOf(0).Select(CardImage).ToArray(),
+            board = boardCards.Select(CardImage).ToArray(),
+            hole = holeImages,
             seats
         };
 

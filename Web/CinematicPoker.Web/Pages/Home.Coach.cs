@@ -70,6 +70,8 @@ namespace CinematicPoker.Web.Pages
             // A result window is on screen only after the hand has ended, so a
             // stale "your turn" flag must not hide the coach button there.
             && (_banner != null || !_awaitingHuman)
+            // While a hand is still live the record belongs to the prior pot.
+            && (_game?.Phase != GamePhase.HandInProgress || _handHasCompleted)
             && ReviewableHand is { Complete: true };
 
         // Prefer the hand this sitting just finished. History's newest entry
@@ -312,6 +314,7 @@ namespace CinematicPoker.Web.Pages
             if (_isGuest) return;
             if (!_coachPreview && _coachMode == CoachMode.Off) return;
             if (!_coachPreview && _awaitingHuman && _banner == null) return;
+            if (!_coachPreview && _game?.Phase == GamePhase.HandInProgress && !_handHasCompleted) return;
 
             CompletedHandRecord hand = _coachPreview ? _coachPreviewHand : ReviewableHand;
             // The certificate on screen is a specific win. Review that hand,
@@ -326,6 +329,7 @@ namespace CinematicPoker.Web.Pages
 
             _coachService ??= new HandReviewService();
             _coachShownHand = hand;
+            EnsureHandBoardForCoach(hand);
             FillFaces(hand);
             _coachReview = _coachService.Explain(hand);
             if (_playerWonPot)
@@ -353,6 +357,7 @@ namespace CinematicPoker.Web.Pages
                 "local", _coachSessionId, NextSeq(), hand.HandId, ModeKey(_coachMode), !pending));
             StateHasChanged();
 
+            await SyncCoachTableScene(hand);
             if (_coachUseScene)
                 await ShowCoachScene(hand, _coachRequest);
 
@@ -559,6 +564,44 @@ namespace CinematicPoker.Web.Pages
                 catch (FormatException) { }
             }
             return urls.ToArray();
+        }
+
+        /// <summary>
+        /// The recorder usually has the full runout, but when many events land
+        /// at once (all-in) or the UI paced behind the engine, copy the public
+        /// board from what the table already showed or from the finished round.
+        /// </summary>
+        private void EnsureHandBoardForCoach(CompletedHandRecord hand)
+        {
+            if (hand == null) return;
+            if (hand.FinalBoard.Count >= 5) return;
+
+            if (_shownBoard.Count > hand.FinalBoard.Count)
+            {
+                hand.FinalBoard.Clear();
+                hand.FinalBoard.AddRange(_shownBoard);
+                return;
+            }
+
+            if (_game?.Phase != GamePhase.HandInProgress
+                && hand.HandId == _coachRecorder?.LastFinished?.HandId
+                && Round?.Board is { Count: > 0 } live
+                && live.Count > hand.FinalBoard.Count)
+            {
+                hand.FinalBoard.Clear();
+                hand.FinalBoard.AddRange(live);
+            }
+        }
+
+        private async Task SyncCoachTableScene(CompletedHandRecord hand)
+        {
+            if (!_sceneReady || hand == null) return;
+            if (hand.FinalBoard.Count > _shownBoard.Count)
+            {
+                _shownBoard.Clear();
+                _shownBoard.AddRange(hand.FinalBoard);
+            }
+            await PushSceneState(hand);
         }
 
         private void FillFaces(CompletedHandRecord hand)
