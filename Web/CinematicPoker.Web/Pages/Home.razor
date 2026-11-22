@@ -4667,8 +4667,6 @@
                 _dealRoundIndex = 0;
                 if (_sceneReady)
                 {
-                    try { _ = JS.InvokeVoidAsync("pokerScene.resetCamera"); }
-                    catch (JSException) { }
                     try { _ = JS.InvokeVoidAsync("pokerScene.beginHandDeal", started.DealerSeat); }
                     catch (JSException) { }
                 }

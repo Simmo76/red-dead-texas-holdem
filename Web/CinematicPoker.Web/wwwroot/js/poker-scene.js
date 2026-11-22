@@ -554,6 +554,7 @@ const state = {
   cardHold: null,       // community card being press-and-held (expands 2x)
   fx: [],               // live celebration particle systems
   dealAnim: null,       // hole-card deal sequence (synced to shuffle/deal audio)
+  playerHoleOnFelt: false, // player pair stays on the felt ring, not CardHold, after deal
   saloon: null,         // backdrop group (saloon or boxing arena)
   tableScene: TABLE_SCENE,
   eyeHeight: EYE_HEIGHT,
@@ -3310,31 +3311,40 @@ const CARD_GLIDE_SPEED = 5; // same ease as dealer/sb/bb pucks on the felt
 function holeCardFeltPose(seat, cardIndex, outPos, outQuat) {
   const w = seat === 0 ? 0.145 : CARD_W * 0.85;
   const probe = new THREE.Mesh(cardGeometry(w));
-  if (seat === 0) {
-    const spacing = 0.145 + 0.012;
-    placeTableCard(
-      probe,
-      (cardIndex - 0.5) * spacing,
-      0.64,
-      0,
-      cardIndex === 0 ? -0.1 : 0.1);
+  const basePos = seatPos(seat, TABLE_RADIUS - 0.33);
+  const facing = seatAngle(seat);
+  const yaw = Math.PI / 2 - facing;
+  const tx = -Math.sin(facing);
+  const tz = Math.cos(facing);
+  const offset = (cardIndex === 0 ? -1 : 1) * (w / 2 + 0.006);
+  const px = basePos.x + tx * offset;
+  const pz = basePos.z + tz * offset;
+  if (seat === 0 && state.camera) {
+    const eye = state.camera.position;
+    probe.position.set(px, TABLE_TOP + 0.03, pz);
+    probe.lookAt(eye.x, eye.y, eye.z);
+    probe.rotateZ(cardIndex === 0 ? -0.1 : 0.1);
   } else {
-    const basePos = seatPos(seat, TABLE_RADIUS - 0.33);
-    const facing = seatAngle(seat);
-    const yaw = Math.PI / 2 - facing;
-    const tx = -Math.sin(facing);
-    const tz = Math.cos(facing);
-    const cardW = CARD_W * 0.85;
-    const offset = (cardIndex === 0 ? -1 : 1) * (cardW / 2 + 0.006);
-    placeTableCard(
-      probe,
-      basePos.x + tx * offset,
-      basePos.z + tz * offset,
-      0,
-      yaw);
+    placeTableCard(probe, px, pz, 0, yaw);
   }
   outPos.copy(probe.position);
   outQuat.copy(probe.quaternion);
+}
+
+function layoutPlayerHoleOnFelt() {
+  if (!state.holeCards.length || !state.camera) return;
+  for (let i = 0; i < state.holeCards.length; i++) {
+    const card = state.holeCards[i];
+    if (card.parent && card.parent !== state.scene) card.parent.remove(card);
+    state.scene.add(card);
+    card.scale.setScalar(1);
+    const pos = new THREE.Vector3();
+    const quat = new THREE.Quaternion();
+    holeCardFeltPose(0, i, pos, quat);
+    card.position.copy(pos);
+    card.quaternion.copy(quat);
+    card.visible = true;
+  }
 }
 
 function anyCardDealGliding() {
@@ -3388,7 +3398,8 @@ function finishDealAnimIfIdle() {
   d.active = false;
   state.holeFlat = false;
   if (state.holeCards.length >= 2) {
-    layoutHoleCards();
+    state.playerHoleOnFelt = true;
+    layoutPlayerHoleOnFelt();
     d.holeDealt = true;
   }
 }
@@ -3482,11 +3493,18 @@ function spawnGlidingHoleCard(seat, cardIndex, facePath, dealerSeat) {
 function startHandDealAnim(dealerSeat) {
   if (!state.ready) return;
   markActivity();
-  window.pokerScene.endBetPreview();
-  if (state.zoom) {
+  // Close bet-sizing close-up without moving the seat camera (no resetCamera).
+  if (state.betPreview && state.betPreview.group) {
+    state.scene.remove(state.betPreview.group);
+    state.betPreview = null;
+  }
+  const seat0 = state.seats && state.seats[0];
+  if (seat0 && seat0.chips) seat0.chips.visible = true;
+  if (state.zoom && state.zoom.kind === 'bet') {
     state.zoom.active = false;
     state.zoom.kind = null;
   }
+  state.playerHoleOnFelt = false;
   state.holeFlat = false;
   clearGroupChildren(state.holeCards, state.scene);
   for (const seat of state.seats) {
@@ -4026,10 +4044,12 @@ function updateHole(paths) {
   if (state.dealAnim && state.dealAnim.holeDealt
       && paths.length === state.holeCards.length) {
     delete state.dealAnim.holeDealt;
-    layoutHoleCards();
+    if (state.playerHoleOnFelt) layoutPlayerHoleOnFelt();
+    else layoutHoleCards();
     return;
   }
   clearGroupChildren(state.holeCards, state.scene);
+  state.playerHoleOnFelt = false;
   for (let i = 0; i < paths.length; i++) {
     const card = makeCard(paths[i], 0.145, true);
     // Real depth, drawn with the rest of the opaque scene. When the hero's
@@ -4051,7 +4071,8 @@ function updateHole(paths) {
     addZoomGlow(card);
     state.holeCards.push(card);
   }
-  layoutHoleCards();
+  if (state.playerHoleOnFelt) layoutPlayerHoleOnFelt();
+  else layoutHoleCards();
 }
 
 // Fallback felt spot if the player's hand bones are not ready yet; also used
@@ -4104,6 +4125,11 @@ function positionHandCards() {
     for (const card of state.holeCards) card.visible = true;
     return;
   }
+  if (state.playerHoleOnFelt && !state.holeFlat) {
+    layoutPlayerHoleOnFelt();
+    for (const card of state.holeCards) card.visible = true;
+    return;
+  }
   const handZoom = state.zoom.active && state.zoom.kind === 'hand';
   const boardZoom = state.zoom.active && state.zoom.kind === 'board';
   const betZoom = state.zoom.active && state.zoom.kind === 'bet';
@@ -4117,7 +4143,10 @@ function positionHandCards() {
       placeTableCard(card, (i - (state.holeCards.length - 1) / 2) * spacing, 0.64, 0, 0);
     }
   } else if (!boardZoom && state.holeFlat) {
-    layoutHoleCards(); // back into the character's hands (also resets scale)
+    if (state.playerHoleOnFelt) {
+      state.holeFlat = false;
+      layoutPlayerHoleOnFelt();
+    } else layoutHoleCards(); // back into the character's hands (also resets scale)
   } else if (!state.holeFlat) {
     playerCardAnchor(state.holeAnchor);
     faceHeldCardsTowardCamera(state.holeCards);
