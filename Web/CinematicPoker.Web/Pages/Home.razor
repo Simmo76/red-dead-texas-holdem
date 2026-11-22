@@ -962,9 +962,50 @@
                         <p class="coach-chips">@line</p>
                     }
                 }
+                @if (_coach3dOk == false && _coachSceneReason == "shared-table")
+                {
+                    <p class="coach-note">This review stays on the card while friends are at the table.</p>
+                }
+                else if (_coach3dOk == false && !string.IsNullOrEmpty(_coachSceneReason))
+                {
+                    <p class="coach-note">Saloon view: @_coachSceneReason. The written advice is on this card.</p>
+                }
+                </div>
+                <div class="coach-dock">
+                @if (_coachBoardFaces.Count > 0 || _coachPlayerHands.Count > 0)
+                {
+                    <div class="coach-cards" aria-label="Cards from this hand">
+                        @if (_coachBoardFaces.Count > 0)
+                        {
+                            <div class="coach-card-row coach-board-row">
+                                @foreach (var face in _coachBoardFaces)
+                                {
+                                    <img src="@face.Src" alt="@face.Alt" class="@CoachHot(face.Code)" />
+                                }
+                            </div>
+                        }
+                        @if (_coachPlayerHands.Count > 0)
+                        {
+                            <div class="coach-card-row coach-players-row">
+                                @foreach (var playerHand in _coachPlayerHands)
+                                {
+                                    <div class="coach-player-hand">
+                                        <div class="coach-player-cards">
+                                            @foreach (var face in playerHand.Faces)
+                                            {
+                                                <img src="@face.Src" alt="@face.Alt" class="@CoachHot(face.Code)" />
+                                            }
+                                        </div>
+                                        <span class="coach-player-name">@playerHand.Label</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
                 @if (_coachKeyOpen)
                 {
-                    <div class="coach-detail">
+                    <div id="coach-key-decision" class="coach-detail">
                         @if (_coachReview.KeyDecision == null)
                         {
                             <p>This lesson is about the hand as a whole. No single priced decision was selected.</p>
@@ -1013,32 +1054,8 @@
                         }
                     </div>
                 }
-                @if (_coach3dOk == false && _coachSceneReason == "shared-table")
-                {
-                    <p class="coach-note">This review stays on the card while friends are at the table.</p>
-                }
-                else if (_coach3dOk == false && !string.IsNullOrEmpty(_coachSceneReason))
-                {
-                    <p class="coach-note">Saloon view: @_coachSceneReason. The written advice is on this card.</p>
-                }
-                </div>
-                <div class="coach-dock">
-                @if (_coachFaces.Count > 0)
-                {
-                    <div class="coach-cards" aria-label="Cards from this hand">
-                        @foreach (var row in _coachFaces.GroupBy(face => face.Row))
-                        {
-                            <div class="coach-card-row">
-                                @foreach (var face in row)
-                                {
-                                    <img src="@face.Src" alt="@face.Alt" class="@CoachHot(face.Code)" />
-                                }
-                            </div>
-                        }
-                    </div>
-                }
                 <div class="coach-actions">
-                    <button type="button" class="act call" @onclick="ToggleKeyDecision" aria-expanded="@_coachKeyOpen">SEE KEY DECISION</button>
+                    <button type="button" class="act call" @onclick="ToggleKeyDecision" aria-expanded="@_coachKeyOpen" aria-controls="coach-key-decision">@(_coachKeyOpen ? "HIDE KEY DECISION" : "SEE KEY DECISION")</button>
                     @if (CoachCanAdvance)
                     {
                         <button type="button" class="act bet" @onclick="() => CloseCoach(true)">@CoachAdvanceLabel</button>
