@@ -60,6 +60,63 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void ClosingNoteIsHandSpecificNotAFixedDisclaimer()
+        {
+            HandReview flush = new HandReviewService().Explain(CoachFixtures.FlushOverTwoPair());
+            HandReview kicker = new HandReviewService().Explain(CoachFixtures.Kicker());
+            HandReview board = new HandReviewService().Explain(CoachFixtures.BoardPlays());
+
+            Assert.That(flush.Assumptions, Does.Contain("three of a suit"));
+            Assert.That(kicker.Assumptions, Does.Contain("kicker"));
+            Assert.That(board.Assumptions, Does.Contain("board is the nuts"));
+            Assert.AreNotEqual(flush.Assumptions, kicker.Assumptions);
+            Assert.AreNotEqual(kicker.Assumptions, board.Assumptions);
+            Assert.That(flush.Assumptions, Does.Not.Contain("If everyone shows their cards"));
+            Assert.That(kicker.Assumptions, Does.Not.Contain("equal chance"));
+            Assert.That(board.Assumptions, Does.Not.Contain("pot would be split"));
+        }
+
+        [Test]
+        public void ClosingNoteNamesTheShowdownWinnerWhenNoPricedDecision()
+        {
+            var hand = new CompletedHandRecord
+            {
+                HandId = "whole-hand",
+                HeroSeat = 0,
+                Complete = true,
+                HeroNet = -10,
+                HeroHoleCards = Cards("7h", "3h"),
+                FinalBoard = Cards("5s", "2c", "6s", "8h", "Qd"),
+                SeatNames = new Dictionary<int, string>
+                {
+                    { 0, "Simon Says" },
+                    { 2, "Charlie Cold-Iron" }
+                },
+                RevealedHands = new List<RevealedHand>
+                {
+                    new RevealedHand { Seat = 0, HoleCards = Cards("7h", "3h") },
+                    new RevealedHand { Seat = 2, HoleCards = Cards("6h", "Ks") }
+                }
+            };
+            hand.Awards.Add(new PotAwardRecord
+            {
+                PotIndex = 0,
+                Amount = 71,
+                ByFold = false,
+                WinnerSeats = new List<int> { 2 },
+                Payouts = new Dictionary<int, long> { { 2, 71 } }
+            });
+
+            HandReview review = new HandReviewService().Explain(hand);
+
+            Assert.IsNull(review.KeyDecision);
+            Assert.That(review.Assumptions, Does.Contain("Charlie Cold-Iron"));
+            Assert.That(review.Assumptions, Does.Contain("pair"));
+            Assert.That(review.Assumptions, Does.Contain("One thing to try"));
+            Assert.That(review.Assumptions, Does.Not.Contain("If everyone shows their cards"));
+        }
+
+        [Test]
         public void FixtureD_BoardPlaysSplit()
         {
             HandReview review = new HandReviewService().Explain(CoachFixtures.BoardPlays());
