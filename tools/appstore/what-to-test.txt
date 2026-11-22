@@ -2,43 +2,13 @@ What to test in this build:
 
 New (coach key decision and hand layout)
 • Open Poker Coach after a showdown. Row 1 is the board; row 2 shows every showdown player's two-card hand on one line, with that player's name under their pair.
-• Tap SEE KEY DECISION. The street, board, action, and price breakdown appear in the dock next to the buttons (not only in the scroll area above). Tap again — HIDE KEY DECISION — to collapse it.
+• Tap SEE KEY DECISION. The street, board, action, and price breakdown appear in the dock next to the buttons (not only in the scroll area above). Tap HIDE KEY DECISION to collapse it.
 • Tap HIGHLIGHT WINNING CARDS and confirm the gold frame still matches the winning five on the board and in the dock.
 
-New (coach cards and highlight)
-• Open Poker Coach after a showdown. The review window and the felt show the whole hand: the board, your two cards, and each opponent who reached showdown.
-• Tap HIGHLIGHT WINNING CARDS. It switches to HIGHLIGHT ON and puts a gold frame on the five cards that made the winning hand, both in the window and on the table.
-• A pot won because everyone folded still has no winning cards to mark.
-
-Victory certificate (previous build)
-• Win a pot. The certificate still shows POKER COACH, WHY YOU WON, and the board. It does not show the italic tip, including “Reading the price you were offered.” or “When the third diamond lands, pause before calling a big bet.”
-• Tap Poker Coach Feedback. ONE THING TO TRY stays in that panel, not on the plaque.
-
-Coach “one thing to try” (previous build)
-• Play several hands and open Poker Coach. “ONE THING TO TRY” should not keep repeating “The call had a favourable price… One hand's result doesn't make it a bad call.”
-• If you folded, the note should be about that fold, or about the board (for example the third club), not about an earlier small call that was fine.
-• A big call can still say the price was favourable. It should name the street and the percents. See key decision still shows the price.
-• The same “you were fine” reassurance should not be the note on every review.
-
-Showdown hand compare (previous build)
-• At a three-player showdown, the screen listing every hand, including yours, stays up twice as long as before so you can scroll to the third hand. It then goes to the pot plaque ("Sam Six-Shot takes the pot").
-• Cinematic is about 10 seconds. Quick Play is about 6 seconds. NEXT HAND still waits for your tap.
-• A pot won because everyone else folded does not show that hand list, and that result should still appear at the old speed.
-• Poker Coach showdown: should still explain wins/losses without “your cards were not in the saved record” (#280 fix kept).
-
-• Post-hand Poker Coach: only HIGHLIGHT (or HIGHLIGHT ON) remains—USEFUL, UNCLEAR, and “Marked …” feedback are gone.
-• Poker Coach after someone else wins: the banner names the winner (e.g. "Sam Six-Shot takes the pot"). Open POKER COACH — WHAT HAPPENED must name who collected the pot, not "no winner is named."
-• Poker Coach on a win certificate must describe that win. "YOU WON — everyone folded" should say everyone folded. "YOU WON with three of a kind" should say three of a kind, not a straight or "WHY THEY WON / Their pair beat your pair." Swipe a few older wins and check the coach line against the headline.
-• Victory Gallery of Wins: win a pot and browse past certificates in a Cover Flow carousel. GALLERY OF WINS banner is at the top (half size). Certificate fills the rest of the screen to the bottom. Swipe left/right or use the large ‹ › buttons; counter shows position.
-• Each slide keeps its own Poker Coach text when you run feedback on that win. Export Certificate saves the full cert (coach, board, footer) for the active slide—not the export buttons.
-• No slow finger-drag on certificates—swipe only. While the victory screen is up, the pulsing “Tap NEXT HAND” hint on the bottom left should be gone.
-• Settings → Restart: game restarts without the red Blazor error bar.
-• Quick QA: two wins, coach both, swipe slides—coach copy should differ; export one slide and check the PNG.
-• Table view shows the dealer, small blind, and big blind chips on the nameplates.
-• The app icon is the brighter western mark, with aces, chips, and a cowboy hat.
-• Switching between the saloon and the octagon skips the title menu and returns to the hand. The tap-to-play menu only shows on a fresh visit.
-• iPhone landscape: the title, pot, coach, and action buttons sit closer to the screen edges. The card window still clears the notch.
-• Octagon: the advice coin shows Frankie Fast-Hand. The saloon still shows Maximilian.
-• Your win: the victory certificate grows until it meets the bottom of the screen, and the green stack pill hides until you dismiss it.
-• Opponent win: the result window lists the community cards under ON THE BOARD, and the corner card strip stays hidden.
-• Saloon keeps western bodies only (Cowboy Girl is the lone woman); octagon seats two women.
+Also verify (recent builds)
+• Coach review + felt still show the full hand at showdown; HIGHLIGHT ON marks the winning five. Fold wins have nothing to highlight.
+• Victory certificate: POKER COACH and WHY YOU WON on the plaque; ONE THING TO TRY only inside the coach panel, not on the certificate.
+• ONE THING TO TRY should not repeat the same “favourable price” line every hand; folds and board texture should get different notes.
+• Three-way showdown hand list stays up long enough to read every hand (Cinematic ~10s, Quick ~6s); fold wins skip the list.
+• Opponent win: banner names the winner; coach WHAT HAPPENED matches who took the pot.
+• Win gallery carousel, export certificate, saloon/octagon scene switch, landscape HUD insets, dealer/SB/BB chips on nameplates.
