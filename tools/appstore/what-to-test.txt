@@ -1,23 +1,27 @@
 What to test in this build:
 
-New — coach fold-win (PR #300)
+New — coach bottom nav (PR #299)
+• Open Poker Coach with the saloon scene. ← BACK TO TABLE is bottom-left; NEXT HAND → is bottom-right when the table can advance. Both use the same dark gold-border pill; neither sits inside the coach card.
+• Coach panel top is flush with the screen top; its bottom clears the Next Hand button. SEE KEY DECISION stays in the card.
+• Advance control always says NEXT HAND (never Continue) on the coach chrome.
+
+New — hero fold-win coach (PR #301)
+• Win because everyone else folded. Why You Won still says that. ONE THING TO TRY / SEE KEY DECISION must not talk about side pots.
+• HIGHLIGHT WINNING CARDS lights your hole cards on that fold win. When you folded and someone else took the pot by folds, the button still has nothing to mark.
+
+New — opponent fold-win cards (PR #300)
 • Opponent wins with “everyone else folded.” Open Poker Coach: dock shows board, your cards, and the winner’s hole cards (match the result banner).
-• On that hand, HIGHLIGHT WINNING CARDS should be hidden. After a showdown, the button should still mark the winning five.
 
 New — table win overlay (PR #292)
-• Win the table (solo). Victory plaque: full fanned cards at top (not clipped), “★ WINNER TAKES ALL ★” on one line.
-• Session over: no Continue Game; green **SIT NEW TABLE** (keeps stack, new table). Bust still maroon **RESTART**.
+• Win the table (solo). Victory plaque: full fanned cards at top (not clipped), “WINNER TAKES ALL” on one line.
+• Session over: no Continue Game; green SIT NEW TABLE (keeps stack, new table). Bust still maroon RESTART.
 • Short landscape: no red bar under the plaque; in-hand HUD and Settings Restart unchanged.
 
-New (coach key decision and hand layout)
-• Open Poker Coach after a showdown. Row 1 is the board; row 2 shows every showdown player's two-card hand on one line, with that player's name under their pair.
-• Tap SEE KEY DECISION. The street, board, action, and price breakdown appear in the dock next to the buttons (not only in the scroll area above). Tap HIDE KEY DECISION to collapse it.
-• Tap HIGHLIGHT WINNING CARDS and confirm the gold frame still matches the winning five on the board and in the dock.
-
 Also verify (recent builds)
-• Coach review + felt still show the full hand at showdown; HIGHLIGHT ON marks the winning five. Fold wins have nothing to highlight.
-• Victory certificate: POKER COACH and WHY YOU WON on the plaque; ONE THING TO TRY only inside the coach panel, not on the certificate.
-• ONE THING TO TRY should not repeat the same “favourable price” line every hand; folds and board texture should get different notes.
-• Three-way showdown hand list stays up long enough to read every hand (Cinematic ~10s, Quick ~6s); fold wins skip the list.
+• Open Poker Coach after a showdown. Row 1 is the board; row 2 shows every showdown player's two-card hand, name under each pair. SEE KEY DECISION / HIDE KEY DECISION toggles the dock breakdown.
+• After a showdown, HIGHLIGHT WINNING CARDS still marks the winning five on the board and in the dock.
+• Victory certificate: POKER COACH and WHY YOU WON on the plaque; ONE THING TO TRY only inside the coach panel.
+• ONE THING TO TRY should not repeat the same “favourable price” line every hand.
+• Three-way showdown hand list stays up long enough to read (Cinematic ~10s, Quick ~6s); fold wins skip the list.
 • Opponent win: banner names the winner; coach WHAT HAPPENED matches who took the pot.
 • Win gallery carousel, export certificate, saloon/octagon scene switch, landscape HUD insets, dealer/SB/BB chips on nameplates.
