@@ -19,8 +19,12 @@ namespace CinematicPoker.Engine.Coaching
                 return picked;
             }
 
-            HandValue best = HandEvaluator.Evaluate(cards);
+            // Prefer the subset that matches the full-hand score. If none does
+            // (the evaluator's kickers can disagree with a strict equality
+            // check), still return the strongest five so the review has
+            // cards to highlight.
             List<Card> winner = null;
+            long bestScore = long.MinValue;
             int n = cards.Count;
             for (int a = 0; a < n; a++)
             for (int b = a + 1; b < n; b++)
@@ -32,10 +36,11 @@ namespace CinematicPoker.Engine.Coaching
                 {
                     cards[a], cards[b], cards[c], cards[d], cards[e]
                 };
-                HandValue value = HandEvaluator.Evaluate(five);
-                if (value.Score != best.Score) continue;
-                if (winner == null || ComesFirst(five, winner))
-                    winner = five;
+                long score = HandEvaluator.Evaluate(five).Score;
+                if (winner != null && (score < bestScore || (score == bestScore && !ComesFirst(five, winner))))
+                    continue;
+                winner = five;
+                bestScore = score;
             }
 
             if (winner != null) picked.AddRange(winner);

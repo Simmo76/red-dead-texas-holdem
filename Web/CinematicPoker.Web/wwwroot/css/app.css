@@ -3370,8 +3370,10 @@ html.scene-street.resume-play .boot-screen {
     width: calc(50% - 28px - env(safe-area-inset-right, 0px));
     max-width: none;
     max-height: none;
-    overflow: auto;
-    padding: 26px 26px 18px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 18px 22px 12px;
     border-radius: 18px;
     border: 1px solid rgba(196, 164, 96, 0.85);
     background: rgba(18, 12, 8, 0.94);
@@ -3448,23 +3450,49 @@ html.scene-street.resume-play .boot-screen {
     font-size: 15px;
 }
 
+/* The write-up scrolls on its own. Cards, the highlight control, and the
+   hand buttons stay on screen, so a long lesson cannot push a row of
+   cards out of the window. */
+.coach-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.coach-dock {
+    flex: 0 0 auto;
+    /* Leave the write-up a share of the panel, but keep a full showdown
+       (board plus two hole-card pairs) and the buttons on screen. */
+    max-height: 64%;
+    overflow: auto;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(196, 164, 96, 0.28);
+}
+
 .coach-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 4px 4px;
+}
+
+.coach-card-row {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-top: 12px;
 }
 
-.coach-cards img {
-    width: 42px;
+.coach-card-row img {
+    width: 40px;
     height: auto;
-    border-radius: 3px;
+    flex: 0 0 auto;
+    border-radius: 4px;
 }
 
-.coach-cards img.hot {
-    outline: 3px solid #e2c36a;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 2px #e2c36a;
+.coach-card-row img.hot {
+    box-shadow: 0 0 0 3px #f0d78c, 0 0 12px 2px rgba(226, 195, 106, 0.95);
 }
 
 .coach-actions {
@@ -3562,6 +3590,8 @@ html.scene-street.resume-play .boot-screen {
     }
     .coach-name { font-size: 22px; letter-spacing: 2px; }
     .coach-section-title { font-size: 18px; }
+    .coach-card-row img { width: 32px; }
+    .coach-dock { max-height: 70%; }
     .coach-portrait {
         left: max(12px, 4vw);
         bottom: 8vh;

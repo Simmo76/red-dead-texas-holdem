@@ -1,6 +1,11 @@
 What to test in this build:
 
-New (victory certificate)
+New (coach cards and highlight)
+• Open Poker Coach after a showdown. The review window and the felt show the whole hand: the board, your two cards, and each opponent who reached showdown.
+• Tap HIGHLIGHT WINNING CARDS. It switches to HIGHLIGHT ON and puts a gold frame on the five cards that made the winning hand, both in the window and on the table.
+• A pot won because everyone folded still has no winning cards to mark.
+
+Victory certificate (previous build)
 • Win a pot. The certificate still shows POKER COACH, WHY YOU WON, and the board. It does not show the italic tip, including “Reading the price you were offered.” or “When the third diamond lands, pause before calling a big bet.”
 • Tap Poker Coach Feedback. ONE THING TO TRY stays in that panel, not on the plaque.
 
