@@ -1,5 +1,9 @@
 What to test in this build:
 
+New (build after PR #290 revert to post–#280)
+• This binary rolls back overlay, multi-way showdown banner, victory-cert coach-tip, and coach-highlight changes merged after #280. Confirm the weird regressions from those builds are gone.
+• Poker Coach showdown: should still explain wins/losses without “your cards were not in the saved record” (#280 fix kept).
+
 • Post-hand Poker Coach: only HIGHLIGHT (or HIGHLIGHT ON) remains—USEFUL, UNCLEAR, and “Marked …” feedback are gone.
 • Poker Coach after someone else wins: the banner names the winner (e.g. "Sam Six-Shot takes the pot"). Open POKER COACH — WHAT HAPPENED must name who collected the pot, not "no winner is named."
 • Poker Coach on a win certificate must describe that win. "YOU WON — everyone folded" should say everyone folded. "YOU WON with three of a kind" should say three of a kind, not a straight or "WHY THEY WON / Their pair beat your pair." Swipe a few older wins and check the coach line against the headline.
