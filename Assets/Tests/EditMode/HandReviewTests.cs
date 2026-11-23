@@ -90,7 +90,7 @@ namespace CinematicPoker.Engine.Tests
                 SeatNames = new Dictionary<int, string>
                 {
                     { 0, "Simon Says" },
-                    { 2, "Charlie Cold-Iron" }
+                    { 2, "Alex Iron-Fist" }
                 },
                 RevealedHands = new List<RevealedHand>
                 {
@@ -110,7 +110,7 @@ namespace CinematicPoker.Engine.Tests
             HandReview review = new HandReviewService().Explain(hand);
 
             Assert.IsNull(review.KeyDecision);
-            Assert.That(review.Assumptions, Does.Contain("Charlie Cold-Iron"));
+            Assert.That(review.Assumptions, Does.Contain("Alex Iron-Fist"));
             Assert.That(review.Assumptions, Does.Contain("pair"));
             Assert.That(review.Assumptions, Does.Contain("One thing to try"));
             Assert.That(review.Assumptions, Does.Not.Contain("If everyone shows their cards"));
@@ -302,12 +302,12 @@ namespace CinematicPoker.Engine.Tests
             hand.Awards[0].WinnerSeats = new List<int> { 1 };
             hand.Awards[0].Payouts = new Dictionary<int, long> { { 1, 140 } };
             hand.HeroNet = -65;
-            hand.SeatNames[1] = "Jesse Deadeye";
+            hand.SeatNames[1] = "Quinn Dead-Ringer";
 
             HandReview review = new HandReviewService().Explain(hand);
 
             Assert.AreEqual("WHAT HAPPENED", review.Heading);
-            Assert.That(review.WhyWon, Does.Contain("Jesse Deadeye"));
+            Assert.That(review.WhyWon, Does.Contain("Quinn Dead-Ringer"));
             Assert.That(review.WhyWon, Does.Contain("three of a kind"));
             Assert.That(review.WhyWon, Does.Not.Contain("unknown"));
             CollectionAssert.AreEquivalent(
@@ -500,11 +500,11 @@ namespace CinematicPoker.Engine.Tests
                 Complete = true,
                 HeroSeat = 0,
                 WonByFolds = true,
-                SeatNames = new Dictionary<int, string> { { 1, "Sam Six-Shot" } },
+                SeatNames = new Dictionary<int, string> { { 1, "Reese Blood-Odds" } },
                 StackChanges = new Dictionary<int, long> { { 0, -50 }, { 1, 50 } }
             };
             HandReview review = new HandReviewService().Explain(hand);
-            Assert.That(review.WhyWon, Does.Contain("Sam Six-Shot"));
+            Assert.That(review.WhyWon, Does.Contain("Reese Blood-Odds"));
             Assert.That(review.WhyWon, Does.Not.Contain("no winner is named"));
         }
 
@@ -514,7 +514,7 @@ namespace CinematicPoker.Engine.Tests
             var deck = StackedDeck.Parse("As", "Qh", "Kd", "Jh", "Ah", "Kh", "8h", "8c", "2s");
             PokerGame game = CreateGame(new long[] { 1000, 1000 }, deck);
             var recorder = new HandReviewRecorder("partial-reveal", 0, 5, 10);
-            var names = new Dictionary<int, string> { { 0, "You" }, { 1, "Billie Quickdraw" } };
+            var names = new Dictionary<int, string> { { 0, "You" }, { 1, "Jordan Dust-Knuckle" } };
             game.EventEmitted += evt =>
             {
                 if (evt is ShowdownStarted showdown)

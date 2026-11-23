@@ -6,7 +6,7 @@
 // Saloon: Bandit.glb (SK_Cowboy_2), eye-patch bandage, hat on,
 // IdleTableObserveLeftRight01 from mighty-cat.glb.
 // Octagon: Fighter1.glb (the bald fighter in the purple gi), same idle baked
-// on that rig, street-arena.glb. He reviews as Frankie Fast-Hand. Maximilian
+// on that rig, street-arena.glb. He reviews as Alex Iron-Fist. Maximilian
 // stays the saloon coach.
 
 import * as THREE from 'three';
@@ -36,7 +36,7 @@ export const SALOON_COACH_SCENE = {
 
 export const OCTAGON_COACH_SCENE = {
   id: 'octagon',
-  displayName: 'Frankie Fast-Hand',
+  displayName: 'Alex Iron-Fist',
   model: 'models/characters/street/Fighter1.glb?v=3',
   modelId: 'Fighter1',
   look: null,
@@ -48,7 +48,7 @@ export const OCTAGON_COACH_SCENE = {
   room: 'models/env/street-arena.glb?v=5',
   saloon: 'models/env/street-arena.glb?v=5',
   chair: CHAIR_URL,
-  reason: 'Octagon review seats Fighter1, the bald fighter, as Frankie Fast-Hand. The observe idle is baked on that rig.',
+  reason: 'Octagon review seats Fighter1, the bald fighter, as Alex Iron-Fist. The observe idle is baked on that rig.',
 };
 
 export const COACH_SCENE_DEFINITION = SALOON_COACH_SCENE;

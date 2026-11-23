@@ -110,17 +110,17 @@ namespace CinematicPoker.Web.Pages
         private string CoachAdvanceLabel => "NEXT HAND";
 
         // Saloon reviews are Maximilian, the eye-patch bandit. Octagon reviews
-        // are Frankie Fast-Hand, the bald cage fighter coach.
+        // are Alex Iron-Fist, the bald cage fighter coach.
         private bool OctagonCoach => _tableScene == "street";
 
-        private string CoachDisplayName => OctagonCoach ? "Frankie Fast-Hand" : "Maximilian";
+        private string CoachDisplayName => OctagonCoach ? "Alex Iron-Fist" : "Maximilian";
 
-        private string CoachDisplayNameUpper => OctagonCoach ? "FRANKIE FAST-HAND" : "MAXIMILIAN";
+        private string CoachDisplayNameUpper => OctagonCoach ? "ALEX IRON-FIST" : "MAXIMILIAN";
 
-        private string CoachInitial => OctagonCoach ? "F" : "M";
+        private string CoachInitial => OctagonCoach ? "A" : "M";
 
-        // The advice medallion is Maximilian in the saloon and Frankie
-        // Fast-Hand, the bald cage fighter, once the table is the octagon.
+        // The advice medallion is Maximilian in the saloon and Alex
+        // Iron-Fist, the bald cage fighter, once the table is the octagon.
         private string CoachAdviceIcon => OctagonCoach
             ? "img/ui/coach-face-octagon-128.png"
             : "img/ui/coach-face-128.png";
