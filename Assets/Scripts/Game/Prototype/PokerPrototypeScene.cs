@@ -57,13 +57,13 @@ namespace CinematicPoker.Game.Prototype
         // the table, so each session seats a random subset.
         private static readonly string[] NpcNamePool =
         {
-            "Sam Six-Shot",
-            "Billie Quickdraw",
-            "Jesse Deadeye",
-            "Charlie Cold-Iron",
-            "Frankie Fast-Hand",
-            "Riley Black-Hat",
-            "Casey Trigger"
+            "Alex Iron-Fist",
+            "Jordan Dust-Knuckle",
+            "Taylor Low-Blow",
+            "Morgan Cage-Breaker",
+            "Reese Blood-Odds",
+            "Cameron Blindside",
+            "Quinn Dead-Ringer"
         };
 
         // Kenney mini-character models (CC0) matched to the roster above.

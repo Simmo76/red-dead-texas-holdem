@@ -23,7 +23,7 @@ Three pillars, in the order the store assets present them:
 
 1. **Learn as you play.** A tap-to-ask "What would AI do?" advisor on your
    turn (recommended action, equity, pot odds, a plain-English reason), and a
-   post-hand **Poker Coach** — Maximilian in the Saloon, Frankie Fast-Hand in the
+   post-hand **Poker Coach** — Maximilian in the Saloon, Alex Iron-Fist in the
    Octagon — who reviews why you won or lost and gives one thing to try.
    Rules and hand-rankings references are one tap away mid-hand.
 2. **Extraordinary places.** Cinematic 3D tables with seated presence: the
@@ -153,7 +153,7 @@ review risk for any poker app.
 > After any hand, ask the table coach for a review. Maximilian — the
 > eye-patch bandit holding court at the saloon bar — walks you through why
 > you won or lost, shows the key decision, and leaves you with one thing to
-> try next time. Play the Octagon and Frankie Fast-Hand does the same from inside
+> try next time. Play the Octagon and Alex Iron-Fist does the same from inside
 > the cage. Set the coach to review every hand, only notable hands, or stay
 > quiet until you ask.
 >
@@ -169,12 +169,12 @@ review risk for any poker app.
 > within a session you'll be reading the board on your own.
 >
 > **FIVE RIVALS WITH REAL PERSONALITIES**
-> Sam Six-Shot, Billie Quickdraw, Jesse Deadeye, Charlie Cold-Iron, Frankie
-> Fast-Hand, Riley Black-Hat and Casey Trigger take turns at the table and
-> play like people, not slot machines: some tight, some reckless, some on
-> tilt after a bad beat. They bluff, they have tells — and sometimes the
-> tells are lies. The AI makes decisions with genuine card mathematics plus
-> human-like noise. It never sees your cards.
+> Alex Iron-Fist, Jordan Dust-Knuckle, Taylor Low-Blow, Morgan Cage-Breaker,
+> Reese Blood-Odds, Cameron Blindside and Quinn Dead-Ringer take turns at the
+> table and play like people, not slot machines: some tight, some reckless,
+> some on tilt after a bad beat. They bluff, they have tells — and sometimes
+> the tells are lies. The AI makes decisions with genuine card mathematics
+> plus human-like noise. It never sees your cards.
 >
 > **EXTRAORDINARY PLACES**
 > Every table is a seat in a living 3D scene — chips riffle, cards slide,
@@ -232,8 +232,8 @@ Order and rationale:
 |---|---|---|---|---|
 | 1 | `01-what-would-ai-do` | Saloon, live advisor open (FOLD, 29% equity vs 38% pot odds) | LEARN AS YOU PLAY / STUCK? ASK "WHAT WOULD AI DO?" / Live equity, pot odds and a plain-English reason — on any turn | The #1 differentiator, shown in live gameplay |
 | 2 | `02-poker-coach` | Saloon coach: Maximilian's hand review | YOUR PERSONAL POKER COACH / EVERY HAND REVIEWED, IF YOU WANT / Why you won, why you lost — and one thing to try next time | The coach pillar |
-| 3 | `03-key-decision` | Octagon coach: Frankie Fast-Hand, key-decision breakdown | GO DEEPER / REPLAY THE KEY DECISION / Street, board and the numbers behind the coach's advice | Depth for the search-results trio; introduces the second coach |
-| 4 | `04-octagon` | Octagon table, $549 pot, turn board | EXTRAORDINARY PLACES / STEP INTO THE OCTAGON / Heavyweights at the table — and Frankie Fast-Hand in your corner | The second environment as a reveal |
+| 3 | `03-key-decision` | Octagon coach: Alex Iron-Fist, key-decision breakdown | GO DEEPER / REPLAY THE KEY DECISION / Street, board and the numbers behind the coach's advice | Depth for the search-results trio; introduces the second coach |
+| 4 | `04-octagon` | Octagon table, $549 pot, turn board | EXTRAORDINARY PLACES / STEP INTO THE OCTAGON / Heavyweights at the table — and Alex Iron-Fist in your corner | The second environment as a reveal |
 | 5 | `05-saloon` | Saloon table, $757 pot, river decision | CINEMATIC TABLES / GO ALL-IN IN THE OLD SALOON / Five rivals with real personalities, tells and tilt | Core gameplay drama + NPC personality claim |
 | 6 | `06-octagon-advice` | Octagon, advisor says RAISE TO $100 (45% vs 21%) | A COACH IN EVERY WORLD / KNOW WHEN TO RAISE FOR VALUE / The advisor counts the cards so you learn to think in odds | Learning works everywhere; shows an aggressive (fun) recommendation |
 | 7 | `07-learn-from-scratch` | Hand-rankings chart over the table | NEW TO POKER? / RULES & HAND RANKINGS BUILT IN / From high card to royal flush — one tap away, mid-hand | Welcomes total beginners |
@@ -280,7 +280,7 @@ listing itself.
 | 7–12 s | Tap "WHAT WOULD AI DO?" → advice card expands (equity, pot odds, reason); player raises | "LEARN AS YOU PLAY" |
 | 12–17 s | Showdown win, chips slide over, sparkles | — |
 | 17–23 s | Cut to the coach: Maximilian at the bar, hand-review card; tap SEE KEY DECISION | "EVERY HAND REVIEWED" |
-| 23–27 s | Smash cut: the Octagon — cage, fighters, Frankie Fast-Hand | "NEW WORLDS. SAME GAME. YOUR CORNER." |
+| 23–27 s | Smash cut: the Octagon — cage, fighters, Alex Iron-Fist | "NEW WORLDS. SAME GAME. YOUR CORNER." |
 | 27–30 s | Splash art with title | "FREE • OFFLINE • NO REAL-MONEY BETS" |
 
 ## 6. App icon

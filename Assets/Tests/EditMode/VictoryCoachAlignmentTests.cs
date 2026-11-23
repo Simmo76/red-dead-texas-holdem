@@ -88,7 +88,7 @@ namespace CinematicPoker.Engine.Tests
         public void OpponentPotWinRejectsNoWinnerCoachLine()
         {
             Assert.IsFalse(VictoryCoachAlignment.CopyAgrees(
-                "Sam Six-Shot takes the pot",
+                "Reese Blood-Odds takes the pot",
                 "WHAT HAPPENED",
                 "The result was saved without a pot award, so no winner is named."));
         }
