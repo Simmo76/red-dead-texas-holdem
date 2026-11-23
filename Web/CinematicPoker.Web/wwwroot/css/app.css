@@ -1623,7 +1623,8 @@ html.scene-street.resume-play .boot-screen {
 /* Hand-compare window: 1.5x the previous size (cards + type) so the
    YOU-vs-them read is obvious. Three seats share one row; a fourth wraps
    to the next. Height is capped to the stage so a 5+ seat wrap scrolls
-   inside the frame instead of clipping off-screen. */
+   inside the frame instead of clipping off-screen. Wide enough that
+   names like CHARLIE COLD-IRON stay on one line so cards stay level. */
 .showdown-strip {
     display: grid;
     grid-template-columns: repeat(3, max-content);
@@ -1632,9 +1633,9 @@ html.scene-street.resume-play .boot-screen {
     column-gap: 27px;
     row-gap: 27px;
     width: max-content;
-    max-width: min(840px, 98vw);
+    max-width: min(1020px, 98vw);
     max-height: 100%;
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: auto;
     overscroll-behavior: contain;
     padding: 21px 27px;
@@ -1650,8 +1651,7 @@ html.scene-street.resume-play .boot-screen {
     flex-direction: column;
     align-items: center;
     gap: 9px;
-    min-width: 0;
-    max-width: 100%;
+    min-width: max-content;
     padding: 12px 18px;
     border-radius: 15px;
 }
@@ -1667,8 +1667,7 @@ html.scene-street.resume-play .boot-screen {
     color: var(--text-dim);
     text-transform: uppercase;
     text-align: center;
-    max-width: 12.5em;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
 }
 
 .showdown-seat.winner .showdown-name { color: var(--gold); }
@@ -3172,7 +3171,7 @@ html.scene-street.resume-play .boot-screen {
         column-gap: 18px;
         row-gap: 18px;
         padding: 15px 18px;
-        max-width: min(720px, 98vw);
+        max-width: min(900px, 98vw);
     }
     .showdown-seat { padding: 9px 12px; gap: 8px; }
     .showdown-cards .hud-card { width: 69px; }
@@ -3265,7 +3264,7 @@ html.scene-street.resume-play .boot-screen {
         column-gap: 15px;
         row-gap: 15px;
         padding: 12px 15px;
-        max-width: min(720px, 98vw);
+        max-width: min(900px, 98vw);
     }
     .showdown-seat { padding: 8px 12px; gap: 6px; }
     .showdown-cards .hud-card { width: 63px; }
