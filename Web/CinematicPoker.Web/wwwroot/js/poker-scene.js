@@ -1290,12 +1290,43 @@ function characterMaterial(material, shirt, meshName, hatTint, mul) {
   return m;
 }
 
+// Depth-only front peel for order-independent transparency. Shared by folded
+// body ghosts and folded chairs: an opaque colour-less copy writes nearest
+// surface depth; the semi-transparent colour pass then depth-tests against it
+// with depthWrite off so interior / unsorted layers never blend (no x-ray).
+function ghostDepthMaterial(srcMat) {
+  const m = new THREE.MeshBasicMaterial({
+    colorWrite: false,
+    transparent: false,
+    depthWrite: true,
+    depthTest: true,
+    side: THREE.FrontSide,
+    // Nudge the prepass slightly away from the camera. The colour pass is
+    // drawn by a different shader program, and cross-program depth output
+    // is not guaranteed bit-identical on every (mobile) GPU; without the
+    // offset the LessEqual test can fail and geometry vanishes.
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 2,
+  });
+  // Alpha-carded shells (hair, lashes, cutout furniture) must cut their
+  // texture silhouette into the peel, or their card quads stamp solid
+  // rectangles of depth that erase whatever sits behind them.
+  if (srcMat && (srcMat.alphaTest > 0 || srcMat.transparent)) {
+    m.map = srcMat.map || null;
+    m.alphaTest = Math.max(srcMat.alphaTest || 0, 0.35);
+  }
+  return m;
+}
+
 // Folded players keep their chair as part of the muted ghost. Chairs use
 // ordinary furniture materials, so give each clone the same lightweight
-// grayscale/alpha treatment as the character without changing the shared GLB.
+// grayscale treatment as the character without changing the shared GLB.
+// When folded, updateChairFold also runs the same OIT front peel as the body.
 function chairMaterial(material) {
   const m = material.clone();
   m.userData.baseOpacity = m.opacity;
+  m.userData.keepTransparent = !!(m.transparent || m.alphaTest > 0);
   m.userData.foldChairShader = null;
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uChairGrey = { value: m.userData.foldGrey || 0 };
@@ -1313,21 +1344,33 @@ function chairMaterial(material) {
 function updateChairFold(chair, weight) {
   if (!chair) return;
   const w = Math.max(0, Math.min(1, weight));
+  // Match the body fold fade (45%) so the chair does not read heavier than
+  // the ghost sitting in it. Own depth peels keep the chair from being
+  // erased by the body's opaque prepass (see PR #277).
+  const ghost = w > 0.001;
+  const fade = w * 0.45;
   const materials = chair.userData.foldMaterials || [];
   for (const m of materials) {
-    // Stay in the opaque pass: transparent chairs were erased by the folded
-    // body's depth prepass and never cast floor shadows.
-    const wantTransparent = !!m.userData.keepTransparent;
+    const wantTransparent = ghost || m.userData.keepTransparent;
     if (m.transparent !== wantTransparent) {
       m.transparent = wantTransparent;
       m.needsUpdate = true;
     }
-    m.depthWrite = true;
-    m.opacity = m.userData.baseOpacity ?? 1;
+    m.depthWrite = !ghost; // the chair prepass owns depth while ghosted
+    if (m.userData.origSide === undefined) m.userData.origSide = m.side;
+    m.side = ghost ? THREE.FrontSide : m.userData.origSide;
+    m.forceSinglePass = ghost;
+    m.opacity = (m.userData.baseOpacity ?? 1) * (1 - fade);
     m.userData.foldGrey = w;
     if (m.userData.foldChairShader) {
       m.userData.foldChairShader.uniforms.uChairGrey.value = w;
     }
+  }
+  const ghostParts = chair.userData.ghostParts || [];
+  for (const p of ghostParts) {
+    p.depthMesh.visible = ghost;
+    p.src.renderOrder = ghost ? 2 : 0;
+    p.src.castShadow = w < 0.5;
   }
 }
 
@@ -1549,30 +1592,8 @@ function makeCharacter(gltf, spec, extraClips) {
   // FrontSide everywhere to match the colour pass, which forces FrontSide
   // while ghosted — a double-sided peel would write back-face depth the
   // front-only colour pass can never match, punching holes in the body.
-  function ghostDepthMaterial(srcMat) {
-    const m = new THREE.MeshBasicMaterial({
-      colorWrite: false,
-      transparent: false,
-      depthWrite: true,
-      depthTest: true,
-      side: THREE.FrontSide,
-      // Nudge the prepass slightly away from the camera. The colour pass is
-      // drawn by a different shader program, and cross-program depth output
-      // is not guaranteed bit-identical on every (mobile) GPU; without the
-      // offset the LessEqual test can fail and body parts vanish.
-      polygonOffset: true,
-      polygonOffsetFactor: 1,
-      polygonOffsetUnits: 2,
-    });
-    // Alpha-carded shells (hair, lashes) must cut their texture silhouette
-    // into the peel, or their card quads stamp solid rectangles of depth
-    // that erase the face behind them.
-    if (srcMat.alphaTest > 0 || srcMat.transparent) {
-      m.map = srcMat.map || null;
-      m.alphaTest = Math.max(srcMat.alphaTest || 0, 0.35);
-    }
-    return m;
-  }
+  // Depth peel materials come from the shared ghostDepthMaterial() helper
+  // (also used by folded chairs).
   const ghostParts = [];
   for (const src of bodyMeshes) {
     const depthMesh = src.clone();
@@ -2422,6 +2443,7 @@ async function buildScene(canvas) {
     if (chairGltf) {
       const chair = chairGltf.scene.clone(true);
       const foldMaterials = [];
+      const chairMeshes = [];
       chair.traverse((m) => {
         if (!m.isMesh) return;
         m.castShadow = true;
@@ -2430,8 +2452,28 @@ async function buildScene(canvas) {
         const madeMaterials = sourceMaterials.map(chairMaterial);
         m.material = madeMaterials.length === 1 ? madeMaterials[0] : madeMaterials;
         foldMaterials.push(...madeMaterials);
+        chairMeshes.push(m);
       });
+      // Collect meshes first, then attach peels — adding during traverse would
+      // visit the new depth meshes and nest peel-of-peel copies.
+      const ghostParts = [];
+      for (const src of chairMeshes) {
+        const depthMesh = src.clone();
+        depthMesh.material = Array.isArray(src.material)
+          ? src.material.map(ghostDepthMaterial)
+          : ghostDepthMaterial(src.material);
+        depthMesh.castShadow = false;
+        depthMesh.receiveShadow = false;
+        depthMesh.frustumCulled = false;
+        depthMesh.visible = false;
+        // Opaque pass: after the table (0), with body peels (1), before the
+        // transparent colour pass (2). Closest surface wins the shared peel.
+        depthMesh.renderOrder = 1;
+        src.parent.add(depthMesh);
+        ghostParts.push({ src, depthMesh });
+      }
       chair.userData.foldMaterials = foldMaterials;
+      chair.userData.ghostParts = ghostParts;
       scene.add(chair);
       seat.chair = chair;
     }
@@ -4380,7 +4422,8 @@ window.pokerScene = {
       // Folded players (the human included) sit out the rest of the hand as
       // grey ghosts with arms folded; the flag clears when the next hand
       // deals, so colour and the thinking idle come back on their own.
-      // Their chair stays, greyed to match the ghost (see updateChairFold).
+      // Their chair stays and uses the same OIT grey ghost as the body
+      // (see updateChairFold).
       const foldedOut = (!!data.folded || !!data.out);
       if (seat.char) {
         seat.char.setOut(!!data.out);
