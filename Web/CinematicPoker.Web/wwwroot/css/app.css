@@ -2820,6 +2820,188 @@ html.scene-street.resume-play .boot-screen {
     animation: overlayfade 0.4s ease-out;
 }
 
+/* Full-screen art overlays (rules, hands, settings frame). */
+.overlay.overlay-art {
+    padding: max(8px, env(safe-area-inset-top, 0px)) 10px
+        max(8px, env(safe-area-inset-bottom, 0px));
+}
+
+.overlay-art-panel {
+    position: relative;
+    line-height: 0;
+    max-width: min(96vw, 920px);
+    max-height: calc(100dvh - 16px);
+}
+
+.overlay-art-panel--portrait {
+    max-width: min(92vw, 560px);
+}
+
+.overlay-art-img,
+.overlay-art-frame {
+    display: block;
+    max-width: 100%;
+    max-height: calc(100dvh - 16px);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.overlay-art-hitclose {
+    position: absolute;
+    left: 50%;
+    bottom: 4.5%;
+    transform: translateX(-50%);
+    width: 38%;
+    height: 8.5%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 999px;
+}
+
+.overlay-art-hitclose:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+.settings-art-panel {
+    width: min(465px, calc(100vw - 24px));
+}
+
+.settings-art-frame {
+    width: 100%;
+    height: auto;
+}
+
+.settings-art-sheet {
+    position: absolute;
+    left: 9%;
+    right: 9%;
+    top: 23%;
+    bottom: 20%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    max-width: none;
+    max-height: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.settings-art-sheet.settings-box {
+    padding: 0;
+    gap: 10px;
+}
+
+.settings-art-sheet .settings-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.settings-art-sheet .settings-row {
+    justify-content: flex-end;
+}
+
+.settings-art-sheet .settings-row .chip-btn,
+.settings-art-sheet .settings-select {
+    min-width: 58%;
+    background: rgba(8, 5, 3, 0.72);
+    border: 1px solid rgba(216, 178, 92, 0.55);
+    border-radius: 999px;
+    color: var(--gold);
+    font-size: 11px;
+    letter-spacing: 1.4px;
+    padding: 8px 14px;
+}
+
+.settings-art-sheet .settings-name-controls .name-input {
+    background: rgba(8, 5, 3, 0.82);
+    border: 1px solid rgba(216, 178, 92, 0.45);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 14px;
+}
+
+.settings-art-sheet .settings-save {
+    padding: 10px 16px;
+    font-size: 12px;
+    border-radius: 10px;
+}
+
+.settings-art-sheet .sound-menu {
+    margin-left: auto;
+    width: 58%;
+    border-color: rgba(216, 178, 92, 0.35);
+}
+
+.settings-art-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 4px;
+}
+
+.settings-art-actions .settings-art-chip {
+    background: rgba(8, 5, 3, 0.78);
+    border: 1px solid rgba(216, 178, 92, 0.55);
+    border-radius: 999px;
+    color: var(--gold);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    padding: 9px 8px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.settings-art-actions .settings-art-restart {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    background: linear-gradient(180deg, #8f2430 0%, #5c161e 100%);
+    border: 1px solid rgba(255, 180, 120, 0.35);
+    border-radius: 10px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    padding: 12px 16px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.settings-art-panel .overlay-art-hitclose {
+    bottom: 3.2%;
+    width: 32%;
+    height: 10%;
+}
+
+.overlay-art-panel--landscape .overlay-art-hitclose {
+    bottom: 3.5%;
+    width: 22%;
+    height: 11%;
+}
+
 /* Table-win plaques are tall; top-align and scroll the backdrop so the
    fanned cards and footer actions are never vertically cropped. */
 .overlay.win-celebration {

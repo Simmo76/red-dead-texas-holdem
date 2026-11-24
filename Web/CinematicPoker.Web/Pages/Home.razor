@@ -727,10 +727,12 @@
 
     @if (_settingsOpen)
     {
-        <div class="overlay" @onclick="CloseSettings">
-            <div class="overlay-box settings-box" @onclick:stopPropagation="true">
-                <div class="overlay-title">SETTINGS</div>
-
+        <div class="overlay overlay-art" @onclick="CloseSettings">
+            <div class="overlay-art-panel settings-art-panel" role="dialog" aria-label="Settings"
+                 @onclick:stopPropagation="true">
+                <img class="overlay-art-frame settings-art-frame" src="img/settings-panel.png"
+                     srcset="img/settings-panel@2x.png 2x" alt="" aria-hidden="true" />
+                <div class="settings-art-sheet settings-box">
                 <div class="settings-name">
                     <label class="settings-label" for="settings-name-input">YOUR NAME</label>
                     <div class="settings-name-controls">
@@ -797,94 +799,47 @@
                 {
                     <p class="settings-note">@_logNote</p>
                 }
-                <div class="overlay-actions">
-                    <button class="act small" @onclick="CopyDebugLog" title="Copy the debug log to the clipboard to paste into Cursor or a bug report">COPY LOG</button>
-                    <button class="act small" @onclick="ExportFromSettings">EXPORT STATS</button>
+                <div class="overlay-actions settings-art-actions">
+                    <button type="button" class="settings-art-chip" @onclick="CopyDebugLog"
+                            title="Copy the debug log to the clipboard to paste into Cursor or a bug report">COPY LOG</button>
+                    <button type="button" class="settings-art-chip" @onclick="ExportFromSettings">EXPORT STATS</button>
                     @if (_isGuest)
                     {
-                        <button class="act allin settings-restart" @onclick="LeaveTable">LEAVE TABLE</button>
+                        <button type="button" class="settings-art-restart" @onclick="LeaveTable">LEAVE TABLE</button>
                     }
                     else
                     {
-                        <button class="act allin settings-restart" @onclick="RestartFromSettings">RESTART</button>
+                        <button type="button" class="settings-art-restart" @onclick="RestartFromSettings">RESTART</button>
                     }
-                    <button class="act small" @onclick="CloseSettings">CLOSE</button>
                 </div>
+                </div>
+                <button type="button" class="overlay-art-hitclose" @onclick="CloseSettings" aria-label="Close settings"></button>
             </div>
         </div>
     }
 
     @if (_rulesOpen)
     {
-        <div class="overlay" @onclick="CloseRules">
-            <div class="overlay-box rules-box" @onclick:stopPropagation="true">
-                <div class="overlay-title">HOW TO PLAY</div>
-                <div class="rules-scroll">
-                    <p class="rules-lede">
-                        Texas Hold’em. Make the best five-card hand from your two private cards
-                        and the five shared cards on the table. Last player standing — or the
-                        strongest hand at showdown — takes the pot.
-                    </p>
-
-                    <section class="rules-section">
-                        <h3 class="rules-heading">THE DEAL</h3>
-                        <ul class="rules-list">
-                            <li>Each hand starts with blinds: the two seats left of the dealer post forced bets (small blind, then big blind).</li>
-                            <li>Everyone gets two hole cards face down — yours alone.</li>
-                            <li>Up to five community cards land face up in the middle for everyone to share.</li>
-                        </ul>
-                    </section>
-
-                    <section class="rules-section">
-                        <h3 class="rules-heading">THE STREETS</h3>
-                        <ol class="rules-steps">
-                            <li><strong>Preflop</strong> — bet on your hole cards alone.</li>
-                            <li><strong>Flop</strong> — three community cards, then another betting round.</li>
-                            <li><strong>Turn</strong> — fourth community card, then bet again.</li>
-                            <li><strong>River</strong> — fifth and final card, then the last betting round.</li>
-                        </ol>
-                    </section>
-
-                    <section class="rules-section">
-                        <h3 class="rules-heading">YOUR MOVES</h3>
-                        <ul class="rules-list">
-                            <li><strong>Fold</strong> — toss the hand; you’re out of this pot.</li>
-                            <li><strong>Check</strong> — pass when nothing is owed (no bet in front of you).</li>
-                            <li><strong>Call</strong> — match the current bet to stay in.</li>
-                            <li><strong>Bet / Raise</strong> — put chips in or bump the price.</li>
-                            <li><strong>All-in</strong> — shove your whole stack.</li>
-                        </ul>
-                    </section>
-
-                    <section class="rules-section">
-                        <h3 class="rules-heading">SHOWDOWN</h3>
-                        <p class="rules-copy">
-                            If two or more players remain after the river, cards are shown.
-                            Best five-card hand wins — use any mix of your holes and the board.
-                            If everyone else folds, you win without showing. Tap
-                            <strong>HANDS</strong> in the top bar for the ranking chart from
-                            royal flush down to high card.
-                        </p>
-                    </section>
-                </div>
-                <div class="overlay-actions">
-                    <button class="act small" @onclick="CloseRules">CLOSE</button>
-                </div>
+        <div class="overlay overlay-art" @onclick="CloseRules">
+            <div class="overlay-art-panel overlay-art-panel--portrait" role="dialog" aria-label="How to play"
+                 @onclick:stopPropagation="true">
+                <img class="overlay-art-img" src="img/how-to-play.png"
+                     srcset="img/how-to-play@2x.png 2x"
+                     alt="How to play Texas Hold'em" />
+                <button type="button" class="overlay-art-hitclose" @onclick="CloseRules" aria-label="Close how to play"></button>
             </div>
         </div>
     }
 
     @if (_handRankingsOpen)
     {
-        <div class="overlay" @onclick="CloseHandRankings">
-            <div class="overlay-box hands-box" @onclick:stopPropagation="true">
-                <div class="hands-zoom" @ref="_handsZoomRef" title="Pinch or scroll to zoom, drag to pan">
-                    <img class="hands-chart" src="img/hand-rankings.jpg"
-                         alt="Poker hand rankings from best to worst: royal flush, straight flush, four of a kind, full house, flush, straight, three of a kind, two pair, pair, high card" />
-                </div>
-                <div class="overlay-actions">
-                    <button class="act small" @onclick="CloseHandRankings">CLOSE</button>
-                </div>
+        <div class="overlay overlay-art" @onclick="CloseHandRankings">
+            <div class="overlay-art-panel overlay-art-panel--landscape" role="dialog" aria-label="Poker hand rankings"
+                 @onclick:stopPropagation="true">
+                <img class="overlay-art-img" src="img/hand-rankings.png"
+                     srcset="img/hand-rankings@2x.png 2x"
+                     alt="Poker hand rankings from royal flush to high card" />
+                <button type="button" class="overlay-art-hitclose" @onclick="CloseHandRankings" aria-label="Close hand rankings"></button>
             </div>
         </div>
     }
@@ -1817,8 +1772,6 @@
         }
         if (_sceneReady && !_coachOpen) await PushSceneState();
         await FocusCoachPanel();
-        if (_handRankingsOpen && !_handsZoomBound)
-            await AttachHandsZoomAsync();
         // One-shot: fly to the winner's cards after the snapshot has put them
         // on the felt. Cleared immediately so later HUD updates do not yank
         // the camera back if the player has already looked around.
@@ -2172,7 +2125,6 @@
         _exportOpen = false;
         _exportNote = "";
         _settingsOpen = false;
-        ReleaseHandsZoom();
         _handRankingsOpen = false;
         _rulesOpen = false;
         try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
@@ -2876,7 +2828,6 @@
 
     private void OpenRules()
     {
-        ReleaseHandsZoom();
         _handRankingsOpen = false;
         _settingsOpen = false;
         _rulesOpen = true;
@@ -2895,39 +2846,15 @@
     // -------------------------------------------------------- hand rankings
 
     private bool _handRankingsOpen;
-    private ElementReference _handsZoomRef;
-    private bool _handsZoomBound;
 
     private void OpenHandRankings()
     {
         _rulesOpen = false;
-        _handsZoomBound = false;
         _handRankingsOpen = true;
-    }
-
-    private async Task AttachHandsZoomAsync()
-    {
-        try
-        {
-            await JS.InvokeVoidAsync("pokerHandsZoom.attach", _handsZoomRef);
-            _handsZoomBound = true;
-        }
-        catch (JSException) { }
-        catch (InvalidOperationException) { }
-    }
-
-    private void ReleaseHandsZoom()
-    {
-        if (!_handsZoomBound) return;
-        _handsZoomBound = false;
-        try { _ = JS.InvokeVoidAsync("pokerHandsZoom.detach"); }
-        catch (InvalidOperationException) { }
-        catch (JSException) { }
     }
 
     private async Task CloseHandRankings()
     {
-        ReleaseHandsZoom();
         _handRankingsOpen = false;
         // Same canvas-cover texture eviction risk as Settings (and the chart
         // itself is a large decode) — refresh GPU maps when the overlay lifts.
@@ -4346,7 +4273,6 @@
         _logNote = "";
         _soundMenuOpen = false;
         _rulesOpen = false;
-        ReleaseHandsZoom();
         _handRankingsOpen = false;
         _settingsOpen = true;
         GameLog.Info("ui", "settings opened");

@@ -61,6 +61,22 @@ for (const name of actions) {
 assert(home.includes('<ActionArtButton'), 'Home.razor: art action buttons');
 assert(home.includes('img/actions/fold.png'), 'fold artwork wired');
 assert(css.includes('.act-art-img'), 'css: art action buttons');
+
+const overlays = [
+  ['how-to-play.png', 'how-to-play@2x.png'],
+  ['hand-rankings.png', 'hand-rankings@2x.png'],
+  ['settings-panel.png', 'settings-panel@2x.png'],
+];
+for (const [one, two] of overlays) {
+  assert(existsSync(join(root, `Web/CinematicPoker.Web/wwwroot/img/${one}`)), `missing img/${one}`);
+  assert(existsSync(join(root, `Web/CinematicPoker.Web/wwwroot/img/${two}`)), `missing img/${two}`);
+}
+assert(home.includes('img/how-to-play.png'), 'rules art overlay');
+assert(home.includes('img/hand-rankings.png'), 'hands art overlay');
+assert(home.includes('settings-art-panel'), 'settings art overlay');
+assert(css.includes('.overlay-art-panel'), 'css: overlay art panels');
+assert(!home.includes('hand-rankings.jpg'), 'legacy hand-rankings.jpg removed');
+assert(!home.includes('rules-scroll'), 'legacy rules scroll removed');
 assert(
   css.includes('.toolbar-icon-vector') && css.includes('display: none'),
   'css: toolbar shows PNG kit icons (SVG as img paints black)',
