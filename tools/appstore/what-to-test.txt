@@ -1,5 +1,11 @@
 What to test in this build:
 
+New — saloon music and >> tune (PR #321)
+• SETTINGS → SOUND: MUSIC and BACKGROUND on. Tap Play in the saloon — ragtime and bar crowd should start within a couple of seconds (no silent table with sound on).
+• Tap >> tune beside RULES several times. Each tap should jump straight to a different ragtime bed (no long crossfade).
+• Win a pot: short chiptune sting on top; music keeps playing.
+• SETTINGS → SCENE → OCTAGON (reload). Fight music should start quickly — not 5–10 seconds of silence after a cache clear. Switch back to SALOON and confirm music still works.
+
 New — hand-specific coach closing note (PR #315)
 • Poker Coach → SEE KEY DECISION. The last paragraph is about THIS hand (winner, kicker, board texture, or the priced spot) — not the old fixed “If everyone shows their cards…” disclaimer.
 • Finish a showdown and a hand with no priced decision. Both footers should give a useful takeaway; they must not repeat the same methodology wall every time.
@@ -25,7 +31,7 @@ New — two women at every table (PR #308)
 • Reload a table saved from an older build that only had one woman. It should now have two.
 
 New — next song (PR #306)
-• With music on, >> tune sits in the top bar beside RULES. Tap it and the current song fades into the next one.
+• With music on, >> tune sits in the top bar beside RULES. Tap it to skip to the next bed (hard cut, not a fade).
 • Settings → SOUND → turn MUSIC off. >> tune disappears. Turn MUSIC back on and the button returns.
 • bird's eye toggles the overhead camera; while overhead it reads seat view.
 
