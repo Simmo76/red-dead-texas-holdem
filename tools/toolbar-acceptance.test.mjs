@@ -50,6 +50,17 @@ assert(css.includes('max-width: 559px'), 'css: DMH compact breakpoint (~560px)')
 assert(css.includes('pointer-events: none'), 'css: toolbar does not block canvas globally');
 assert(css.includes('.toolbar-overflow-menu'), 'css: More menu');
 assert(css.includes('.toolbar-pill-img'), 'css: art-backed pill buttons');
+
+const actions = ['fold', 'call', 'raise'];
+for (const name of actions) {
+  const img = join(root, `Web/CinematicPoker.Web/wwwroot/img/actions/${name}.png`);
+  const img2 = join(root, `Web/CinematicPoker.Web/wwwroot/img/actions/${name}@2x.png`);
+  assert(existsSync(img), `missing img/actions/${name}.png`);
+  assert(existsSync(img2), `missing img/actions/${name}@2x.png`);
+}
+assert(home.includes('<ActionArtButton'), 'Home.razor: art action buttons');
+assert(home.includes('img/actions/fold.png'), 'fold artwork wired');
+assert(css.includes('.act-art-img'), 'css: art action buttons');
 assert(
   css.includes('.toolbar-icon-vector') && css.includes('display: none'),
   'css: toolbar shows PNG kit icons (SVG as img paints black)',

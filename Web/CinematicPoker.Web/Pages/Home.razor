@@ -520,14 +520,29 @@
         }
         @if (_awaitingHuman && _legal != null && !_showSlider)
         {
-            <div class="actionbar-left">
-                @if (_legal.CanFold) { <button class="act fold" @onclick="() => Act(PlayerAction.Fold())">FOLD</button> }
-            </div>
-            <div class="actionbar-right">
+            <div class="actionbar-right actionbar-primary">
+                @if (_legal.CanFold)
+                {
+                    <ActionArtButton Src="img/actions/fold.png" CssClass="fold"
+                                     AriaLabel="Fold — give up this hand"
+                                     OnClick="@(() => Act(PlayerAction.Fold()))" />
+                }
                 @if (_legal.CanCheck) { <button class="act check" @onclick="() => Act(PlayerAction.Check())">CHECK</button> }
-                @if (_legal.CanCall)  { <button class="act call" @onclick="() => Act(PlayerAction.Call())">CALL $@_legal.CallAmount</button> }
+                @if (_legal.CanCall)
+                {
+                    <ActionArtButton Src="img/actions/call.png" CssClass="call"
+                                     AriaLabel="@($"Call — match ${_legal.CallAmount}")"
+                                     Title="@($"Call ${_legal.CallAmount}")"
+                                     Detail="@($"${_legal.CallAmount}")"
+                                     OnClick="@(() => Act(PlayerAction.Call()))" />
+                }
                 @if (_legal.CanBet)   { <button class="act bet" @onclick="OpenSlider">BET</button> }
-                @if (_legal.CanRaise) { <button class="act bet" @onclick="OpenSlider">RAISE</button> }
+                @if (_legal.CanRaise)
+                {
+                    <ActionArtButton Src="img/actions/raise.png" CssClass="bet raise"
+                                     AriaLabel="Raise — increase the bet"
+                                     OnClick="OpenSlider" />
+                }
                 @if (_legal.CanAllIn) { <button class="act allin" @onclick="() => Act(PlayerAction.AllIn())">ALL-IN</button> }
             </div>
         }
