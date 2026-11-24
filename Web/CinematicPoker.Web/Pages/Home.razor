@@ -69,7 +69,7 @@
             <div class="topbar-actions toolbar-actions">
                 @if (CanReview && _handHasCompleted && _awaitingNextHand)
                 {
-                    <button type="button" class="toolbar-btn chip-btn review-hand toolbar-coach" @onclick="OpenCoachReview"
+                    <button type="button" class="toolbar-btn review-hand toolbar-coach" @onclick="OpenCoachReview"
                             title="Ask the poker coach about the last hand" aria-label="Poker coach">
                         <span class="toolbar-btn-label">Coach</span>
                     </button>
@@ -95,7 +95,7 @@
                 <ToolbarButton IconSrc="icons/toolbar/settings" AriaLabel="Settings" Title="Game settings"
                                OnClick="OpenSettings" ShowLabel="false" CssClass="toolbar-primary toolbar-item-settings" />
                 <div class="toolbar-more-wrap">
-                    <button type="button" class="toolbar-btn chip-btn toolbar-btn-icon toolbar-more-trigger"
+                    <button type="button" class="toolbar-btn toolbar-btn-icon toolbar-more-trigger"
                             aria-label="More actions" aria-haspopup="menu" aria-expanded="@_toolbarMoreOpen"
                             @onclick="ToggleToolbarMore">
                         <span class="toolbar-btn-icon" aria-hidden="true">

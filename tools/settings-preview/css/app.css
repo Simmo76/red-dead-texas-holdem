@@ -211,6 +211,17 @@ html.scene-street.resume-play .boot-screen {
     box-shadow: none;
 }
 
+/* Never wrap the control row in one shared outline (comp = separate pills). */
+.gameplay-toolbar .topbar-actions.toolbar-actions {
+    gap: 10px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
 .toolbar-btn {
     flex-direction: row;
     gap: 8px;
@@ -323,12 +334,6 @@ html.scene-street.resume-play .boot-screen {
 .gameplay-toolbar .toolbar-item-view.active .toolbar-btn-label,
 .gameplay-toolbar .toolbar-item-view.active .toolbar-icon-img {
     filter: drop-shadow(0 0 4px rgba(255, 198, 107, 0.55));
-}
-
-.gameplay-toolbar .toolbar-btn::after {
-    content: "";
-    position: absolute;
-    inset: -4px -2px;
 }
 
 .toolbar-more-wrap {
@@ -540,8 +545,9 @@ html.scene-street.resume-play .boot-screen {
     position: relative;
 }
 
-/* Each gameplay control is its own gold-outlined pill (beats .chip-btn below). */
-.gameplay-toolbar .toolbar-btn.chip-btn {
+/* Each gameplay control is its own gold-outlined pill — not .chip-btn. */
+.gameplay-toolbar button.toolbar-btn {
+    flex: 0 0 auto;
     flex-direction: row;
     gap: 8px;
     min-width: 44px;
@@ -560,14 +566,15 @@ html.scene-street.resume-play .boot-screen {
     font-weight: 500;
     letter-spacing: 0.01em !important;
     text-transform: none;
+    cursor: pointer;
     box-shadow:
         inset 0 1px 0 rgba(245, 227, 181, 0.14),
         inset 0 -1px 0 rgba(0, 0, 0, 0.35),
         0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-.gameplay-toolbar .toolbar-item-settings.toolbar-btn.chip-btn,
-.gameplay-toolbar .toolbar-more-trigger.chip-btn {
+.gameplay-toolbar .toolbar-item-settings.toolbar-btn,
+.gameplay-toolbar .toolbar-more-trigger {
     padding: 8px !important;
     border-radius: 12px !important;
     width: 44px;
@@ -588,10 +595,16 @@ html.scene-street.resume-play .boot-screen {
 
 /* Invisible halo: taps that land just outside the pill still count.
    Narrower on the sides so adjacent buttons' halos never overlap. */
-.topbar .chip-btn::after {
+.topbar:not(.gameplay-toolbar) .chip-btn::after {
     content: "";
     position: absolute;
     inset: -6px -3px;
+}
+
+.gameplay-toolbar .toolbar-btn::after {
+    content: "";
+    position: absolute;
+    inset: -4px -2px;
 }
 
 .chip-btn:hover { color: var(--text); border-color: var(--gold-dim); }
@@ -607,7 +620,7 @@ html.scene-street.resume-play .boot-screen {
     background: rgba(35, 26, 12, 0.85);
 }
 
-.gameplay-toolbar .toolbar-btn.chip-btn.active {
+.gameplay-toolbar button.toolbar-btn.active {
     color: var(--toolbar-active) !important;
     border-color: var(--toolbar-outline-strong) !important;
     background: linear-gradient(
@@ -3488,7 +3501,7 @@ html.scene-street.resume-play .boot-screen {
     .topbar-right { gap: 6px; }
     .topbar-actions { gap: 6px; }
     .chip-btn { padding: 5px 10px; font-size: 10px; letter-spacing: 1px; }
-    .topbar .chip-btn { padding: 7px 10px; min-height: 34px; font-size: 11px; letter-spacing: 1px; }
+    .topbar:not(.gameplay-toolbar) .chip-btn { padding: 7px 10px; min-height: 34px; font-size: 11px; letter-spacing: 1px; }
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; min-height: 34px; }
     .brand span { margin-inline-start: 2px; }
@@ -3576,7 +3589,10 @@ html.scene-street.resume-play .boot-screen {
         font-size: 11px;
         letter-spacing: 1px;
     }
-    .gameplay-toolbar.topbar .toolbar-btn.chip-btn {
+    .gameplay-toolbar.topbar .topbar-actions.toolbar-actions {
+        gap: 8px !important;
+    }
+    .gameplay-toolbar.topbar button.toolbar-btn {
         padding: 6px 10px !important;
         min-height: 44px !important;
         min-width: 44px !important;
@@ -3585,8 +3601,8 @@ html.scene-street.resume-play .boot-screen {
         border: 1px solid var(--toolbar-outline) !important;
         border-radius: 999px !important;
     }
-    .gameplay-toolbar.topbar .toolbar-item-settings.toolbar-btn.chip-btn,
-    .gameplay-toolbar.topbar .toolbar-more-trigger.chip-btn {
+    .gameplay-toolbar.topbar .toolbar-item-settings.toolbar-btn,
+    .gameplay-toolbar.topbar .toolbar-more-trigger {
         border-radius: 12px !important;
         width: 44px;
         padding: 7px !important;
