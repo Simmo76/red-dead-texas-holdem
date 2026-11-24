@@ -48,6 +48,9 @@ jobs:
           touch publish/wwwroot/.nojekyll
           cp publish/wwwroot/index.html publish/wwwroot/404.html
 
+      - name: Publish topbar layout preview
+        run: tools/copy-topbar-preview.sh publish/wwwroot
+
       - name: Keep branch previews
         # Pages serves one deployment; re-add the live /preview/<slug>/ builds
         # so a main deploy doesn't wipe them (see deploy-preview.yml).
