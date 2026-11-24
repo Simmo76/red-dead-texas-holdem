@@ -259,10 +259,16 @@ window.pokerAudio = (function () {
     ];
     const SALOON_AMBIENCE_URL = 'audio/saloon-bar-ambience.mp3';
     const STREET_AMBIENCE_URL = 'audio/street/crowd-shouting.ogg';
+    // Smallest bed per scene — first pick after a scene change or cold cache.
+    const FAST_MUSIC_BY_SCENE = {
+        saloon: 'audio/saloon/wireless-rag.mp3',
+        street: 'audio/street/battle-music-vol162-04.mp3'
+    };
     const MUSIC_VOLUME = 0.12;
     const MUSIC_FADE_SECONDS = 2.5;
     let sceneName = 'saloon';
     let recentMusic = [];
+    const preloadEls = {};
 
     function normalizeMusicUrl(url) {
         if (!url) return '';
@@ -292,9 +298,31 @@ window.pokerAudio = (function () {
         return active;
     }
 
+    function preloadMusicUrl(url) {
+        if (!url || preloadEls[url]) return;
+        const a = new Audio();
+        a.preload = 'auto';
+        a.src = url;
+        preloadEls[url] = a;
+        try { a.load(); } catch (e) { }
+    }
+
+    function preloadSceneMusic(scene, full) {
+        const tracks = scene === 'street' ? STREET_MUSIC_TRACKS : SALOON_MUSIC_TRACKS;
+        const fast = FAST_MUSIC_BY_SCENE[scene];
+        if (fast) preloadMusicUrl(fast);
+        preloadMusicUrl(scene === 'street' ? STREET_AMBIENCE_URL : SALOON_AMBIENCE_URL);
+        if (full) tracks.forEach(preloadMusicUrl);
+    }
+
     function pickMusic() {
         const tracks = sceneName === 'street' ? STREET_MUSIC_TRACKS : SALOON_MUSIC_TRACKS;
         const active = activeMusicTrackKeys();
+        const fast = FAST_MUSIC_BY_SCENE[sceneName];
+        if (!recentMusic.length && fast && tracks.indexOf(fast) !== -1 && !active[fast]) {
+            recentMusic.push(fast);
+            return fast;
+        }
         let candidates = tracks.filter(function (url) {
             return recentMusic.indexOf(url) === -1 && !active[url];
         });
@@ -491,7 +519,11 @@ window.pokerAudio = (function () {
                 retryMusicPlay(ambience, opts);
             }
             if (!music && channels.music) {
-                const track = new Audio(pickMusic());
+                const bedUrl = pickMusic();
+                preloadMusicUrl(bedUrl);
+                const track = new Audio();
+                track.preload = 'auto';
+                track.src = bedUrl;
                 music = track;
                 track.volume = fadeIn ? 0 : MUSIC_VOLUME;
                 track._onTimeUpdate = function () {
@@ -824,6 +856,16 @@ window.pokerAudio = (function () {
         }, 20000 + Math.random() * 18000);
     })();
 
+    (function bootMusicPreload() {
+        try {
+            var saved = localStorage.getItem('cinematic-poker-table-scene');
+            var current = saved === 'street' ? 'street' : 'saloon';
+            var other = current === 'street' ? 'saloon' : 'street';
+            preloadSceneMusic(current, false);
+            preloadSceneMusic(other, false);
+        } catch (e) { }
+    })();
+
     return {
         play: play,
         button: button,
@@ -856,7 +898,13 @@ window.pokerAudio = (function () {
                 recentMusic = [];
                 stopMusic();
             }
+            preloadSceneMusic(next, true);
             ensureMusicBeds();
+        },
+        preloadScene: function (scene, full) {
+            const next = String(scene || '').toLowerCase().indexOf('street') !== -1
+                ? 'street' : 'saloon';
+            preloadSceneMusic(next, !!full);
         },
         ensureMusicBeds: ensureMusicBeds,
         // Short fanfare when the player wins a pot (steady pitch: unlike SFX,
