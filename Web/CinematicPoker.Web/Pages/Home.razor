@@ -749,49 +749,80 @@
                 </div>
 
                 <div class="settings-rows">
-                    <div class="settings-row">
-                        <span class="settings-label">SOUND</span>
-                        <button class="chip-btn sound-combo-btn @(AnyChannelOn ? "active" : "")" @onclick="ToggleSoundMenu">
-                            @SoundSummary<span class="sound-caret">@(_soundMenuOpen ? "\u25b4" : "\u25be")</span>
-                        </button>
-                    </div>
-                    @if (_soundMenuOpen)
-                    {
-                        <div class="sound-menu">
-                            <button class="sound-option @(_musicOn ? "on" : "")" @onclick="@(() => ToggleChannel("music"))">
-                                <span class="sound-check">@(_musicOn ? "\u2713" : "")</span>MUSIC
-                            </button>
-                            <button class="sound-option @(_backgroundOn ? "on" : "")" @onclick="@(() => ToggleChannel("background"))">
-                                <span class="sound-check">@(_backgroundOn ? "\u2713" : "")</span>BACKGROUND
-                            </button>
+                    <div class="settings-row settings-row-pill">
+                        <span class="settings-label" id="settings-sound-label">SOUND</span>
+                        <div class="settings-pill-wrap">
+                            <SettingsDropdownPill ArtSlug="@SoundArtSlug" DisplayLabel="@SoundArtLabel"
+                                                  AriaLabel="@($"Sound — {SoundSummary}")"
+                                                  Expanded="_soundMenuOpen" HasPopup="true"
+                                                  CssClass="settings-pill-sound"
+                                                  OnClick="ToggleSoundMenu" />
+                            @if (_soundMenuOpen)
+                            {
+                                <div class="settings-dropdown-panel sound-menu" role="group" aria-labelledby="settings-sound-label">
+                                    <button type="button" class="sound-option @(_musicOn ? "on" : "")"
+                                            aria-pressed="@_musicOn"
+                                            @onclick="@(() => ToggleChannel("music"))">
+                                        <span class="sound-check" aria-hidden="true">@(_musicOn ? "\u2713" : "")</span>MUSIC
+                                    </button>
+                                    <button type="button" class="sound-option @(_backgroundOn ? "on" : "")"
+                                            aria-pressed="@_backgroundOn"
+                                            @onclick="@(() => ToggleChannel("background"))">
+                                        <span class="sound-check" aria-hidden="true">@(_backgroundOn ? "\u2713" : "")</span>BACKGROUND
+                                    </button>
+                                </div>
+                            }
                         </div>
-                    }
-                    <div class="settings-row">
-                        <span class="settings-label">PACE</span>
-                        <button class="chip-btn @(_quickMode ? "active" : "")" @onclick="ToggleMode">
-                            @(_quickMode ? "QUICK PLAY" : "CINEMATIC")
-                        </button>
+                    </div>
+                    <div class="settings-row settings-row-pill">
+                        <span class="settings-label" id="settings-pace-label">PACE</span>
+                        <SettingsDropdownPill ArtSlug="@PaceArtSlug"
+                                              AriaLabel="@($"Pace — {(_quickMode ? "Quick play" : "Cinematic")}")"
+                                              OnClick="ToggleMode" />
                     </div>
                     @if (!_isGuest)
                     {
-                        <div class="settings-row">
-                            <span class="settings-label">POST-HAND COACH</span>
-                            <button class="chip-btn" @onclick="CycleCoachMode">@CoachModeLabel</button>
+                        <div class="settings-row settings-row-pill">
+                            <span class="settings-label" id="settings-coach-label">POST-HAND COACH</span>
+                            <SettingsDropdownPill ArtSlug="@CoachArtSlug" DisplayLabel="@CoachArtLabel"
+                                                  AriaLabel="@($"Post-hand coach — {CoachModeLabel}")"
+                                                  OnClick="CycleCoachMode" />
                         </div>
                     }
                     @if (!_isGuest)
                     {
-                        <div class="settings-row">
-                            <span class="settings-label">DIFFICULTY</span>
-                            <button class="chip-btn" @onclick="CycleDifficulty">@DifficultyNames[_difficulty]</button>
+                        <div class="settings-row settings-row-pill">
+                            <span class="settings-label" id="settings-difficulty-label">DIFFICULTY</span>
+                            <SettingsDropdownPill ArtSlug="@DifficultyArtSlug"
+                                                  AriaLabel="@($"Difficulty — {DifficultyNames[_difficulty]}")"
+                                                  OnClick="CycleDifficulty" />
                         </div>
                     }
-                    <div class="settings-row">
-                        <label class="settings-label" for="settings-scene">SCENE</label>
-                        <select id="settings-scene" class="chip-btn settings-select" disabled="@_isGuest" @onchange="OnTableSceneChanged">
-                            <option value="saloon" selected="@(_tableScene == "saloon")">SALOON</option>
-                            <option value="street" selected="@(_tableScene == "street")">OCTAGON</option>
-                        </select>
+                    <div class="settings-row settings-row-pill">
+                        <span class="settings-label" id="settings-scene-label">SCENE</span>
+                        <div class="settings-pill-wrap">
+                            <SettingsDropdownPill ArtSlug="@SceneArtSlug"
+                                                  AriaLabel="@($"Scene — {(_tableScene == "street" ? "Octagon" : "Saloon")}")"
+                                                  Expanded="_sceneMenuOpen" HasPopup="true" Disabled="_isGuest"
+                                                  OnClick="ToggleSceneMenu" />
+                            @if (_sceneMenuOpen && !_isGuest)
+                            {
+                                <div class="settings-dropdown-panel scene-menu" role="listbox" aria-labelledby="settings-scene-label">
+                                    <button type="button" class="scene-option @(_tableScene == "saloon" ? "on" : "")"
+                                            role="option" aria-selected="@(_tableScene == "saloon")"
+                                            @onclick="@(() => PickScene("saloon"))">
+                                        <img src="img/settings/dropdown/saloon.png" alt="" aria-hidden="true" class="scene-option-art" />
+                                        <span class="visually-hidden">Saloon</span>
+                                    </button>
+                                    <button type="button" class="scene-option @(_tableScene == "street" ? "on" : "")"
+                                            role="option" aria-selected="@(_tableScene == "street")"
+                                            @onclick="@(() => PickScene("street"))">
+                                        <img src="img/settings/dropdown/octagon.png" alt="" aria-hidden="true" class="scene-option-art" />
+                                        <span class="visually-hidden">Octagon</span>
+                                    </button>
+                                </div>
+                            }
+                        </div>
                     </div>
                 </div>
 
@@ -4272,6 +4303,7 @@
         _settingsNameNote = "";
         _logNote = "";
         _soundMenuOpen = false;
+        _sceneMenuOpen = false;
         _rulesOpen = false;
         _handRankingsOpen = false;
         _settingsOpen = true;
@@ -5657,15 +5689,62 @@
 
     private async Task OnTableSceneChanged(ChangeEventArgs e)
     {
+        await SetTableSceneAsync(e.Value?.ToString() == "street" ? "street" : "saloon");
+    }
+
+    private bool _sceneMenuOpen;
+
+    private void ToggleSceneMenu()
+    {
         if (_isGuest) return;
-        var next = e.Value?.ToString() == "street" ? "street" : "saloon";
-        if (next == _tableScene) return;
+        _sceneMenuOpen = !_sceneMenuOpen;
+        if (_sceneMenuOpen) _soundMenuOpen = false;
+    }
+
+    private async Task PickScene(string scene)
+    {
+        _sceneMenuOpen = false;
+        await SetTableSceneAsync(scene);
+    }
+
+    private async Task SetTableSceneAsync(string next)
+    {
+        if (_isGuest) return;
+        var scene = next == "street" ? "street" : "saloon";
+        if (scene == _tableScene) return;
         if (_coachOpen) await CloseCoach(false);
-        _tableScene = next;
-        GameLog.Info("ui", $"table scene -> {next}");
-        try { await JS.InvokeVoidAsync("pokerScene.setTableScene", next); }
+        _tableScene = scene;
+        GameLog.Info("ui", $"table scene -> {scene}");
+        try { await JS.InvokeVoidAsync("pokerScene.setTableScene", scene); }
         catch (JSException) { }
     }
+
+    private string? SoundArtSlug => SoundSummary switch
+    {
+        "ALL ON" => "all-on",
+        "ALL OFF" => "off",
+        "MUSIC ONLY" => "music",
+        "BACKGROUND ONLY" => "background",
+        _ => null
+    };
+
+    private string? SoundArtLabel => SoundArtSlug == null ? SoundSummary : null;
+
+    private string PaceArtSlug => _quickMode ? "quick-play" : "cinematic";
+
+    private string? CoachArtSlug => _coachMode switch
+    {
+        CoachMode.Off => "off",
+        CoachMode.Notable => "notable",
+        CoachMode.OnRequest => "on-request",
+        _ => null
+    };
+
+    private string? CoachArtLabel => CoachArtSlug == null ? CoachModeLabel : null;
+
+    private string DifficultyArtSlug => _difficulty == 0 ? "easy" : "normal";
+
+    private string SceneArtSlug => _tableScene == "street" ? "octagon" : "saloon";
 
     private async Task SyncBackdropLabel()
     {
@@ -5704,7 +5783,11 @@
         (false, true) => "BACKGROUND ONLY"
     };
 
-    private void ToggleSoundMenu() => _soundMenuOpen = !_soundMenuOpen;
+    private void ToggleSoundMenu()
+    {
+        _soundMenuOpen = !_soundMenuOpen;
+        if (_soundMenuOpen) _sceneMenuOpen = false;
+    }
 
     private void ToggleChannel(string channel)
     {

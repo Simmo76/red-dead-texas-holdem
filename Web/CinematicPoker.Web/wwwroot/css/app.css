@@ -2869,7 +2869,7 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .settings-art-panel {
-    width: min(465px, calc(100vw - 24px));
+    width: min(520px, calc(100vw - 24px));
 }
 
 .settings-art-frame {
@@ -2920,16 +2920,162 @@ html.scene-street.resume-play .boot-screen {
     justify-content: flex-end;
 }
 
-.settings-art-sheet .settings-row .chip-btn,
-.settings-art-sheet .settings-select {
-    min-width: 58%;
-    background: rgba(8, 5, 3, 0.72);
-    border: 1px solid rgba(216, 178, 92, 0.55);
+.settings-row-pill {
+    justify-content: flex-end;
+    min-height: 44px;
+}
+
+.settings-pill-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    width: 58%;
+    min-width: 0;
+}
+
+.settings-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 4px 2px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    touch-action: manipulation;
     border-radius: 999px;
-    color: var(--gold);
-    font-size: 11px;
-    letter-spacing: 1.4px;
-    padding: 8px 14px;
+    line-height: 0;
+}
+
+.settings-pill-frame {
+    position: relative;
+    display: inline-block;
+    line-height: 0;
+}
+
+.settings-pill-img {
+    display: block;
+    height: 40px;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+}
+
+.settings-pill-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-52%, -50%);
+    max-width: 72%;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #f4ead8;
+    text-align: center;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.settings-pill:hover:not(.is-disabled) .settings-pill-img {
+    filter: brightness(1.08);
+}
+
+.settings-pill.is-pressed:not(.is-disabled) .settings-pill-img {
+    filter: brightness(0.92);
+    transform: translateY(1px);
+}
+
+.settings-pill.is-expanded .settings-pill-img {
+    filter: brightness(1.12)
+        drop-shadow(0 0 6px rgba(255, 198, 107, 0.45));
+}
+
+.settings-pill:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+}
+
+.settings-pill.is-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.settings-dropdown-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 2;
+    min-width: min(220px, 100%);
+    padding: 10px 12px;
+    border: 1px solid rgba(216, 178, 92, 0.55);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(38, 24, 14, 0.97) 0%, rgba(12, 8, 5, 0.98) 100%);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.45),
+        0 12px 28px rgba(0, 0, 0, 0.65),
+        inset 0 1px 0 rgba(255, 220, 160, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.settings-dropdown-panel.sound-menu .sound-option {
+    min-height: 44px;
+}
+
+.settings-dropdown-panel.scene-menu {
+    gap: 8px;
+    padding: 8px;
+}
+
+.scene-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 4px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.scene-option.on {
+    border-color: rgba(255, 198, 107, 0.65);
+    box-shadow: 0 0 0 1px rgba(255, 198, 107, 0.25);
+}
+
+.scene-option:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+.scene-option-art {
+    display: block;
+    height: 36px;
+    width: auto;
+    max-width: 100%;
+    pointer-events: none;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .settings-art-sheet .settings-name-controls .name-input {

@@ -74,6 +74,11 @@ for (const [one, two] of overlays) {
 assert(home.includes('img/how-to-play.png'), 'rules art overlay');
 assert(home.includes('img/hand-rankings.png'), 'hands art overlay');
 assert(home.includes('settings-art-panel'), 'settings art overlay');
+assert(home.includes('<SettingsDropdownPill'), 'settings dropdown pills');
+assert(existsSync(join(root, 'Web/CinematicPoker.Web/wwwroot/img/settings/dropdown/blank-dropdown.png')), 'settings blank dropdown');
+assert(existsSync(join(root, 'Web/CinematicPoker.Web/wwwroot/img/settings/dropdown/all-on.png')), 'settings all-on dropdown');
+assert(css.includes('.settings-pill'), 'css: settings pill buttons');
+assert(css.includes('.settings-dropdown-panel'), 'css: settings dropdown panels');
 assert(css.includes('.overlay-art-panel'), 'css: overlay art panels');
 assert(!home.includes('hand-rankings.jpg'), 'legacy hand-rankings.jpg removed');
 assert(!home.includes('rules-scroll'), 'legacy rules scroll removed');
