@@ -185,11 +185,19 @@ html.scene-street.resume-play .boot-screen {
     pointer-events: auto;
 }
 
-.brand-compact {
-    display: none;
-    font-size: 15px;
-    letter-spacing: 4px;
-    min-height: 44px;
+.toolbar-logo {
+    display: block;
+    height: 44px;
+    width: auto;
+    max-width: min(200px, 44vw);
+    object-fit: contain;
+    flex: 0 0 auto;
+    pointer-events: none;
+    user-select: none;
+}
+
+.gameplay-toolbar .toolbar-brand {
+    align-items: flex-start;
 }
 
 .toolbar-controls {
@@ -380,25 +388,17 @@ html.scene-street.resume-play .boot-screen {
     outline: none;
 }
 
-/* Full title until very narrow; icon stays left of label in every mode. */
 @media (max-width: 559px) {
-    .gameplay-toolbar .brand-full {
-        display: none !important;
-    }
-    .gameplay-toolbar .brand-compact {
-        display: inline-flex !important;
-        align-items: center;
+    .gameplay-toolbar .toolbar-logo {
+        height: 34px;
+        max-width: min(130px, 38vw);
     }
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
-    .gameplay-toolbar .brand-full {
-        font-size: 13px;
-        letter-spacing: 3px;
-        min-height: 44px;
-    }
-    .gameplay-toolbar .brand span {
-        margin-inline-start: 3px;
+    .gameplay-toolbar .toolbar-logo {
+        height: 34px;
+        max-width: min(145px, 36vw);
     }
     .gameplay-toolbar .toolbar-actions {
         gap: 6px;
