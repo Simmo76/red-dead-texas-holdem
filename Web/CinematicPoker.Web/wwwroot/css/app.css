@@ -3488,7 +3488,7 @@ html.scene-street.resume-play .boot-screen {
     .topbar-right { gap: 6px; }
     .topbar-actions { gap: 6px; }
     .chip-btn { padding: 5px 10px; font-size: 10px; letter-spacing: 1px; }
-    .topbar .chip-btn { padding: 7px 10px; min-height: 34px; font-size: 11px; letter-spacing: 1px; }
+    .topbar:not(.gameplay-toolbar) .chip-btn { padding: 7px 10px; min-height: 34px; font-size: 11px; letter-spacing: 1px; }
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; min-height: 34px; }
     .brand span { margin-inline-start: 2px; }
