@@ -37,7 +37,7 @@ assert(css.includes('--toolbar-bg'), 'css: design tokens');
 assert(css.includes('min-height: 44px') || css.includes('min-width: 44px'), 'css: 44px targets');
 assert(css.includes('env(safe-area-inset-top)'), 'css: safe-area insets');
 assert(css.includes('max-width: 419px'), 'css: overflow breakpoint');
-assert(css.includes('max-width: 699px'), 'css: compact breakpoint');
+assert(css.includes('max-width: 559px'), 'css: DMH compact breakpoint (~560px)');
 assert(css.includes('pointer-events: none'), 'css: toolbar does not block canvas globally');
 assert(css.includes('.toolbar-overflow-menu'), 'css: More menu');
 assert(

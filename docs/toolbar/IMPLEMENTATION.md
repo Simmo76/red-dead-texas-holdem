@@ -13,7 +13,8 @@ Semantic `<header role="toolbar">` with a flexible brand area and a right-aligne
 | Mode | Trigger | Brand | Controls |
 |------|---------|-------|----------|
 | Wide | ≥700 CSS px width | `DEAD MAN'S HAND` | Horizontal icon + label; Settings icon-only |
-| Compact | &lt;700 CSS px or short landscape | `DMH` | Icon above caption for Rules, Tune, Hands, View; Settings icon-only |
+| Compact | &lt;560 CSS px width | `DMH` | Icon left of caption in shared chrome; Settings icon-only |
+| Short landscape | low height, wider width | Full title (scaled) | Same row layout as mockup |
 | Overflow | &lt;420 CSS px | (compact) | Tune + Settings move into **More** menu; all actions remain reachable |
 
 Measure safe-area width; never shrink touch targets below **44×44 CSS px**.
