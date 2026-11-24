@@ -17,6 +17,14 @@ for (const name of icons) {
   assert(existsSync(png), `missing ${name}.png`);
 }
 
+const pillButtons = ['rules', 'tune', 'hands', 'view', 'settings'];
+for (const name of pillButtons) {
+  const pill = join(root, `Web/CinematicPoker.Web/wwwroot/icons/toolbar/pills/${name}.png`);
+  const pill2x = join(root, `Web/CinematicPoker.Web/wwwroot/icons/toolbar/pills/${name}@2x.png`);
+  assert(existsSync(pill), `missing pills/${name}.png`);
+  assert(existsSync(pill2x), `missing pills/${name}@2x.png`);
+}
+
 const home = readFileSync(join(root, 'Web/CinematicPoker.Web/Pages/Home.razor'), 'utf8');
 const css = readFileSync(join(root, 'Web/CinematicPoker.Web/wwwroot/css/app.css'), 'utf8');
 const impl = readFileSync(join(root, 'docs/toolbar/IMPLEMENTATION.md'), 'utf8');
@@ -29,7 +37,8 @@ assert(home.includes('OnClick="NextSong"'), 'handlers: NextSong / Tune');
 assert(home.includes('OnClick="OpenHandRankings"'), 'handlers: OpenHandRankings');
 assert(home.includes('OnClick="ToggleOverheadView"'), 'handlers: View camera');
 assert(home.includes('OnClick="OpenSettings"'), 'handlers: Settings');
-assert(home.includes('Label="View"'), 'View label');
+assert(home.includes('PillSrc="icons/toolbar/pills/view.png"'), 'View pill artwork');
+assert(home.includes('toolbar-pill') || home.includes('PillSrc='), 'Home uses pill artwork');
 assert(home.includes('Toggle="true"'), 'View aria-pressed via Toggle');
 assert(!home.includes("bird's eye"), 'legacy bird\'s eye label removed from toolbar');
 
@@ -40,6 +49,7 @@ assert(css.includes('max-width: 419px'), 'css: overflow breakpoint');
 assert(css.includes('max-width: 559px'), 'css: DMH compact breakpoint (~560px)');
 assert(css.includes('pointer-events: none'), 'css: toolbar does not block canvas globally');
 assert(css.includes('.toolbar-overflow-menu'), 'css: More menu');
+assert(css.includes('.toolbar-pill-img'), 'css: art-backed pill buttons');
 assert(
   css.includes('.toolbar-icon-vector') && css.includes('display: none'),
   'css: toolbar shows PNG kit icons (SVG as img paints black)',

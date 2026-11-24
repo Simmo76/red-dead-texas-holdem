@@ -79,25 +79,25 @@
                         <span class="toolbar-btn-label">Coach</span>
                     </button>
                 }
-                <ToolbarButton IconSrc="icons/toolbar/rules" Label="Rules" AriaLabel="Rules — how to play Texas Hold'em"
-                               OnClick="OpenRules" CssClass="toolbar-primary" />
+                <ToolbarButton PillSrc="icons/toolbar/pills/rules.png" AriaLabel="Rules — how to play Texas Hold'em"
+                               OnClick="OpenRules" CssClass="toolbar-primary" ShowLabel="false" />
                 @if (_musicOn)
                 {
-                    <ToolbarButton IconSrc="icons/toolbar/tune" Label="Tune" AriaLabel="Tune — skip to the next song"
+                    <ToolbarButton PillSrc="icons/toolbar/pills/tune.png" AriaLabel="Tune — skip to the next song"
                                    Title="Skip to the next song" OnClick="NextSong"
-                                   CssClass="toolbar-primary toolbar-item-tune" />
+                                   CssClass="toolbar-primary toolbar-item-tune" ShowLabel="false" />
                 }
-                <ToolbarButton IconSrc="icons/toolbar/hands" Label="Hands" AriaLabel="Hands — poker hand rankings"
-                               OnClick="OpenHandRankings" CssClass="toolbar-primary" />
+                <ToolbarButton PillSrc="icons/toolbar/pills/hands.png" AriaLabel="Hands — poker hand rankings"
+                               OnClick="OpenHandRankings" CssClass="toolbar-primary" ShowLabel="false" />
                 @if (_sceneReady)
                 {
-                    <ToolbarButton IconSrc="icons/toolbar/view" Label="View"
+                    <ToolbarButton PillSrc="icons/toolbar/pills/view.png"
                                    AriaLabel="@(_overheadView ? "View — return to seat camera" : "View — overhead table camera")"
                                    Title="@(_overheadView ? "Back to your seat" : "Overhead camera — see every player's remaining chips")"
                                    Active="_overheadView" Toggle="true" OnClick="ToggleOverheadView"
-                                   CssClass="toolbar-primary toolbar-item-view" />
+                                   CssClass="toolbar-primary toolbar-item-view" ShowLabel="false" />
                 }
-                <ToolbarButton IconSrc="icons/toolbar/settings" AriaLabel="Settings" Title="Game settings"
+                <ToolbarButton PillSrc="icons/toolbar/pills/settings.png" AriaLabel="Settings" Title="Game settings"
                                OnClick="OpenSettings" ShowLabel="false" CssClass="toolbar-primary toolbar-item-settings" />
                 <div class="toolbar-more-wrap">
                     <button type="button" class="toolbar-btn toolbar-btn-icon toolbar-more-trigger"
