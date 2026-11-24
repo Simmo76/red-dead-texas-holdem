@@ -527,8 +527,8 @@ html.scene-street.resume-play .boot-screen {
     touch-action: manipulation;
 }
 
-/* Settings panel chips keep the older chip style; gameplay toolbar pills above. */
-.topbar .chip-btn {
+/* Legacy topbar chips — not the gameplay toolbar pills. */
+.topbar:not(.gameplay-toolbar) .chip-btn {
     border-radius: 22px;
     padding: 10px 20px;
     min-height: 44px;
@@ -538,6 +538,41 @@ html.scene-street.resume-play .boot-screen {
 
 .gameplay-toolbar .toolbar-btn {
     position: relative;
+}
+
+/* Each gameplay control is its own gold-outlined pill (beats .chip-btn below). */
+.gameplay-toolbar .toolbar-btn.chip-btn {
+    flex-direction: row;
+    gap: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px 14px;
+    border: 1px solid var(--toolbar-outline) !important;
+    border-radius: 999px !important;
+    background: linear-gradient(
+        180deg,
+        rgba(22, 16, 11, 0.94) 0%,
+        rgba(8, 6, 4, 0.92) 100%
+    ) !important;
+    color: var(--toolbar-text) !important;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 500;
+    letter-spacing: 0.01em !important;
+    text-transform: none;
+    box-shadow:
+        inset 0 1px 0 rgba(245, 227, 181, 0.14),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+        0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.gameplay-toolbar .toolbar-item-settings.toolbar-btn.chip-btn,
+.gameplay-toolbar .toolbar-more-trigger.chip-btn {
+    padding: 8px !important;
+    border-radius: 12px !important;
+    width: 44px;
+    min-width: 44px;
+    justify-content: center;
 }
 
 .gameplay-toolbar .toolbar-invite-wide {
@@ -570,6 +605,21 @@ html.scene-street.resume-play .boot-screen {
     color: var(--gold);
     border-color: var(--gold-dim);
     background: rgba(35, 26, 12, 0.85);
+}
+
+.gameplay-toolbar .toolbar-btn.chip-btn.active {
+    color: var(--toolbar-active) !important;
+    border-color: var(--toolbar-outline-strong) !important;
+    background: linear-gradient(
+        180deg,
+        rgba(48, 34, 16, 0.98) 0%,
+        rgba(28, 20, 10, 0.96) 100%
+    ) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 220, 160, 0.22),
+        0 0 0 1px rgba(255, 198, 107, 0.55),
+        0 0 14px rgba(255, 198, 107, 0.48),
+        0 0 28px rgba(255, 160, 60, 0.22);
 }
 
 .invite-btn {
@@ -3520,7 +3570,27 @@ html.scene-street.resume-play .boot-screen {
     .topbar-right { gap: 6px; max-width: 78%; }
     .topbar-actions { gap: 6px; }
     .chip-btn { padding: 4px 8px; font-size: 10px; }
-    .topbar .chip-btn { padding: 6px 10px; min-height: 32px; font-size: 11px; letter-spacing: 1px; }
+    .topbar:not(.gameplay-toolbar) .chip-btn {
+        padding: 6px 10px;
+        min-height: 32px;
+        font-size: 11px;
+        letter-spacing: 1px;
+    }
+    .gameplay-toolbar.topbar .toolbar-btn.chip-btn {
+        padding: 6px 10px !important;
+        min-height: 44px !important;
+        min-width: 44px !important;
+        font-size: 12px !important;
+        letter-spacing: 0.01em !important;
+        border: 1px solid var(--toolbar-outline) !important;
+        border-radius: 999px !important;
+    }
+    .gameplay-toolbar.topbar .toolbar-item-settings.toolbar-btn.chip-btn,
+    .gameplay-toolbar.topbar .toolbar-more-trigger.chip-btn {
+        border-radius: 12px !important;
+        width: 44px;
+        padding: 7px !important;
+    }
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; min-height: 32px; }
     .brand span { margin-inline-start: 2px; }
