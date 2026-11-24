@@ -635,6 +635,44 @@ html.scene-street.resume-play .boot-screen {
         0 0 28px rgba(255, 160, 60, 0.22);
 }
 
+/* Art-backed toolbar pills (pre-rendered gold capsules from design). */
+.gameplay-toolbar .toolbar-btn.toolbar-pill {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    min-width: 0;
+    min-height: 44px;
+    line-height: 0;
+}
+
+.gameplay-toolbar .toolbar-pill-img {
+    display: block;
+    height: 40px;
+    width: auto;
+    max-height: 44px;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.gameplay-toolbar .toolbar-btn.toolbar-pill.active {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.gameplay-toolbar .toolbar-btn.toolbar-pill.active .toolbar-pill-img {
+    filter:
+        drop-shadow(0 0 6px rgba(255, 198, 107, 0.9))
+        drop-shadow(0 0 14px rgba(255, 160, 60, 0.55))
+        brightness(1.06);
+}
+
+.gameplay-toolbar .toolbar-btn.toolbar-pill:focus-visible {
+    outline: 2px solid var(--toolbar-active);
+    outline-offset: 3px;
+}
+
 .invite-btn {
     color: var(--gold);
     border-color: rgba(216, 178, 92, 0.55);
@@ -2141,6 +2179,63 @@ html.scene-street.resume-play .boot-screen {
 .act.bet   { background: #8a6a2a; }
 .act.allin { background: #7d2430; }
 
+/* Art-backed FOLD / CALL / RAISE (bottom action row). */
+.act.act-art {
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    line-height: 0;
+    min-height: 44px;
+    min-width: 44px;
+    letter-spacing: 0;
+    font-weight: normal;
+    flex: 0 0 auto;
+}
+
+.act-art-frame {
+    position: relative;
+    display: inline-block;
+    line-height: 0;
+}
+
+.act-art-img {
+    display: block;
+    height: 56px;
+    width: auto;
+    max-height: 60px;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.act-art-detail {
+    position: absolute;
+    left: 50%;
+    bottom: 22%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #f4e8d2;
+    text-shadow:
+        0 1px 0 rgba(0, 0, 0, 0.9),
+        0 0 6px rgba(0, 0, 0, 0.75);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.act.act-art:hover { filter: brightness(1.1); }
+.act.act-art:active { transform: translateY(2px); }
+.act.act-art:focus-visible {
+    outline: 2px solid #ffc66b;
+    outline-offset: 3px;
+    border-radius: 8px;
+}
+
+.actionbar-primary {
+    margin-left: auto;
+}
+
 /* Fast-forward through the rest of the hand after you've folded. */
 .act.ff {
     background: var(--panel);
@@ -2723,6 +2818,188 @@ html.scene-street.resume-play .boot-screen {
     justify-content: center;
     z-index: 50;
     animation: overlayfade 0.4s ease-out;
+}
+
+/* Full-screen art overlays (rules, hands, settings frame). */
+.overlay.overlay-art {
+    padding: max(8px, env(safe-area-inset-top, 0px)) 10px
+        max(8px, env(safe-area-inset-bottom, 0px));
+}
+
+.overlay-art-panel {
+    position: relative;
+    line-height: 0;
+    max-width: min(96vw, 920px);
+    max-height: calc(100dvh - 16px);
+}
+
+.overlay-art-panel--portrait {
+    max-width: min(92vw, 560px);
+}
+
+.overlay-art-img,
+.overlay-art-frame {
+    display: block;
+    max-width: 100%;
+    max-height: calc(100dvh - 16px);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.overlay-art-hitclose {
+    position: absolute;
+    left: 50%;
+    bottom: 4.5%;
+    transform: translateX(-50%);
+    width: 38%;
+    height: 8.5%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 999px;
+}
+
+.overlay-art-hitclose:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+.settings-art-panel {
+    width: min(465px, calc(100vw - 24px));
+}
+
+.settings-art-frame {
+    width: 100%;
+    height: auto;
+}
+
+.settings-art-sheet {
+    position: absolute;
+    left: 9%;
+    right: 9%;
+    top: 23%;
+    bottom: 20%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    max-width: none;
+    max-height: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.settings-art-sheet.settings-box {
+    padding: 0;
+    gap: 10px;
+}
+
+.settings-art-sheet .settings-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.settings-art-sheet .settings-row {
+    justify-content: flex-end;
+}
+
+.settings-art-sheet .settings-row .chip-btn,
+.settings-art-sheet .settings-select {
+    min-width: 58%;
+    background: rgba(8, 5, 3, 0.72);
+    border: 1px solid rgba(216, 178, 92, 0.55);
+    border-radius: 999px;
+    color: var(--gold);
+    font-size: 11px;
+    letter-spacing: 1.4px;
+    padding: 8px 14px;
+}
+
+.settings-art-sheet .settings-name-controls .name-input {
+    background: rgba(8, 5, 3, 0.82);
+    border: 1px solid rgba(216, 178, 92, 0.45);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 14px;
+}
+
+.settings-art-sheet .settings-save {
+    padding: 10px 16px;
+    font-size: 12px;
+    border-radius: 10px;
+}
+
+.settings-art-sheet .sound-menu {
+    margin-left: auto;
+    width: 58%;
+    border-color: rgba(216, 178, 92, 0.35);
+}
+
+.settings-art-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 4px;
+}
+
+.settings-art-actions .settings-art-chip {
+    background: rgba(8, 5, 3, 0.78);
+    border: 1px solid rgba(216, 178, 92, 0.55);
+    border-radius: 999px;
+    color: var(--gold);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    padding: 9px 8px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.settings-art-actions .settings-art-restart {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    background: linear-gradient(180deg, #8f2430 0%, #5c161e 100%);
+    border: 1px solid rgba(255, 180, 120, 0.35);
+    border-radius: 10px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    padding: 12px 16px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.settings-art-panel .overlay-art-hitclose {
+    bottom: 3.2%;
+    width: 32%;
+    height: 10%;
+}
+
+.overlay-art-panel--landscape .overlay-art-hitclose {
+    bottom: 3.5%;
+    width: 22%;
+    height: 11%;
 }
 
 /* Table-win plaques are tall; top-align and scroll the backdrop so the
@@ -3436,7 +3713,9 @@ html.scene-street.resume-play .boot-screen {
 /* ------------------------------------------------------------- small screens */
 
 @media (max-width: 980px) {
-    .act { padding: 13px 18px; font-size: 14px; }
+    .act:not(.act-art) { padding: 13px 18px; font-size: 14px; }
+    .act-art-img { height: 50px; max-height: 52px; }
+    .act-art-detail { font-size: 10px; bottom: 21%; }
     .actionbar { gap: 10px; }
     .actionbar-left, .actionbar-right { gap: 10px; }
     .brand { font-size: 14px; letter-spacing: 3px; }
@@ -3562,7 +3841,8 @@ html.scene-street.resume-play .boot-screen {
     .table-chat { width: min(220px, 70vw); max-height: none; }
     .table-chat.collapsed { width: auto; max-height: none; }
 
-    .act { padding: 12px 14px; font-size: 13px; letter-spacing: 1px; flex: 0 1 auto; }
+    .act:not(.act-art) { padding: 12px 14px; font-size: 13px; letter-spacing: 1px; flex: 0 1 auto; }
+    .act-art-img { height: 46px; max-height: 48px; }
     .actionbar { gap: 8px; }
     .actionbar-left, .actionbar-right { gap: 8px; }
     .name-entry-row { gap: 8px; }
@@ -3592,7 +3872,7 @@ html.scene-street.resume-play .boot-screen {
     .gameplay-toolbar.topbar .topbar-actions.toolbar-actions {
         gap: 8px !important;
     }
-    .gameplay-toolbar.topbar button.toolbar-btn {
+    .gameplay-toolbar.topbar button.toolbar-btn:not(.toolbar-pill) {
         padding: 6px 10px !important;
         min-height: 44px !important;
         min-width: 44px !important;
@@ -3600,6 +3880,10 @@ html.scene-street.resume-play .boot-screen {
         letter-spacing: 0.01em !important;
         border: 1px solid var(--toolbar-outline) !important;
         border-radius: 999px !important;
+    }
+    .gameplay-toolbar .toolbar-pill-img {
+        height: 36px;
+        max-height: 40px;
     }
     .gameplay-toolbar.topbar .toolbar-item-settings.toolbar-btn,
     .gameplay-toolbar.topbar .toolbar-more-trigger {
@@ -3693,7 +3977,9 @@ html.scene-street.resume-play .boot-screen {
     }
     .hud-bottom-row.chat-open .ai-advice { width: min(210px, 34vw); }
 
-    .act { padding: 10px 14px; font-size: 12px; flex: 0 1 auto; }
+    .act:not(.act-art) { padding: 10px 14px; font-size: 12px; flex: 0 1 auto; }
+    .act-art-img { height: 42px; max-height: 44px; }
+    .act-art-detail { font-size: 9px; bottom: 20%; }
     .actionbar {
         gap: 8px;
         /* Corners of this row sit below the notch, so the side inset no
