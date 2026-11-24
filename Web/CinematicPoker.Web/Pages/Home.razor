@@ -5632,11 +5632,19 @@
     private IReadOnlyList<Card> HoleCardsOf(int seat) =>
         SeatOf(seat)?.HoleCards ?? (IReadOnlyList<Card>)Array.Empty<Card>();
 
-    // Kenney boardgame pack card faces (CC0) — see ASSET_LICENSES.md.
+    // Western poker deck (rank+suit filenames, e.g. AS.png, 10C.png) — see ASSET_LICENSES.md.
     private static string CardImage(Card card)
     {
         string rank = card.Rank == Rank.Ten ? "10" : Card.RankSymbol(card.Rank);
-        return $"img/cards/{card.Suit.ToString().ToLowerInvariant()}_{rank}.png";
+        string suit = card.Suit switch
+        {
+            Suit.Clubs => "C",
+            Suit.Diamonds => "D",
+            Suit.Hearts => "H",
+            Suit.Spades => "S",
+            _ => "C"
+        };
+        return $"img/cards/{rank}{suit}.png";
     }
 
     // -------------------------------------------------------------- backdrop

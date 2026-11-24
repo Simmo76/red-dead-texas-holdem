@@ -1105,13 +1105,16 @@ html.scene-street.resume-play .boot-screen {
     flex-direction: column;
     /* The pair hugs the right border, under the last board cards. */
     align-items: flex-end;
-    gap: 5px;
-    padding: 5px 7px;
-    background: rgba(8, 5, 3, 0.55);
-    border: 1px solid rgba(216, 178, 92, 0.55);
-    border-radius: 8px;
+    gap: 6px;
+    padding: 14px 16px 12px;
+    background: transparent url('img/cards/panel.png') center / 100% 100% no-repeat;
+    border: 1px solid transparent;
+    border-radius: 12px;
     cursor: pointer;
     animation: board-window-pulse 2s ease-in-out infinite;
+    min-width: min(100%, 280px);
+    aspect-ratio: 1200 / 650;
+    box-sizing: border-box;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1143,8 +1146,10 @@ html.scene-street.resume-play .boot-screen {
 .hud-card {
     width: 49px;
     height: auto;
-    border-radius: 3px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    aspect-ratio: 300 / 420;
+    object-fit: contain;
+    border-radius: 0;
+    box-shadow: none;
     transition: width 0.15s ease;
 }
 
@@ -1212,7 +1217,9 @@ html.scene-street.resume-play .boot-screen {
 .board-expanded .hud-meters .actor-stack { font-size: 15px; margin-top: 1px; }
 .board-expanded .hud-meters .actor-status { font-size: 11px; }
 
-.hud-card.facedown { opacity: 0.35; }
+.hud-card.facedown {
+    opacity: 1;
+}
 
 /* Opening-hands tutorial expand/minimise icon button: sits to the left of
    the player's two cards in the lower row. See ShowEnlargeHint in
@@ -3981,9 +3988,9 @@ html.scene-street.resume-play .boot-screen {
     .hud-stack { font-size: 20px; padding: 7px 14px; }
     .hud-stack-icon { width: 20px; height: 20px; flex-basis: 20px; }
     .hud-hand-rail { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 6px; }
-    .hud-board { gap: 4px; padding: 4px 5px; }
+    .hud-board { gap: 4px; padding: 10px 12px 8px; }
     .hud-row { gap: 3px; }
-    .hud-card { width: 38px; }
+    .hud-card { width: 42px; }
     /* 1.3x larger expanded panel, clamped so five cards never overflow a narrow screen. */
     .hud-board.expanded .hud-row { gap: 2px; }
     .hud-board.expanded .hud-card { width: min(196px, calc((100vw - 40px) * 0.546), calc((100vw - 24px) / 5)); }
@@ -4094,8 +4101,8 @@ html.scene-street.resume-play .boot-screen {
        on that row, so the hand window must start below it. */
     .hud-hand-rail { top: 48px; right: max(8px, env(safe-area-inset-right, 0px)); gap: 6px; }
     html.notch-left .hud-hand-rail { right: 8px; }
-    .hud-board { gap: 4px; padding: 4px 5px; }
-    .hud-card { width: 40px; }
+    .hud-board { gap: 4px; padding: 10px 12px 8px; }
+    .hud-card { width: 42px; }
     /* Enlarged: start below the (possibly wrapped) top-bar buttons at 1.3x
        the old close-up size; the last min() term keeps both rows on-screen. */
     .board-expanded-rail .hud-board.expanded {

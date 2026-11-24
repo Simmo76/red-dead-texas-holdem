@@ -8,7 +8,8 @@ no unlicensed third-party IP.
 
 | Asset | Files in repo | Source | Author | Licence |
 |---|---|---|---|---|
-| Boardgame Pack v2 — playing card faces, card back | `Assets/Resources/Poker/Cards/*.png`, `Web/CinematicPoker.Web/wwwroot/img/cards/*.png` | [kenney.nl/assets/boardgame-pack](https://kenney.nl/assets/boardgame-pack) | Kenney Vleugels (kenney.nl) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| Western poker deck — 52 face textures (`{rank}{suit}.png`, 300×420 RGBA), `card-back.png`, HUD `panel.png` | `Web/CinematicPoker.Web/wwwroot/img/cards/*.png` | User-supplied `western-poker-deck` package (integrated for Dead Man's Hand) | Supplied by repository owner | Licensed to the repository owner for use in this project |
+| Boardgame Pack v2 — playing card faces, card back (Unity prototype only) | `Assets/Resources/Poker/Cards/*.png` | [kenney.nl/assets/boardgame-pack](https://kenney.nl/assets/boardgame-pack) | Kenney Vleugels (kenney.nl) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | Poker Chips (Asset Store 208926) — low-poly chip mesh, colour materials and texture maps. Unity keeps the package prefabs/FBX under `Assets/Resources/Poker/Chips/`. The web table uses one GLB baked to the previous cylinder size (radius 0.045, height 0.012) plus 512px colour/normal/roughness maps so stack scale and orientation stay unchanged. Source `.unitypackage` is not committed; unrelated scripts in that package were not imported. | `Assets/Resources/Poker/Chips/**`, `Web/CinematicPoker.Web/wwwroot/models/props/chips/*` | [Poker Chips](https://assetstore.unity.com/packages/3d/props/poker-chips-208926) (supplied privately via Dropbox as `poker_chips.unitypackage`) | Andrii Sedykh | [Unity Asset Store EULA](https://unity.com/legal/as-terms) — single-entity licence held by the repo owner; assets embedded as integrated parts of this project only |
 | Casino Audio 1.1 — card shuffle/slide/place/shove, chip stack/handle/collide (re-encoded to MP3 for iOS Safari) | `Assets/Resources/Poker/Audio/*.ogg`, `Web/CinematicPoker.Web/wwwroot/audio/*.mp3` | [kenney.nl/assets/casino-audio](https://kenney.nl/assets/casino-audio) | Kenney Vleugels (kenney.nl) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | Polar Fleece — fabric texture (diffuse 1K), tinted green at runtime as table felt | `Assets/Resources/Poker/Textures/felt.jpg`, `Web/CinematicPoker.Web/wwwroot/img/felt.jpg` | [polyhaven.com/a/polar_fleece](https://polyhaven.com/a/polar_fleece) | Poly Haven (texture team) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
@@ -59,8 +60,9 @@ Notes:
 
 - CC0 requires no attribution, but Kenney and Poly Haven are credited here and in the
   README as a courtesy.
-- Card faces were renamed from Kenney's `cardHeartsA.png` convention to the engine's
-  `hearts_A.png` convention; the card back is Kenney's `cardBack_red2.png`.
+- Web HUD cards use the owner-supplied Western deck: `{rank}{suit}.png` (e.g. `AS.png`,
+  `10C.png`), `back.png`, and `panel.png`. Unity prototype assets under
+  `Assets/Resources/Poker/Cards/` remain Kenney boardgame pack.
 - When adding any new asset: verify the licence on the source page, add a row to this
   table in the same commit, and never import content from Rockstar, Disney/Lucasfilm,
   Playboy, Eon/Bond or any other third-party IP.
