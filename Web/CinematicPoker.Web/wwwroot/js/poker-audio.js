@@ -259,20 +259,78 @@ window.pokerAudio = (function () {
     ];
     const SALOON_AMBIENCE_URL = 'audio/saloon-bar-ambience.mp3';
     const STREET_AMBIENCE_URL = 'audio/street/crowd-shouting.ogg';
+    // Smallest bed per scene — first pick after a scene change or cold cache.
+    const FAST_MUSIC_BY_SCENE = {
+        saloon: 'audio/saloon/wireless-rag.mp3',
+        street: 'audio/street/battle-music-vol162-04.mp3'
+    };
     const MUSIC_VOLUME = 0.12;
     const MUSIC_FADE_SECONDS = 2.5;
     let sceneName = 'saloon';
     let recentMusic = [];
+    const preloadEls = {};
+
+    function normalizeMusicUrl(url) {
+        if (!url) return '';
+        var s = String(url);
+        var idx = s.indexOf('audio/');
+        if (idx >= 0) return s.slice(idx);
+        return s;
+    }
+
+    function musicTrackKey(audio) {
+        if (!audio) return '';
+        try {
+            var src = audio.currentSrc || audio.src || '';
+            if (!src) return '';
+            var path = src;
+            try { path = new URL(src, location.href).pathname; } catch (e) { }
+            return normalizeMusicUrl(path);
+        } catch (e2) { return ''; }
+    }
+
+    function activeMusicTrackKeys() {
+        var active = {};
+        var k1 = musicTrackKey(music);
+        var k2 = musicTrackKey(musicFadingOut);
+        if (k1) active[k1] = true;
+        if (k2) active[k2] = true;
+        return active;
+    }
+
+    function preloadMusicUrl(url) {
+        if (!url || preloadEls[url]) return;
+        const a = new Audio();
+        a.preload = 'auto';
+        a.src = url;
+        preloadEls[url] = a;
+        try { a.load(); } catch (e) { }
+    }
+
+    function preloadSceneMusic(scene, full) {
+        const tracks = scene === 'street' ? STREET_MUSIC_TRACKS : SALOON_MUSIC_TRACKS;
+        const fast = FAST_MUSIC_BY_SCENE[scene];
+        if (fast) preloadMusicUrl(fast);
+        preloadMusicUrl(scene === 'street' ? STREET_AMBIENCE_URL : SALOON_AMBIENCE_URL);
+        if (full) tracks.forEach(preloadMusicUrl);
+    }
 
     function pickMusic() {
         const tracks = sceneName === 'street' ? STREET_MUSIC_TRACKS : SALOON_MUSIC_TRACKS;
+        const active = activeMusicTrackKeys();
+        const fast = FAST_MUSIC_BY_SCENE[sceneName];
+        if (!recentMusic.length && fast && tracks.indexOf(fast) !== -1 && !active[fast]) {
+            recentMusic.push(fast);
+            return fast;
+        }
         let candidates = tracks.filter(function (url) {
-            return recentMusic.indexOf(url) === -1;
+            return recentMusic.indexOf(url) === -1 && !active[url];
         });
         if (!candidates.length) {
             recentMusic = [];
-            candidates = tracks.slice();
+            candidates = tracks.filter(function (url) { return !active[url]; });
         }
+        if (!candidates.length) candidates = tracks.slice();
         const url = candidates[Math.floor(Math.random() * candidates.length)];
         recentMusic.push(url);
         return url;
@@ -331,6 +389,8 @@ window.pokerAudio = (function () {
     function beginMusicCrossfade(outgoing) {
         if (!outgoing || outgoing._crossfading) return;
         outgoing._crossfading = true;
+        const outKey = musicTrackKey(outgoing);
+        if (outKey && recentMusic.indexOf(outKey) === -1) recentMusic.push(outKey);
         if (musicFadingOut && musicFadingOut !== outgoing) disposeMusic(musicFadingOut);
         musicFadingOut = outgoing;
         if (music === outgoing) music = null;
@@ -402,20 +462,68 @@ window.pokerAudio = (function () {
         }, 100);
     }
 
+    function musicBedBroken(audio) {
+        if (!audio) return false;
+        if (audio.error) return true;
+        try {
+            if (audio.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) return true;
+        } catch (e) { }
+        return false;
+    }
+
+    function retryMusicPlay(audio, opts) {
+        if (!audio) return;
+        const p = audio.play();
+        if (!p) return;
+        p.catch(function () {
+            if (opts && opts._playRetry) return;
+            if (audio === music) {
+                disposeMusic(music);
+                music = null;
+            } else if (audio === ambience) {
+                silenceElement(ambience);
+                ambience = null;
+            }
+            startMusic(Object.assign({}, opts || {}, { _playRetry: true }));
+        });
+    }
+
+    // (Re)start saloon/octagon beds. Unlike setScene on octagon, the default
+    // saloon scene never forced a stop/start, so a rejected first play() could
+    // leave HTMLAudio elements stuck paused until the scene was changed.
+    function ensureMusicBeds(opts) {
+        if (introPlaying) return;
+        if (channels.music && musicBedBroken(music)) {
+            disposeMusic(music);
+            music = null;
+        }
+        if (channels.ambience && musicBedBroken(ambience)) {
+            silenceElement(ambience);
+            ambience = null;
+        }
+        startMusic(opts);
+    }
+
     function startMusic(opts) {
         if (introPlaying) return;
-        const fadeIn = !!(opts && opts.fadeIn);
+        opts = opts || {};
+        const fadeIn = !!opts.fadeIn;
         try {
             if (!ambience && channels.ambience) {
                 const ambienceUrl = sceneName === 'street' ? STREET_AMBIENCE_URL : SALOON_AMBIENCE_URL;
                 ambience = new Audio(ambienceUrl);
                 ambience.loop = true;
                 ambience.volume = 0.08;
-                const ambiencePlay = ambience.play();
-                if (ambiencePlay) ambiencePlay.catch(function () { });
+                retryMusicPlay(ambience, opts);
+            } else if (ambience && ambience.paused && channels.ambience) {
+                retryMusicPlay(ambience, opts);
             }
             if (!music && channels.music) {
-                const track = new Audio(pickMusic());
+                const bedUrl = pickMusic();
+                preloadMusicUrl(bedUrl);
+                const track = new Audio();
+                track.preload = 'auto';
+                track.src = bedUrl;
                 music = track;
                 track.volume = fadeIn ? 0 : MUSIC_VOLUME;
                 track._onTimeUpdate = function () {
@@ -438,31 +546,39 @@ window.pokerAudio = (function () {
                     startMusic({ fadeIn: true });
                 });
                 if (fadeIn) {
-                    const fadeSec = (opts && opts.fadeSeconds) || MUSIC_FADE_SECONDS;
+                    const fadeSec = opts.fadeSeconds || MUSIC_FADE_SECONDS;
                     fadeMusicTo(track, MUSIC_VOLUME, fadeSec);
                 }
-            }
-            if (music) {
-                const p = music.play();
-                if (p) p.catch(function () { });
+                retryMusicPlay(track, opts);
+            } else if (music && music.paused && channels.music) {
+                retryMusicPlay(music, opts);
             }
         } catch (e) { }
     }
 
-    // Skip the current bed (or the intro score) and fade in another track
-    // from the same backdrop. No-op while the MUSIC channel is off.
+    // >> tune: hard cut to the next playlist bed (no crossfade). End-of-track
+    // rotation still crossfades so long beds blend into the next automatically.
+    function skipToNextTrack() {
+        const outgoing = music || musicFadingOut;
+        if (outgoing) {
+            const outKey = musicTrackKey(outgoing);
+            if (outKey && recentMusic.indexOf(outKey) === -1) recentMusic.push(outKey);
+        }
+        disposeMusic(music);
+        disposeMusic(musicFadingOut);
+        music = null;
+        musicFadingOut = null;
+        startMusic();
+    }
+
     function nextSong() {
         if (!channels.music) return;
         if (introPlaying) {
             stopIntroAudio();
-            startMusic({ fadeIn: true });
+            startMusic();
             return;
         }
-        if (music && !music._crossfading) {
-            beginMusicCrossfade(music);
-            return;
-        }
-        if (!music) startMusic({ fadeIn: true });
+        skipToNextTrack();
     }
 
     // Stops the music beds only — ambience (background crowd) keeps going.
@@ -740,6 +856,16 @@ window.pokerAudio = (function () {
         }, 20000 + Math.random() * 18000);
     })();
 
+    (function bootMusicPreload() {
+        try {
+            var saved = localStorage.getItem('cinematic-poker-table-scene');
+            var current = saved === 'street' ? 'street' : 'saloon';
+            var other = current === 'street' ? 'saloon' : 'street';
+            preloadSceneMusic(current, false);
+            preloadSceneMusic(other, false);
+        } catch (e) { }
+    })();
+
     return {
         play: play,
         button: button,
@@ -767,12 +893,20 @@ window.pokerAudio = (function () {
         setScene: function (name) {
             const next = String(name || '').toLowerCase().indexOf('street') !== -1
                 ? 'street' : 'saloon';
-            if (next === sceneName) return;
-            sceneName = next;
-            recentMusic = [];
-            stopMusic();
-            startMusic();
+            if (next !== sceneName) {
+                sceneName = next;
+                recentMusic = [];
+                stopMusic();
+            }
+            preloadSceneMusic(next, true);
+            ensureMusicBeds();
         },
+        preloadScene: function (scene, full) {
+            const next = String(scene || '').toLowerCase().indexOf('street') !== -1
+                ? 'street' : 'saloon';
+            preloadSceneMusic(next, !!full);
+        },
+        ensureMusicBeds: ensureMusicBeds,
         // Short fanfare when the player wins a pot (steady pitch: unlike SFX,
         // a detuned jingle is instantly noticeable).
         victory: function () {
@@ -824,7 +958,9 @@ window.pokerAudio = (function () {
                     dealerPlaying = false;
                 }
             }
-            if ((channels.music && !wasMusic) || (channels.ambience && !wasAmbience)) startMusic();
+            if ((channels.music && !wasMusic) || (channels.ambience && !wasAmbience)) {
+                ensureMusicBeds();
+            }
         },
         // Current channel state plus whether it came from this device's own
         // store. Blazor reads this on boot so the settings UI matches what

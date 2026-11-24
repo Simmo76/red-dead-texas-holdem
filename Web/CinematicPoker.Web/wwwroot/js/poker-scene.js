@@ -4289,6 +4289,9 @@ window.pokerScene = {
   setTableScene(id) {
     const next = id === 'street' ? 'street' : 'saloon';
     if (next === TABLE_SCENE) return next;
+    if (window.pokerAudio && window.pokerAudio.preloadScene) {
+      window.pokerAudio.preloadScene(next, true);
+    }
     lockTableCast();
     writeTableScene(next);
     try { sessionStorage.setItem('cinematic-poker-in-game', '1'); } catch (e) { }
