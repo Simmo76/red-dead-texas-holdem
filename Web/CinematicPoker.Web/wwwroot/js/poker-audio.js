@@ -524,28 +524,29 @@ window.pokerAudio = (function () {
         } catch (e) { }
     }
 
-    // Skip the current bed (or the intro score) and fade in another track
-    // from the same backdrop. No-op while the MUSIC channel is off.
+    // >> tune: hard cut to the next playlist bed (no crossfade). End-of-track
+    // rotation still crossfades so long beds blend into the next automatically.
+    function skipToNextTrack() {
+        const outgoing = music || musicFadingOut;
+        if (outgoing) {
+            const outKey = musicTrackKey(outgoing);
+            if (outKey && recentMusic.indexOf(outKey) === -1) recentMusic.push(outKey);
+        }
+        disposeMusic(music);
+        disposeMusic(musicFadingOut);
+        music = null;
+        musicFadingOut = null;
+        startMusic();
+    }
+
     function nextSong() {
         if (!channels.music) return;
         if (introPlaying) {
             stopIntroAudio();
-            startMusic({ fadeIn: true });
+            startMusic();
             return;
         }
-        var outgoing = music;
-        if (!outgoing || outgoing._crossfading) outgoing = musicFadingOut;
-        if (outgoing && !outgoing._crossfading) {
-            beginMusicCrossfade(outgoing);
-            return;
-        }
-        // Already mid-crossfade: advance from the incoming bed instead of
-        // restarting the track that is fading out.
-        if (music && !music._crossfading) {
-            beginMusicCrossfade(music);
-            return;
-        }
-        if (!music) startMusic({ fadeIn: true });
+        skipToNextTrack();
     }
 
     // Stops the music beds only — ambience (background crowd) keeps going.
