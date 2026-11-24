@@ -56,54 +56,81 @@
             }
         </div>
     }
-    <header class="topbar">
-        @* Brand + pot share one left column so the pot always stacks under
-           the title. Absolute top offsets used to collide when the right-side
-           chips wrapped and vertically recentered the brand. *@
-        <div class="topbar-left">
-            <div class="brand">DEAD MAN'S <span>HAND</span></div>
+    <header class="topbar gameplay-toolbar" role="toolbar" aria-label="Game controls" @onclick:stopPropagation="true">
+        <div class="topbar-left toolbar-brand" aria-label="Dead Man's Hand">
+            <div class="brand brand-full">DEAD MAN'S <span>HAND</span></div>
+            <div class="brand brand-compact">DMH</div>
             @if (Round != null)
             {
                 <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b></div>
             }
         </div>
-        <div class="topbar-right">
-            @* One nowrap chip row: short labels keep RULES / >> tune / HANDS /
-               bird's eye / SETTINGS on a single line above the hand window. *@
-            <div class="topbar-actions">
+        <div class="topbar-right toolbar-controls">
+            <div class="topbar-actions toolbar-actions">
                 @if (CanReview && _handHasCompleted && _awaitingNextHand)
                 {
-                    <button class="chip-btn review-hand" @onclick="OpenCoachReview" title="Ask the poker coach about the last hand">
-                        POKER COACH
+                    <button type="button" class="toolbar-btn chip-btn review-hand toolbar-coach" @onclick="OpenCoachReview"
+                            title="Ask the poker coach about the last hand" aria-label="Poker coach">
+                        <span class="toolbar-btn-label">Coach</span>
                     </button>
                 }
-                <button class="chip-btn" @onclick="OpenRules" title="How to play Texas Hold'em">
-                    <span class="chip-gear" aria-hidden="true">?</span> RULES
-                </button>
+                <ToolbarButton IconSrc="icons/toolbar/rules" Label="Rules" AriaLabel="Rules — how to play Texas Hold'em"
+                               OnClick="OpenRules" CssClass="toolbar-primary" />
                 @if (_musicOn)
                 {
-                    <button class="chip-btn" @onclick="NextSong" title="Skip to the next song">
-                        &gt;&gt; tune
-                    </button>
+                    <ToolbarButton IconSrc="icons/toolbar/tune" Label="Tune" AriaLabel="Tune — skip to the next song"
+                                   Title="Skip to the next song" OnClick="NextSong"
+                                   CssClass="toolbar-primary toolbar-item-tune" />
                 }
-                <button class="chip-btn" @onclick="OpenHandRankings" title="Poker hand rankings">
-                    <span class="chip-gear" aria-hidden="true">♠</span> HANDS
-                </button>
+                <ToolbarButton IconSrc="icons/toolbar/hands" Label="Hands" AriaLabel="Hands — poker hand rankings"
+                               OnClick="OpenHandRankings" CssClass="toolbar-primary" />
                 @if (_sceneReady)
                 {
-                    <button class="chip-btn @(_overheadView ? "active" : "")" @onclick="ToggleOverheadView"
-                            title="@(_overheadView ? "Back to your seat" : "Overhead camera — see every player's remaining chips")">
-                        <span class="chip-gear" aria-hidden="true">◎</span> @(_overheadView ? "seat view" : "bird's eye")
-                    </button>
+                    <ToolbarButton IconSrc="icons/toolbar/view" Label="View"
+                                   AriaLabel="@(_overheadView ? "View — return to seat camera" : "View — overhead table camera")"
+                                   Title="@(_overheadView ? "Back to your seat" : "Overhead camera — see every player's remaining chips")"
+                                   Active="_overheadView" Toggle="true" OnClick="ToggleOverheadView"
+                                   CssClass="toolbar-primary toolbar-item-view" />
                 }
-                <button class="chip-btn topbar-settings" @onclick="OpenSettings" title="Game settings">
-                    <span class="chip-gear" aria-hidden="true">⚙</span> SETTINGS
-                </button>
+                <ToolbarButton IconSrc="icons/toolbar/settings" AriaLabel="Settings" Title="Game settings"
+                               OnClick="OpenSettings" ShowLabel="false" CssClass="toolbar-primary toolbar-item-settings" />
+                <div class="toolbar-more-wrap">
+                    <button type="button" class="toolbar-btn chip-btn toolbar-btn-icon toolbar-more-trigger"
+                            aria-label="More actions" aria-haspopup="menu" aria-expanded="@_toolbarMoreOpen"
+                            @onclick="ToggleToolbarMore">
+                        <span class="toolbar-btn-icon" aria-hidden="true">
+                            <img class="toolbar-icon-img" src="icons/toolbar/more.svg" alt="" width="24" height="24" />
+                        </span>
+                    </button>
+                    @if (_toolbarMoreOpen)
+                    {
+                        <div class="toolbar-overflow-menu" role="menu" @onclick:stopPropagation="true">
+                            @if (_musicOn)
+                            {
+                                <button type="button" class="toolbar-overflow-item" role="menuitem" @onclick="OverflowTune">
+                                    <img src="icons/toolbar/tune.svg" alt="" width="24" height="24" aria-hidden="true" />
+                                    Tune
+                                </button>
+                            }
+                            <button type="button" class="toolbar-overflow-item" role="menuitem" @onclick="OverflowSettings">
+                                <img src="icons/toolbar/settings.svg" alt="" width="24" height="24" aria-hidden="true" />
+                                Settings
+                            </button>
+                            @if (ShowInviteButton && !_isGuest)
+                            {
+                                <button type="button" class="toolbar-overflow-item" role="menuitem" @onclick="OverflowInvite">
+                                    Invite friend
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
             </div>
             @if (ShowInviteButton && !_isGuest)
             {
-                <button class="chip-btn invite-btn" @onclick="OpenInvite" title="Invite a friend to this table">
-                    <span aria-hidden="true">♧</span> INVITE FRIEND
+                <button type="button" class="chip-btn invite-btn toolbar-invite-wide" @onclick="OpenInvite"
+                        title="Invite a friend to this table" aria-label="Invite friend">
+                    <span aria-hidden="true">♧</span> Invite
                 </button>
             }
         </div>
@@ -2600,7 +2627,36 @@
     // puts the window back to its normal corner size. Taps on the window
     // itself stop propagation, so this never fights the toggle below. The
     // camera is left alone: this is a dismiss, not "back to my seat".
-    private void CollapseHudBoard() => _hudBoardExpanded = false;
+    private void CollapseHudBoard()
+    {
+        _hudBoardExpanded = false;
+        _toolbarMoreOpen = false;
+    }
+
+    private bool _toolbarMoreOpen;
+
+    private void ToggleToolbarMore()
+    {
+        _toolbarMoreOpen = !_toolbarMoreOpen;
+    }
+
+    private void OverflowTune()
+    {
+        _toolbarMoreOpen = false;
+        NextSong();
+    }
+
+    private void OverflowSettings()
+    {
+        _toolbarMoreOpen = false;
+        OpenSettings();
+    }
+
+    private async Task OverflowInvite()
+    {
+        _toolbarMoreOpen = false;
+        await OpenInvite();
+    }
 
     // Tapping the community-cards window also brings the camera home to the
     // over-the-shoulder view, so it doubles as a "back to my seat" button.

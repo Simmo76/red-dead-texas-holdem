@@ -3,17 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Settings row preview — Dead Man's Hand</title>
+  <title>Toolbar preview — Dead Man's Hand</title>
   <link rel="stylesheet" href="css/app.css" />
   <style>
-    /* Layout-only preview of the topbar + hand window at iPhone landscape size. */
     html, body { background: #1a100c; }
     .preview-note {
       position: fixed;
       left: 12px;
       bottom: 12px;
       z-index: 20;
-      max-width: 320px;
+      max-width: 360px;
       padding: 10px 14px;
       border: 1px solid rgba(216, 178, 92, 0.45);
       border-radius: 10px;
@@ -21,7 +20,6 @@
       color: #e8e4d8;
       font: 13px/1.4 Georgia, "Times New Roman", serif;
     }
-    .preview-note strong { color: #d8b25c; }
     .preview-stage {
       position: fixed;
       inset: 0;
@@ -30,7 +28,6 @@
       justify-content: center;
       padding: 24px;
     }
-    /* Force the short-landscape rules used on iPhone sideways (~844×390 CSS px). */
     .phone-frame {
       position: relative;
       width: min(844px, 100%);
@@ -43,43 +40,37 @@
         #0e0906;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
     }
-    .phone-frame .topbar {
-      padding-top: 6px;
-      padding-left: 14px;
-      padding-right: 14px;
-    }
-    .phone-frame .topbar-right { gap: 6px; max-width: 78%; }
-    .phone-frame .topbar-actions { gap: 6px; flex-wrap: nowrap; }
-    .phone-frame .chip-btn { padding: 4px 8px; font-size: 10px; }
-    .phone-frame .topbar .chip-btn { padding: 6px 10px; min-height: 32px; font-size: 11px; letter-spacing: 1px; }
-    .phone-frame .chip-gear { font-size: 14px; }
-    .phone-frame .brand { font-size: 12px; letter-spacing: 2px; min-height: 32px; }
-    .phone-frame .hud-pot { font-size: 16px; padding: 6px 14px; }
-    .phone-frame .hud-hand-rail {
-      top: 48px;
-      right: 8px;
-      gap: 6px;
-    }
-    .phone-frame .hud-board { gap: 4px; padding: 4px 5px; }
-    .phone-frame .hud-card { width: 40px; }
   </style>
 </head>
 <body>
   <div class="preview-stage">
     <div class="phone-frame game3d" aria-label="iPhone landscape layout preview">
-      <header class="topbar">
-        <div class="topbar-left">
-          <div class="brand">DEAD MAN'S <span>HAND</span></div>
+      <header class="topbar gameplay-toolbar" role="toolbar" aria-label="Game controls">
+        <div class="topbar-left toolbar-brand" aria-label="Dead Man's Hand">
+          <div class="brand brand-full">DEAD MAN'S <span>HAND</span></div>
+          <div class="brand brand-compact">DMH</div>
           <div class="hud-pot">POT&nbsp;<b>$15</b></div>
         </div>
-        <div class="topbar-right">
-          <div class="topbar-actions">
-            <button class="chip-btn" type="button"><span class="chip-gear" aria-hidden="true">?</span> RULES</button>
-            <button class="chip-btn" type="button">&gt;&gt; tune</button>
-            <button class="chip-btn" type="button"><span class="chip-gear" aria-hidden="true">♠</span> HANDS</button>
-            <button class="chip-btn" type="button"><span class="chip-gear" aria-hidden="true">◎</span> bird's eye</button>
-            <button class="chip-btn topbar-settings" type="button">
-              <span class="chip-gear" aria-hidden="true">⚙</span> SETTINGS
+        <div class="topbar-right toolbar-controls">
+          <div class="topbar-actions toolbar-actions">
+            <button type="button" class="toolbar-btn chip-btn toolbar-primary">
+              <span class="toolbar-btn-icon" aria-hidden="true"><img class="toolbar-icon-img" src="icons/toolbar/rules.svg" alt="" width="24" height="24" /></span>
+              <span class="toolbar-btn-label">Rules</span>
+            </button>
+            <button type="button" class="toolbar-btn chip-btn toolbar-primary toolbar-item-tune">
+              <span class="toolbar-btn-icon" aria-hidden="true"><img class="toolbar-icon-img" src="icons/toolbar/tune.svg" alt="" width="24" height="24" /></span>
+              <span class="toolbar-btn-label">Tune</span>
+            </button>
+            <button type="button" class="toolbar-btn chip-btn toolbar-primary">
+              <span class="toolbar-btn-icon" aria-hidden="true"><img class="toolbar-icon-img" src="icons/toolbar/hands.svg" alt="" width="24" height="24" /></span>
+              <span class="toolbar-btn-label">Hands</span>
+            </button>
+            <button type="button" class="toolbar-btn chip-btn toolbar-primary toolbar-item-view">
+              <span class="toolbar-btn-icon" aria-hidden="true"><img class="toolbar-icon-img" src="icons/toolbar/view.svg" alt="" width="24" height="24" /></span>
+              <span class="toolbar-btn-label">View</span>
+            </button>
+            <button type="button" class="toolbar-btn chip-btn toolbar-primary toolbar-item-settings" aria-label="Settings">
+              <span class="toolbar-btn-icon" aria-hidden="true"><img class="toolbar-icon-img" src="icons/toolbar/settings.svg" alt="" width="24" height="24" /></span>
             </button>
           </div>
         </div>
@@ -94,20 +85,14 @@
             <img class="hud-card" src="img/cards/clubs_6.png" alt="" />
             <img class="hud-card" src="img/cards/hearts_7.png" alt="" />
           </div>
-          <div class="hud-row hud-hole hud-card-cue-row">
-            <img class="hud-card" src="img/cards/clubs_6.png" alt="" />
-            <img class="hud-card" src="img/cards/hearts_7.png" alt="" />
-          </div>
         </div>
       </div>
     </div>
   </div>
 
   <p class="preview-note">
-    <strong>Layout preview</strong> of the SETTINGS fix at iPhone landscape size.
-    SETTINGS stays on the top chip row and sits above the hand window.
-    Full game: GitHub Pages branch preview in the PR. Layout-only:
-    https://simmo76.github.io/red-dead-texas-holdem/topbar-preview/
+    <strong>Toolbar redesign</strong> — compact landscape (DMH, icon + caption).
+    Acceptance harness for IMPLEMENTATION.md. Full game ships via branch preview on GitHub Pages.
   </p>
 </body>
 </html>

@@ -1,0 +1,40 @@
+<button type="button"
+        class="toolbar-btn chip-btn @CssClass @(Active ? "active" : "")"
+        @onclick="HandleClick"
+        aria-label="@EffectiveAriaLabel"
+        aria-pressed="@(Toggle ? Active : (bool?)null)"
+        title="@(Title ?? EffectiveAriaLabel)"
+        disabled="@Disabled">
+    @if (!string.IsNullOrEmpty(IconSrc))
+    {
+        <span class="toolbar-btn-icon" aria-hidden="true">
+            <img class="toolbar-icon-img toolbar-icon-fallback" src="@($"{IconSrc}.png")" alt="" width="24" height="24" />
+            <img class="toolbar-icon-img toolbar-icon-vector" src="@($"{IconSrc}.svg")" alt="" width="24" height="24" />
+        </span>
+    }
+    @if (ShowLabel && !string.IsNullOrEmpty(Label))
+    {
+        <span class="toolbar-btn-label">@Label</span>
+    }
+</button>
+
+@code {
+    [Parameter] public string? IconSrc { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? CssClass { get; set; }
+    [Parameter] public bool Active { get; set; }
+    [Parameter] public bool Toggle { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool ShowLabel { get; set; } = true;
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private string EffectiveAriaLabel => AriaLabel ?? Label ?? Title ?? "Action";
+
+    private async Task HandleClick()
+    {
+        if (Disabled) return;
+        await OnClick.InvokeAsync();
+    }
+}

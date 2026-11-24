@@ -31,6 +31,14 @@
     --text-dim: #a89a84;
     --red: #c0392b;
     --green: #57c785;
+    /* Mobile gameplay toolbar (IMPLEMENTATION.md) */
+    --toolbar-bg: rgba(24, 20, 16, 0.92);
+    --toolbar-icon: #d9b875;
+    --toolbar-text: #f4e8d2;
+    --toolbar-border: #795733;
+    --toolbar-active: #ffc66b;
+    --toolbar-gap: 8px;
+    --toolbar-radius: 10px;
 }
 
 * { box-sizing: border-box; }
@@ -158,6 +166,192 @@ html.scene-street.resume-play .boot-screen {
     /* Above the hand rail (z-index 5) so SETTINGS and the other top chips
        stay visible and tappable when the card window sits under this row. */
     z-index: 8;
+    pointer-events: none;
+}
+
+.gameplay-toolbar {
+    background: linear-gradient(180deg, var(--toolbar-bg) 0%, rgba(24, 20, 16, 0.55) 88%, transparent 100%);
+    border-bottom: 1px solid rgba(121, 87, 51, 0.35);
+}
+
+.gameplay-toolbar .toolbar-brand,
+.gameplay-toolbar .toolbar-controls,
+.gameplay-toolbar .toolbar-btn,
+.gameplay-toolbar .toolbar-overflow-menu,
+.gameplay-toolbar .invite-btn {
+    pointer-events: auto;
+}
+
+.brand-compact {
+    display: none;
+    font-size: 15px;
+    letter-spacing: 4px;
+    min-height: 44px;
+}
+
+.toolbar-controls {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: var(--toolbar-gap);
+    min-width: 0;
+}
+
+.toolbar-actions {
+    align-items: stretch;
+    gap: var(--toolbar-gap);
+}
+
+.toolbar-btn {
+    gap: 6px;
+    min-width: 44px;
+    min-height: 44px;
+    border-color: var(--toolbar-border);
+    background: rgba(12, 9, 6, 0.78);
+    color: var(--toolbar-text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    text-transform: none;
+}
+
+.toolbar-btn:focus-visible {
+    outline: 2px solid var(--toolbar-active);
+    outline-offset: 2px;
+}
+
+.toolbar-btn-label {
+    line-height: 1.1;
+    color: var(--toolbar-text);
+}
+
+.toolbar-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
+}
+
+.toolbar-icon-img {
+    display: block;
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.toolbar-icon-fallback {
+    display: none;
+}
+
+.gameplay-toolbar .toolbar-btn.active {
+    color: var(--toolbar-active);
+    border-color: var(--toolbar-active);
+    box-shadow: 0 0 0 1px rgba(255, 198, 107, 0.35);
+    background: rgba(35, 26, 12, 0.9);
+}
+
+.gameplay-toolbar .toolbar-btn::after {
+    content: "";
+    position: absolute;
+    inset: -4px -2px;
+}
+
+.toolbar-more-wrap {
+    position: relative;
+    display: none;
+    flex: 0 0 auto;
+}
+
+.toolbar-overflow-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 168px;
+    padding: 6px;
+    border-radius: var(--toolbar-radius);
+    border: 1px solid var(--toolbar-border);
+    background: var(--toolbar-bg);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+    z-index: 12;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.toolbar-overflow-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--toolbar-text);
+    font: 13px system-ui, -apple-system, sans-serif;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+}
+
+.toolbar-overflow-item:hover,
+.toolbar-overflow-item:focus-visible {
+    background: rgba(121, 87, 51, 0.25);
+    outline: none;
+}
+
+/* Wide: full brand. Compact (&lt;700px) or short landscape: DMH + stacked icons. */
+@media (max-width: 699px), (max-height: 500px) and (orientation: landscape) {
+    .gameplay-toolbar .brand-full {
+        display: none !important;
+    }
+    .gameplay-toolbar .brand-compact {
+        display: inline-flex !important;
+        align-items: center;
+    }
+    .gameplay-toolbar .toolbar-actions .toolbar-btn.toolbar-primary {
+        flex-direction: column;
+        padding: 6px 8px;
+        min-width: 44px;
+        gap: 4px;
+    }
+    .gameplay-toolbar .toolbar-btn-label {
+        font-size: 11px;
+    }
+    .gameplay-toolbar .toolbar-coach .toolbar-btn-label {
+        font-size: 10px;
+        letter-spacing: 0.5px;
+    }
+}
+
+/* Overflow: Tune + Settings (and wide-only invite) move under More. */
+@media (max-width: 419px) {
+    .gameplay-toolbar .toolbar-item-tune,
+    .gameplay-toolbar .toolbar-item-settings {
+        display: none !important;
+    }
+    .gameplay-toolbar .toolbar-more-wrap {
+        display: flex;
+    }
+    .gameplay-toolbar .toolbar-invite-wide {
+        display: none !important;
+    }
+}
+
+@media (min-width: 420px) {
+    .gameplay-toolbar .toolbar-more-wrap {
+        display: none !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gameplay-toolbar .toolbar-btn,
+    .gameplay-toolbar .toolbar-overflow-menu {
+        transition: none;
+    }
 }
 
 .topbar-left {
@@ -241,12 +435,18 @@ html.scene-street.resume-play .boot-screen {
 
 /* The RULES/HANDS/SETTINGS pills are primary touch targets: render them a
    notch larger than the shared chip style used inside the settings panel. */
+.gameplay-toolbar .toolbar-btn,
 .topbar .chip-btn {
     border-radius: 22px;
     padding: 10px 20px;
-    min-height: 40px;
+    min-height: 44px;
     font-size: 13px;
     position: relative;
+}
+
+.gameplay-toolbar .toolbar-btn {
+    border-radius: var(--toolbar-radius);
+    padding: 8px 12px;
 }
 
 /* Invisible halo: taps that land just outside the pill still count.
