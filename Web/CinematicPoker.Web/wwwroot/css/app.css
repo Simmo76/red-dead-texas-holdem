@@ -31,6 +31,17 @@
     --text-dim: #a89a84;
     --red: #c0392b;
     --green: #57c785;
+    /* Mobile gameplay toolbar (IMPLEMENTATION.md) */
+    --toolbar-bg: rgba(24, 20, 16, 0.92);
+    --toolbar-icon: #e8d4a8;
+    --toolbar-text: #f5e3b5;
+    --toolbar-border: #795733;
+    --toolbar-outline: rgba(232, 206, 148, 0.72);
+    --toolbar-outline-strong: rgba(245, 227, 181, 0.92);
+    --toolbar-pill-bg: rgba(10, 7, 5, 0.88);
+    --toolbar-active: #ffc66b;
+    --toolbar-gap: 8px;
+    --toolbar-radius: 10px;
 }
 
 * { box-sizing: border-box; }
@@ -158,6 +169,288 @@ html.scene-street.resume-play .boot-screen {
     /* Above the hand rail (z-index 5) so SETTINGS and the other top chips
        stay visible and tappable when the card window sits under this row. */
     z-index: 8;
+    pointer-events: none;
+}
+
+.gameplay-toolbar {
+    background: linear-gradient(180deg, rgba(16, 12, 9, 0.72) 0%, rgba(16, 12, 9, 0.2) 72%, transparent 100%);
+    border-bottom: 0;
+}
+
+.gameplay-toolbar .toolbar-brand,
+.gameplay-toolbar .toolbar-controls,
+.gameplay-toolbar .toolbar-btn,
+.gameplay-toolbar .toolbar-overflow-menu,
+.gameplay-toolbar .invite-btn {
+    pointer-events: auto;
+}
+
+.brand-compact {
+    display: none;
+    font-size: 15px;
+    letter-spacing: 4px;
+    min-height: 44px;
+}
+
+.toolbar-controls {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: var(--toolbar-gap);
+    min-width: 0;
+}
+
+.toolbar-actions {
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+/* Never wrap the control row in one shared outline (comp = separate pills). */
+.gameplay-toolbar .topbar-actions.toolbar-actions {
+    gap: 10px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.toolbar-btn {
+    flex-direction: row;
+    gap: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    border: 1px solid var(--toolbar-outline);
+    border-radius: 999px;
+    background: linear-gradient(
+        180deg,
+        rgba(22, 16, 11, 0.94) 0%,
+        rgba(8, 6, 4, 0.92) 100%
+    );
+    color: var(--toolbar-text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    box-shadow:
+        inset 0 1px 0 rgba(245, 227, 181, 0.14),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+        0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.gameplay-toolbar .toolbar-actions .toolbar-btn {
+    padding: 8px 14px;
+}
+
+.gameplay-toolbar .toolbar-actions .toolbar-item-settings {
+    padding: 8px;
+    border-radius: 12px;
+    min-width: 44px;
+    width: 44px;
+    justify-content: center;
+}
+
+.gameplay-toolbar .toolbar-actions .toolbar-more-trigger {
+    padding: 8px;
+    border-radius: 12px;
+    min-width: 44px;
+    width: 44px;
+    justify-content: center;
+}
+
+.gameplay-toolbar .toolbar-coach {
+    margin-right: var(--toolbar-gap);
+    border: 1px solid var(--toolbar-outline);
+    border-radius: 999px;
+    background: linear-gradient(
+        180deg,
+        rgba(22, 16, 11, 0.94) 0%,
+        rgba(8, 6, 4, 0.92) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 rgba(245, 227, 181, 0.14),
+        0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.toolbar-btn:focus-visible {
+    outline: 2px solid var(--toolbar-active);
+    outline-offset: 2px;
+}
+
+.toolbar-btn-label {
+    line-height: 1.1;
+    color: var(--toolbar-text);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.toolbar-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
+}
+
+.toolbar-icon-img {
+    display: block;
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+/* SVGs use currentColor; as <img> they paint black. Show kit PNGs instead. */
+.toolbar-icon-vector {
+    display: none;
+}
+
+.toolbar-icon-fallback {
+    display: block;
+}
+
+.gameplay-toolbar .toolbar-btn.active {
+    color: var(--toolbar-active);
+    border-color: var(--toolbar-outline-strong) !important;
+    background: linear-gradient(
+        180deg,
+        rgba(48, 34, 16, 0.98) 0%,
+        rgba(28, 20, 10, 0.96) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 220, 160, 0.22),
+        0 0 0 1px rgba(255, 198, 107, 0.55),
+        0 0 14px rgba(255, 198, 107, 0.48),
+        0 0 28px rgba(255, 160, 60, 0.22);
+}
+
+.gameplay-toolbar .toolbar-item-view.active .toolbar-btn-label,
+.gameplay-toolbar .toolbar-item-view.active .toolbar-icon-img {
+    filter: drop-shadow(0 0 4px rgba(255, 198, 107, 0.55));
+}
+
+.toolbar-more-wrap {
+    position: relative;
+    display: none;
+    flex: 0 0 auto;
+}
+
+.toolbar-overflow-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 168px;
+    padding: 6px;
+    border-radius: var(--toolbar-radius);
+    border: 1px solid var(--toolbar-border);
+    background: var(--toolbar-bg);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+    z-index: 12;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.toolbar-overflow-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--toolbar-text);
+    font: 13px system-ui, -apple-system, sans-serif;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+}
+
+.toolbar-overflow-item:hover,
+.toolbar-overflow-item:focus-visible {
+    background: rgba(121, 87, 51, 0.25);
+    outline: none;
+}
+
+/* Full title until very narrow; icon stays left of label in every mode. */
+@media (max-width: 559px) {
+    .gameplay-toolbar .brand-full {
+        display: none !important;
+    }
+    .gameplay-toolbar .brand-compact {
+        display: inline-flex !important;
+        align-items: center;
+    }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .gameplay-toolbar .brand-full {
+        font-size: 13px;
+        letter-spacing: 3px;
+        min-height: 44px;
+    }
+    .gameplay-toolbar .brand span {
+        margin-inline-start: 3px;
+    }
+    .gameplay-toolbar .toolbar-actions {
+        gap: 6px;
+    }
+    .gameplay-toolbar .toolbar-actions .toolbar-btn.toolbar-primary {
+        flex-direction: row;
+        padding: 6px 10px;
+        gap: 6px;
+        min-width: 44px;
+        font-size: 12px;
+    }
+    .gameplay-toolbar .toolbar-actions .toolbar-item-settings,
+    .gameplay-toolbar .toolbar-actions .toolbar-more-trigger {
+        padding: 7px;
+        width: 42px;
+        min-width: 42px;
+        min-height: 42px;
+    }
+    .gameplay-toolbar .toolbar-btn-label {
+        font-size: 11px;
+    }
+    .gameplay-toolbar .toolbar-coach .toolbar-btn-label {
+        font-size: 10px;
+        letter-spacing: 0.5px;
+    }
+}
+
+/* Overflow: Tune + Settings (and wide-only invite) move under More. */
+@media (max-width: 419px) {
+    .gameplay-toolbar .toolbar-item-tune,
+    .gameplay-toolbar .toolbar-item-settings {
+        display: none !important;
+    }
+    .gameplay-toolbar .toolbar-more-wrap {
+        display: flex;
+    }
+    .gameplay-toolbar .toolbar-invite-wide {
+        display: none !important;
+    }
+}
+
+@media (min-width: 420px) {
+    .gameplay-toolbar .toolbar-more-wrap {
+        display: none !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gameplay-toolbar .toolbar-btn,
+    .gameplay-toolbar .toolbar-overflow-menu {
+        transition: none;
+    }
 }
 
 .topbar-left {
@@ -239,30 +532,107 @@ html.scene-street.resume-play .boot-screen {
     touch-action: manipulation;
 }
 
-/* The RULES/HANDS/SETTINGS pills are primary touch targets: render them a
-   notch larger than the shared chip style used inside the settings panel. */
-.topbar .chip-btn {
+/* Legacy topbar chips — not the gameplay toolbar pills. */
+.topbar:not(.gameplay-toolbar) .chip-btn {
     border-radius: 22px;
     padding: 10px 20px;
-    min-height: 40px;
+    min-height: 44px;
     font-size: 13px;
     position: relative;
 }
 
+.gameplay-toolbar .toolbar-btn {
+    position: relative;
+}
+
+/* Each gameplay control is its own gold-outlined pill — not .chip-btn. */
+.gameplay-toolbar button.toolbar-btn {
+    flex: 0 0 auto;
+    flex-direction: row;
+    gap: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px 14px;
+    border: 1px solid var(--toolbar-outline) !important;
+    border-radius: 999px !important;
+    background: linear-gradient(
+        180deg,
+        rgba(22, 16, 11, 0.94) 0%,
+        rgba(8, 6, 4, 0.92) 100%
+    ) !important;
+    color: var(--toolbar-text) !important;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 500;
+    letter-spacing: 0.01em !important;
+    text-transform: none;
+    cursor: pointer;
+    box-shadow:
+        inset 0 1px 0 rgba(245, 227, 181, 0.14),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+        0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.gameplay-toolbar .toolbar-item-settings.toolbar-btn,
+.gameplay-toolbar .toolbar-more-trigger {
+    padding: 8px !important;
+    border-radius: 12px !important;
+    width: 44px;
+    min-width: 44px;
+    justify-content: center;
+}
+
+.gameplay-toolbar .toolbar-invite-wide {
+    border: 1px solid var(--toolbar-outline);
+    border-radius: 999px;
+    background: linear-gradient(
+        180deg,
+        rgba(22, 16, 11, 0.94) 0%,
+        rgba(8, 6, 4, 0.92) 100%
+    );
+    color: var(--toolbar-text);
+}
+
 /* Invisible halo: taps that land just outside the pill still count.
    Narrower on the sides so adjacent buttons' halos never overlap. */
-.topbar .chip-btn::after {
+.topbar:not(.gameplay-toolbar) .chip-btn::after {
     content: "";
     position: absolute;
     inset: -6px -3px;
 }
 
+.gameplay-toolbar .toolbar-btn::after {
+    content: "";
+    position: absolute;
+    inset: -4px -2px;
+}
+
 .chip-btn:hover { color: var(--text); border-color: var(--gold-dim); }
+
+.gameplay-toolbar .toolbar-btn:hover {
+    color: var(--toolbar-outline-strong);
+    border-color: var(--toolbar-outline-strong);
+}
 
 .chip-btn.active {
     color: var(--gold);
     border-color: var(--gold-dim);
     background: rgba(35, 26, 12, 0.85);
+}
+
+.gameplay-toolbar button.toolbar-btn.active {
+    color: var(--toolbar-active) !important;
+    border-color: var(--toolbar-outline-strong) !important;
+    background: linear-gradient(
+        180deg,
+        rgba(48, 34, 16, 0.98) 0%,
+        rgba(28, 20, 10, 0.96) 100%
+    ) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 220, 160, 0.22),
+        0 0 0 1px rgba(255, 198, 107, 0.55),
+        0 0 14px rgba(255, 198, 107, 0.48),
+        0 0 28px rgba(255, 160, 60, 0.22);
 }
 
 .invite-btn {
@@ -3131,7 +3501,7 @@ html.scene-street.resume-play .boot-screen {
     .topbar-right { gap: 6px; }
     .topbar-actions { gap: 6px; }
     .chip-btn { padding: 5px 10px; font-size: 10px; letter-spacing: 1px; }
-    .topbar .chip-btn { padding: 7px 10px; min-height: 34px; font-size: 11px; letter-spacing: 1px; }
+    .topbar:not(.gameplay-toolbar) .chip-btn { padding: 7px 10px; min-height: 34px; font-size: 11px; letter-spacing: 1px; }
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; min-height: 34px; }
     .brand span { margin-inline-start: 2px; }
@@ -3213,7 +3583,30 @@ html.scene-street.resume-play .boot-screen {
     .topbar-right { gap: 6px; max-width: 78%; }
     .topbar-actions { gap: 6px; }
     .chip-btn { padding: 4px 8px; font-size: 10px; }
-    .topbar .chip-btn { padding: 6px 10px; min-height: 32px; font-size: 11px; letter-spacing: 1px; }
+    .topbar:not(.gameplay-toolbar) .chip-btn {
+        padding: 6px 10px;
+        min-height: 32px;
+        font-size: 11px;
+        letter-spacing: 1px;
+    }
+    .gameplay-toolbar.topbar .topbar-actions.toolbar-actions {
+        gap: 8px !important;
+    }
+    .gameplay-toolbar.topbar button.toolbar-btn {
+        padding: 6px 10px !important;
+        min-height: 44px !important;
+        min-width: 44px !important;
+        font-size: 12px !important;
+        letter-spacing: 0.01em !important;
+        border: 1px solid var(--toolbar-outline) !important;
+        border-radius: 999px !important;
+    }
+    .gameplay-toolbar.topbar .toolbar-item-settings.toolbar-btn,
+    .gameplay-toolbar.topbar .toolbar-more-trigger {
+        border-radius: 12px !important;
+        width: 44px;
+        padding: 7px !important;
+    }
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; min-height: 32px; }
     .brand span { margin-inline-start: 2px; }

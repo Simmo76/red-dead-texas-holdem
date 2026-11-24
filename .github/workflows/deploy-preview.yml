@@ -127,6 +127,9 @@ jobs:
           cp site/index.html site/404.html
           touch site/.nojekyll
 
+      - name: Publish topbar layout preview
+        run: preview-src/tools/copy-topbar-preview.sh site
+
       - name: Add other branch previews
         run: preview-src/tools/collect-previews.sh site "${{ needs.build.outputs.slug }}"
 
