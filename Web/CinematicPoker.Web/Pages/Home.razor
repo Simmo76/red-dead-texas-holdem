@@ -99,7 +99,7 @@
                             aria-label="More actions" aria-haspopup="menu" aria-expanded="@_toolbarMoreOpen"
                             @onclick="ToggleToolbarMore">
                         <span class="toolbar-btn-icon" aria-hidden="true">
-                            <img class="toolbar-icon-img" src="icons/toolbar/more.svg" alt="" width="24" height="24" />
+                            <img class="toolbar-icon-img toolbar-icon-fallback" src="icons/toolbar/more.png" alt="" width="24" height="24" />
                         </span>
                     </button>
                     @if (_toolbarMoreOpen)
@@ -108,12 +108,12 @@
                             @if (_musicOn)
                             {
                                 <button type="button" class="toolbar-overflow-item" role="menuitem" @onclick="OverflowTune">
-                                    <img src="icons/toolbar/tune.svg" alt="" width="24" height="24" aria-hidden="true" />
+                                    <img src="icons/toolbar/tune.png" alt="" width="24" height="24" aria-hidden="true" />
                                     Tune
                                 </button>
                             }
                             <button type="button" class="toolbar-overflow-item" role="menuitem" @onclick="OverflowSettings">
-                                <img src="icons/toolbar/settings.svg" alt="" width="24" height="24" aria-hidden="true" />
+                                <img src="icons/toolbar/settings.png" alt="" width="24" height="24" aria-hidden="true" />
                                 Settings
                             </button>
                             @if (ShowInviteButton && !_isGuest)

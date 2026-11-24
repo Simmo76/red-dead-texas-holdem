@@ -40,6 +40,10 @@ assert(css.includes('max-width: 419px'), 'css: overflow breakpoint');
 assert(css.includes('max-width: 699px'), 'css: compact breakpoint');
 assert(css.includes('pointer-events: none'), 'css: toolbar does not block canvas globally');
 assert(css.includes('.toolbar-overflow-menu'), 'css: More menu');
+assert(
+  css.includes('.toolbar-icon-vector') && css.includes('display: none'),
+  'css: toolbar shows PNG kit icons (SVG as img paints black)',
+);
 
 assert(impl.includes('Acceptance tests'), 'IMPLEMENTATION.md present');
 

@@ -242,8 +242,13 @@ html.scene-street.resume-play .boot-screen {
     object-fit: contain;
 }
 
-.toolbar-icon-fallback {
+/* SVGs use currentColor; as <img> they paint black. Show kit PNGs instead. */
+.toolbar-icon-vector {
     display: none;
+}
+
+.toolbar-icon-fallback {
+    display: block;
 }
 
 .gameplay-toolbar .toolbar-btn.active {
