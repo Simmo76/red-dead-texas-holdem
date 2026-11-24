@@ -2938,6 +2938,21 @@ html.scene-street.resume-play .boot-screen {
     max-width: none;
     max-height: none;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(216, 178, 92, 0.45) transparent;
+}
+
+.settings-art-sheet::-webkit-scrollbar {
+    width: 6px;
+}
+
+.settings-art-sheet::-webkit-scrollbar-thumb {
+    background: rgba(216, 178, 92, 0.4);
+    border-radius: 999px;
+}
+
+.settings-art-sheet::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .settings-art-sheet.settings-box {
@@ -3143,11 +3158,12 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .settings-art-sheet .settings-name-controls .name-input {
-    background: rgba(8, 5, 3, 0.82);
-    border: 1px solid rgba(216, 178, 92, 0.45);
-    border-radius: 10px;
+    background: rgba(8, 5, 3, 0.72);
+    border: 1px solid rgba(216, 178, 92, 0.5);
+    border-radius: 8px;
     color: var(--text);
     font-size: 14px;
+    box-shadow: none;
 }
 
 .settings-art-sheet .settings-save {
