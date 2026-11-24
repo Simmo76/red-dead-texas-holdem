@@ -543,7 +543,12 @@
                                      AriaLabel="Raise — increase the bet"
                                      OnClick="OpenSlider" />
                 }
-                @if (_legal.CanAllIn) { <button class="act allin" @onclick="() => Act(PlayerAction.AllIn())">ALL-IN</button> }
+                @if (_legal.CanAllIn)
+                {
+                    <ActionArtButton Src="img/actions/allin.png" CssClass="allin"
+                                     AriaLabel="All-in — bet your entire stack"
+                                     OnClick="@(() => Act(PlayerAction.AllIn()))" />
+                }
             </div>
         }
         else if (_awaitingHuman && _legal != null && _showSlider)

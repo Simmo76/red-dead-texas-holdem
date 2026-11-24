@@ -51,7 +51,7 @@ assert(css.includes('pointer-events: none'), 'css: toolbar does not block canvas
 assert(css.includes('.toolbar-overflow-menu'), 'css: More menu');
 assert(css.includes('.toolbar-pill-img'), 'css: art-backed pill buttons');
 
-const actions = ['fold', 'call', 'raise'];
+const actions = ['fold', 'call', 'raise', 'allin'];
 for (const name of actions) {
   const img = join(root, `Web/CinematicPoker.Web/wwwroot/img/actions/${name}.png`);
   const img2 = join(root, `Web/CinematicPoker.Web/wwwroot/img/actions/${name}@2x.png`);
