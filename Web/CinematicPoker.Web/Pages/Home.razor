@@ -733,8 +733,8 @@
                 <img class="overlay-art-frame settings-art-frame" src="img/settings-panel.png"
                      srcset="img/settings-panel@2x.png 2x" alt="" aria-hidden="true" />
                 <div class="settings-art-sheet settings-box">
-                <div class="settings-name">
-                    <label class="settings-label" for="settings-name-input">YOUR NAME</label>
+                <div class="settings-name settings-name-art">
+                    <label class="settings-label visually-hidden" for="settings-name-input">YOUR NAME</label>
                     <div class="settings-name-controls">
                         <input id="settings-name-input" class="name-input settings-name-input" type="text" maxlength="16"
                                autocapitalize="words" autocomplete="nickname" autocorrect="off" spellcheck="false"
@@ -830,21 +830,21 @@
                 {
                     <p class="settings-note">@_logNote</p>
                 }
-                <div class="overlay-actions settings-art-actions">
-                    <button type="button" class="settings-art-chip" @onclick="CopyDebugLog"
-                            title="Copy the debug log to the clipboard to paste into Cursor or a bug report">COPY LOG</button>
-                    <button type="button" class="settings-art-chip" @onclick="ExportFromSettings">EXPORT STATS</button>
+                </div>
+                <div class="settings-art-footer" aria-hidden="false">
+                    <button type="button" class="settings-hit settings-hit-copy" @onclick="CopyDebugLog"
+                            title="Copy the debug log to the clipboard">COPY LOG</button>
+                    <button type="button" class="settings-hit settings-hit-export" @onclick="ExportFromSettings">EXPORT STATS</button>
                     @if (_isGuest)
                     {
-                        <button type="button" class="settings-art-restart" @onclick="LeaveTable">LEAVE TABLE</button>
+                        <button type="button" class="settings-hit settings-hit-restart" @onclick="LeaveTable">LEAVE TABLE</button>
                     }
                     else
                     {
-                        <button type="button" class="settings-art-restart" @onclick="RestartFromSettings">RESTART</button>
+                        <button type="button" class="settings-hit settings-hit-restart" @onclick="RestartFromSettings">RESTART</button>
                     }
+                    <button type="button" class="settings-hit settings-hit-close" @onclick="CloseSettings" aria-label="Close settings">CLOSE</button>
                 </div>
-                </div>
-                <button type="button" class="overlay-art-hitclose" @onclick="CloseSettings" aria-label="Close settings"></button>
             </div>
         </div>
     }

@@ -2879,15 +2879,15 @@ html.scene-street.resume-play .boot-screen {
 
 .settings-art-sheet {
     position: absolute;
-    left: 9%;
-    right: 9%;
-    top: 23%;
-    bottom: 20%;
+    left: 10%;
+    right: 10%;
+    top: 19.8%;
+    bottom: 26%;
     overflow-x: hidden;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 0;
     padding: 0;
     text-align: left;
     background: transparent;
@@ -2901,7 +2901,29 @@ html.scene-street.resume-play .boot-screen {
 
 .settings-art-sheet.settings-box {
     padding: 0;
-    gap: 10px;
+    gap: 0;
+}
+
+.settings-name-art {
+    margin-bottom: 6px;
+}
+
+.settings-name-art .settings-name-controls {
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.settings-name-art .settings-name-input {
+    flex: 1 1 52%;
+    max-width: 52%;
+    min-height: 44px;
+    margin-right: auto;
+}
+
+.settings-name-art .settings-save {
+    flex: 0 0 auto;
+    min-width: 88px;
+    min-height: 44px;
 }
 
 .settings-art-sheet .settings-label {
@@ -2922,7 +2944,8 @@ html.scene-street.resume-play .boot-screen {
 
 .settings-row-pill {
     justify-content: flex-end;
-    min-height: 44px;
+    align-items: center;
+    min-height: 52px;
 }
 
 .settings-pill-wrap {
@@ -2957,7 +2980,7 @@ html.scene-street.resume-play .boot-screen {
 
 .settings-pill-img {
     display: block;
-    height: 40px;
+    height: 44px;
     width: auto;
     max-width: 100%;
     object-fit: contain;
@@ -3098,49 +3121,37 @@ html.scene-street.resume-play .boot-screen {
     border-color: rgba(216, 178, 92, 0.35);
 }
 
-.settings-art-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: auto;
-    padding-top: 4px;
+/* Footer actions are painted on the shell; use transparent hit targets. */
+.settings-art-footer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
 }
 
-.settings-art-actions .settings-art-chip {
-    background: rgba(8, 5, 3, 0.78);
-    border: 1px solid rgba(216, 178, 92, 0.55);
-    border-radius: 999px;
-    color: var(--gold);
-    font-family: inherit;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1.6px;
-    padding: 9px 8px;
+.settings-hit {
+    position: absolute;
+    pointer-events: auto;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: transparent;
+    font-size: 0;
+    line-height: 0;
     cursor: pointer;
     touch-action: manipulation;
+    min-height: 44px;
 }
 
-.settings-art-actions .settings-art-restart {
-    grid-column: 1 / -1;
-    margin-top: 4px;
-    background: linear-gradient(180deg, #8f2430 0%, #5c161e 100%);
-    border: 1px solid rgba(255, 180, 120, 0.35);
-    border-radius: 10px;
-    color: #fff;
-    font-family: inherit;
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: 3px;
-    padding: 12px 16px;
-    cursor: pointer;
-    touch-action: manipulation;
+.settings-hit:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
 }
 
-.settings-art-panel .overlay-art-hitclose {
-    bottom: 3.2%;
-    width: 32%;
-    height: 10%;
-}
+.settings-hit-copy { left: 10%; right: 52%; top: 75.4%; height: 8.2%; }
+.settings-hit-export { left: 51.5%; right: 10%; top: 75.4%; height: 8.2%; }
+.settings-hit-restart { left: 10%; right: 52%; top: 85.6%; height: 9.2%; }
+.settings-hit-close { left: 51.5%; right: 10%; top: 85.6%; height: 9.2%; }
 
 .overlay-art-panel--landscape .overlay-art-hitclose {
     bottom: 3.5%;
