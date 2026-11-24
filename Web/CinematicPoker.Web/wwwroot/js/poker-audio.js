@@ -434,17 +434,61 @@ window.pokerAudio = (function () {
         }, 100);
     }
 
+    function musicBedBroken(audio) {
+        if (!audio) return false;
+        if (audio.error) return true;
+        try {
+            if (audio.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) return true;
+        } catch (e) { }
+        return false;
+    }
+
+    function retryMusicPlay(audio, opts) {
+        if (!audio) return;
+        const p = audio.play();
+        if (!p) return;
+        p.catch(function () {
+            if (opts && opts._playRetry) return;
+            if (audio === music) {
+                disposeMusic(music);
+                music = null;
+            } else if (audio === ambience) {
+                silenceElement(ambience);
+                ambience = null;
+            }
+            startMusic(Object.assign({}, opts || {}, { _playRetry: true }));
+        });
+    }
+
+    // (Re)start saloon/octagon beds. Unlike setScene on octagon, the default
+    // saloon scene never forced a stop/start, so a rejected first play() could
+    // leave HTMLAudio elements stuck paused until the scene was changed.
+    function ensureMusicBeds(opts) {
+        if (introPlaying) return;
+        if (channels.music && musicBedBroken(music)) {
+            disposeMusic(music);
+            music = null;
+        }
+        if (channels.ambience && musicBedBroken(ambience)) {
+            silenceElement(ambience);
+            ambience = null;
+        }
+        startMusic(opts);
+    }
+
     function startMusic(opts) {
         if (introPlaying) return;
-        const fadeIn = !!(opts && opts.fadeIn);
+        opts = opts || {};
+        const fadeIn = !!opts.fadeIn;
         try {
             if (!ambience && channels.ambience) {
                 const ambienceUrl = sceneName === 'street' ? STREET_AMBIENCE_URL : SALOON_AMBIENCE_URL;
                 ambience = new Audio(ambienceUrl);
                 ambience.loop = true;
                 ambience.volume = 0.08;
-                const ambiencePlay = ambience.play();
-                if (ambiencePlay) ambiencePlay.catch(function () { });
+                retryMusicPlay(ambience, opts);
+            } else if (ambience && ambience.paused && channels.ambience) {
+                retryMusicPlay(ambience, opts);
             }
             if (!music && channels.music) {
                 const track = new Audio(pickMusic());
@@ -470,13 +514,12 @@ window.pokerAudio = (function () {
                     startMusic({ fadeIn: true });
                 });
                 if (fadeIn) {
-                    const fadeSec = (opts && opts.fadeSeconds) || MUSIC_FADE_SECONDS;
+                    const fadeSec = opts.fadeSeconds || MUSIC_FADE_SECONDS;
                     fadeMusicTo(track, MUSIC_VOLUME, fadeSec);
                 }
-            }
-            if (music) {
-                const p = music.play();
-                if (p) p.catch(function () { });
+                retryMusicPlay(track, opts);
+            } else if (music && music.paused && channels.music) {
+                retryMusicPlay(music, opts);
             }
         } catch (e) { }
     }
@@ -807,12 +850,14 @@ window.pokerAudio = (function () {
         setScene: function (name) {
             const next = String(name || '').toLowerCase().indexOf('street') !== -1
                 ? 'street' : 'saloon';
-            if (next === sceneName) return;
-            sceneName = next;
-            recentMusic = [];
-            stopMusic();
-            startMusic();
+            if (next !== sceneName) {
+                sceneName = next;
+                recentMusic = [];
+                stopMusic();
+            }
+            ensureMusicBeds();
         },
+        ensureMusicBeds: ensureMusicBeds,
         // Short fanfare when the player wins a pot (steady pitch: unlike SFX,
         // a detuned jingle is instantly noticeable).
         victory: function () {
@@ -864,7 +909,9 @@ window.pokerAudio = (function () {
                     dealerPlaying = false;
                 }
             }
-            if ((channels.music && !wasMusic) || (channels.ambience && !wasAmbience)) startMusic();
+            if ((channels.music && !wasMusic) || (channels.ambience && !wasAmbience)) {
+                ensureMusicBeds();
+            }
         },
         // Current channel state plus whether it came from this device's own
         // store. Blazor reads this on boot so the settings UI matches what

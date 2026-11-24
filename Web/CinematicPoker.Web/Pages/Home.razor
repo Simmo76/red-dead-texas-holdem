@@ -1538,6 +1538,12 @@
     {
         if (_introRequested) return;
         _introRequested = true; // the tap doubles as the audio-unlock gesture
+        try
+        {
+            if (JS is IJSInProcessRuntime sync)
+                sync.InvokeVoid("pokerAudio.ensureMusicBeds");
+        }
+        catch (JSException) { }
         // Remember that this visit already left the title menu. A later
         // reload in the same tab (saloon ↔ octagon) returns to the table.
         MarkInGame();
@@ -5665,7 +5671,13 @@
             if (sceneId == "street" || sceneId == "saloon") _tableScene = sceneId;
         }
         catch (JSException) { }
-        try { await JS.InvokeVoidAsync("pokerAudio.setScene", _tableScene); }
+        try
+        {
+            if (JS is IJSInProcessRuntime sync)
+                sync.InvokeVoid("pokerAudio.setScene", _tableScene);
+            else
+                await JS.InvokeVoidAsync("pokerAudio.setScene", _tableScene);
+        }
         catch (JSException) { }
     }
 
