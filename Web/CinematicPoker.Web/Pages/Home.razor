@@ -5204,7 +5204,9 @@
         builder.AddAttribute(seq++, "class", "victory-cert-actions");
         if (isActive)
         {
-            bool showCoach = record != null && CanReviewVictoryRecord(record);
+            bool showCoach = record != null
+                && (CanReviewVictoryRecord(record)
+                    || (isActive && _playerWonPot && CanReview));
             builder.OpenElement(seq++, "div");
             builder.AddAttribute(seq++, "class", "victory-cert-actions-row");
             builder.OpenElement(seq++, "button");

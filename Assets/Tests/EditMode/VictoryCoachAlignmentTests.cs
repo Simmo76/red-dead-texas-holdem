@@ -124,6 +124,43 @@ namespace CinematicPoker.Engine.Tests
         }
 
         [Test]
+        public void FoldWinCertificateBoardMayBeShorterThanCoachRunout()
+        {
+            CompletedHandRecord fold = CoachFixtures.FoldedBlind();
+            fold.HeroFolded = false;
+            fold.WonByFolds = true;
+            fold.Awards[0].WinnerSeats = new List<int> { 0 };
+            fold.HeroHoleCards = new List<CinematicPoker.Engine.Poker.Card>
+            {
+                CinematicPoker.Engine.Poker.Card.Parse("4d"),
+                CinematicPoker.Engine.Poker.Card.Parse("5c")
+            };
+            fold.FinalBoard = new List<CinematicPoker.Engine.Poker.Card>
+            {
+                CinematicPoker.Engine.Poker.Card.Parse("Ah"),
+                CinematicPoker.Engine.Poker.Card.Parse("Kh"),
+                CinematicPoker.Engine.Poker.Card.Parse("8s"),
+                CinematicPoker.Engine.Poker.Card.Parse("4d"),
+                CinematicPoker.Engine.Poker.Card.Parse("6h")
+            };
+
+            Assert.IsTrue(VictoryCoachAlignment.HoleAndBoardMatch(
+                "4d 5c",
+                "Ah Kh 8s",
+                fold));
+
+            CompletedHandRecord found = VictoryCoachAlignment.FindMatchingHand(
+                handNumber: 3,
+                coachHandId: fold.HandId,
+                holeCards: "4d 5c",
+                boardCards: "Ah Kh 8s",
+                headline: "YOU WON — everyone folded",
+                hands: new List<CompletedHandRecord> { fold });
+
+            Assert.AreSame(fold, found);
+        }
+
+        [Test]
         public void FindMatchingHandWillNotExplainAFoldAsAShowdown()
         {
             CompletedHandRecord showdown = CoachFixtures.PairBeatsHighCard();
