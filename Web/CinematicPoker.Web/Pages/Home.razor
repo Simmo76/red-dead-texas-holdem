@@ -25,20 +25,25 @@
     {
         <div class="intro-overlay intro-splash @(_introFading ? "fading" : "") @(_namePromptOpen ? "prompting" : "")"
              @onclick="StartIntro" role="button" aria-label="Tap to play">
-            <div class="intro-splash-art @(_tableScene == "street" ? "street" : "")">
-                @if (_sceneLoading && !_namePromptOpen)
-                {
-                    @* Play was tapped but the scene (saloon backdrop included) is
-                       still downloading — say so instead of silently sitting on
-                       the splash or, worse, revealing a background-less table. *@
-                    <div class="intro-loading" aria-live="polite">SETTING THE TABLE</div>
-                }
-                else if (!_namePromptOpen)
-                {
-                    @* Title art + TAP TO PLAY live in the splash image; keep a
-                       pulsing hotspot over the painted CTA so the cue still animates. *@
-                    <div class="intro-tap-pulse" aria-hidden="true"></div>
-                }
+            <div class="intro-splash-art @IntroSceneClass">
+                <img class="intro-splash-bg" src="@IntroBgUrl" alt="" aria-hidden="true" decoding="async" />
+                <div class="intro-splash-chrome" aria-hidden="@(_namePromptOpen)">
+                    <div class="intro-hero-wrap">
+                        <img class="intro-hero-plate"
+                             src="img/intro/hero-plate.png"
+                             srcset="img/intro/hero-plate@2x.png 2x"
+                             alt="Dead Man's Hand — Texas Hold'em Poker"
+                             decoding="async" />
+                        @if (_sceneLoading && !_namePromptOpen)
+                        {
+                            <div class="intro-loading" aria-live="polite">SETTING THE TABLE</div>
+                        }
+                        else if (!_namePromptOpen)
+                        {
+                            <div class="intro-tap-pulse" aria-hidden="true"></div>
+                        }
+                    </div>
+                </div>
             </div>
             @if (_namePromptOpen)
             {
@@ -67,7 +72,11 @@
                  alt="Dead Man's Hand" />
             @if (Round != null)
             {
-                <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b></div>
+                <div class="hud-pot hud-pot-art" role="status" aria-live="polite"
+                     aria-label="@($"Pot ${Round.PotTotal}")">
+                    <img class="hud-pot-img" src="img/pot.png" srcset="img/pot@2x.png 2x" alt="" aria-hidden="true" />
+                    <span class="hud-pot-amount" aria-hidden="true">$@Round.PotTotal</span>
+                </div>
             }
         </div>
         <div class="topbar-right toolbar-controls">
@@ -79,25 +88,25 @@
                         <span class="toolbar-btn-label">Coach</span>
                     </button>
                 }
-                <ToolbarButton IconSrc="icons/toolbar/rules" Label="Rules" AriaLabel="Rules — how to play Texas Hold'em"
-                               OnClick="OpenRules" CssClass="toolbar-primary" />
+                <ToolbarButton PillSrc="icons/toolbar/pills/rules.png" AriaLabel="Rules — how to play Texas Hold'em"
+                               OnClick="OpenRules" CssClass="toolbar-primary" ShowLabel="false" />
                 @if (_musicOn)
                 {
-                    <ToolbarButton IconSrc="icons/toolbar/tune" Label="Tune" AriaLabel="Tune — skip to the next song"
+                    <ToolbarButton PillSrc="icons/toolbar/pills/tune.png" AriaLabel="Tune — skip to the next song"
                                    Title="Skip to the next song" OnClick="NextSong"
-                                   CssClass="toolbar-primary toolbar-item-tune" />
+                                   CssClass="toolbar-primary toolbar-item-tune" ShowLabel="false" />
                 }
-                <ToolbarButton IconSrc="icons/toolbar/hands" Label="Hands" AriaLabel="Hands — poker hand rankings"
-                               OnClick="OpenHandRankings" CssClass="toolbar-primary" />
+                <ToolbarButton PillSrc="icons/toolbar/pills/hands.png" AriaLabel="Hands — poker hand rankings"
+                               OnClick="OpenHandRankings" CssClass="toolbar-primary" ShowLabel="false" />
                 @if (_sceneReady)
                 {
-                    <ToolbarButton IconSrc="icons/toolbar/view" Label="View"
+                    <ToolbarButton PillSrc="icons/toolbar/pills/view.png"
                                    AriaLabel="@(_overheadView ? "View — return to seat camera" : "View — overhead table camera")"
                                    Title="@(_overheadView ? "Back to your seat" : "Overhead camera — see every player's remaining chips")"
                                    Active="_overheadView" Toggle="true" OnClick="ToggleOverheadView"
-                                   CssClass="toolbar-primary toolbar-item-view" />
+                                   CssClass="toolbar-primary toolbar-item-view" ShowLabel="false" />
                 }
-                <ToolbarButton IconSrc="icons/toolbar/settings" AriaLabel="Settings" Title="Game settings"
+                <ToolbarButton PillSrc="icons/toolbar/pills/settings.png" AriaLabel="Settings" Title="Game settings"
                                OnClick="OpenSettings" ShowLabel="false" CssClass="toolbar-primary toolbar-item-settings" />
                 <div class="toolbar-more-wrap">
                     <button type="button" class="toolbar-btn toolbar-btn-icon toolbar-more-trigger"
@@ -520,15 +529,35 @@
         }
         @if (_awaitingHuman && _legal != null && !_showSlider)
         {
-            <div class="actionbar-left">
-                @if (_legal.CanFold) { <button class="act fold" @onclick="() => Act(PlayerAction.Fold())">FOLD</button> }
-            </div>
-            <div class="actionbar-right">
+            <div class="actionbar-right actionbar-primary">
+                @if (_legal.CanFold)
+                {
+                    <ActionArtButton Src="img/actions/fold.png" CssClass="fold"
+                                     AriaLabel="Fold — give up this hand"
+                                     OnClick="@(() => Act(PlayerAction.Fold()))" />
+                }
                 @if (_legal.CanCheck) { <button class="act check" @onclick="() => Act(PlayerAction.Check())">CHECK</button> }
-                @if (_legal.CanCall)  { <button class="act call" @onclick="() => Act(PlayerAction.Call())">CALL $@_legal.CallAmount</button> }
+                @if (_legal.CanCall)
+                {
+                    <ActionArtButton Src="img/actions/call.png" CssClass="call"
+                                     AriaLabel="@($"Call — match ${_legal.CallAmount}")"
+                                     Title="@($"Call ${_legal.CallAmount}")"
+                                     Detail="@($"${_legal.CallAmount}")"
+                                     OnClick="@(() => Act(PlayerAction.Call()))" />
+                }
                 @if (_legal.CanBet)   { <button class="act bet" @onclick="OpenSlider">BET</button> }
-                @if (_legal.CanRaise) { <button class="act bet" @onclick="OpenSlider">RAISE</button> }
-                @if (_legal.CanAllIn) { <button class="act allin" @onclick="() => Act(PlayerAction.AllIn())">ALL-IN</button> }
+                @if (_legal.CanRaise)
+                {
+                    <ActionArtButton Src="img/actions/raise.png" CssClass="bet raise"
+                                     AriaLabel="Raise — increase the bet"
+                                     OnClick="OpenSlider" />
+                }
+                @if (_legal.CanAllIn)
+                {
+                    <ActionArtButton Src="img/actions/allin.png" CssClass="allin"
+                                     AriaLabel="All-in — bet your entire stack"
+                                     OnClick="@(() => Act(PlayerAction.AllIn()))" />
+                }
             </div>
         }
         else if (_awaitingHuman && _legal != null && _showSlider)
@@ -712,12 +741,14 @@
 
     @if (_settingsOpen)
     {
-        <div class="overlay" @onclick="CloseSettings">
-            <div class="overlay-box settings-box" @onclick:stopPropagation="true">
-                <div class="overlay-title">SETTINGS</div>
-
-                <div class="settings-name">
-                    <label class="settings-label" for="settings-name-input">YOUR NAME</label>
+        <div class="overlay overlay-art" @onclick="CloseSettings">
+            <div class="overlay-art-panel overlay-art-panel--portrait settings-art-panel" role="dialog" aria-label="Settings"
+                 @onclick:stopPropagation="true">
+                <img class="overlay-art-img settings-art-frame" src="img/settings-panel.png"
+                     srcset="img/settings-panel@2x.png 2x" alt="" aria-hidden="true" />
+                <div class="settings-art-sheet settings-box settings-art-portrait">
+                <div class="settings-name settings-name-art">
+                    <label class="settings-label visually-hidden" for="settings-name-input">YOUR NAME</label>
                     <div class="settings-name-controls">
                         <input id="settings-name-input" class="name-input settings-name-input" type="text" maxlength="16"
                                autocapitalize="words" autocomplete="nickname" autocorrect="off" spellcheck="false"
@@ -732,49 +763,80 @@
                 </div>
 
                 <div class="settings-rows">
-                    <div class="settings-row">
-                        <span class="settings-label">SOUND</span>
-                        <button class="chip-btn sound-combo-btn @(AnyChannelOn ? "active" : "")" @onclick="ToggleSoundMenu">
-                            @SoundSummary<span class="sound-caret">@(_soundMenuOpen ? "\u25b4" : "\u25be")</span>
-                        </button>
-                    </div>
-                    @if (_soundMenuOpen)
-                    {
-                        <div class="sound-menu">
-                            <button class="sound-option @(_musicOn ? "on" : "")" @onclick="@(() => ToggleChannel("music"))">
-                                <span class="sound-check">@(_musicOn ? "\u2713" : "")</span>MUSIC
-                            </button>
-                            <button class="sound-option @(_backgroundOn ? "on" : "")" @onclick="@(() => ToggleChannel("background"))">
-                                <span class="sound-check">@(_backgroundOn ? "\u2713" : "")</span>BACKGROUND
-                            </button>
+                    <div class="settings-row settings-row-pill">
+                        <span class="settings-label" id="settings-sound-label">SOUND</span>
+                        <div class="settings-pill-wrap">
+                            <SettingsDropdownPill ArtSlug="@SoundArtSlug" DisplayLabel="@SoundArtLabel"
+                                                  AriaLabel="@($"Sound — {SoundSummary}")"
+                                                  Expanded="_soundMenuOpen" HasPopup="true"
+                                                  CssClass="settings-pill-sound"
+                                                  OnClick="ToggleSoundMenu" />
+                            @if (_soundMenuOpen)
+                            {
+                                <div class="settings-dropdown-panel sound-menu" role="group" aria-labelledby="settings-sound-label">
+                                    <button type="button" class="sound-option @(_musicOn ? "on" : "")"
+                                            aria-pressed="@_musicOn"
+                                            @onclick="@(() => ToggleChannel("music"))">
+                                        <span class="sound-check" aria-hidden="true">@(_musicOn ? "\u2713" : "")</span>MUSIC
+                                    </button>
+                                    <button type="button" class="sound-option @(_backgroundOn ? "on" : "")"
+                                            aria-pressed="@_backgroundOn"
+                                            @onclick="@(() => ToggleChannel("background"))">
+                                        <span class="sound-check" aria-hidden="true">@(_backgroundOn ? "\u2713" : "")</span>BACKGROUND
+                                    </button>
+                                </div>
+                            }
                         </div>
-                    }
-                    <div class="settings-row">
-                        <span class="settings-label">PACE</span>
-                        <button class="chip-btn @(_quickMode ? "active" : "")" @onclick="ToggleMode">
-                            @(_quickMode ? "QUICK PLAY" : "CINEMATIC")
-                        </button>
+                    </div>
+                    <div class="settings-row settings-row-pill">
+                        <span class="settings-label" id="settings-pace-label">PACE</span>
+                        <SettingsDropdownPill ArtSlug="@PaceArtSlug"
+                                              AriaLabel="@($"Pace — {(_quickMode ? "Quick play" : "Cinematic")}")"
+                                              OnClick="ToggleMode" />
                     </div>
                     @if (!_isGuest)
                     {
-                        <div class="settings-row">
-                            <span class="settings-label">POST-HAND COACH</span>
-                            <button class="chip-btn" @onclick="CycleCoachMode">@CoachModeLabel</button>
+                        <div class="settings-row settings-row-pill">
+                            <span class="settings-label" id="settings-coach-label">POST-HAND COACH</span>
+                            <SettingsDropdownPill ArtSlug="@CoachArtSlug" DisplayLabel="@CoachArtLabel"
+                                                  AriaLabel="@($"Post-hand coach — {CoachModeLabel}")"
+                                                  OnClick="CycleCoachMode" />
                         </div>
                     }
                     @if (!_isGuest)
                     {
-                        <div class="settings-row">
-                            <span class="settings-label">DIFFICULTY</span>
-                            <button class="chip-btn" @onclick="CycleDifficulty">@DifficultyNames[_difficulty]</button>
+                        <div class="settings-row settings-row-pill">
+                            <span class="settings-label" id="settings-difficulty-label">DIFFICULTY</span>
+                            <SettingsDropdownPill ArtSlug="@DifficultyArtSlug"
+                                                  AriaLabel="@($"Difficulty — {DifficultyNames[_difficulty]}")"
+                                                  OnClick="CycleDifficulty" />
                         </div>
                     }
-                    <div class="settings-row">
-                        <label class="settings-label" for="settings-scene">SCENE</label>
-                        <select id="settings-scene" class="chip-btn settings-select" disabled="@_isGuest" @onchange="OnTableSceneChanged">
-                            <option value="saloon" selected="@(_tableScene == "saloon")">SALOON</option>
-                            <option value="street" selected="@(_tableScene == "street")">OCTAGON</option>
-                        </select>
+                    <div class="settings-row settings-row-pill">
+                        <span class="settings-label" id="settings-scene-label">SCENE</span>
+                        <div class="settings-pill-wrap">
+                            <SettingsDropdownPill ArtSlug="@SceneArtSlug"
+                                                  AriaLabel="@($"Scene — {(_tableScene == "street" ? "Octagon" : "Saloon")}")"
+                                                  Expanded="_sceneMenuOpen" HasPopup="true" Disabled="_isGuest"
+                                                  OnClick="ToggleSceneMenu" />
+                            @if (_sceneMenuOpen && !_isGuest)
+                            {
+                                <div class="settings-dropdown-panel scene-menu" role="listbox" aria-labelledby="settings-scene-label">
+                                    <button type="button" class="scene-option @(_tableScene == "saloon" ? "on" : "")"
+                                            role="option" aria-selected="@(_tableScene == "saloon")"
+                                            @onclick="@(() => PickScene("saloon"))">
+                                        <img src="img/settings/dropdown/saloon.png" alt="" aria-hidden="true" class="scene-option-art" />
+                                        <span class="visually-hidden">Saloon</span>
+                                    </button>
+                                    <button type="button" class="scene-option @(_tableScene == "street" ? "on" : "")"
+                                            role="option" aria-selected="@(_tableScene == "street")"
+                                            @onclick="@(() => PickScene("street"))">
+                                        <img src="img/settings/dropdown/octagon.png" alt="" aria-hidden="true" class="scene-option-art" />
+                                        <span class="visually-hidden">Octagon</span>
+                                    </button>
+                                </div>
+                            }
+                        </div>
                     </div>
                 </div>
 
@@ -782,94 +844,47 @@
                 {
                     <p class="settings-note">@_logNote</p>
                 }
-                <div class="overlay-actions">
-                    <button class="act small" @onclick="CopyDebugLog" title="Copy the debug log to the clipboard to paste into Cursor or a bug report">COPY LOG</button>
-                    <button class="act small" @onclick="ExportFromSettings">EXPORT STATS</button>
+
+                <div class="settings-extra-actions" role="group" aria-label="Session actions">
+                    <button type="button" class="act small settings-action" @onclick="CopyDebugLog">COPY LOG</button>
+                    <button type="button" class="act small settings-action" @onclick="ExportFromSettings">EXPORT STATS</button>
                     @if (_isGuest)
                     {
-                        <button class="act allin settings-restart" @onclick="LeaveTable">LEAVE TABLE</button>
+                        <button type="button" class="act small settings-action" @onclick="LeaveTable">LEAVE TABLE</button>
                     }
                     else
                     {
-                        <button class="act allin settings-restart" @onclick="RestartFromSettings">RESTART</button>
+                        <button type="button" class="act small settings-action restart-btn" @onclick="RestartFromSettings">RESTART</button>
                     }
-                    <button class="act small" @onclick="CloseSettings">CLOSE</button>
                 </div>
+                </div>
+                <button type="button" class="overlay-art-hitclose" @onclick="CloseSettings" aria-label="Close settings"></button>
             </div>
         </div>
     }
 
     @if (_rulesOpen)
     {
-        <div class="overlay" @onclick="CloseRules">
-            <div class="overlay-box rules-box" @onclick:stopPropagation="true">
-                <div class="overlay-title">HOW TO PLAY</div>
-                <div class="rules-scroll">
-                    <p class="rules-lede">
-                        Texas Hold’em. Make the best five-card hand from your two private cards
-                        and the five shared cards on the table. Last player standing — or the
-                        strongest hand at showdown — takes the pot.
-                    </p>
-
-                    <section class="rules-section">
-                        <h3 class="rules-heading">THE DEAL</h3>
-                        <ul class="rules-list">
-                            <li>Each hand starts with blinds: the two seats left of the dealer post forced bets (small blind, then big blind).</li>
-                            <li>Everyone gets two hole cards face down — yours alone.</li>
-                            <li>Up to five community cards land face up in the middle for everyone to share.</li>
-                        </ul>
-                    </section>
-
-                    <section class="rules-section">
-                        <h3 class="rules-heading">THE STREETS</h3>
-                        <ol class="rules-steps">
-                            <li><strong>Preflop</strong> — bet on your hole cards alone.</li>
-                            <li><strong>Flop</strong> — three community cards, then another betting round.</li>
-                            <li><strong>Turn</strong> — fourth community card, then bet again.</li>
-                            <li><strong>River</strong> — fifth and final card, then the last betting round.</li>
-                        </ol>
-                    </section>
-
-                    <section class="rules-section">
-                        <h3 class="rules-heading">YOUR MOVES</h3>
-                        <ul class="rules-list">
-                            <li><strong>Fold</strong> — toss the hand; you’re out of this pot.</li>
-                            <li><strong>Check</strong> — pass when nothing is owed (no bet in front of you).</li>
-                            <li><strong>Call</strong> — match the current bet to stay in.</li>
-                            <li><strong>Bet / Raise</strong> — put chips in or bump the price.</li>
-                            <li><strong>All-in</strong> — shove your whole stack.</li>
-                        </ul>
-                    </section>
-
-                    <section class="rules-section">
-                        <h3 class="rules-heading">SHOWDOWN</h3>
-                        <p class="rules-copy">
-                            If two or more players remain after the river, cards are shown.
-                            Best five-card hand wins — use any mix of your holes and the board.
-                            If everyone else folds, you win without showing. Tap
-                            <strong>HANDS</strong> in the top bar for the ranking chart from
-                            royal flush down to high card.
-                        </p>
-                    </section>
-                </div>
-                <div class="overlay-actions">
-                    <button class="act small" @onclick="CloseRules">CLOSE</button>
-                </div>
+        <div class="overlay overlay-art" @onclick="CloseRules">
+            <div class="overlay-art-panel overlay-art-panel--portrait" role="dialog" aria-label="How to play"
+                 @onclick:stopPropagation="true">
+                <img class="overlay-art-img" src="img/how-to-play.png"
+                     srcset="img/how-to-play@2x.png 2x"
+                     alt="How to play Texas Hold'em" />
+                <button type="button" class="overlay-art-hitclose" @onclick="CloseRules" aria-label="Close how to play"></button>
             </div>
         </div>
     }
 
     @if (_handRankingsOpen)
     {
-        <div class="overlay" @onclick="CloseHandRankings">
-            <div class="overlay-box hands-box" @onclick:stopPropagation="true">
-                <div class="hands-zoom" @ref="_handsZoomRef" title="Pinch or scroll to zoom, drag to pan">
-                    <img class="hands-chart" src="img/hand-rankings.jpg"
-                         alt="Poker hand rankings from best to worst: royal flush, straight flush, four of a kind, full house, flush, straight, three of a kind, two pair, pair, high card" />
-                </div>
-                <div class="overlay-actions">
-                    <button class="act small" @onclick="CloseHandRankings">CLOSE</button>
-                </div>
+        <div class="overlay overlay-art" @onclick="CloseHandRankings">
+            <div class="overlay-art-panel overlay-art-panel--landscape" role="dialog" aria-label="Poker hand rankings"
+                 @onclick:stopPropagation="true">
+                <img class="overlay-art-img" src="img/hand-rankings.png"
+                     srcset="img/hand-rankings@2x.png 2x"
+                     alt="Poker hand rankings from royal flush to high card" />
+                <button type="button" class="overlay-art-hitclose" @onclick="CloseHandRankings" aria-label="Close hand rankings"></button>
             </div>
         </div>
     }
@@ -1802,8 +1817,6 @@
         }
         if (_sceneReady && !_coachOpen) await PushSceneState();
         await FocusCoachPanel();
-        if (_handRankingsOpen && !_handsZoomBound)
-            await AttachHandsZoomAsync();
         // One-shot: fly to the winner's cards after the snapshot has put them
         // on the felt. Cleared immediately so later HUD updates do not yank
         // the camera back if the player has already looked around.
@@ -2157,7 +2170,6 @@
         _exportOpen = false;
         _exportNote = "";
         _settingsOpen = false;
-        ReleaseHandsZoom();
         _handRankingsOpen = false;
         _rulesOpen = false;
         try { _ = JS.InvokeVoidAsync("pokerAudio.setAwaitingHuman", false); }
@@ -2861,7 +2873,6 @@
 
     private void OpenRules()
     {
-        ReleaseHandsZoom();
         _handRankingsOpen = false;
         _settingsOpen = false;
         _rulesOpen = true;
@@ -2880,39 +2891,15 @@
     // -------------------------------------------------------- hand rankings
 
     private bool _handRankingsOpen;
-    private ElementReference _handsZoomRef;
-    private bool _handsZoomBound;
 
     private void OpenHandRankings()
     {
         _rulesOpen = false;
-        _handsZoomBound = false;
         _handRankingsOpen = true;
-    }
-
-    private async Task AttachHandsZoomAsync()
-    {
-        try
-        {
-            await JS.InvokeVoidAsync("pokerHandsZoom.attach", _handsZoomRef);
-            _handsZoomBound = true;
-        }
-        catch (JSException) { }
-        catch (InvalidOperationException) { }
-    }
-
-    private void ReleaseHandsZoom()
-    {
-        if (!_handsZoomBound) return;
-        _handsZoomBound = false;
-        try { _ = JS.InvokeVoidAsync("pokerHandsZoom.detach"); }
-        catch (InvalidOperationException) { }
-        catch (JSException) { }
     }
 
     private async Task CloseHandRankings()
     {
-        ReleaseHandsZoom();
         _handRankingsOpen = false;
         // Same canvas-cover texture eviction risk as Settings (and the chart
         // itself is a large decode) — refresh GPU maps when the overlay lifts.
@@ -4330,8 +4317,8 @@
         _settingsNameNote = "";
         _logNote = "";
         _soundMenuOpen = false;
+        _sceneMenuOpen = false;
         _rulesOpen = false;
-        ReleaseHandsZoom();
         _handRankingsOpen = false;
         _settingsOpen = true;
         GameLog.Info("ui", "settings opened");
@@ -5650,11 +5637,19 @@
     private IReadOnlyList<Card> HoleCardsOf(int seat) =>
         SeatOf(seat)?.HoleCards ?? (IReadOnlyList<Card>)Array.Empty<Card>();
 
-    // Kenney boardgame pack card faces (CC0) — see ASSET_LICENSES.md.
+    // Western poker deck (rank+suit filenames, e.g. AS.png, 10C.png) — see ASSET_LICENSES.md.
     private static string CardImage(Card card)
     {
         string rank = card.Rank == Rank.Ten ? "10" : Card.RankSymbol(card.Rank);
-        return $"img/cards/{card.Suit.ToString().ToLowerInvariant()}_{rank}.png";
+        string suit = card.Suit switch
+        {
+            Suit.Clubs => "C",
+            Suit.Diamonds => "D",
+            Suit.Hearts => "H",
+            Suit.Spades => "S",
+            _ => "C"
+        };
+        return $"img/cards/{rank}{suit}.png";
     }
 
     // -------------------------------------------------------------- backdrop
@@ -5716,15 +5711,68 @@
 
     private async Task OnTableSceneChanged(ChangeEventArgs e)
     {
+        await SetTableSceneAsync(e.Value?.ToString() == "street" ? "street" : "saloon");
+    }
+
+    private bool _sceneMenuOpen;
+
+    private void ToggleSceneMenu()
+    {
         if (_isGuest) return;
-        var next = e.Value?.ToString() == "street" ? "street" : "saloon";
-        if (next == _tableScene) return;
+        _sceneMenuOpen = !_sceneMenuOpen;
+        if (_sceneMenuOpen) _soundMenuOpen = false;
+    }
+
+    private async Task PickScene(string scene)
+    {
+        _sceneMenuOpen = false;
+        await SetTableSceneAsync(scene);
+    }
+
+    private async Task SetTableSceneAsync(string next)
+    {
+        if (_isGuest) return;
+        var scene = next == "street" ? "street" : "saloon";
+        if (scene == _tableScene) return;
         if (_coachOpen) await CloseCoach(false);
-        _tableScene = next;
-        GameLog.Info("ui", $"table scene -> {next}");
-        try { await JS.InvokeVoidAsync("pokerScene.setTableScene", next); }
+        _tableScene = scene;
+        GameLog.Info("ui", $"table scene -> {scene}");
+        try { await JS.InvokeVoidAsync("pokerScene.setTableScene", scene); }
         catch (JSException) { }
     }
+
+    private string? SoundArtSlug => SoundSummary switch
+    {
+        "ALL ON" => "all-on",
+        "ALL OFF" => "off",
+        "MUSIC ONLY" => "music",
+        "BACKGROUND ONLY" => "background",
+        _ => null
+    };
+
+    private string? SoundArtLabel => SoundArtSlug == null ? SoundSummary : null;
+
+    private string PaceArtSlug => _quickMode ? "quick-play" : "cinematic";
+
+    private string? CoachArtSlug => _coachMode switch
+    {
+        CoachMode.Off => "off",
+        CoachMode.Notable => "notable",
+        CoachMode.OnRequest => "on-request",
+        _ => null
+    };
+
+    private string? CoachArtLabel => CoachArtSlug == null ? CoachModeLabel : null;
+
+    private string DifficultyArtSlug => _difficulty == 0 ? "easy" : "normal";
+
+    private string SceneArtSlug => _tableScene == "street" ? "octagon" : "saloon";
+
+    private string IntroSceneKey => _tableScene == "street" ? "street" : "saloon";
+
+    private string IntroSceneClass => _tableScene == "street" ? "street" : "";
+
+    private string IntroBgUrl => $"img/intro/{IntroSceneKey}-bg.jpg";
 
     private async Task SyncBackdropLabel()
     {
@@ -5763,7 +5811,11 @@
         (false, true) => "BACKGROUND ONLY"
     };
 
-    private void ToggleSoundMenu() => _soundMenuOpen = !_soundMenuOpen;
+    private void ToggleSoundMenu()
+    {
+        _soundMenuOpen = !_soundMenuOpen;
+        if (_soundMenuOpen) _sceneMenuOpen = false;
+    }
 
     private void ToggleChannel(string channel)
     {

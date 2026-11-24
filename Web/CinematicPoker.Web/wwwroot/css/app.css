@@ -75,7 +75,7 @@ html, body {
     /* Same one-sheet as the Blazor intro so loading never flashes a
        different title card. Painted title lives in the art. */
     /* Paths are relative to this stylesheet (css/), not the page. */
-    background: #1a0c08 url("../img/intro-splash.jpg?v=3") center / cover no-repeat;
+    background: #1a0c08 url("../img/intro/saloon-bg.jpg?v=1") center / cover no-repeat;
 }
 
 /* Desktops narrower than the one-sheet (about 2.16:1) but still wide
@@ -88,7 +88,7 @@ html, body {
 /* Octagon scene keeps its own one-sheet. The class is set from
    localStorage before first paint so the boot card matches the level. */
 html.scene-street .boot-screen {
-    background-image: url("../img/intro-splash-street.jpg?v=2");
+    background-image: url("../img/intro/street-bg.jpg?v=1");
 }
 
 /* Scene changes reload the page while the player is already seated.
@@ -635,6 +635,44 @@ html.scene-street.resume-play .boot-screen {
         0 0 28px rgba(255, 160, 60, 0.22);
 }
 
+/* Art-backed toolbar pills (pre-rendered gold capsules from design). */
+.gameplay-toolbar .toolbar-btn.toolbar-pill {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    min-width: 0;
+    min-height: 44px;
+    line-height: 0;
+}
+
+.gameplay-toolbar .toolbar-pill-img {
+    display: block;
+    height: 40px;
+    width: auto;
+    max-height: 44px;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.gameplay-toolbar .toolbar-btn.toolbar-pill.active {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.gameplay-toolbar .toolbar-btn.toolbar-pill.active .toolbar-pill-img {
+    filter:
+        drop-shadow(0 0 6px rgba(255, 198, 107, 0.9))
+        drop-shadow(0 0 14px rgba(255, 160, 60, 0.55))
+        brightness(1.06);
+}
+
+.gameplay-toolbar .toolbar-btn.toolbar-pill:focus-visible {
+    outline: 2px solid var(--toolbar-active);
+    outline-offset: 3px;
+}
+
 .invite-btn {
     color: var(--gold);
     border-color: rgba(216, 178, 92, 0.55);
@@ -695,18 +733,11 @@ html.scene-street.resume-play .boot-screen {
     transition: opacity 3s ease;
 }
 
-/* Owner-supplied western one-sheet: title, subtitle and TAP TO PLAY are
-   painted into the art, so the splash is the image itself. The art frame
-   keeps the one-sheet's 1844×853 ratio and covers the viewport, so the
-   pulse below can be positioned against the painted plate rather than
-   the window. */
+/* Layered intro: background plate plus transparent title + TAP TO PLAY art. */
 .intro-overlay.intro-splash {
     background: #1a0c08;
 }
 
-/* Beats `.intro-overlay > *` so the frame stays out of the flex flow.
-   Width/height cover the viewport while keeping 1844:853, so 100% 100%
-   maps the file onto the frame with no extra stretch. */
 .intro-overlay > .intro-splash-art {
     position: absolute;
     z-index: 0;
@@ -715,23 +746,51 @@ html.scene-street.resume-play .boot-screen {
     transform: translate(-50%, -50%);
     width: max(100%, calc(100dvh * 1844 / 853));
     height: max(100%, calc(100vw * 853 / 1844));
-    background: url("../img/intro-splash.jpg?v=3") center / 100% 100% no-repeat;
+    overflow: hidden;
 }
 
-/* Same frame as the saloon sheet (both are 1844×853). Only the painting changes. */
-.intro-overlay > .intro-splash-art.street {
-    background-image: url("../img/intro-splash-street.jpg?v=2");
+.intro-splash-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
 }
 
-/* The octagon plate sits lower than the saloon one, under the fighters. */
-.intro-splash-art.street .intro-tap-pulse {
-    top: 68.5%;
-    width: 28%;
-    height: 11%;
+.intro-splash-chrome {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
 }
 
-.intro-splash-art.street .intro-loading {
-    top: 68.5%;
+.intro-hero-wrap {
+    position: absolute;
+    left: 50%;
+    top: 42%;
+    width: min(92%, 980px);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.intro-splash-art.street .intro-hero-wrap {
+    top: 44%;
+}
+
+.intro-hero-plate {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.intro-splash-art .intro-loading {
+    top: 78%;
 }
 
 /* Same right-pin as the boot screen, so SETTINGS stays whole on 16:9. */
@@ -764,17 +823,13 @@ html.scene-street.resume-play .boot-screen {
     z-index: 1;
 }
 
-/* Soft pulse hugging the painted TAP TO PLAY banner. On the 1844×853
-   one-sheet the plate is centered at about 63% of the height and spans
-   about 30%×9% of the art. Percentages are of the art frame, so the glow
-   stays on the plate when the frame is cropped. */
-.intro-overlay .intro-tap-pulse {
+.intro-hero-wrap .intro-tap-pulse {
     position: absolute;
     left: 50%;
-    top: 63.1%;
-    width: 32%;
-    height: 12%;
-    transform: translate(-50%, -50%);
+    bottom: 4%;
+    width: 74%;
+    height: 24%;
+    transform: translateX(-50%);
     border-radius: 3px;
     background: rgba(255, 220, 190, 0.2);
     box-shadow: 0 0 10px 2px rgba(180, 40, 28, 0.35);
@@ -784,7 +839,7 @@ html.scene-street.resume-play .boot-screen {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .intro-overlay .intro-tap-pulse { animation: none; opacity: 0.55; }
+    .intro-hero-wrap .intro-tap-pulse { animation: none; opacity: 0.55; }
 }
 
 .intro-title {
@@ -865,12 +920,10 @@ html.scene-street.resume-play .boot-screen {
     50% { opacity: 1; }
 }
 
-/* Shown over the painted TAP TO PLAY banner once play is tapped but the
-   scene is still downloading (same art-frame anchor as .intro-tap-pulse). */
-.intro-overlay .intro-loading {
+.intro-hero-wrap .intro-loading {
     position: absolute;
     left: 50%;
-    top: 63.1%;
+    top: 78%;
     transform: translate(-50%, -50%);
     font-family: 'Rye', Georgia, "Times New Roman", serif;
     font-size: clamp(15px, 2.6vw, 22px);
@@ -961,6 +1014,40 @@ html.scene-street.resume-play .boot-screen {
 
 .hud-pot b { color: var(--gold); }
 
+.hud-pot-art {
+    position: relative;
+    line-height: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.hud-pot-img {
+    display: block;
+    height: 44px;
+    width: auto;
+    max-height: 44px;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.hud-pot-amount {
+    position: absolute;
+    right: 12%;
+    top: 28%;
+    transform: translateY(-8%);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #e8c88a;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
 /* Remaining stack is the progress meter players actually watch. */
 .hud-stack {
     font-size: 22px;
@@ -1033,13 +1120,16 @@ html.scene-street.resume-play .boot-screen {
     flex-direction: column;
     /* The pair hugs the right border, under the last board cards. */
     align-items: flex-end;
-    gap: 5px;
-    padding: 5px 7px;
-    background: rgba(8, 5, 3, 0.55);
-    border: 1px solid rgba(216, 178, 92, 0.55);
-    border-radius: 8px;
+    gap: 6px;
+    padding: 14px 16px 12px;
+    background: transparent url('img/cards/panel.png') center / 100% 100% no-repeat;
+    border: 1px solid transparent;
+    border-radius: 12px;
     cursor: pointer;
     animation: board-window-pulse 2s ease-in-out infinite;
+    min-width: min(100%, 280px);
+    aspect-ratio: 1200 / 650;
+    box-sizing: border-box;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1071,8 +1161,10 @@ html.scene-street.resume-play .boot-screen {
 .hud-card {
     width: 49px;
     height: auto;
-    border-radius: 3px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    aspect-ratio: 300 / 420;
+    object-fit: contain;
+    border-radius: 0;
+    box-shadow: none;
     transition: width 0.15s ease;
 }
 
@@ -1140,7 +1232,9 @@ html.scene-street.resume-play .boot-screen {
 .board-expanded .hud-meters .actor-stack { font-size: 15px; margin-top: 1px; }
 .board-expanded .hud-meters .actor-status { font-size: 11px; }
 
-.hud-card.facedown { opacity: 0.35; }
+.hud-card.facedown {
+    opacity: 1;
+}
 
 /* Opening-hands tutorial expand/minimise icon button: sits to the left of
    the player's two cards in the lower row. See ShowEnlargeHint in
@@ -2141,6 +2235,63 @@ html.scene-street.resume-play .boot-screen {
 .act.bet   { background: #8a6a2a; }
 .act.allin { background: #7d2430; }
 
+/* Art-backed FOLD / CALL / RAISE (bottom action row). */
+.act.act-art {
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    line-height: 0;
+    min-height: 44px;
+    min-width: 44px;
+    letter-spacing: 0;
+    font-weight: normal;
+    flex: 0 0 auto;
+}
+
+.act-art-frame {
+    position: relative;
+    display: inline-block;
+    line-height: 0;
+}
+
+.act-art-img {
+    display: block;
+    height: 56px;
+    width: auto;
+    max-height: 60px;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.act-art-detail {
+    position: absolute;
+    left: 50%;
+    bottom: 22%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #f4e8d2;
+    text-shadow:
+        0 1px 0 rgba(0, 0, 0, 0.9),
+        0 0 6px rgba(0, 0, 0, 0.75);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.act.act-art:hover { filter: brightness(1.1); }
+.act.act-art:active { transform: translateY(2px); }
+.act.act-art:focus-visible {
+    outline: 2px solid #ffc66b;
+    outline-offset: 3px;
+    border-radius: 8px;
+}
+
+.actionbar-primary {
+    margin-left: auto;
+}
+
 /* Fast-forward through the rest of the hand after you've folded. */
 .act.ff {
     background: var(--panel);
@@ -2723,6 +2874,360 @@ html.scene-street.resume-play .boot-screen {
     justify-content: center;
     z-index: 50;
     animation: overlayfade 0.4s ease-out;
+}
+
+/* Full-screen art overlays (rules, hands, settings frame). */
+.overlay.overlay-art {
+    padding: max(8px, env(safe-area-inset-top, 0px)) 10px
+        max(8px, env(safe-area-inset-bottom, 0px));
+}
+
+.overlay-art-panel {
+    position: relative;
+    line-height: 0;
+    max-width: min(96vw, 920px);
+    max-height: calc(100dvh - 16px);
+}
+
+.overlay-art-panel--portrait {
+    max-width: min(92vw, 560px);
+}
+
+.overlay-art-img,
+.overlay-art-frame {
+    display: block;
+    max-width: 100%;
+    max-height: calc(100dvh - 16px);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.overlay-art-hitclose {
+    position: absolute;
+    left: 50%;
+    bottom: 4.5%;
+    transform: translateX(-50%);
+    width: 38%;
+    height: 8.5%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 999px;
+}
+
+.overlay-art-hitclose:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+.settings-art-panel {
+    width: min(560px, calc(100vw - 24px));
+}
+
+.settings-art-panel.overlay-art-panel--portrait {
+    max-width: min(92vw, 560px);
+}
+
+.settings-art-frame {
+    width: 100%;
+    height: auto;
+}
+
+.settings-art-sheet {
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    top: 14.5%;
+    bottom: 16%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    max-width: none;
+    max-height: none;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(216, 178, 92, 0.45) transparent;
+}
+
+.settings-art-sheet::-webkit-scrollbar {
+    width: 6px;
+}
+
+.settings-art-sheet::-webkit-scrollbar-thumb {
+    background: rgba(216, 178, 92, 0.4);
+    border-radius: 999px;
+}
+
+.settings-art-sheet::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.settings-art-sheet.settings-box {
+    padding: 0;
+    gap: 0;
+}
+
+.settings-name-art {
+    margin-bottom: 6px;
+}
+
+.settings-name-art .settings-name-controls {
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.settings-name-art .settings-name-input {
+    flex: 1 1 52%;
+    max-width: 52%;
+    min-height: 44px;
+    margin-right: auto;
+}
+
+.settings-name-art .settings-save {
+    flex: 0 0 auto;
+    min-width: 88px;
+    min-height: 44px;
+}
+
+.settings-art-portrait .settings-label {
+    flex: 0 0 42%;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: #e8d4a8;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
+.settings-art-portrait .settings-row {
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.settings-art-portrait .settings-row-pill {
+    justify-content: space-between;
+    align-items: center;
+    min-height: 48px;
+}
+
+.settings-art-portrait .settings-pill-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex: 1 1 54%;
+    width: auto;
+    max-width: 54%;
+    min-width: 0;
+}
+
+.settings-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 4px 2px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    touch-action: manipulation;
+    border-radius: 999px;
+    line-height: 0;
+}
+
+.settings-pill-frame {
+    position: relative;
+    display: inline-block;
+    line-height: 0;
+}
+
+.settings-pill-img {
+    display: block;
+    height: 44px;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+}
+
+.settings-pill-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-52%, -50%);
+    max-width: 72%;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #f4ead8;
+    text-align: center;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.settings-pill:hover:not(.is-disabled) .settings-pill-img {
+    filter: brightness(1.08);
+}
+
+.settings-pill.is-pressed:not(.is-disabled) .settings-pill-img {
+    filter: brightness(0.92);
+    transform: translateY(1px);
+}
+
+.settings-pill.is-expanded .settings-pill-img {
+    filter: brightness(1.12)
+        drop-shadow(0 0 6px rgba(255, 198, 107, 0.45));
+}
+
+.settings-pill:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+}
+
+.settings-pill.is-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.settings-dropdown-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 2;
+    min-width: min(220px, 100%);
+    padding: 10px 12px;
+    border: 1px solid rgba(216, 178, 92, 0.55);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(38, 24, 14, 0.97) 0%, rgba(12, 8, 5, 0.98) 100%);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.45),
+        0 12px 28px rgba(0, 0, 0, 0.65),
+        inset 0 1px 0 rgba(255, 220, 160, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.settings-dropdown-panel.sound-menu .sound-option {
+    min-height: 44px;
+}
+
+.settings-dropdown-panel.scene-menu {
+    gap: 8px;
+    padding: 8px;
+}
+
+.scene-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 4px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.scene-option.on {
+    border-color: rgba(255, 198, 107, 0.65);
+    box-shadow: 0 0 0 1px rgba(255, 198, 107, 0.25);
+}
+
+.scene-option:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+.scene-option-art {
+    display: block;
+    height: 36px;
+    width: auto;
+    max-width: 100%;
+    pointer-events: none;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.settings-art-portrait .settings-name-art .settings-name-controls {
+    flex-wrap: wrap;
+}
+
+.settings-art-portrait .settings-name-art .settings-name-input {
+    flex: 1 1 100%;
+    max-width: 100%;
+    margin-right: 0;
+}
+
+.settings-art-sheet .settings-name-controls .name-input {
+    background: rgba(8, 5, 3, 0.72);
+    border: 1px solid rgba(216, 178, 92, 0.5);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    box-shadow: none;
+}
+
+.settings-art-sheet .settings-save {
+    padding: 10px 16px;
+    font-size: 12px;
+    border-radius: 10px;
+}
+
+.settings-art-portrait .sound-menu {
+    margin-left: auto;
+    width: 100%;
+    border-color: rgba(216, 178, 92, 0.35);
+}
+
+.settings-extra-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(216, 178, 92, 0.25);
+}
+
+.settings-extra-actions .settings-action {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+}
+
+.overlay-art-panel--landscape .overlay-art-hitclose {
+    bottom: 3.5%;
+    width: 22%;
+    height: 11%;
 }
 
 /* Table-win plaques are tall; top-align and scroll the backdrop so the
@@ -3436,7 +3941,9 @@ html.scene-street.resume-play .boot-screen {
 /* ------------------------------------------------------------- small screens */
 
 @media (max-width: 980px) {
-    .act { padding: 13px 18px; font-size: 14px; }
+    .act:not(.act-art) { padding: 13px 18px; font-size: 14px; }
+    .act-art-img { height: 50px; max-height: 52px; }
+    .act-art-detail { font-size: 10px; bottom: 21%; }
     .actionbar { gap: 10px; }
     .actionbar-left, .actionbar-right { gap: 10px; }
     .brand { font-size: 14px; letter-spacing: 3px; }
@@ -3511,9 +4018,9 @@ html.scene-street.resume-play .boot-screen {
     .hud-stack { font-size: 20px; padding: 7px 14px; }
     .hud-stack-icon { width: 20px; height: 20px; flex-basis: 20px; }
     .hud-hand-rail { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 6px; }
-    .hud-board { gap: 4px; padding: 4px 5px; }
+    .hud-board { gap: 4px; padding: 10px 12px 8px; }
     .hud-row { gap: 3px; }
-    .hud-card { width: 38px; }
+    .hud-card { width: 42px; }
     /* 1.3x larger expanded panel, clamped so five cards never overflow a narrow screen. */
     .hud-board.expanded .hud-row { gap: 2px; }
     .hud-board.expanded .hud-card { width: min(196px, calc((100vw - 40px) * 0.546), calc((100vw - 24px) / 5)); }
@@ -3562,7 +4069,8 @@ html.scene-street.resume-play .boot-screen {
     .table-chat { width: min(220px, 70vw); max-height: none; }
     .table-chat.collapsed { width: auto; max-height: none; }
 
-    .act { padding: 12px 14px; font-size: 13px; letter-spacing: 1px; flex: 0 1 auto; }
+    .act:not(.act-art) { padding: 12px 14px; font-size: 13px; letter-spacing: 1px; flex: 0 1 auto; }
+    .act-art-img { height: 46px; max-height: 48px; }
     .actionbar { gap: 8px; }
     .actionbar-left, .actionbar-right { gap: 8px; }
     .name-entry-row { gap: 8px; }
@@ -3592,7 +4100,7 @@ html.scene-street.resume-play .boot-screen {
     .gameplay-toolbar.topbar .topbar-actions.toolbar-actions {
         gap: 8px !important;
     }
-    .gameplay-toolbar.topbar button.toolbar-btn {
+    .gameplay-toolbar.topbar button.toolbar-btn:not(.toolbar-pill) {
         padding: 6px 10px !important;
         min-height: 44px !important;
         min-width: 44px !important;
@@ -3600,6 +4108,10 @@ html.scene-street.resume-play .boot-screen {
         letter-spacing: 0.01em !important;
         border: 1px solid var(--toolbar-outline) !important;
         border-radius: 999px !important;
+    }
+    .gameplay-toolbar .toolbar-pill-img {
+        height: 36px;
+        max-height: 40px;
     }
     .gameplay-toolbar.topbar .toolbar-item-settings.toolbar-btn,
     .gameplay-toolbar.topbar .toolbar-more-trigger {
@@ -3619,8 +4131,8 @@ html.scene-street.resume-play .boot-screen {
        on that row, so the hand window must start below it. */
     .hud-hand-rail { top: 48px; right: max(8px, env(safe-area-inset-right, 0px)); gap: 6px; }
     html.notch-left .hud-hand-rail { right: 8px; }
-    .hud-board { gap: 4px; padding: 4px 5px; }
-    .hud-card { width: 40px; }
+    .hud-board { gap: 4px; padding: 10px 12px 8px; }
+    .hud-card { width: 42px; }
     /* Enlarged: start below the (possibly wrapped) top-bar buttons at 1.3x
        the old close-up size; the last min() term keeps both rows on-screen. */
     .board-expanded-rail .hud-board.expanded {
@@ -3693,7 +4205,9 @@ html.scene-street.resume-play .boot-screen {
     }
     .hud-bottom-row.chat-open .ai-advice { width: min(210px, 34vw); }
 
-    .act { padding: 10px 14px; font-size: 12px; flex: 0 1 auto; }
+    .act:not(.act-art) { padding: 10px 14px; font-size: 12px; flex: 0 1 auto; }
+    .act-art-img { height: 42px; max-height: 44px; }
+    .act-art-detail { font-size: 9px; bottom: 20%; }
     .actionbar {
         gap: 8px;
         /* Corners of this row sit below the notch, so the side inset no

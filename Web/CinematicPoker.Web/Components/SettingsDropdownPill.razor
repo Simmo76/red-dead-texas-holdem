@@ -1,0 +1,65 @@
+<button type="button"
+        class="settings-pill @CssClass @(Expanded ? "is-expanded" : null) @(Pressed ? "is-pressed" : null) @(Disabled ? "is-disabled" : null)"
+        disabled="@Disabled"
+        aria-label="@EffectiveAriaLabel"
+        aria-expanded="@AriaExpanded"
+        aria-haspopup="@(HasPopup ? "true" : null)"
+        title="@Title"
+        @onclick="HandleClick"
+        @onpointerdown="OnPointerDown"
+        @onpointerup="OnPointerUp"
+        @onpointercancel="OnPointerUp"
+        @onpointerleave="OnPointerUp">
+    <span class="settings-pill-frame">
+        <img class="settings-pill-img"
+             src="@ImageSrc"
+             srcset="@ImageSrcSet"
+             alt=""
+             aria-hidden="true"
+             loading="lazy"
+             decoding="async" />
+        @if (!UseArtSlug)
+        {
+            <span class="settings-pill-label" aria-hidden="true">@DisplayLabel</span>
+        }
+    </span>
+</button>
+
+@code {
+    /// <summary>Kebab-case asset base name under img/settings/dropdown/.</summary>
+    [Parameter] public string? ArtSlug { get; set; }
+    [Parameter] public string? DisplayLabel { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? CssClass { get; set; }
+    [Parameter] public bool Expanded { get; set; }
+    [Parameter] public bool HasPopup { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private bool Pressed { get; set; }
+
+    private bool UseArtSlug => !string.IsNullOrEmpty(ArtSlug);
+
+    private string ImageSrc => UseArtSlug
+        ? $"img/settings/dropdown/{ArtSlug}.png"
+        : "img/settings/dropdown/blank-dropdown.png";
+
+    private string ImageSrcSet => UseArtSlug
+        ? $"img/settings/dropdown/{ArtSlug}@2x.png 2x"
+        : "img/settings/dropdown/blank-dropdown@2x.png 2x";
+
+    private string EffectiveAriaLabel => AriaLabel ?? DisplayLabel ?? Title ?? "Setting";
+
+    private bool? AriaExpanded => HasPopup ? Expanded : null;
+
+    private void OnPointerDown() => Pressed = !Disabled;
+
+    private void OnPointerUp() => Pressed = false;
+
+    private async Task HandleClick()
+    {
+        if (Disabled) return;
+        await OnClick.InvokeAsync();
+    }
+}
