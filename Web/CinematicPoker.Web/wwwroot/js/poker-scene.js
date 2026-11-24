@@ -467,9 +467,11 @@ function texture(path) {
 // Warm all card textures up front so reveals never flash black mid-hand.
 function preloadCardTextures() {
   const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-  for (const suit of ['clubs', 'diamonds', 'hearts', 'spades'])
-    for (const rank of ranks) texture(`img/cards/${suit}_${rank}.png`);
+  const suits = ['C', 'D', 'H', 'S'];
+  for (const rank of ranks)
+    for (const suit of suits) texture(`img/cards/${rank}${suit}.png`);
   texture('img/cards/back.png');
+  texture('img/cards/panel.png');
 }
 
 function seatAngle(i) {

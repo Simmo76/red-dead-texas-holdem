@@ -585,7 +585,7 @@ export function createCoachController(deps) {
     }
   }
 
-  // Filename only, so "img/cards/hearts_8.png" and a rooted copy of the
+  // Filename only, so "img/cards/8H.png" and a rooted copy of the
   // same face still count as the same card when the highlight list arrives.
   function cardKey(url) {
     const text = String(url || '');
