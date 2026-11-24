@@ -67,7 +67,11 @@
                  alt="Dead Man's Hand" />
             @if (Round != null)
             {
-                <div class="hud-pot">POT&nbsp;<b>$@Round.PotTotal</b></div>
+                <div class="hud-pot hud-pot-art" role="status" aria-live="polite"
+                     aria-label="@($"Pot ${Round.PotTotal}")">
+                    <img class="hud-pot-img" src="img/pot.png" srcset="img/pot@2x.png 2x" alt="" aria-hidden="true" />
+                    <span class="hud-pot-amount" aria-hidden="true">$@Round.PotTotal</span>
+                </div>
             }
         </div>
         <div class="topbar-right toolbar-controls">
