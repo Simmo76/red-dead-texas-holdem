@@ -767,34 +767,20 @@ html.scene-street.resume-play .boot-screen {
     pointer-events: none;
 }
 
-.intro-title-plate {
+.intro-hero-wrap {
     position: absolute;
     left: 50%;
-    top: 10%;
-    width: 72%;
-    height: auto;
-    max-height: 42%;
-    transform: translateX(-50%);
-    object-fit: contain;
-    pointer-events: none;
-    user-select: none;
-    -webkit-user-drag: none;
-}
-
-.intro-tap-wrap {
-    position: absolute;
-    left: 50%;
-    top: 64.5%;
-    width: 42%;
+    top: 42%;
+    width: min(92%, 980px);
     transform: translate(-50%, -50%);
+    pointer-events: none;
 }
 
-.intro-splash-art.street .intro-tap-wrap {
-    top: 69%;
-    width: 42%;
+.intro-splash-art.street .intro-hero-wrap {
+    top: 44%;
 }
 
-.intro-tap-art {
+.intro-hero-plate {
     display: block;
     width: 100%;
     height: auto;
@@ -803,8 +789,8 @@ html.scene-street.resume-play .boot-screen {
     -webkit-user-drag: none;
 }
 
-.intro-splash-art.street .intro-loading {
-    top: 69%;
+.intro-splash-art .intro-loading {
+    top: 78%;
 }
 
 /* Same right-pin as the boot screen, so SETTINGS stays whole on 16:9. */
@@ -837,9 +823,13 @@ html.scene-street.resume-play .boot-screen {
     z-index: 1;
 }
 
-.intro-overlay .intro-tap-pulse {
+.intro-hero-wrap .intro-tap-pulse {
     position: absolute;
-    inset: 0;
+    left: 50%;
+    bottom: 4%;
+    width: 74%;
+    height: 24%;
+    transform: translateX(-50%);
     border-radius: 3px;
     background: rgba(255, 220, 190, 0.2);
     box-shadow: 0 0 10px 2px rgba(180, 40, 28, 0.35);
@@ -849,7 +839,7 @@ html.scene-street.resume-play .boot-screen {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .intro-overlay .intro-tap-pulse { animation: none; opacity: 0.55; }
+    .intro-hero-wrap .intro-tap-pulse { animation: none; opacity: 0.55; }
 }
 
 .intro-title {
@@ -930,10 +920,10 @@ html.scene-street.resume-play .boot-screen {
     50% { opacity: 1; }
 }
 
-.intro-overlay .intro-loading {
+.intro-hero-wrap .intro-loading {
     position: absolute;
     left: 50%;
-    top: 64.5%;
+    top: 78%;
     transform: translate(-50%, -50%);
     font-family: 'Rye', Georgia, "Times New Roman", serif;
     font-size: clamp(15px, 2.6vw, 22px);

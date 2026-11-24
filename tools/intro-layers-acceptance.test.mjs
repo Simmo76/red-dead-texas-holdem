@@ -12,13 +12,13 @@ function assert(cond, msg) {
 }
 
 for (const scene of ['saloon', 'street']) {
-  for (const piece of ['bg.jpg', 'title.png', 'title@2x.png', 'tap.png', 'tap@2x.png']) {
-    assert(existsSync(join(intro, `${scene}-${piece}`)), `missing intro/${scene}-${piece}`);
-  }
+  assert(existsSync(join(intro, `${scene}-bg.jpg`)), `missing intro/${scene}-bg.jpg`);
+}
+for (const piece of ['hero-plate.png', 'hero-plate@2x.png']) {
+  assert(existsSync(join(intro, piece)), `missing intro/${piece}`);
 }
 
-assert(home.includes('intro-title-plate'), 'Home: layered intro title');
-assert(home.includes('intro-tap-art'), 'Home: art-backed tap');
-assert(home.includes('intro-splash-bg'), 'Home: intro background plate');
+assert(home.includes('intro-hero-plate'), 'Home: intro hero title plate');
+assert(home.includes('intro-splash-bg'), 'Home: intro scenic background');
 
 console.log('intro-layers-acceptance: OK');
