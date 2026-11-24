@@ -82,7 +82,21 @@ namespace CinematicPoker.Engine.Coaching
             if (string.IsNullOrWhiteSpace(boardText)) return true;
             if (!TryParseCards(boardText, out List<Card> board) || board == null)
                 return false;
-            return SameCards(board, hand.FinalBoard);
+            if (hand.FinalBoard == null || hand.FinalBoard.Count == 0)
+                return true;
+            if (SameCards(board, hand.FinalBoard)) return true;
+            // Fold-win certificates store the board that was on the table when
+            // the pot was won; the saved hand may add the synthetic runout.
+            if (hand.WonByFolds && board.Count <= hand.FinalBoard.Count)
+            {
+                for (int i = 0; i < board.Count; i++)
+                {
+                    if (board[i].Index != hand.FinalBoard[i].Index)
+                        return false;
+                }
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
