@@ -5714,7 +5714,16 @@
     private void NextSong()
     {
         if (!_musicOn) return;
-        _ = JS.InvokeVoidAsync("pokerAudio.nextSong");
+        // Synchronous JS so the new bed's HTMLAudio.play() still runs inside
+        // the tap gesture (async interop can lose autoplay on some browsers).
+        try
+        {
+            if (JS is IJSInProcessRuntime sync)
+                sync.InvokeVoid("pokerAudio.nextSong");
+            else
+                _ = JS.InvokeVoidAsync("pokerAudio.nextSong");
+        }
+        catch (JSException) { }
     }
 
     private static readonly Dictionary<string, string[]> SoundGroups = new()

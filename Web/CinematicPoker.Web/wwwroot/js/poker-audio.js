@@ -264,15 +264,45 @@ window.pokerAudio = (function () {
     let sceneName = 'saloon';
     let recentMusic = [];
 
+    function normalizeMusicUrl(url) {
+        if (!url) return '';
+        var s = String(url);
+        var idx = s.indexOf('audio/');
+        if (idx >= 0) return s.slice(idx);
+        return s;
+    }
+
+    function musicTrackKey(audio) {
+        if (!audio) return '';
+        try {
+            var src = audio.currentSrc || audio.src || '';
+            if (!src) return '';
+            var path = src;
+            try { path = new URL(src, location.href).pathname; } catch (e) { }
+            return normalizeMusicUrl(path);
+        } catch (e2) { return ''; }
+    }
+
+    function activeMusicTrackKeys() {
+        var active = {};
+        var k1 = musicTrackKey(music);
+        var k2 = musicTrackKey(musicFadingOut);
+        if (k1) active[k1] = true;
+        if (k2) active[k2] = true;
+        return active;
+    }
+
     function pickMusic() {
         const tracks = sceneName === 'street' ? STREET_MUSIC_TRACKS : SALOON_MUSIC_TRACKS;
+        const active = activeMusicTrackKeys();
         let candidates = tracks.filter(function (url) {
-            return recentMusic.indexOf(url) === -1;
+            return recentMusic.indexOf(url) === -1 && !active[url];
         });
         if (!candidates.length) {
             recentMusic = [];
-            candidates = tracks.slice();
+            candidates = tracks.filter(function (url) { return !active[url]; });
         }
+        if (!candidates.length) candidates = tracks.slice();
         const url = candidates[Math.floor(Math.random() * candidates.length)];
         recentMusic.push(url);
         return url;
@@ -331,6 +361,8 @@ window.pokerAudio = (function () {
     function beginMusicCrossfade(outgoing) {
         if (!outgoing || outgoing._crossfading) return;
         outgoing._crossfading = true;
+        const outKey = musicTrackKey(outgoing);
+        if (outKey && recentMusic.indexOf(outKey) === -1) recentMusic.push(outKey);
         if (musicFadingOut && musicFadingOut !== outgoing) disposeMusic(musicFadingOut);
         musicFadingOut = outgoing;
         if (music === outgoing) music = null;
@@ -458,6 +490,14 @@ window.pokerAudio = (function () {
             startMusic({ fadeIn: true });
             return;
         }
+        var outgoing = music;
+        if (!outgoing || outgoing._crossfading) outgoing = musicFadingOut;
+        if (outgoing && !outgoing._crossfading) {
+            beginMusicCrossfade(outgoing);
+            return;
+        }
+        // Already mid-crossfade: advance from the incoming bed instead of
+        // restarting the track that is fading out.
         if (music && !music._crossfading) {
             beginMusicCrossfade(music);
             return;
