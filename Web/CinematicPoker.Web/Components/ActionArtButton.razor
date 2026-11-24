@@ -1,0 +1,42 @@
+<button type="button"
+        class="act act-art @CssClass"
+        @onclick="HandleClick"
+        disabled="@Disabled"
+        aria-label="@EffectiveAriaLabel"
+        title="@(Title ?? EffectiveAriaLabel)">
+    <span class="act-art-frame">
+        <img class="act-art-img"
+             src="@Src"
+             srcset="@SrcSet"
+             alt=""
+             aria-hidden="true"
+             loading="eager"
+             decoding="async" />
+        @if (!string.IsNullOrEmpty(Detail))
+        {
+            <span class="act-art-detail" aria-hidden="true">@Detail</span>
+        }
+    </span>
+</button>
+
+@code {
+    [Parameter, EditorRequired] public string Src { get; set; } = "";
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Detail { get; set; }
+    [Parameter] public string? CssClass { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private string? SrcSet => Src.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+        ? Src[..^4] + "@2x.png 2x"
+        : null;
+
+    private string EffectiveAriaLabel => AriaLabel ?? Title ?? "Action";
+
+    private async Task HandleClick()
+    {
+        if (Disabled) return;
+        await OnClick.InvokeAsync();
+    }
+}
