@@ -25,20 +25,28 @@
     {
         <div class="intro-overlay intro-splash @(_introFading ? "fading" : "") @(_namePromptOpen ? "prompting" : "")"
              @onclick="StartIntro" role="button" aria-label="Tap to play">
-            <div class="intro-splash-art @(_tableScene == "street" ? "street" : "")">
-                @if (_sceneLoading && !_namePromptOpen)
-                {
-                    @* Play was tapped but the scene (saloon backdrop included) is
-                       still downloading — say so instead of silently sitting on
-                       the splash or, worse, revealing a background-less table. *@
-                    <div class="intro-loading" aria-live="polite">SETTING THE TABLE</div>
-                }
-                else if (!_namePromptOpen)
-                {
-                    @* Title art + TAP TO PLAY live in the splash image; keep a
-                       pulsing hotspot over the painted CTA so the cue still animates. *@
-                    <div class="intro-tap-pulse" aria-hidden="true"></div>
-                }
+            <div class="intro-splash-art @IntroSceneClass">
+                <img class="intro-splash-bg" src="@IntroBgUrl" alt="" aria-hidden="true" decoding="async" />
+                <div class="intro-splash-chrome" aria-hidden="@(_namePromptOpen)">
+                    <img class="intro-title-plate"
+                         src="@IntroTitleUrl"
+                         srcset="@IntroTitleSrcSet"
+                         alt="" aria-hidden="true" decoding="async" />
+                    @if (_sceneLoading && !_namePromptOpen)
+                    {
+                        <div class="intro-loading" aria-live="polite">SETTING THE TABLE</div>
+                    }
+                    else if (!_namePromptOpen)
+                    {
+                        <div class="intro-tap-wrap">
+                            <img class="intro-tap-art"
+                                 src="@IntroTapUrl"
+                                 srcset="@IntroTapSrcSet"
+                                 alt="" aria-hidden="true" decoding="async" />
+                            <div class="intro-tap-pulse" aria-hidden="true"></div>
+                        </div>
+                    }
+                </div>
             </div>
             @if (_namePromptOpen)
             {
@@ -5754,6 +5762,20 @@
     private string DifficultyArtSlug => _difficulty == 0 ? "easy" : "normal";
 
     private string SceneArtSlug => _tableScene == "street" ? "octagon" : "saloon";
+
+    private string IntroSceneKey => _tableScene == "street" ? "street" : "saloon";
+
+    private string IntroSceneClass => _tableScene == "street" ? "street" : "";
+
+    private string IntroBgUrl => $"img/intro/{IntroSceneKey}-bg.jpg";
+
+    private string IntroTitleUrl => $"img/intro/{IntroSceneKey}-title.png";
+
+    private string IntroTitleSrcSet => $"img/intro/{IntroSceneKey}-title@2x.png 2x";
+
+    private string IntroTapUrl => $"img/intro/{IntroSceneKey}-tap.png";
+
+    private string IntroTapSrcSet => $"img/intro/{IntroSceneKey}-tap@2x.png 2x";
 
     private async Task SyncBackdropLabel()
     {
