@@ -1,6 +1,8 @@
 # Preview integration build (`cursor/preview-integration-abf1`)
 
-Single branch that rolls up recent UI work for owner testing **before** merging to `main`.
+**This is the only branch** for recent UI + card work. All other `cursor/*-abf1`
+feature branches are superseded by this line — fix issues here, then merge **once**
+to `main` when the owner approves.
 
 ## Preview URL
 
