@@ -185,7 +185,11 @@ html.scene-street.resume-play .boot-screen {
     align-items: center;
 }
 
-.brand span { color: var(--gold); }
+.brand span {
+    color: var(--gold);
+    /* inline-flex collapses the space before this span in the markup. */
+    margin-inline-start: 5px;
+}
 
 .topbar-left .hud-pot {
     /* Pot is in document flow under the brand — no absolute top needed. */
@@ -3066,6 +3070,7 @@ html.scene-street.resume-play .boot-screen {
     .actionbar { gap: 10px; }
     .actionbar-left, .actionbar-right { gap: 10px; }
     .brand { font-size: 14px; letter-spacing: 3px; }
+    .brand span { margin-inline-start: 3px; }
 }
 
 /* ------------------------------------------------------------- landscape only */
@@ -3129,6 +3134,7 @@ html.scene-street.resume-play .boot-screen {
     .topbar .chip-btn { padding: 7px 10px; min-height: 34px; font-size: 11px; letter-spacing: 1px; }
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; min-height: 34px; }
+    .brand span { margin-inline-start: 2px; }
     /* Actor card under the compact brand + pot stack. */
     .hud-meters { top: calc(90px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); }
     .hud-pot { font-size: 15px; padding: 6px 14px; }
@@ -3210,6 +3216,7 @@ html.scene-street.resume-play .boot-screen {
     .topbar .chip-btn { padding: 6px 10px; min-height: 32px; font-size: 11px; letter-spacing: 1px; }
     .chip-gear { font-size: 14px; }
     .brand { font-size: 12px; letter-spacing: 2px; min-height: 32px; }
+    .brand span { margin-inline-start: 2px; }
     /* Actor card under the compact landscape brand + pot stack. */
     .hud-meters { top: calc(84px + env(safe-area-inset-top)); left: 14px; gap: 6px; }
     .hud-pot { font-size: 16px; padding: 6px 14px; }
