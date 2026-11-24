@@ -33,9 +33,12 @@
     --green: #57c785;
     /* Mobile gameplay toolbar (IMPLEMENTATION.md) */
     --toolbar-bg: rgba(24, 20, 16, 0.92);
-    --toolbar-icon: #d9b875;
-    --toolbar-text: #f4e8d2;
+    --toolbar-icon: #e8d4a8;
+    --toolbar-text: #f5e3b5;
     --toolbar-border: #795733;
+    --toolbar-outline: rgba(232, 206, 148, 0.72);
+    --toolbar-outline-strong: rgba(245, 227, 181, 0.92);
+    --toolbar-pill-bg: rgba(10, 7, 5, 0.88);
     --toolbar-active: #ffc66b;
     --toolbar-gap: 8px;
     --toolbar-radius: 10px;
@@ -170,8 +173,8 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .gameplay-toolbar {
-    background: linear-gradient(180deg, var(--toolbar-bg) 0%, rgba(24, 20, 16, 0.55) 88%, transparent 100%);
-    border-bottom: 1px solid rgba(121, 87, 51, 0.35);
+    background: linear-gradient(180deg, rgba(16, 12, 9, 0.72) 0%, rgba(16, 12, 9, 0.2) 72%, transparent 100%);
+    border-bottom: 0;
 }
 
 .gameplay-toolbar .toolbar-brand,
@@ -200,47 +203,70 @@ html.scene-street.resume-play .boot-screen {
 
 .toolbar-actions {
     align-items: center;
-    gap: 0;
+    gap: 8px;
     flex-wrap: nowrap;
-    padding: 4px 6px;
-    border: 1px solid rgba(121, 87, 51, 0.75);
-    border-radius: 12px;
-    background: rgba(12, 9, 6, 0.9);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 198, 107, 0.1),
-        0 2px 10px rgba(0, 0, 0, 0.35);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
 }
 
 .toolbar-btn {
     flex-direction: row;
-    gap: 6px;
+    gap: 8px;
     min-width: 44px;
     min-height: 44px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
+    border: 1px solid var(--toolbar-outline);
+    border-radius: 999px;
+    background: linear-gradient(
+        180deg,
+        rgba(22, 16, 11, 0.94) 0%,
+        rgba(8, 6, 4, 0.92) 100%
+    );
     color: var(--toolbar-text);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.02em;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
     text-transform: none;
+    box-shadow:
+        inset 0 1px 0 rgba(245, 227, 181, 0.14),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+        0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .gameplay-toolbar .toolbar-actions .toolbar-btn {
-    padding: 6px 10px;
-    border: 1px solid transparent;
+    padding: 8px 14px;
 }
 
-.gameplay-toolbar .toolbar-actions .toolbar-btn + .toolbar-btn,
-.gameplay-toolbar .toolbar-actions .toolbar-btn + .toolbar-more-wrap,
-.gameplay-toolbar .toolbar-actions .toolbar-more-wrap + .toolbar-btn {
-    margin-left: 2px;
+.gameplay-toolbar .toolbar-actions .toolbar-item-settings {
+    padding: 8px;
+    border-radius: 12px;
+    min-width: 44px;
+    width: 44px;
+    justify-content: center;
+}
+
+.gameplay-toolbar .toolbar-actions .toolbar-more-trigger {
+    padding: 8px;
+    border-radius: 12px;
+    min-width: 44px;
+    width: 44px;
+    justify-content: center;
 }
 
 .gameplay-toolbar .toolbar-coach {
     margin-right: var(--toolbar-gap);
-    border: 1px solid var(--toolbar-border);
-    background: rgba(12, 9, 6, 0.78);
+    border: 1px solid var(--toolbar-outline);
+    border-radius: 999px;
+    background: linear-gradient(
+        180deg,
+        rgba(22, 16, 11, 0.94) 0%,
+        rgba(8, 6, 4, 0.92) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 rgba(245, 227, 181, 0.14),
+        0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .toolbar-btn:focus-visible {
@@ -251,6 +277,7 @@ html.scene-street.resume-play .boot-screen {
 .toolbar-btn-label {
     line-height: 1.1;
     color: var(--toolbar-text);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .toolbar-btn-icon {
@@ -280,12 +307,17 @@ html.scene-street.resume-play .boot-screen {
 
 .gameplay-toolbar .toolbar-btn.active {
     color: var(--toolbar-active);
-    border-color: var(--toolbar-active) !important;
-    background: rgba(45, 32, 14, 0.95);
+    border-color: var(--toolbar-outline-strong) !important;
+    background: linear-gradient(
+        180deg,
+        rgba(48, 34, 16, 0.98) 0%,
+        rgba(28, 20, 10, 0.96) 100%
+    );
     box-shadow:
-        0 0 0 2px rgba(255, 198, 107, 0.65),
-        0 0 12px rgba(255, 198, 107, 0.5),
-        0 0 26px rgba(255, 160, 60, 0.28);
+        inset 0 1px 0 rgba(255, 220, 160, 0.22),
+        0 0 0 1px rgba(255, 198, 107, 0.55),
+        0 0 14px rgba(255, 198, 107, 0.48),
+        0 0 28px rgba(255, 160, 60, 0.22);
 }
 
 .gameplay-toolbar .toolbar-item-view.active .toolbar-btn-label,
@@ -364,14 +396,21 @@ html.scene-street.resume-play .boot-screen {
         margin-inline-start: 3px;
     }
     .gameplay-toolbar .toolbar-actions {
-        padding: 3px 5px;
-        border-radius: 10px;
+        gap: 6px;
     }
     .gameplay-toolbar .toolbar-actions .toolbar-btn.toolbar-primary {
         flex-direction: row;
-        padding: 5px 8px;
-        gap: 5px;
+        padding: 6px 10px;
+        gap: 6px;
         min-width: 44px;
+        font-size: 12px;
+    }
+    .gameplay-toolbar .toolbar-actions .toolbar-item-settings,
+    .gameplay-toolbar .toolbar-actions .toolbar-more-trigger {
+        padding: 7px;
+        width: 42px;
+        min-width: 42px;
+        min-height: 42px;
     }
     .gameplay-toolbar .toolbar-btn-label {
         font-size: 11px;
@@ -488,9 +527,7 @@ html.scene-street.resume-play .boot-screen {
     touch-action: manipulation;
 }
 
-/* The RULES/HANDS/SETTINGS pills are primary touch targets: render them a
-   notch larger than the shared chip style used inside the settings panel. */
-.gameplay-toolbar .toolbar-btn,
+/* Settings panel chips keep the older chip style; gameplay toolbar pills above. */
 .topbar .chip-btn {
     border-radius: 22px;
     padding: 10px 20px;
@@ -499,11 +536,19 @@ html.scene-street.resume-play .boot-screen {
     position: relative;
 }
 
-.gameplay-toolbar .toolbar-invite-wide,
-.gameplay-toolbar .toolbar-more-trigger {
-    border: 1px solid var(--toolbar-border);
-    background: rgba(12, 9, 6, 0.78);
-    border-radius: var(--toolbar-radius);
+.gameplay-toolbar .toolbar-btn {
+    position: relative;
+}
+
+.gameplay-toolbar .toolbar-invite-wide {
+    border: 1px solid var(--toolbar-outline);
+    border-radius: 999px;
+    background: linear-gradient(
+        180deg,
+        rgba(22, 16, 11, 0.94) 0%,
+        rgba(8, 6, 4, 0.92) 100%
+    );
+    color: var(--toolbar-text);
 }
 
 /* Invisible halo: taps that land just outside the pill still count.
@@ -515,6 +560,11 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .chip-btn:hover { color: var(--text); border-color: var(--gold-dim); }
+
+.gameplay-toolbar .toolbar-btn:hover {
+    color: var(--toolbar-outline-strong);
+    border-color: var(--toolbar-outline-strong);
+}
 
 .chip-btn.active {
     color: var(--gold);
