@@ -2926,10 +2926,13 @@ html.scene-street.resume-play .boot-screen {
 
 .settings-art-panel {
     width: min(560px, calc(100vw - 24px));
+    overflow: hidden;
+    max-height: calc(100dvh - 12px);
 }
 
 .settings-art-panel.overlay-art-panel--portrait {
     max-width: min(92vw, 560px);
+    max-height: min(calc(100dvh - 12px), calc((100vw - 24px) * 790 / 560));
 }
 
 .settings-art-frame {
@@ -2939,12 +2942,13 @@ html.scene-street.resume-play .boot-screen {
 
 .settings-art-sheet {
     position: absolute;
-    left: 12%;
-    right: 12%;
-    top: 14.5%;
-    bottom: 16%;
+    left: 13%;
+    right: 13%;
+    top: 15%;
+    bottom: 17%;
     overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior: contain;
     display: flex;
     flex-direction: column;
     gap: 0;
@@ -3001,35 +3005,49 @@ html.scene-street.resume-play .boot-screen {
     min-height: 44px;
 }
 
+.settings-art-portrait .settings-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 .settings-art-portrait .settings-label {
-    flex: 0 0 42%;
-    font-size: 11px;
+    flex: 0 0 auto;
+    font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.12em;
     color: #e8d4a8;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    line-height: 1.2;
 }
 
 .settings-art-portrait .settings-row {
-    justify-content: space-between;
-    gap: 10px;
+    justify-content: stretch;
+    gap: 6px;
 }
 
 .settings-art-portrait .settings-row-pill {
-    justify-content: space-between;
-    align-items: center;
-    min-height: 48px;
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 0;
+    gap: 5px;
 }
 
 .settings-art-portrait .settings-pill-wrap {
     position: relative;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
-    flex: 1 1 54%;
-    width: auto;
-    max-width: 54%;
+    align-items: stretch;
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
+}
+
+.settings-art-portrait .settings-row-pill > .settings-pill {
+    width: 100%;
+    max-width: 100%;
+    justify-content: center;
 }
 
 .settings-pill {
@@ -3055,9 +3073,10 @@ html.scene-street.resume-play .boot-screen {
 
 .settings-pill-img {
     display: block;
-    height: 44px;
+    height: 40px;
     width: auto;
-    max-width: 100%;
+    max-width: min(222px, 100%);
+    margin: 0 auto;
     object-fit: contain;
     pointer-events: none;
     user-select: none;
@@ -3176,14 +3195,28 @@ html.scene-street.resume-play .boot-screen {
     border: 0;
 }
 
+.settings-art-portrait .settings-name-art {
+    margin-bottom: 10px;
+}
+
 .settings-art-portrait .settings-name-art .settings-name-controls {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
 }
 
 .settings-art-portrait .settings-name-art .settings-name-input {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
     max-width: 100%;
     margin-right: 0;
+    width: 100%;
+    text-align: left;
+    font-size: 13px;
+}
+
+.settings-art-portrait .settings-name-art .settings-save {
+    width: 100%;
+    min-height: 42px;
 }
 
 .settings-art-sheet .settings-name-controls .name-input {
@@ -3208,20 +3241,28 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .settings-extra-actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 12px;
     padding-top: 10px;
     border-top: 1px solid rgba(216, 178, 92, 0.25);
 }
 
 .settings-extra-actions .settings-action {
-    min-height: 40px;
-    padding: 8px 12px;
+    min-height: 38px;
+    padding: 6px 8px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    width: 100%;
+}
+
+.settings-art-portrait .settings-note {
     font-size: 11px;
-    letter-spacing: 0.12em;
+    line-height: 1.35;
+    word-break: break-word;
+    max-height: 4.5em;
+    overflow-y: auto;
 }
 
 .overlay-art-panel--landscape .overlay-art-hitclose {

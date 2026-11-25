@@ -16,8 +16,8 @@ IMG = ROOT / "Web/CinematicPoker.Web/wwwroot/img"
 FRAME = IMG / "settings-portrait-frame.png"
 TITLE_SRC = IMG / "settings-panel-full.png"
 
-# Interior leather band (exclude ornate header + footer close pill).
-BODY = (0.10, 0.13, 0.90, 0.84)
+# Wipe rules copy/red banners; keep header chrome + footer CLOSE art.
+BODY = (0.07, 0.12, 0.93, 0.87)
 TITLE_BAND = (0.15, 0.055, 0.85, 0.115)
 
 
