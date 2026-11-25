@@ -109,45 +109,52 @@ namespace CinematicPoker.Web.Pages
 
         private string CoachAdvanceLabel => "NEXT HAND";
 
-        private sealed record SaloonCoachPortrait(string Id, string DisplayName, string Icon128);
+        private sealed record CoachPortrait(string Id, string DisplayName, string Icon128);
 
-        private static readonly SaloonCoachPortrait[] SaloonCoachRoster =
+        private static readonly CoachPortrait[] SaloonCoachRoster =
         {
             new("jake", "Jake", "img/ui/coach-saloon-jake-128.png"),
             new("marcus", "Marcus", "img/ui/coach-saloon-marcus-128.png"),
             new("rosa", "Rosa", "img/ui/coach-saloon-rosa-128.png"),
         };
 
+        private static readonly CoachPortrait[] OctagonCoachRoster =
+        {
+            new("damon", "Damon Cage", "img/ui/coach-octagon-damon-128.png"),
+            new("kofi", "Kofi Bell", "img/ui/coach-octagon-kofi-128.png"),
+            new("silas", "Silas Reed", "img/ui/coach-octagon-silas-128.png"),
+        };
+
         // Picked once per game in BeginCoachSession and kept for every hand.
         private string _saloonCoachId = "jake";
+        private string _octagonCoachId = "damon";
 
-        private SaloonCoachPortrait ActiveSaloonCoach =>
+        private CoachPortrait ActiveSaloonCoach =>
             Array.Find(SaloonCoachRoster, c => c.Id == _saloonCoachId) ?? SaloonCoachRoster[0];
 
-        private void PickSaloonCoachForNewGame()
+        private CoachPortrait ActiveOctagonCoach =>
+            Array.Find(OctagonCoachRoster, c => c.Id == _octagonCoachId) ?? OctagonCoachRoster[0];
+
+        private CoachPortrait ActiveCoachPortrait =>
+            OctagonCoach ? ActiveOctagonCoach : ActiveSaloonCoach;
+
+        private void PickCoachesForNewGame()
         {
             _saloonCoachId = SaloonCoachRoster[_rng.Next(SaloonCoachRoster.Length)].Id;
+            _octagonCoachId = OctagonCoachRoster[_rng.Next(OctagonCoachRoster.Length)].Id;
         }
 
         private bool OctagonCoach => _tableScene == "street";
 
-        private string CoachDisplayName => OctagonCoach
-            ? "Alex Iron-Fist"
-            : ActiveSaloonCoach.DisplayName;
+        private string CoachDisplayName => ActiveCoachPortrait.DisplayName;
 
-        private string CoachDisplayNameUpper => OctagonCoach
-            ? "ALEX IRON-FIST"
-            : ActiveSaloonCoach.DisplayName.ToUpperInvariant();
+        private string CoachDisplayNameUpper => ActiveCoachPortrait.DisplayName.ToUpperInvariant();
 
-        private string CoachInitial => OctagonCoach
-            ? "A"
-            : (ActiveSaloonCoach.DisplayName.Length > 0
-                ? ActiveSaloonCoach.DisplayName[..1].ToUpperInvariant()
-                : "C");
+        private string CoachInitial => ActiveCoachPortrait.DisplayName.Length > 0
+            ? ActiveCoachPortrait.DisplayName[..1].ToUpperInvariant()
+            : "C";
 
-        private string CoachAdviceIcon => OctagonCoach
-            ? "img/ui/coach-face-octagon-128.png"
-            : ActiveSaloonCoach.Icon128;
+        private string CoachAdviceIcon => ActiveCoachPortrait.Icon128;
 
         private string GameRootClass =>
             "game3d"
@@ -251,7 +258,7 @@ namespace CinematicPoker.Web.Pages
         private void BeginCoachSession()
         {
             DismissCoachPresentation();
-            PickSaloonCoachForNewGame();
+            PickCoachesForNewGame();
             _coachSessionId = Guid.NewGuid().ToString("N");
             if (_isGuest || _game == null) return;
             if (_coachRecorder == null)

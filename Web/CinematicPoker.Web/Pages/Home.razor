@@ -1368,6 +1368,7 @@
         public string[] saloonNpcNames;
         public string[] streetNpcNames;
         public string saloonCoachId;
+        public string octagonCoachId;
         public int handNumber;
         public int dealerSeat;
         public List<WebSeatSnapshot> seats = new();
@@ -2122,8 +2123,15 @@
             if (!string.IsNullOrEmpty(saved.saloonCoachId)
                 && SaloonCoachRoster.Any(c => c.Id == saved.saloonCoachId))
                 _saloonCoachId = saved.saloonCoachId;
-            else
-                PickSaloonCoachForNewGame();
+            if (!string.IsNullOrEmpty(saved.octagonCoachId)
+                && OctagonCoachRoster.Any(c => c.Id == saved.octagonCoachId))
+                _octagonCoachId = saved.octagonCoachId;
+            if (string.IsNullOrEmpty(saved.saloonCoachId) && string.IsNullOrEmpty(saved.octagonCoachId))
+                PickCoachesForNewGame();
+            else if (string.IsNullOrEmpty(saved.octagonCoachId))
+                _octagonCoachId = OctagonCoachRoster[_rng.Next(OctagonCoachRoster.Length)].Id;
+            else if (string.IsNullOrEmpty(saved.saloonCoachId))
+                _saloonCoachId = SaloonCoachRoster[_rng.Next(SaloonCoachRoster.Length)].Id;
             foreach (WebSeatSnapshot seat in saved.seats.OrderBy(s => s.seat))
             {
                 if (seat.seat == 0)
@@ -2189,6 +2197,7 @@
             saloonNpcNames = _saloonNpcNames.ToArray(),
             streetNpcNames = _streetNpcNames.ToArray(),
             saloonCoachId = _saloonCoachId,
+            octagonCoachId = _octagonCoachId,
             handNumber = _game.HandNumber,
             dealerSeat = _game.DealerSeat,
             // A finished hand has nothing left to resume; the saved stacks
