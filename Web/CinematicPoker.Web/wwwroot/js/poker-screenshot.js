@@ -240,9 +240,18 @@ window.pokerShot = (function () {
   // 'downloaded' — saved as a PNG file (desktop, or share unavailable).
   // 'aborted' — the player closed the share sheet.
   // 'failed' — nothing was written.
+  // Session "winner takes all" sits in .overlay-box.table-win while the
+  // last hand's gallery cert can still be in the DOM behind the dimmer.
+  // Prefer the table-win plaque whenever that celebration is on screen.
+  function exportRoot() {
+    const tableWin = document.querySelector('.win-celebration .overlay-box.table-win');
+    if (tableWin) return tableWin;
+    return document.querySelector('.victory-carousel-slide-active .banner-win') ||
+      document.querySelector('.banner-win');
+  }
+
   async function save() {
-    const root = document.querySelector('.victory-carousel-slide-active .banner-win') ||
-      document.querySelector('.banner-win, .overlay-box.table-win');
+    const root = exportRoot();
     if (!root) return 'failed';
 
     const layout = beginFullCertLayout(root);
@@ -251,7 +260,8 @@ window.pokerShot = (function () {
       void root.offsetHeight;
       const rootRect = root.getBoundingClientRect();
       const gap = 4 * cumulativeScale(root);
-      const actions = root.querySelector('.victory-cert-actions');
+      const actions = root.querySelector('.victory-cert-actions') ||
+        root.querySelector('.overlay-actions');
       const captureHeight = actions
         ? Math.max(1, Math.floor(actions.getBoundingClientRect().top - rootRect.top - gap))
         : Math.max(1, Math.floor(rootRect.height));
