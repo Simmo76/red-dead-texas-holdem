@@ -42,7 +42,8 @@ import {
   migrateSaloonPick,
   countWomen,
   ensureTableSkinTones,
-} from './table-lineup.js?v=2';
+  femaleFighterModel,
+} from './table-lineup.js?v=3';
 import {
   sceneBusy as computeSceneBusy,
   frameBudgetSeconds,
@@ -340,22 +341,15 @@ const TABLE_SCENE = readTableScene();
 // at a hat around the table. Keep in sync with SeatColors in Pages/Home.razor.
 const SEAT_COLORS = [0xe0b84a, 0xd87a6a, 0x7aa5d8, 0x8cc47e, 0xc08ad8, 0x5ec8b8];
 
-// Which of this character's materials a skin tone drives. The girl's bake
-// names her synthesised skin materials Skin_* and her hair/brow/lash
-// materials Hair_* precisely so this lookup can find them. Jacob / Sheriff /
-// Bandit use Hands / Head* / Hair* material names; octagon fighters ship one
-// material and tint the whole body (gi included) so seats still read as
-// diverse — a selective skin mask would need per-asset UV masking.
-function skinToneFor(tone, materialName, characterKind) {
+// Which of this character's materials a skin tone drives. Only skin slots
+// receive uMul — never cloth, hats, or hair. Fighters use a shader skin mask.
+function skinToneFor(tone, materialName) {
   if (!tone) return null;
   const n = materialName || '';
   if (/^Skin_/.test(n)) return tone.skin;
-  if (/^Hair_/.test(n)) return tone.hair;
   if (/^Hands/i.test(n)) return tone.skin;
   if (n === 'Head__clean') return tone.skin;
   if (/^Head/i.test(n) && !/^(Cornea|Iris|Teeth|EyeShadow)$/i.test(n)) return tone.skin;
-  if (/^(Hair|Brows|Lashes)$/i.test(n) || /^Hair_/.test(n)) return tone.hair;
-  if (characterKind === 'fighter') return tone.skin;
   return null;
 }
 
@@ -1258,9 +1252,9 @@ window.pokerCoach = coachControl.api;
 // - uGrey: a fold grey-out on the final colour — while raised, the fragment
 //   collapses to a pale luminance, and with the material's opacity lowered the
 //   folded player reads as a muted grey ghost until the next hand.
-// - uMul: a plain multiply on the albedo (skin/hair materials only, or the
-//   whole fighter body) — see TABLE_SKIN_TONES in table-lineup.js.
-function characterMaterial(material, shirt, meshName, hatTint, mul) {
+// - uMul: multiply on skin materials only; fighters use uSkinMask so gi/cloth
+//   are left alone (see TABLE_SKIN_TONES in table-lineup.js).
+function characterMaterial(material, shirt, meshName, hatTint, mul, fighterSkinMask) {
   const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
   const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
   const tint = hatTint ? new THREE.Color(hatTint) : null;
@@ -1290,13 +1284,26 @@ function characterMaterial(material, shirt, meshName, hatTint, mul) {
     shader.uniforms.uTint = { value: tint || new THREE.Color(1, 1, 1) };
     shader.uniforms.uTintAmt = { value: tint ? 1.0 : 0 };
     shader.uniforms.uMul = { value: mulColor || new THREE.Color(1, 1, 1) };
+    shader.uniforms.uSkinMask = { value: fighterSkinMask ? 1 : 0 };
     shader.uniforms.uGrey = { value: m.userData.foldGrey || 0 };
-    shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\nuniform vec3 uTint;\nuniform float uTintAmt;\nuniform vec3 uMul;\nuniform float uGrey;\n' +
+    shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\nuniform vec3 uTint;\nuniform float uTintAmt;\nuniform vec3 uMul;\nuniform float uSkinMask;\nuniform float uGrey;\n' +
       shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
       {
         const vec3 kGrey = vec3(0.57735026919);
         float ca = cos(uHue), sa = sin(uHue);
-        vec3 c = diffuseColor.rgb * uMul;
+        vec3 c = diffuseColor.rgb;
+        if (uSkinMask > 0.5) {
+          float lum = dot(c, vec3(0.299, 0.587, 0.114));
+          float mx = max(c.r, max(c.g, c.b));
+          float mn = min(c.r, min(c.g, c.b));
+          float sat = (mx - mn) / max(mx, 1e-4);
+          float flesh = smoothstep(0.08, 0.36, lum) * (1.0 - smoothstep(0.18, 0.78, sat));
+          flesh *= smoothstep(0.42, 0.95, c.r);
+          flesh *= 1.0 - smoothstep(0.52, 0.92, c.b);
+          c = mix(c, c * uMul, clamp(flesh, 0.0, 1.0));
+        } else if (dot(uMul, vec3(1.0)) < 2.99) {
+          c = c * uMul;
+        }
         c = c * ca + cross(kGrey, c) * sa + kGrey * dot(kGrey, c) * (1.0 - ca);
         c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uSat);
         c = mix(c, uTint * (dot(c, vec3(0.299, 0.587, 0.114)) * 2.2 + 0.1), uTintAmt);
@@ -1306,7 +1313,7 @@ function characterMaterial(material, shirt, meshName, hatTint, mul) {
         vec3(dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114)) * 0.6 + 0.3), uGrey);`);
     m.userData.foldShader = shader;
   };
-  m.customProgramCacheKey = () => `char-${hue.toFixed(3)}-${sat}-${hatTint || 0}-${mul ? mul.join(',') : 1}`;
+  m.customProgramCacheKey = () => `char-${hue.toFixed(3)}-${sat}-${hatTint || 0}-${mul ? mul.join(',') : 1}-${fighterSkinMask ? 'fsm' : 0}`;
   return m;
 }
 
@@ -1423,6 +1430,18 @@ function makeCharacter(gltf, spec, extraClips) {
     for (const obj of drop) if (obj.parent) obj.parent.remove(obj);
   }
 
+  if (spec.hideFemaleHat) {
+    const dropHats = [];
+    root.traverse((obj) => {
+      if (!obj.isMesh) return;
+      for (let p = obj; p; p = p.parent) {
+        const n = (p.name || '').replace(/\.\d+$/, '');
+        if (/^Hat(__|$)/i.test(n)) { dropHats.push(obj); break; }
+      }
+    });
+    for (const obj of dropHats) if (obj.parent) obj.parent.remove(obj);
+  }
+
   // Every mesh gets a per-seat material clone so this character can grey out
   // independently when he folds.
   // Like the head, a hat can load as a group with child meshes per material
@@ -1444,8 +1463,10 @@ function makeCharacter(gltf, spec, extraClips) {
     const shirt = spec.shirt && obj.name === 'jimmy_body_top' ? spec.shirt : null;
     const hatTint = spec.hatColor && isHatMesh(obj) ? spec.hatColor : null;
     const srcMats = Array.isArray(obj.material) ? obj.material : [obj.material];
+    const mul = skinToneFor(spec.skinTone, mat.name);
+    const fighterSkin = spec.kind === 'fighter' && spec.skinTone;
     const made = srcMats.map((mat) => characterMaterial(
-      mat, shirt, obj.name, hatTint, skinToneFor(spec.skinTone, mat.name, spec.kind)));
+      mat, shirt, obj.name, hatTint, mul || (fighterSkin ? spec.skinTone.skin : null), !!fighterSkin));
     obj.material = made.length === 1 ? made[0] : made;
     bodyMeshes.push(obj);
     bodyMats.push(...made);
@@ -2509,7 +2530,9 @@ async function buildScene(canvas) {
       look: pick.look, cards: i === 0,
       scale: fighterRig ? FIGHTER_SCALE : WESTERN_SCALE,
       hatColor: SEAT_COLORS[i % SEAT_COLORS.length],
-      skinTone: pick.skinTone || null
+      skinTone: pick.skinTone || null,
+      hideFemaleHat: pick.kind === 'girl'
+        || (fighterRig && femaleFighterModel(pick.model)),
     };
     charPromises.push(Promise.all([
       jacobModel, sheriffModel, banditModel, girlModel, mightyCatModel, idleDeal,

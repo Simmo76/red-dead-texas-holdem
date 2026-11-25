@@ -1,5 +1,11 @@
 What to test in this build:
 
+New — skin tone refinement
+• Saloon + octagon: only skin (faces/hands) changes colour — clothing/gi should stay original hues.
+• Dark tones (asian/tan/black/dark) should read clearly darker than caucasian seats.
+• Female Cowboy Girls and female octagon fighters: no hats.
+• New session: your player skin is ~50/50 light (caucasian) vs deep dark (black/dark).
+
 New — scene-mapped NPC nicknames (PR #338)
 • Start a table in SALOON — western names on nameplates (Sam Six-Shot, Charlie Cold-Iron, etc.).
 • Mid-session SETTINGS → SCENE → OCTAGON (page reloads). Same seats should show fighter names (Alex Iron-Fist, Jordan Dust-Knuckle, etc.) on the new bodies.

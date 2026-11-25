@@ -14,6 +14,7 @@ import {
   countLightAndDark,
   ensureTableSkinTones,
   femaleFighterModel,
+  isPlayerStartingSkinTone,
 } from '../Web/CinematicPoker.Web/wwwroot/js/table-lineup.js';
 
 function assert(cond, msg) {
@@ -30,10 +31,15 @@ function checkSkinMix(lineup, label) {
   assert(light > 0 && dark > 0, `${label} light/dark mix light=${light} dark=${dark}`);
 }
 
+function checkPlayerSkin(lineup, label) {
+  assert(isPlayerStartingSkinTone(lineup[0].skinTone.id), `${label} player skin ${lineup[0].skinTone.id}`);
+}
+
 function checkSaloon(lineup, ultra, label) {
   assert(lineup.length === SEATS, `${label} seat count`);
   assert(lineup[0].kind === 'jacob', `${label} player is Jacob`);
   assert(countWomen(lineup) >= MIN_WOMEN, `${label} women ${countWomen(lineup)}`);
+  checkPlayerSkin(lineup, label);
   checkSkinMix(lineup, label);
   const tones = girlTones(lineup);
   assert(tones.length >= MIN_WOMEN, `${label} girl count`);
@@ -50,6 +56,7 @@ function checkStreet(lineup, label) {
   assert(lineup.length === SEATS, `${label} seat count`);
   assert(lineup[0].kind === 'fighter' && !femaleFighterModel(lineup[0].model), `${label} player is a man`);
   assert(countWomen(lineup) >= MIN_WOMEN, `${label} women ${countWomen(lineup)}`);
+  checkPlayerSkin(lineup, label);
   checkSkinMix(lineup, label);
   const models = lineup.map((p) => p.model);
   assert(new Set(models).size === models.length, `${label} duplicate fighter ${models}`);
