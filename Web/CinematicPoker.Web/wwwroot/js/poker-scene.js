@@ -12,9 +12,11 @@
 // seats two Cowboy Girls with different skin tones — she is the only woman
 // in that pack. No other character model sits twice: each special body takes
 // at most one chair, and Jacob seats each wear a different outfit look.
-// Each seat keeps the same body, name colour and chair for the whole
-// session. Switching saloon ↔ octagon reloads only the meshes; names and
-// positions stay put (cinematic-poker-table-cast-v1 in sessionStorage).
+// Each seat keeps the same chair and accent colour for the whole session.
+// Switching saloon ↔ octagon reloads the meshes and swaps the displayed
+// nickname (western vs fighter) while positions stay put — see
+// cinematic-poker-table-cast-v1 in sessionStorage and the dual name maps
+// saved with the solo poker session snapshot.
 // Check/bet/fold and all table mood idles (sit/observe/hold-cards/win/lose)
 // share one biped catalogue: Sheriff and Bandit GLBs are re-framed onto
 // Jacob's bone axes (tools/retarget_western_biped.mjs), and the girl onto his
