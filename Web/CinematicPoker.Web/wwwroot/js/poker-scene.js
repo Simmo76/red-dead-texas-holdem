@@ -468,8 +468,9 @@ function texture(path) {
 function preloadCardTextures() {
   const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
   const suits = ['C', 'D', 'H', 'S'];
-  for (const rank of ranks)
-    for (const suit of suits) texture(`img/cards/${rank}${suit}.png`);
+    const cv = '2';
+    for (const rank of ranks)
+    for (const suit of suits) texture(`img/cards/${rank}${suit}.png?v=${cv}`);
   texture('img/cards/back.png');
   texture('img/cards/panel.png');
 }

@@ -39,3 +39,9 @@ node tools/toolbar-acceptance.test.mjs
 node tools/intro-layers-acceptance.test.mjs
 node tools/western-deck-acceptance.test.mjs
 ```
+
+After updating face art from the zip source, re-run legibility pass:
+
+```bash
+python3 tools/enlarge_western_card_faces.py
+```
