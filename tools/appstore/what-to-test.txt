@@ -1,9 +1,13 @@
 What to test in this build:
 
-New — saloon vs octagon NPC names (PR #335)
-• SETTINGS → SCENE SALOON (or default). Start a new table — nameplates use western handles (Sam Six-Shot, Billie Quickdraw, etc.), not cage-fighter names.
-• Switch to OCTAGON before a new session (or restart). New tables use fighter names (Jordan Dust-Knuckle, Quinn Dead-Ringer, etc.).
-• Mid-session saloon ↔ octagon: names stay the same; only the 3D bodies change.
+New — scene-mapped NPC nicknames (PR #338)
+• Start a table in SALOON — western names on nameplates (Sam Six-Shot, Charlie Cold-Iron, etc.).
+• Mid-session SETTINGS → SCENE → OCTAGON (page reloads). Same seats should show fighter names (Alex Iron-Fist, Jordan Dust-Knuckle, etc.) on the new bodies.
+• Switch back to SALOON — western names return. Chip stacks and seat positions unchanged.
+• Reload after a switch — names still match the active scene.
+
+New — saloon vs octagon NPC name pools (PR #335)
+• New tables in each scene pull from the correct pool only (western vs fighter); no cross-theme names on first deal.
 
 New — HUD card box (PR #332)
 • Top-right panel clears toolbar pills; resting cards slightly larger; tap still magnifies (portrait + landscape).
