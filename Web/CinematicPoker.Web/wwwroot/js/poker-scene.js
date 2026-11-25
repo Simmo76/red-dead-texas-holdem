@@ -398,6 +398,22 @@ function endIntro() {
   markActivity();
 }
 
+// Start-of-hand cinematic: one smooth 360° orbit around the table centre,
+// pulled back and lifted for a wider view, easing exactly onto the seated
+// game camera as the circle closes. Wall-clock driven like the old intro so
+// stuttering frames cannot slow the sweep. 5 seconds to begin with.
+const HAND_INTRO_SECONDS = 5;
+// Extra orbit distance at the start of the sweep (fraction of the seat-view
+// distance). Keeps the lens clear of the NPCs' heads while it circles; the
+// pull-back eases away with the same curve as the yaw, so the camera spirals
+// gently down into the shoulder view.
+const HAND_INTRO_PULLBACK = 0.8;
+
+function endHandIntro() {
+  if (state.handIntro) state.handIntro.active = false;
+  markActivity();
+}
+
 const state = {
   ready: false,
   renderer: null, scene: null, camera: null, clock: null,
@@ -441,6 +457,7 @@ function markActivity() {
 
 function sceneBusy() {
   return !!(state.intro && state.intro.active)
+    || !!(state.handIntro && state.handIntro.active)
     || !!(state.zoom && state.zoom.active)
     || (state.fx && state.fx.length > 0)
     || performance.now() - state.lastActivity < IDLE_AFTER_MS;
@@ -1968,6 +1985,7 @@ async function buildScene(canvas) {
   state.pivot = new THREE.Vector3(0, TABLE_TOP, 0);
   state.zoom = { active: false, kind: 'board', pos: new THREE.Vector3(), look: new THREE.Vector3() };
   state.intro = { active: false, start: 0, phase: 0 };
+  state.handIntro = { active: false, start: 0 };
   state.camHome = new THREE.Vector3();
   state.camLook = new THREE.Vector3(0, TABLE_TOP, 0);
   state.baseFov = camera.fov;
@@ -2639,6 +2657,14 @@ async function buildScene(canvas) {
     view.offYaw += (view.targetOffYaw - view.offYaw) * ease;
     view.offPitch += (view.targetOffPitch - view.offPitch) * ease;
     view.distScale += (view.targetDistScale - view.distScale) * ease;
+    // The start-of-hand sweep hands over on its last tick: deactivating
+    // before the branch chain lets this same frame fall through to the
+    // normal seat branch, which recomputes _desiredPos — the exact pose the
+    // sweep just landed on — so the follow-lerp takes over without a jump.
+    if (state.handIntro.active
+        && performance.now() - state.handIntro.start >= HAND_INTRO_SECONDS * 1000) {
+      endHandIntro();
+    }
     if (state.intro.active) {
       // Opening cinematic: two slow aerial sweeps over the saloon before
       // the camera settles into the normal seat view. Wall-clock, not
@@ -2659,6 +2685,25 @@ async function buildScene(canvas) {
         _lookMat.lookAt(camera.position, _introLook, _upVec);
         camera.quaternion.setFromRotationMatrix(_lookMat);
       }
+    } else if (state.handIntro.active) {
+      // Start-of-hand sweep: one full orbit around the table centre on the
+      // same smoothstep for yaw, pull-back and height, so the camera glides
+      // out of the seat, circles the table once and spirals back onto the
+      // over-the-shoulder pose. The yaw term vanishes at k=1, leaving
+      // exactly the seat-view orbit the normal branch computes, which makes
+      // the handover seamless. Wall-clock driven (see the intro above).
+      const k = Math.min(1,
+        (performance.now() - state.handIntro.start) / (HAND_INTRO_SECONDS * 1000));
+      const s = k * k * (3 - 2 * k);                     // smoothstep
+      const yaw = view.homeYaw + view.offYaw + (1 - s) * Math.PI * 2;
+      const pitch = view.homePitch + view.offPitch;
+      const dist = view.dist * view.distScale * (1 + HAND_INTRO_PULLBACK * (1 - s));
+      camera.position.set(
+        state.pivot.x + Math.sin(yaw) * Math.cos(pitch) * dist,
+        state.pivot.y + Math.sin(pitch) * dist,
+        state.pivot.z + Math.cos(yaw) * Math.cos(pitch) * dist);
+      _lookMat.lookAt(camera.position, state.pivot, _upVec);
+      camera.quaternion.setFromRotationMatrix(_lookMat);
     } else if (state.overhead) {
       // Bird's-eye: climb until the whole seat ring and its name/stack
       // plates fit the vertical field of view, with a slight southward
@@ -2688,7 +2733,7 @@ async function buildScene(canvas) {
         state.pivot.z + Math.cos(yaw) * Math.cos(pitch) * dist);
       _lookTarget.copy(state.pivot);
     }
-    if (!state.intro.active) {
+    if (!state.intro.active && !state.handIntro.active) {
       if (state.zoom.active && state.zoom.kind === 'board') {
         // Position and orientation travel toward the same final pose at the
         // same rate, keeping the cards level with the camera as it arrives.
@@ -2957,6 +3002,13 @@ function setupLookControls(canvas, view) {
       if (e.timeStamp - downAt >= 220) return;
     }
     if (moved >= 8) return;
+
+    // A tap during the start-of-hand sweep skips it; the camera eases the
+    // short remaining way into the seat view on its own.
+    if (state.handIntro && state.handIntro.active) {
+      endHandIntro();
+      return;
+    }
 
     // A tap on the scene leaves the overhead view — the same dismiss
     // gesture as tapping out of a card close-up. HUD buttons sit on top of
@@ -4145,6 +4197,20 @@ window.pokerScene = {
     endIntro();
   },
 
+  // Start-of-hand cinematic: resets the view like resetCamera, then runs one
+  // smooth 360° orbit around the table centre that eases back onto the
+  // seated game camera. Returns the sweep length in ms (0 when not played)
+  // so callers can sequence anything against it. The explicit overhead mode
+  // survives, same as the start-of-hand reset always has.
+  playHandIntro() {
+    if (!state.ready) return 0;
+    this.resetCamera();
+    if (state.overhead) return 0;
+    state.handIntro.active = true;
+    state.handIntro.start = performance.now();
+    return HAND_INTRO_SECONDS * 1000;
+  },
+
   // Snap back to the 10°/10° table-centre home (cancels card close-up too).
   // The overhead view survives: it is an explicit mode the player toggled,
   // so the start-of-hand camera reset must not silently drop out of it.
@@ -4152,6 +4218,7 @@ window.pokerScene = {
     if (!state.ready) return;
     markActivity();
     this.endBetPreview();
+    state.handIntro.active = false;
     state.zoom.active = false;
     if (state.applyCameraHome) state.applyCameraHome(true);
   },
@@ -4173,6 +4240,7 @@ window.pokerScene = {
     state.overhead = next;
     if (state.overhead) {
       this.endBetPreview();
+      state.handIntro.active = false;
       state.zoom.active = false;
       const snap = state.lastJson ? JSON.parse(state.lastJson) : null;
       drawOverheadLabels(snap && snap.seats);
@@ -4194,6 +4262,7 @@ window.pokerScene = {
     if (!target) return;
     markActivity();
     this.endBetPreview();
+    state.handIntro.active = false;
     state.zoom.active = true;
     state.zoom.kind = target.kind;
     state.zoom.pos.copy(target.pos);
@@ -4212,6 +4281,7 @@ window.pokerScene = {
     if (!state.ready) return;
     markActivity();
     const amt = Math.max(0, Math.floor(amount || 0));
+    state.handIntro.active = false;
     state.zoom.active = true;
     state.zoom.kind = 'bet';
     // Hide the already-committed chips while sizing: the preview stack shows
