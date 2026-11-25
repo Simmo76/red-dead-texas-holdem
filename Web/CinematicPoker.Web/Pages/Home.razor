@@ -1175,6 +1175,23 @@
     private string[] NpcNamePoolForScene(string scene) =>
         scene == "street" ? OctagonNpcNamePool : SaloonNpcNamePool;
 
+    private static bool IsSaloonNpcName(string name) =>
+        Array.Exists(SaloonNpcNamePool, n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsOctagonNpcName(string name) =>
+        Array.Exists(OctagonNpcNamePool, n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
+
+    // Restore keeps cross-scene names (saloon roster carried into octagon).
+    // Retired handles and fighter-only names on a saloon save are remapped.
+    private static bool ShouldRemapRestoredNpcName(string name, string savedScene)
+    {
+        if (string.IsNullOrEmpty(name)) return true;
+        bool inSaloon = IsSaloonNpcName(name);
+        bool inOctagon = IsOctagonNpcName(name);
+        if (!inSaloon && !inOctagon) return true;
+        return savedScene == "saloon" && !inSaloon && inOctagon;
+    }
+
     private string[] ShuffledNpcNames(string scene = null)
     {
         var names = Array.FindAll(NpcNamePoolForScene(scene ?? _tableScene),
@@ -1808,7 +1825,16 @@
                     await Task.Delay(250);
                 }
             }
-            if (_sceneReady) await SyncBackdropLabel();
+            if (_sceneReady)
+            {
+                // After a snapshot restore, C# may disagree with localStorage until synced.
+                if (_game != null)
+                {
+                    try { await JS.InvokeVoidAsync("pokerScene.setTableScene", _tableScene); }
+                    catch (JSException) { }
+                }
+                await SyncBackdropLabel();
+            }
             if (_coachPreview) await OpenCoachPreview();
             else if (_resumePlay) await FinishDirectEntry();
             if (!_coachPreview && _game == null && !string.IsNullOrEmpty(_playerName) && _introStarted)
@@ -2013,7 +2039,6 @@
             if (saved.tableScene == "street" || saved.tableScene == "saloon")
                 _tableScene = saved.tableScene;
             string savedScene = string.IsNullOrEmpty(saved.tableScene) ? "saloon" : saved.tableScene;
-            string[] scenePool = NpcNamePoolForScene(savedScene);
             string[] freshNames = ShuffledNpcNames(savedScene);
             int nextFresh = 0;
             var takenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -2028,10 +2053,10 @@
                 }
 
                 string npcName = seat.name;
-                bool inPool = !string.IsNullOrEmpty(npcName)
-                    && Array.Exists(scenePool, n => string.Equals(n, npcName, StringComparison.OrdinalIgnoreCase))
+                bool keepName = !string.IsNullOrEmpty(npcName)
+                    && !ShouldRemapRestoredNpcName(npcName, savedScene)
                     && !string.Equals(npcName, PlayerName, StringComparison.OrdinalIgnoreCase);
-                if (!inPool || !takenNames.Add(npcName))
+                if (!keepName || !takenNames.Add(npcName))
                 {
                     while (nextFresh < freshNames.Length && !takenNames.Add(freshNames[nextFresh]))
                         nextFresh++;
