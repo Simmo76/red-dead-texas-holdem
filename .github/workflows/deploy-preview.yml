@@ -42,8 +42,8 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Run engine tests on preview branch
-        run: dotnet test DotNet/CinematicPoker.Engine.Tests/CinematicPoker.Engine.Tests.csproj --nologo
+      - name: Run regression harness on preview branch
+        run: bash tools/run-harness.sh
 
       - name: Publish preview from branch
         run: dotnet publish Web/CinematicPoker.Web/CinematicPoker.Web.csproj -c Release -o publish-preview

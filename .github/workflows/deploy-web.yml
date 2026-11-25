@@ -28,8 +28,8 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Run engine tests
-        run: dotnet test DotNet/CinematicPoker.Engine.Tests/CinematicPoker.Engine.Tests.csproj --nologo
+      - name: Run regression harness
+        run: bash tools/run-harness.sh
 
       - name: Publish Blazor WebAssembly app
         run: dotnet publish Web/CinematicPoker.Web/CinematicPoker.Web.csproj -c Release -o publish
