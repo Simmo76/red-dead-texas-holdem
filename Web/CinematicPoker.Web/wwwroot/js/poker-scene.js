@@ -39,7 +39,8 @@ import {
   ensureStreetWomen,
   migrateSaloonPick,
   countWomen,
-} from './table-lineup.js?v=1';
+  ensureTableSkinTones,
+} from './table-lineup.js?v=2';
 
 // ---------------------------------------------------------- graphics safe mode
 //
@@ -311,8 +312,11 @@ function lockTableCast() {
 function resolveTableLineup(streetScene) {
   const locked = readTableCast();
   if (locked) {
-    if (streetScene) return ensureStreetWomen(locked.street);
-    return ensureSaloonWomen(locked.saloon.map((pick, i) => migrateSaloonPick(pick, i)));
+    if (streetScene) {
+      return ensureTableSkinTones(ensureStreetWomen(locked.street));
+    }
+    return ensureTableSkinTones(ensureSaloonWomen(
+      locked.saloon.map((pick, i) => migrateSaloonPick(pick, i))));
   }
   return streetScene ? buildStreetLineupFresh() : buildSaloonLineup(GFX_ULTRA_LITE);
 }
@@ -329,12 +333,20 @@ const SEAT_COLORS = [0xe0b84a, 0xd87a6a, 0x7aa5d8, 0x8cc47e, 0xc08ad8, 0x5ec8b8]
 
 // Which of this character's materials a skin tone drives. The girl's bake
 // names her synthesised skin materials Skin_* and her hair/brow/lash
-// materials Hair_* precisely so this lookup can find them.
-function skinToneFor(tone, materialName) {
+// materials Hair_* precisely so this lookup can find them. Jacob / Sheriff /
+// Bandit use Hands / Head* / Hair* material names; octagon fighters ship one
+// material and tint the whole body (gi included) so seats still read as
+// diverse — a selective skin mask would need per-asset UV masking.
+function skinToneFor(tone, materialName, characterKind) {
   if (!tone) return null;
   const n = materialName || '';
   if (/^Skin_/.test(n)) return tone.skin;
   if (/^Hair_/.test(n)) return tone.hair;
+  if (/^Hands/i.test(n)) return tone.skin;
+  if (n === 'Head__clean') return tone.skin;
+  if (/^Head/i.test(n) && !/^(Cornea|Iris|Teeth|EyeShadow)$/i.test(n)) return tone.skin;
+  if (/^(Hair|Brows|Lashes)$/i.test(n) || /^Hair_/.test(n)) return tone.hair;
+  if (characterKind === 'fighter') return tone.skin;
   return null;
 }
 
@@ -1237,9 +1249,8 @@ window.pokerCoach = coachControl.api;
 // - uGrey: a fold grey-out on the final colour — while raised, the fragment
 //   collapses to a pale luminance, and with the material's opacity lowered the
 //   folded player reads as a muted grey ghost until the next hand.
-// - uMul: a plain multiply on the albedo (skin/hair materials only) — the
-//   Cowboy Girl is baked with the lightest neutral skin and each seat's
-//   skin-tone variant multiplies it down (GIRL_SKIN_TONES).
+// - uMul: a plain multiply on the albedo (skin/hair materials only, or the
+//   whole fighter body) — see TABLE_SKIN_TONES in table-lineup.js.
 function characterMaterial(material, shirt, meshName, hatTint, mul) {
   const hue = shirt ? (shirt.hue || 0) * Math.PI / 180 : 0;
   const sat = shirt && shirt.sat !== undefined ? shirt.sat : 1;
@@ -1425,7 +1436,7 @@ function makeCharacter(gltf, spec, extraClips) {
     const hatTint = spec.hatColor && isHatMesh(obj) ? spec.hatColor : null;
     const srcMats = Array.isArray(obj.material) ? obj.material : [obj.material];
     const made = srcMats.map((mat) => characterMaterial(
-      mat, shirt, obj.name, hatTint, skinToneFor(spec.skinTone, mat.name)));
+      mat, shirt, obj.name, hatTint, skinToneFor(spec.skinTone, mat.name, spec.kind)));
     obj.material = made.length === 1 ? made[0] : made;
     bodyMeshes.push(obj);
     bodyMats.push(...made);
@@ -2485,6 +2496,7 @@ async function buildScene(canvas) {
     const pick = lineup[i];
     const fighterRig = pick.kind === 'fighter';
     const spec = {
+      kind: pick.kind,
       look: pick.look, cards: i === 0,
       scale: fighterRig ? FIGHTER_SCALE : WESTERN_SCALE,
       hatColor: SEAT_COLORS[i % SEAT_COLORS.length],
