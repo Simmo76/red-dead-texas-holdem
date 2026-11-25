@@ -29,20 +29,10 @@ New — coach method in plain words, hand review on iPhone (PR #307)
 • iPhone, held sideways: HAND REVIEW (why the hand was won or lost, and one thing to try) is on screen when the coach opens. Swipe the card for the cards and SEE KEY DECISION.
 
 New — two women at every table (PR #308)
-• Saloon: two Cowboy Girls stay seated the whole session, each with a different skin tone. Sheriff and Bandit are still there. Table View should show both women.
-• Octagon: two different female fighters stay seated the whole session. You stay a man. In Settings, switch between Saloon and Octagon; both rooms keep two women.
-• Reload a table saved from an older build that only had one woman. It should now have two.
-
-New — next song (PR #306)
-• With music on, >> tune sits in the top bar beside RULES. Tap it to skip to the next bed (hard cut, not a fade).
-• Settings → SOUND → turn MUSIC off. >> tune disappears. Turn MUSIC back on and the button returns.
-• bird's eye toggles the overhead camera; while overhead it reads seat view.
-
-New — key decision beside the coach (PR #305)
-• Open Poker Coach. SEE KEY DECISION and HIGHLIGHT ON/OFF sit on one row under the cards.
-• Tap SEE KEY DECISION: the write-up opens beside the coach (coach shifts left). Tap again to close. HIGHLIGHT ON rings the winning cards.
+• Saloon and Octagon: two women stay seated each session (different skins/fighters). Table View shows both.
 
 Also verify (recent builds)
+• >> tune beside RULES (skip song); coach SEE KEY DECISION row with HIGHLIGHT.
 • Showdown hand list: three players on one row; four+ wrap. HIGHLIGHT ON marks the winning five. Fold-wins with a full board highlight all five of your best hand.
 • Uncontested / fold-win coach: board + holes on felt and dock, not holes alone.
 • Victory certificate: POKER COACH and WHY YOU WON on the plaque; ONE THING TO TRY only inside the coach panel (not the same “favourable price” line every hand).
