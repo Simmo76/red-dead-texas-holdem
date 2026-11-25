@@ -1,5 +1,8 @@
 What to test in this build:
 
+New — table-win certificate export (PR #331)
+• Win the table (or ?winpreview=1 after dealing). Export Certificate on the WINNER TAKES ALL screen — the PNG must show the session haul/stats, not the last hand’s CERTIFIED VICTOR card still behind the dimmer.
+
 New — saloon music and >> tune (PR #321)
 • SETTINGS → SOUND: MUSIC and BACKGROUND on. Tap Play in the saloon — ragtime and bar crowd should start within a couple of seconds (no silent table with sound on).
 • Tap >> tune beside RULES several times. Each tap should jump straight to a different ragtime bed (no long crossfade).
