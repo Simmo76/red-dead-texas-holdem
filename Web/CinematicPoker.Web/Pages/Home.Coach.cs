@@ -126,11 +126,6 @@ namespace CinematicPoker.Web.Pages
             new("nina", "Nina Vale", "img/ui/coach-octagon-nina-128.png"),
         };
 
-        private static readonly HashSet<string> OctagonFemaleCoachIds = new(StringComparer.Ordinal)
-        {
-            "nina",
-        };
-
         // Picked once per game in BeginCoachSession and kept for every hand.
         private string _saloonCoachId = "jake";
         private string _octagonCoachId = "damon";
@@ -160,7 +155,7 @@ namespace CinematicPoker.Web.Pages
             ? ActiveCoachPortrait.DisplayName[..1].ToUpperInvariant()
             : "C";
 
-        private string CoachAdviceIcon => ActiveCoachPortrait.Icon128;
+        private string CoachAdviceIcon => $"{ActiveCoachPortrait.Icon128}?v=1";
 
         private string GameRootClass =>
             "game3d"
