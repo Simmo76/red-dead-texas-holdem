@@ -1,5 +1,10 @@
 What to test in this build:
 
+New — gold top-bar buttons (PR #344)
+• Rules, Tune, Hands, View, and Settings are the gold plate buttons (icon and word inside the frame).
+• Each still does the same thing: how to play, next song, hand rankings, overhead camera, settings.
+• On a narrow phone, Tune and Settings move into More.
+
 New — framed hand rankings chart (PR #340)
 • Top bar → HANDS. The rankings overlay should show the gold-framed saloon chart (not the old plain panel with a separate CLOSE chip).
 • Tap CLOSE on the gold plaque at the bottom of the chart (and tap the dimmer outside). Both should dismiss.

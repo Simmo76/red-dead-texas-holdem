@@ -5,21 +5,34 @@
         aria-pressed="@(Toggle ? Active : (bool?)null)"
         title="@(Title ?? EffectiveAriaLabel)"
         disabled="@Disabled">
-    @if (!string.IsNullOrEmpty(IconSrc))
+    @if (!string.IsNullOrEmpty(PlateSrc))
     {
-        <span class="toolbar-btn-icon" aria-hidden="true">
-            <img class="toolbar-icon-img toolbar-icon-fallback" src="@($"{IconSrc}.png")" alt="" width="24" height="24" />
-            <img class="toolbar-icon-img toolbar-icon-vector" src="@($"{IconSrc}.svg")" alt="" width="24" height="24" />
-        </span>
+        <img class="toolbar-plate-img" src="@PlateSrc" alt="" draggable="false"
+             width="@(PlateWidth > 0 ? PlateWidth : (int?)null)"
+             height="@(PlateHeight > 0 ? PlateHeight : (int?)null)" />
     }
-    @if (ShowLabel && !string.IsNullOrEmpty(Label))
+    else
     {
-        <span class="toolbar-btn-label">@Label</span>
+        @if (!string.IsNullOrEmpty(IconSrc))
+        {
+            <span class="toolbar-btn-icon" aria-hidden="true">
+                <img class="toolbar-icon-img toolbar-icon-fallback" src="@($"{IconSrc}.png")" alt="" width="24" height="24" />
+                <img class="toolbar-icon-img toolbar-icon-vector" src="@($"{IconSrc}.svg")" alt="" width="24" height="24" />
+            </span>
+        }
+        @if (ShowLabel && !string.IsNullOrEmpty(Label))
+        {
+            <span class="toolbar-btn-label">@Label</span>
+        }
     }
 </button>
 
 @code {
     [Parameter] public string? IconSrc { get; set; }
+    /// <summary>Full button artwork (icon and caption baked in). Replaces the icon and label.</summary>
+    [Parameter] public string? PlateSrc { get; set; }
+    [Parameter] public int PlateWidth { get; set; }
+    [Parameter] public int PlateHeight { get; set; }
     [Parameter] public string? Label { get; set; }
     [Parameter] public string? AriaLabel { get; set; }
     [Parameter] public string? Title { get; set; }
