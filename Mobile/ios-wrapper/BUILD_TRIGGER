@@ -1,4 +1,4 @@
 # Bump the line below to force a TestFlight build when a change lives
 # outside Mobile/ios-wrapper (the iOS workflow auto-runs only when files
 # under this folder, or the workflow itself, change on main).
-build: 2026-11-22 TestFlight after PR #303 three-player showdown row
+build: 2026-11-25 TestFlight after PR #335 split saloon/octagon NPC name pools

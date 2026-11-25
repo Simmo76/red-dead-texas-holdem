@@ -1,5 +1,10 @@
 What to test in this build:
 
+New — saloon vs octagon NPC names (PR #335)
+• SETTINGS → SCENE SALOON (or default). Start a new table — nameplates use western handles (Sam Six-Shot, Billie Quickdraw, etc.), not cage-fighter names.
+• Switch to OCTAGON before a new session (or restart). New tables use fighter names (Jordan Dust-Knuckle, Quinn Dead-Ringer, etc.).
+• Mid-session saloon ↔ octagon: names stay the same; only the 3D bodies change.
+
 New — HUD card box (PR #332)
 • Top-right panel clears toolbar pills; resting cards slightly larger; tap still magnifies (portrait + landscape).
 

@@ -1145,12 +1145,23 @@
 
     private static string SeatColor(int seat) => SeatColors[seat % SeatColors.Length];
 
-    // Gender-neutral table nicknames handed out at random each time a fresh
-    // roster sits down, so any given personality can wear any of these names.
-    // Every entry is unique, the pool is larger than the NPC count, and any
+    // Table nicknames handed out at random each time a fresh roster sits down.
+    // The saloon draws western handles; the octagon draws cage-fighter handles.
+    // Every entry is unique, each pool is larger than the NPC count, and any
     // name matching the player's own is skipped, so no two people at the
     // table ever share a name.
-    private static readonly string[] NpcNamePool =
+    private static readonly string[] SaloonNpcNamePool =
+    {
+        "Sam Six-Shot",
+        "Billie Quickdraw",
+        "Jesse Deadeye",
+        "Charlie Cold-Iron",
+        "Frankie Fast-Hand",
+        "Riley Black-Hat",
+        "Casey Trigger"
+    };
+
+    private static readonly string[] OctagonNpcNamePool =
     {
         "Alex Iron-Fist",
         "Jordan Dust-Knuckle",
@@ -1161,9 +1172,29 @@
         "Quinn Dead-Ringer"
     };
 
-    private string[] ShuffledNpcNames()
+    private string[] NpcNamePoolForScene(string scene) =>
+        scene == "street" ? OctagonNpcNamePool : SaloonNpcNamePool;
+
+    private static bool IsSaloonNpcName(string name) =>
+        Array.Exists(SaloonNpcNamePool, n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsOctagonNpcName(string name) =>
+        Array.Exists(OctagonNpcNamePool, n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
+
+    // Restore keeps cross-scene names (saloon roster carried into octagon).
+    // Retired handles and fighter-only names on a saloon save are remapped.
+    private static bool ShouldRemapRestoredNpcName(string name, string savedScene)
     {
-        var names = Array.FindAll(NpcNamePool,
+        if (string.IsNullOrEmpty(name)) return true;
+        bool inSaloon = IsSaloonNpcName(name);
+        bool inOctagon = IsOctagonNpcName(name);
+        if (!inSaloon && !inOctagon) return true;
+        return savedScene == "saloon" && !inSaloon && inOctagon;
+    }
+
+    private string[] ShuffledNpcNames(string scene = null)
+    {
+        var names = Array.FindAll(NpcNamePoolForScene(scene ?? _tableScene),
             n => !string.Equals(n, PlayerName, StringComparison.OrdinalIgnoreCase));
         for (int i = names.Length - 1; i > 0; i--)
         {
@@ -1794,7 +1825,16 @@
                     await Task.Delay(250);
                 }
             }
-            if (_sceneReady) await SyncBackdropLabel();
+            if (_sceneReady)
+            {
+                // After a snapshot restore, C# may disagree with localStorage until synced.
+                if (_game != null)
+                {
+                    try { await JS.InvokeVoidAsync("pokerScene.setTableScene", _tableScene); }
+                    catch (JSException) { }
+                }
+                await SyncBackdropLabel();
+            }
             if (_coachPreview) await OpenCoachPreview();
             else if (_resumePlay) await FinishDirectEntry();
             if (!_coachPreview && _game == null && !string.IsNullOrEmpty(_playerName) && _introStarted)
@@ -1996,7 +2036,10 @@
             // names. Keep a saved name only when it is still in the pool
             // (and not already taken); anything else is remapped to a fresh
             // pool name so retired names never resurface mid-session.
-            string[] freshNames = ShuffledNpcNames();
+            if (saved.tableScene == "street" || saved.tableScene == "saloon")
+                _tableScene = saved.tableScene;
+            string savedScene = string.IsNullOrEmpty(saved.tableScene) ? "saloon" : saved.tableScene;
+            string[] freshNames = ShuffledNpcNames(savedScene);
             int nextFresh = 0;
             var takenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (WebSeatSnapshot seat in saved.seats.OrderBy(s => s.seat))
@@ -2010,10 +2053,10 @@
                 }
 
                 string npcName = seat.name;
-                bool inPool = !string.IsNullOrEmpty(npcName)
-                    && Array.Exists(NpcNamePool, n => string.Equals(n, npcName, StringComparison.OrdinalIgnoreCase))
+                bool keepName = !string.IsNullOrEmpty(npcName)
+                    && !ShouldRemapRestoredNpcName(npcName, savedScene)
                     && !string.Equals(npcName, PlayerName, StringComparison.OrdinalIgnoreCase);
-                if (!inPool || !takenNames.Add(npcName))
+                if (!keepName || !takenNames.Add(npcName))
                 {
                     while (nextFresh < freshNames.Length && !takenNames.Add(freshNames[nextFresh]))
                         nextFresh++;
