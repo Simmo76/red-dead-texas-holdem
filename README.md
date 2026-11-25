@@ -106,7 +106,9 @@ dotnet run --project CinematicPoker.Simulation -- 1000 42 60 ../docs/hand-analys
 Web-layer unit tests (`tools/*.test.mjs`) cover table lineup rules, the mobile
 frame governor, pixel budget, and toolbar wiring. See
 [`docs/testing-and-regression-plan.md`](docs/testing-and-regression-plan.md).
-Every pull request runs the same harness in CI (`.github/workflows/regression-tests.yml`).
+Every pull request runs the same harness in CI (`regression-tests.yml`). Pages
+deploys (live and branch previews) wait for a green regression run; enable the
+**Regression harness** required check on `main` (`.github/BRANCH_PROTECTION.md`).
 
 Committed sample logs for spot-checking pot math live in [`docs/hand-analysis/`](docs/hand-analysis/README.md).
 

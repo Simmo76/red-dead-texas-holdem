@@ -1,8 +1,11 @@
 name: Regression tests
 
-# Fast gate on every pull request (and manual re-run) before merge or deploy.
+# Authoritative test gate: PRs, pushes to main, and cursor/* branches. Pages
+# deploy workflows start only after this workflow completes successfully.
 on:
   pull_request:
+  push:
+    branches: [main, 'cursor/**']
   workflow_dispatch:
 
 concurrency:

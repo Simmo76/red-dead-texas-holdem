@@ -15,9 +15,11 @@ Written for agents and humans picking up work with no prior context.
 3. **UI contracts get acceptance checks** — static assertions on Razor, CSS,
    assets, and handler names (`tools/toolbar-acceptance.test.mjs`) catch wiring
    regressions without Playwright.
-4. **CI runs the full harness** — every pull request runs
-   `.github/workflows/regression-tests.yml`; merges to `main` also hit this
-   gate via deploy workflows before GitHub Pages ships.
+4. **CI runs the full harness** — every pull request and every push to `main`
+   or `cursor/**` runs `regression-tests.yml`. **Pages deploy workflows do not
+   start until that workflow succeeds** (`workflow_run` gate). Merges to `main`
+   should also require the **Regression harness** status check (see
+   `.github/BRANCH_PROTECTION.md`).
 
 ## Layers
 
@@ -45,13 +47,16 @@ Order of execution:
 
 | Workflow | When |
 |----------|------|
-| `regression-tests.yml` | **Every pull request** (required check; see PR status) |
-| `deploy-web.yml` / `deploy-preview.yml` | Harness again before Pages deploy |
+| `regression-tests.yml` | Every PR + push to `main` and `cursor/**` (**gate**) |
+| `deploy-web.yml` | Only after **successful** regression on a `main` push |
+| `deploy-preview.yml` | Only after **successful** regression on a `cursor/**` push |
 | `android-apk.yml` | Full `dotnet test DotNet` when Unity assets change |
 
-PR authors should wait for **Regression tests / Regression harness** green
-before requesting review. The Android workflow still runs the full `DotNet`
-solution (includes the simulation project) on asset changes only.
+**Merge policy:** enable branch protection on `main` requiring check
+**Regression harness** (steps in `.github/BRANCH_PROTECTION.md`).
+
+No preview URL is published and no live Pages deploy runs while regression is
+red or still running.
 
 ## When to add tests
 
