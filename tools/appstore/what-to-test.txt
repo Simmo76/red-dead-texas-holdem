@@ -6,6 +6,11 @@ New — framed hand rankings chart (PR #340)
 • Pinch or scroll to zoom the chart; pan when zoomed. CLOSE should still work and must not get “stuck” inside a drag.
 • Phone portrait and landscape: the full frame fits on screen without chopping the title or the bottom plaque.
 
+New — saloon and octagon poker coach portraits (PR #341)
+• Start a new game (RESTART or fresh visit): “What would AI do?” medallion shows Jake, Marcus, or Rosa at random in the saloon.
+• Same game across many hands: coach face and name stay the same until RESTART.
+• Switch to Octagon: medallion shows one of Damon, Kofi, Silas, or Nina at random for that game (not the old bald Alex Iron-Fist icon). Back to Saloon: your seated coach portrait returns.
+
 New — scene-mapped NPC nicknames (PR #338)
 • Start a table in SALOON — western names on nameplates (Sam Six-Shot, Charlie Cold-Iron, etc.).
 • Mid-session SETTINGS → SCENE → OCTAGON (page reloads). Same seats should show fighter names (Alex Iron-Fist, Jordan Dust-Knuckle, etc.) on the new bodies.

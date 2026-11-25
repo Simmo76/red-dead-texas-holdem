@@ -475,8 +475,8 @@
     @* The overhead plates already name the actor (gold border) with their
        stack and status, so the floating actor window would only cover them. *@
 
-    @* "What would AI do?" — the table coach (Maximilian in the saloon,
-       Alex Iron-Fist in the octagon). On your turn
+    @* "What would AI do?" — the table coach (random saloon or octagon
+       portrait for this game). On your turn
        only the title button shows; his advice stays hidden until you tap it,
        so the read is never spoiled before you've asked for it. Tap again to
        put it away. It starts hidden again on every new turn. With another
@@ -486,7 +486,8 @@
     {
         <div class="ai-advice @(_adviceCollapsed ? "collapsed" : "")" @onclick="ToggleAdvice"
              title="Tap and @CoachDisplayName counts the cards and tells you what he'd do">
-            <img class="ai-advice-icon" src="@CoachAdviceIcon" alt="" aria-hidden="true" />
+            <img class="ai-advice-icon" @key="@($"{_tableScene}:{ActiveCoachPortrait.Id}")"
+                 src="@CoachAdviceIcon" alt="" aria-hidden="true" />
             <div class="ai-advice-plate">
                 <div class="ai-advice-title">POKER <span>COACH</span> ADVICE</div>
                 @if (!_adviceCollapsed && _advice != null)
@@ -1367,6 +1368,8 @@
         public string tableScene;
         public string[] saloonNpcNames;
         public string[] streetNpcNames;
+        public string saloonCoachId;
+        public string octagonCoachId;
         public int handNumber;
         public int dealerSeat;
         public List<WebSeatSnapshot> seats = new();
@@ -2118,6 +2121,18 @@
             }
             else
                 RebuildSceneNpcNameMapsFromSeats(saved.seats, savedScene);
+            if (!string.IsNullOrEmpty(saved.saloonCoachId)
+                && SaloonCoachRoster.Any(c => c.Id == saved.saloonCoachId))
+                _saloonCoachId = saved.saloonCoachId;
+            if (!string.IsNullOrEmpty(saved.octagonCoachId)
+                && OctagonCoachRoster.Any(c => c.Id == saved.octagonCoachId))
+                _octagonCoachId = saved.octagonCoachId;
+            if (string.IsNullOrEmpty(saved.saloonCoachId) && string.IsNullOrEmpty(saved.octagonCoachId))
+                PickCoachesForNewGame();
+            else if (string.IsNullOrEmpty(saved.octagonCoachId))
+                _octagonCoachId = OctagonCoachRoster[_rng.Next(OctagonCoachRoster.Length)].Id;
+            else if (string.IsNullOrEmpty(saved.saloonCoachId))
+                _saloonCoachId = SaloonCoachRoster[_rng.Next(SaloonCoachRoster.Length)].Id;
             foreach (WebSeatSnapshot seat in saved.seats.OrderBy(s => s.seat))
             {
                 if (seat.seat == 0)
@@ -2182,6 +2197,8 @@
             tableScene = _tableScene,
             saloonNpcNames = _saloonNpcNames.ToArray(),
             streetNpcNames = _streetNpcNames.ToArray(),
+            saloonCoachId = _saloonCoachId,
+            octagonCoachId = _octagonCoachId,
             handNumber = _game.HandNumber,
             dealerSeat = _game.DealerSeat,
             // A finished hand has nothing left to resume; the saved stacks
@@ -5859,12 +5876,14 @@
 
     private async Task SyncBackdropLabel()
     {
+        var sceneBefore = _tableScene;
         try
         {
             var sceneId = await JS.InvokeAsync<string>("pokerScene.tableScene");
             if (sceneId == "street" || sceneId == "saloon") _tableScene = sceneId;
         }
         catch (JSException) { }
+        if (_tableScene != sceneBefore) StateHasChanged();
         try
         {
             if (JS is IJSInProcessRuntime sync)

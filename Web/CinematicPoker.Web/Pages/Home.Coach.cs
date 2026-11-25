@@ -109,21 +109,53 @@ namespace CinematicPoker.Web.Pages
 
         private string CoachAdvanceLabel => "NEXT HAND";
 
-        // Saloon reviews are Maximilian, the eye-patch bandit. Octagon reviews
-        // are Alex Iron-Fist, the bald cage fighter coach.
+        private sealed record CoachPortrait(string Id, string DisplayName, string Icon128);
+
+        private static readonly CoachPortrait[] SaloonCoachRoster =
+        {
+            new("jake", "Jake", "img/ui/coach-saloon-jake-128.png"),
+            new("marcus", "Marcus", "img/ui/coach-saloon-marcus-128.png"),
+            new("rosa", "Rosa", "img/ui/coach-saloon-rosa-128.png"),
+        };
+
+        private static readonly CoachPortrait[] OctagonCoachRoster =
+        {
+            new("damon", "Damon Cage", "img/ui/coach-octagon-damon-128.png"),
+            new("kofi", "Kofi Bell", "img/ui/coach-octagon-kofi-128.png"),
+            new("silas", "Silas Reed", "img/ui/coach-octagon-silas-128.png"),
+            new("nina", "Nina Vale", "img/ui/coach-octagon-nina-128.png"),
+        };
+
+        // Picked once per game in BeginCoachSession and kept for every hand.
+        private string _saloonCoachId = "jake";
+        private string _octagonCoachId = "damon";
+
+        private CoachPortrait ActiveSaloonCoach =>
+            Array.Find(SaloonCoachRoster, c => c.Id == _saloonCoachId) ?? SaloonCoachRoster[0];
+
+        private CoachPortrait ActiveOctagonCoach =>
+            Array.Find(OctagonCoachRoster, c => c.Id == _octagonCoachId) ?? OctagonCoachRoster[0];
+
+        private CoachPortrait ActiveCoachPortrait =>
+            OctagonCoach ? ActiveOctagonCoach : ActiveSaloonCoach;
+
+        private void PickCoachesForNewGame()
+        {
+            _saloonCoachId = SaloonCoachRoster[_rng.Next(SaloonCoachRoster.Length)].Id;
+            _octagonCoachId = OctagonCoachRoster[_rng.Next(OctagonCoachRoster.Length)].Id;
+        }
+
         private bool OctagonCoach => _tableScene == "street";
 
-        private string CoachDisplayName => OctagonCoach ? "Alex Iron-Fist" : "Maximilian";
+        private string CoachDisplayName => ActiveCoachPortrait.DisplayName;
 
-        private string CoachDisplayNameUpper => OctagonCoach ? "ALEX IRON-FIST" : "MAXIMILIAN";
+        private string CoachDisplayNameUpper => ActiveCoachPortrait.DisplayName.ToUpperInvariant();
 
-        private string CoachInitial => OctagonCoach ? "A" : "M";
+        private string CoachInitial => ActiveCoachPortrait.DisplayName.Length > 0
+            ? ActiveCoachPortrait.DisplayName[..1].ToUpperInvariant()
+            : "C";
 
-        // The advice medallion is Maximilian in the saloon and Alex
-        // Iron-Fist, the bald cage fighter, once the table is the octagon.
-        private string CoachAdviceIcon => OctagonCoach
-            ? "img/ui/coach-face-octagon-128.png"
-            : "img/ui/coach-face-128.png";
+        private string CoachAdviceIcon => $"{ActiveCoachPortrait.Icon128}?v=1";
 
         private string GameRootClass =>
             "game3d"
@@ -227,6 +259,7 @@ namespace CinematicPoker.Web.Pages
         private void BeginCoachSession()
         {
             DismissCoachPresentation();
+            PickCoachesForNewGame();
             _coachSessionId = Guid.NewGuid().ToString("N");
             if (_isGuest || _game == null) return;
             if (_coachRecorder == null)

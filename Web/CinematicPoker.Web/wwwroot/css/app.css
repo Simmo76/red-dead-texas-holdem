@@ -2263,8 +2263,7 @@ html.scene-street.resume-play .boot-screen {
 
 /* The coach medallion anchors the advisor: the framed plate with the
    title (and the opened advice) hangs off its right edge, tucked behind
-   the coin, so the coach fronts the advice in both states. Saloon uses
-   Maximilian; the octagon swaps in Alex Iron-Fist. */
+   the coin, so the coach fronts the advice in both states. */
 .ai-advice-icon {
     flex: 0 0 auto;
     position: relative;
