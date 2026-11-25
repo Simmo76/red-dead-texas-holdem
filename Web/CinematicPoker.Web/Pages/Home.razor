@@ -79,26 +79,31 @@
                         <span class="toolbar-btn-label">Coach</span>
                     </button>
                 }
-                <ToolbarButton IconSrc="icons/toolbar/rules" Label="Rules" AriaLabel="Rules — how to play Texas Hold'em"
-                               OnClick="OpenRules" CssClass="toolbar-primary" />
+                <ToolbarButton PlateSrc="img/toolbar-plates/rules.png" PlateWidth="395" PlateHeight="189"
+                               Label="Rules" AriaLabel="Rules — how to play Texas Hold'em"
+                               OnClick="OpenRules" CssClass="toolbar-primary toolbar-plate" />
                 @if (_musicOn)
                 {
-                    <ToolbarButton IconSrc="icons/toolbar/tune" Label="Tune" AriaLabel="Tune — skip to the next song"
+                    <ToolbarButton PlateSrc="img/toolbar-plates/tune.png" PlateWidth="385" PlateHeight="189"
+                                   Label="Tune" AriaLabel="Tune — skip to the next song"
                                    Title="Skip to the next song" OnClick="NextSong"
-                                   CssClass="toolbar-primary toolbar-item-tune" />
+                                   CssClass="toolbar-primary toolbar-plate toolbar-item-tune" />
                 }
-                <ToolbarButton IconSrc="icons/toolbar/hands" Label="Hands" AriaLabel="Hands — poker hand rankings"
-                               OnClick="OpenHandRankings" CssClass="toolbar-primary" />
+                <ToolbarButton PlateSrc="img/toolbar-plates/hands.png" PlateWidth="408" PlateHeight="189"
+                               Label="Hands" AriaLabel="Hands — poker hand rankings"
+                               OnClick="OpenHandRankings" CssClass="toolbar-primary toolbar-plate" />
                 @if (_sceneReady)
                 {
-                    <ToolbarButton IconSrc="icons/toolbar/view" Label="View"
+                    <ToolbarButton PlateSrc="img/toolbar-plates/view.png" PlateWidth="379" PlateHeight="189"
+                                   Label="View"
                                    AriaLabel="@(_overheadView ? "View — return to seat camera" : "View — overhead table camera")"
                                    Title="@(_overheadView ? "Back to your seat" : "Overhead camera — see every player's remaining chips")"
                                    Active="_overheadView" Toggle="true" OnClick="ToggleOverheadView"
-                                   CssClass="toolbar-primary toolbar-item-view" />
+                                   CssClass="toolbar-primary toolbar-plate toolbar-item-view" />
                 }
-                <ToolbarButton IconSrc="icons/toolbar/settings" AriaLabel="Settings" Title="Game settings"
-                               OnClick="OpenSettings" ShowLabel="false" CssClass="toolbar-primary toolbar-item-settings" />
+                <ToolbarButton PlateSrc="img/toolbar-plates/settings.png" PlateWidth="398" PlateHeight="189"
+                               AriaLabel="Settings" Title="Game settings"
+                               OnClick="OpenSettings" ShowLabel="false" CssClass="toolbar-primary toolbar-plate toolbar-item-settings" />
                 <div class="toolbar-more-wrap">
                     <button type="button" class="toolbar-btn toolbar-btn-icon toolbar-more-trigger"
                             aria-label="More actions" aria-haspopup="menu" aria-expanded="@_toolbarMoreOpen"

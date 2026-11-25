@@ -635,6 +635,71 @@ html.scene-street.resume-play .boot-screen {
         0 0 28px rgba(255, 160, 60, 0.22);
 }
 
+/* Painted plates: the PNG is the whole control (frame, icon, and caption). */
+.gameplay-toolbar .topbar-actions.toolbar-actions:has(.toolbar-plate),
+.gameplay-toolbar.topbar .topbar-actions.toolbar-actions:has(.toolbar-plate) {
+    gap: 2px !important;
+}
+
+.gameplay-toolbar button.toolbar-btn.toolbar-plate,
+.gameplay-toolbar.topbar button.toolbar-btn.toolbar-plate,
+.gameplay-toolbar .toolbar-actions .toolbar-btn.toolbar-plate.toolbar-primary,
+.gameplay-toolbar .toolbar-item-settings.toolbar-btn.toolbar-plate,
+.gameplay-toolbar.topbar .toolbar-item-settings.toolbar-btn.toolbar-plate {
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    min-width: 44px !important;
+    min-height: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    gap: 0 !important;
+    line-height: 0;
+    overflow: visible;
+    color: transparent !important;
+}
+
+.gameplay-toolbar button.toolbar-btn.toolbar-plate:hover,
+.gameplay-toolbar button.toolbar-btn.toolbar-plate.active,
+.gameplay-toolbar button.toolbar-btn.toolbar-plate.active:hover {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: transparent !important;
+}
+
+.gameplay-toolbar button.toolbar-btn.toolbar-plate:hover {
+    filter: brightness(1.07);
+}
+
+.gameplay-toolbar button.toolbar-btn.toolbar-plate.active,
+.gameplay-toolbar button.toolbar-btn.toolbar-plate.active:hover {
+    filter: brightness(1.08) drop-shadow(0 0 8px rgba(255, 198, 107, 0.9));
+}
+
+.gameplay-toolbar .toolbar-plate-img {
+    display: block;
+    height: 44px;
+    width: auto;
+    max-width: none;
+    pointer-events: none;
+    user-select: none;
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .gameplay-toolbar .toolbar-plate-img {
+        height: 40px;
+    }
+}
+
+@media (max-width: 419px) {
+    .gameplay-toolbar .toolbar-plate-img {
+        height: 34px;
+    }
+}
+
 .invite-btn {
     color: var(--gold);
     border-color: rgba(216, 178, 92, 0.55);
