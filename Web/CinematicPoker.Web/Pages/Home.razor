@@ -1732,7 +1732,6 @@
         NoteCoachPreviewFromUrl();
         NoteWinPreviewFromUrl();
         NoteVictoryGalleryPreviewFromUrl();
-        NoteRulesPreviewFromUrl();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -2944,12 +2943,6 @@
     // -------------------------------------------------------- how to play
 
     private bool _rulesOpen;
-
-    // ?rulespreview=1 opens the how-to-play plaque immediately, same idea as
-    // ?coachpreview=1. Used by the branch preview so the artwork can be checked
-    // without sitting through a hand.
-    private void NoteRulesPreviewFromUrl() =>
-        _rulesOpen = Nav.Uri.Contains("rulespreview=1", StringComparison.OrdinalIgnoreCase);
 
     private void OpenRules()
     {

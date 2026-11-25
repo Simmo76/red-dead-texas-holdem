@@ -3244,10 +3244,9 @@ html.scene-street.resume-play .boot-screen {
 
 /* ----------------------------------------------------------- how to play */
 
-/* The plaque is painted art (transparent outside the gold frame). It has
-   to sit above the title splash (z-index 60) when ?rulespreview=1 opens it
-   before TAP TO PLAY. The art is tall, so a short landscape phone scrolls
-   it instead of shrinking the type to fit. */
+/* The plaque is painted art (transparent outside the gold frame). It opens
+   only from the Rules button. The art is tall, so a short landscape phone
+   scrolls it instead of shrinking the type to fit. */
 .overlay.rules-overlay {
     z-index: 80;
     display: grid;
