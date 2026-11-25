@@ -32,10 +32,12 @@ export const WESTERN_LOOKS = [
   { pants: 3, jacket: 0, shirt: 2, shirtOpt: 0, scarf: 0, hat: 0, hair: 'full', gun: false, holster: false, belt: true, head: 'dirt' }
 ];
 
-// Skin tones for the Cowboy Girl. Her GLB is baked with the lightest
-// (caucasian) neutral skin, and every tone here is a multiply on the
-// skin/hair materials. Factors are linear-space ratios of the target tone
-// to the baked base (sRGB ratio ^ 2.2).
+// Per-seat skin tones for every character at the table (saloon and octagon).
+// The Cowboy Girl GLB is baked with the lightest neutral skin; Jacob /
+// Sheriff / Bandit heads and hands use their light baked albedo the same way.
+// Each entry is a shader multiply on skin and hair materials only.
+// Factors are linear-space ratios of the target tone to the baked base
+// (sRGB ratio ^ 2.2). Keep in sync with bake_cowgirl_npc.py SKIN_BASE.
 export const GIRL_SKIN_TONES = [
   { id: 'caucasian', skin: [1.0, 1.0, 1.0], hair: [1.0, 1.0, 1.0] },
   { id: 'asian', skin: [1.07, 1.08, 0.86], hair: [0.35, 0.33, 0.33] },
@@ -43,6 +45,84 @@ export const GIRL_SKIN_TONES = [
   { id: 'black', skin: [0.33, 0.20, 0.13], hair: [0.30, 0.28, 0.28] },
   { id: 'dark', skin: [0.15, 0.085, 0.055], hair: [0.25, 0.23, 0.23] },
 ];
+export const TABLE_SKIN_TONES = GIRL_SKIN_TONES;
+
+const LIGHT_SKIN_IDS = new Set(['caucasian', 'asian']);
+const DARK_SKIN_IDS = new Set(['tan', 'black', 'dark']);
+
+export function isLightSkinTone(id) {
+  return LIGHT_SKIN_IDS.has(id);
+}
+
+export function isDarkSkinTone(id) {
+  return DARK_SKIN_IDS.has(id);
+}
+
+function cloneSkinTone(tone) {
+  if (!tone) return null;
+  return {
+    id: tone.id,
+    skin: tone.skin && [...tone.skin],
+    hair: tone.hair && [...tone.hair],
+  };
+}
+
+function pickFromPool(pool) {
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// Every session mixes lighter and darker skin tones (~50/50 with jitter).
+// Repeating a tone across seats is fine; the two Cowboy Girls still get
+// distinct tones via ensureSaloonWomen.
+export function assignBalancedSkinTones(lineup) {
+  if (!lineup || !lineup.length) return lineup;
+  const n = lineup.length;
+  let darkCount = Math.floor(n / 2);
+  if (Math.random() < 0.5) darkCount += Math.random() < 0.5 ? 1 : -1;
+  darkCount = Math.max(1, Math.min(n - 1, darkCount));
+  const lightCount = n - darkCount;
+  const lightPool = TABLE_SKIN_TONES.filter((t) => isLightSkinTone(t.id));
+  const darkPool = TABLE_SKIN_TONES.filter((t) => isDarkSkinTone(t.id));
+  const tones = [];
+  for (let i = 0; i < lightCount; i++) tones.push(cloneSkinTone(pickFromPool(lightPool)));
+  for (let i = 0; i < darkCount; i++) tones.push(cloneSkinTone(pickFromPool(darkPool)));
+  shuffle(tones);
+  return lineup.map((pick, i) => ({
+    ...pick,
+    look: pick.look ? { ...pick.look } : null,
+    skinTone: tones[i],
+  }));
+}
+
+export function countLightAndDark(lineup) {
+  let light = 0;
+  let dark = 0;
+  for (const pick of lineup || []) {
+    const id = toneId(pick && pick.skinTone);
+    if (isLightSkinTone(id)) light++;
+    else if (isDarkSkinTone(id)) dark++;
+  }
+  return { light, dark };
+}
+
+// Casts saved before every seat had a tone, or lineups that lost balance on
+// migration, are topped up without reshuffling tones that are already set.
+export function ensureTableSkinTones(lineup) {
+  if (!lineup || !lineup.length) return lineup;
+  const { light, dark } = countLightAndDark(lineup);
+  if (light > 0 && dark > 0 && lineup.every((p) => p && p.skinTone)) return lineup;
+  const locked = lineup.map((pick) => (pick && pick.skinTone ? cloneSkinTone(pick.skinTone) : null));
+  const fresh = assignBalancedSkinTones(lineup.map((pick) => ({
+    ...pick,
+    look: pick.look ? { ...pick.look } : null,
+    skinTone: null,
+  })));
+  return lineup.map((pick, i) => ({
+    ...pick,
+    look: pick.look ? { ...pick.look } : null,
+    skinTone: locked[i] || fresh[i].skinTone,
+  }));
+}
 
 export function shuffle(list) {
   const a = list.slice();
@@ -102,15 +182,13 @@ export function buildSaloonLineup(ultraLite) {
     look: saloonLookWithHat(look, i),
   })));
   const playerPick = jacobPool[0];
-  const femaleNpcs = shuffle([...GIRL_SKIN_TONES]).slice(0, MIN_WOMEN).map((skinTone) => ({
-    kind: 'girl', look: null, skinTone,
-  }));
+  const femaleNpcs = Array.from({ length: MIN_WOMEN }, () => ({ kind: 'girl', look: null }));
   const specialNpcs = ultraLite
     ? femaleNpcs
     : [{ kind: 'sheriff', look: null }, { kind: 'bandit', look: null }, ...femaleNpcs];
   const npcJacob = jacobPool.slice(1, 1 + (SEATS - 1 - specialNpcs.length));
   const npcPool = shuffle([...npcJacob, ...specialNpcs]);
-  return [playerPick, ...npcPool];
+  return ensureSaloonWomen(assignBalancedSkinTones([playerPick, ...npcPool]));
 }
 
 export function buildStreetLineupFresh() {
@@ -119,9 +197,9 @@ export function buildStreetLineupFresh() {
     const male = fighterOrder.findIndex((model, i) => i > 0 && !femaleFighterModel(model));
     if (male > 0) [fighterOrder[0], fighterOrder[male]] = [fighterOrder[male], fighterOrder[0]];
   }
-  return ensureStreetWomen(fighterOrder.slice(0, SEATS).map((model) => ({
-    kind: 'fighter', look: null, model,
-  })));
+  return assignBalancedSkinTones(ensureStreetWomen(
+    fighterOrder.slice(0, SEATS).map((model) => ({ kind: 'fighter', look: null, model })),
+  ));
 }
 
 function assignUniqueFighterModels(lineup) {
@@ -138,7 +216,12 @@ function assignUniqueFighterModels(lineup) {
     const model = i === 0
       ? take(malePool)
       : (wantFemale ? take(femalePool) : take(malePool));
-    return { kind: 'fighter', look: null, model };
+    return {
+      kind: 'fighter',
+      look: null,
+      model,
+      skinTone: pick.skinTone ? cloneSkinTone(pick.skinTone) : null,
+    };
   });
   return ensureStreetWomen(out);
 }
@@ -162,25 +245,41 @@ export function deriveSaloonFromStreet(streetLineup, ultraLite) {
     kind: 'jacob',
     look: saloonLookWithHat(look, i),
   }));
-  const playerPick = jacobLooks[0];
   const usedTones = new Set();
-  const lineup = [playerPick];
+  const lineup = [{
+    ...jacobLooks[0],
+    skinTone: streetLineup[0].skinTone ? cloneSkinTone(streetLineup[0].skinTone) : null,
+  }];
   let women = 0;
   for (let i = 1; i < SEATS; i++) {
     const female = femaleFighterModel(streetLineup[i].model);
     if (female && women < MIN_WOMEN) {
-      const preferred = GIRL_SKIN_TONES[(streetLineup[i].model + women) % GIRL_SKIN_TONES.length];
-      const tone = usedTones.has(preferred.id)
-        ? takeGirlTone(usedTones)
-        : (usedTones.add(preferred.id), preferred);
+      let tone = streetLineup[i].skinTone
+        ? cloneSkinTone(streetLineup[i].skinTone)
+        : takeGirlTone(usedTones);
+      const id = toneId(tone);
+      if (!id || usedTones.has(id)) tone = takeGirlTone(usedTones);
+      usedTones.add(toneId(tone));
       lineup.push({ kind: 'girl', look: null, skinTone: tone });
       women++;
     } else if (!ultraLite && !lineup.some((p) => p.kind === 'sheriff')) {
-      lineup.push({ kind: 'sheriff', look: null });
+      lineup.push({
+        kind: 'sheriff',
+        look: null,
+        skinTone: streetLineup[i].skinTone ? cloneSkinTone(streetLineup[i].skinTone) : null,
+      });
     } else if (!ultraLite && !lineup.some((p) => p.kind === 'bandit')) {
-      lineup.push({ kind: 'bandit', look: null });
+      lineup.push({
+        kind: 'bandit',
+        look: null,
+        skinTone: streetLineup[i].skinTone ? cloneSkinTone(streetLineup[i].skinTone) : null,
+      });
     } else {
-      lineup.push(unusedJacob(jacobLooks, lineup, i, streetLineup[i].model));
+      const jacob = unusedJacob(jacobLooks, lineup, i, streetLineup[i].model);
+      lineup.push({
+        ...jacob,
+        skinTone: streetLineup[i].skinTone ? cloneSkinTone(streetLineup[i].skinTone) : null,
+      });
     }
   }
   return ensureSaloonWomen(lineup);

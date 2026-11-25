@@ -11,6 +11,8 @@ import {
   ensureSaloonWomen,
   ensureStreetWomen,
   countWomen,
+  countLightAndDark,
+  ensureTableSkinTones,
   femaleFighterModel,
 } from '../Web/CinematicPoker.Web/wwwroot/js/table-lineup.js';
 
@@ -22,10 +24,17 @@ function girlTones(lineup) {
   return lineup.filter((p) => p.kind === 'girl').map((p) => p.skinTone.id);
 }
 
+function checkSkinMix(lineup, label) {
+  assert(lineup.every((p) => p.skinTone && p.skinTone.id), `${label} every seat has a skin tone`);
+  const { light, dark } = countLightAndDark(lineup);
+  assert(light > 0 && dark > 0, `${label} light/dark mix light=${light} dark=${dark}`);
+}
+
 function checkSaloon(lineup, ultra, label) {
   assert(lineup.length === SEATS, `${label} seat count`);
   assert(lineup[0].kind === 'jacob', `${label} player is Jacob`);
   assert(countWomen(lineup) >= MIN_WOMEN, `${label} women ${countWomen(lineup)}`);
+  checkSkinMix(lineup, label);
   const tones = girlTones(lineup);
   assert(tones.length >= MIN_WOMEN, `${label} girl count`);
   assert(new Set(tones).size === tones.length, `${label} shared skin tone ${tones}`);
@@ -41,6 +50,7 @@ function checkStreet(lineup, label) {
   assert(lineup.length === SEATS, `${label} seat count`);
   assert(lineup[0].kind === 'fighter' && !femaleFighterModel(lineup[0].model), `${label} player is a man`);
   assert(countWomen(lineup) >= MIN_WOMEN, `${label} women ${countWomen(lineup)}`);
+  checkSkinMix(lineup, label);
   const models = lineup.map((p) => p.model);
   assert(new Set(models).size === models.length, `${label} duplicate fighter ${models}`);
 }
@@ -51,20 +61,23 @@ for (let n = 0; n < 200; n++) {
     checkSaloon(saloon, ultra, `deal ${n} ultra=${ultra}`);
     const street = deriveStreetFromSaloon(saloon);
     checkStreet(street, `street-from-saloon ${n}`);
+    for (let i = 0; i < SEATS; i++) {
+      assert(street[i].skinTone.id === saloon[i].skinTone.id, `skin preserved saloon→street seat ${i} deal ${n}`);
+    }
     const back = deriveSaloonFromStreet(street, ultra);
     checkSaloon(back, ultra, `saloon-from-street ${n}`);
   }
   checkStreet(buildStreetLineupFresh(), `fresh street ${n}`);
 }
 
-const thin = ensureSaloonWomen([
+const thin = ensureTableSkinTones(ensureSaloonWomen([
   { kind: 'jacob', look: { hat: 1, pants: 1 } },
   { kind: 'girl', look: null, skinTone: GIRL_SKIN_TONES[0] },
   { kind: 'sheriff', look: null },
   { kind: 'bandit', look: null },
   { kind: 'jacob', look: { hat: 2, pants: 2 } },
   { kind: 'jacob', look: { hat: 3, pants: 3 } },
-]);
+]));
 checkSaloon(thin, false, 'repaired one-woman saloon');
 assert(thin.some((p) => p.kind === 'sheriff') && thin.some((p) => p.kind === 'bandit'), 'repair kept the men');
 
