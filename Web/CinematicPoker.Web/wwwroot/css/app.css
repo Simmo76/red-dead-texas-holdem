@@ -994,7 +994,7 @@ html.scene-street.resume-play .boot-screen {
     z-index: 5;
 }
 
-.hud-pot,
+.hud-pot:not(.hud-pot-art),
 .hud-stack {
     color: var(--text);
     background: var(--panel);
@@ -1008,7 +1008,7 @@ html.scene-street.resume-play .boot-screen {
     gap: 8px;
 }
 
-.hud-pot {
+.hud-pot:not(.hud-pot-art) {
     font-size: 16px;
 }
 
@@ -1021,8 +1021,10 @@ html.scene-street.resume-play .boot-screen {
     border: none;
     background: transparent;
     min-height: 44px;
+    width: fit-content;
     display: inline-flex;
     align-items: center;
+    gap: 0;
 }
 
 .hud-pot-img {
@@ -1036,12 +1038,17 @@ html.scene-street.resume-play .boot-screen {
 
 .hud-pot-amount {
     position: absolute;
-    right: 12%;
-    top: 28%;
-    transform: translateY(-8%);
-    font-size: 15px;
+    left: 46%;
+    right: 5%;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 2px;
+    font-size: clamp(12px, 2.8vw, 15px);
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.02em;
     color: #e8c88a;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
     pointer-events: none;
@@ -1212,8 +1219,12 @@ html.scene-street.resume-play .boot-screen {
 /* The enlarged close-up owns the top-right corner: shrink the left-column
    pot (in the topbar) and actor card a notch so nothing competes with the
    big cards. */
-.board-expanded .topbar-left .hud-pot,
-.board-expanded .hud-pot { font-size: 13px; padding: 5px 12px; }
+.board-expanded .topbar-left .hud-pot:not(.hud-pot-art),
+.board-expanded .hud-pot:not(.hud-pot-art) { font-size: 13px; padding: 5px 12px; }
+
+.board-expanded .hud-pot-art .hud-pot-amount {
+    font-size: clamp(11px, 2.4vw, 13px);
+}
 .board-expanded .hud-stack { font-size: 16px; padding: 6px 12px; }
 
 /* The current actor's window joins the same column under the pot pill
@@ -4055,7 +4066,8 @@ html.scene-street.resume-play .boot-screen {
     .brand span { margin-inline-start: 2px; }
     /* Actor card under the compact brand + pot stack. */
     .hud-meters { top: calc(90px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); }
-    .hud-pot { font-size: 15px; padding: 6px 14px; }
+    .hud-pot:not(.hud-pot-art) { font-size: 15px; padding: 6px 14px; }
+    .hud-pot-art .hud-pot-amount { font-size: clamp(11px, 3vw, 14px); }
     .hud-stack { font-size: 20px; padding: 7px 14px; }
     .hud-stack-icon { width: 20px; height: 20px; flex-basis: 20px; }
     .hud-hand-rail { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 6px; }
@@ -4165,7 +4177,7 @@ html.scene-street.resume-play .boot-screen {
     .brand span { margin-inline-start: 2px; }
     /* Actor card under the compact landscape brand + pot stack. */
     .hud-meters { top: calc(84px + env(safe-area-inset-top)); left: 14px; gap: 6px; }
-    .hud-pot { font-size: 16px; padding: 6px 14px; }
+    .hud-pot:not(.hud-pot-art) { font-size: 16px; padding: 6px 14px; }
     .hud-stack { font-size: 22px; padding: 7px 16px; }
     .hud-stack-icon { width: 22px; height: 22px; flex-basis: 22px; }
     /* Clear the first chip row (6px pad + 32px button + gap). SETTINGS lives
