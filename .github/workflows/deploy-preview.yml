@@ -12,8 +12,11 @@ name: Deploy Branch Preview to GitHub Pages
 # NOTE: the github-pages environment must allow deployments from these
 # branches (Settings -> Environments -> github-pages -> deployment branches).
 
+# Publishes branch previews only after Regression tests succeed on that push.
 on:
-  push:
+  workflow_run:
+    workflows: [Regression tests]
+    types: [completed]
     branches: ['cursor/**']
   workflow_dispatch:
 
@@ -29,20 +32,37 @@ jobs:
     # Not in the "pages" concurrency group: a queued deploy can be cancelled
     # by a newer one, but this branch's build must still be saved so the
     # newer deploy picks it up.
-    name: Test engine and build branch preview
+    name: Build branch preview
+    if: >
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'cursor/')) ||
+      (github.event_name == 'workflow_dispatch' &&
+       startsWith(github.ref_name, 'cursor/'))
     runs-on: ubuntu-latest
     outputs:
       slug: ${{ steps.slug.outputs.slug }}
+      deploy_sha: ${{ steps.slug.outputs.deploy_sha }}
+      head_branch: ${{ steps.slug.outputs.head_branch }}
     steps:
       - name: Check out preview branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
-      - name: Run regression harness on preview branch
+      - name: Set up Node.js
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run regression harness
+        if: github.event_name == 'workflow_dispatch'
         run: bash tools/run-harness.sh
 
       - name: Publish preview from branch
@@ -52,8 +72,12 @@ jobs:
         id: slug
         run: |
           REPO_NAME="${GITHUB_REPOSITORY#*/}"
-          BRANCH_SLUG="$(echo "${GITHUB_REF_NAME}" | tr '/' '-')"
+          BRANCH_NAME="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          BRANCH_SLUG="$(echo "$BRANCH_NAME" | tr '/' '-')"
+          DEPLOY_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
           echo "slug=${BRANCH_SLUG}" >> "$GITHUB_OUTPUT"
+          echo "deploy_sha=${DEPLOY_SHA}" >> "$GITHUB_OUTPUT"
+          echo "head_branch=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
           sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/preview/${BRANCH_SLUG}/\" />|" publish-preview/wwwroot/index.html
           # Pages serves files verbatim; precompressed publish output is dead weight.
           find publish-preview/wwwroot \( -name '*.br' -o -name '*.gz' \) -delete
@@ -70,7 +94,7 @@ jobs:
                  publish-preview/wwwroot/audio \
                  publish-preview/wwwroot/appstore-design
           printf '{"version":"%s","built":"%s","preview":"%s","branch":"%s"}\n' \
-            "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$BRANCH_SLUG" "$GITHUB_REF_NAME" \
+            "$DEPLOY_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$BRANCH_SLUG" "$BRANCH_NAME" \
             > publish-preview/wwwroot/version.json
 
       - name: Save preview build
@@ -83,6 +107,7 @@ jobs:
   deploy:
     name: Assemble site and deploy to GitHub Pages
     needs: build
+    if: needs.build.result == 'success'
     runs-on: ubuntu-latest
     # Shares the group with deploy-web.yml: one Pages deployment at a time.
     concurrency:
@@ -97,6 +122,7 @@ jobs:
       - name: Check out preview branch (tools)
         uses: actions/checkout@v4
         with:
+          ref: ${{ needs.build.outputs.deploy_sha }}
           path: preview-src
 
       - name: Check out main (live site)
@@ -178,13 +204,14 @@ jobs:
         with:
           script: |
             const marker = '<!-- branch-preview-url -->';
-            const slug = context.ref.replace('refs/heads/', '').replaceAll('/', '-');
+            const slug = '${{ needs.build.outputs.slug }}';
             const previewUrl = `https://${context.repo.owner.toLowerCase()}.github.io/${context.repo.repo}/preview/${slug}/`;
             const body = `${marker}\nPreview: [Open the branch build](${previewUrl})`;
+            const commitSha = '${{ needs.build.outputs.deploy_sha }}';
             const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              commit_sha: context.sha
+              commit_sha: commitSha
             });
             const pr = prs.find((item) => item.state === 'open');
             if (!pr) {

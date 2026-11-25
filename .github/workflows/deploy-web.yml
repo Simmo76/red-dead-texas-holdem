@@ -1,7 +1,11 @@
 name: Deploy Web Version to GitHub Pages
 
+# Publishes only after Regression tests succeed on a main-branch push. Manual
+# runs still execute the harness in the build job first.
 on:
-  push:
+  workflow_run:
+    workflows: [Regression tests]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -18,17 +22,31 @@ concurrency:
 
 jobs:
   build:
-    name: Test engine and build web app
+    name: Build web app
+    if: >
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main') ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
+      - name: Set up Node.js
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Run regression harness
+        if: github.event_name == 'workflow_dispatch'
         run: bash tools/run-harness.sh
 
       - name: Publish Blazor WebAssembly app
@@ -43,7 +61,8 @@ jobs:
           find publish/wwwroot \( -name '*.br' -o -name '*.gz' \) -delete
           # Desktop shortcuts cache index.html for days; version.json is
           # fetched with cache: 'no-store' so a new SHA forces one reload.
-          printf '{"version":"%s","built":"%s"}\n' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          DEPLOY_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          printf '{"version":"%s","built":"%s"}\n' "$DEPLOY_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             > publish/wwwroot/version.json
           touch publish/wwwroot/.nojekyll
           cp publish/wwwroot/index.html publish/wwwroot/404.html

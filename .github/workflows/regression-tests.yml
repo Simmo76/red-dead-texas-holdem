@@ -1,0 +1,33 @@
+name: Regression tests
+
+# Authoritative test gate: PRs, pushes to main, and cursor/* branches. Pages
+# deploy workflows start only after this workflow completes successfully.
+on:
+  pull_request:
+  push:
+    branches: [main, 'cursor/**']
+  workflow_dispatch:
+
+concurrency:
+  group: regression-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  harness:
+    name: Regression harness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run regression harness
+        run: bash tools/run-harness.sh
