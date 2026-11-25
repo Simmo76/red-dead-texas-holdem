@@ -54,8 +54,8 @@ namespace CinematicPoker.Game.Presentation
 
             var npcs = new List<AIPlayer>();
             int count = Mathf.Clamp(npcCount, 1, 5);
-            // Gender-neutral table nicknames shuffled each session so any personality can wear any name.
-            string[] fallbackNames = { "Alex Iron-Fist", "Jordan Dust-Knuckle", "Taylor Low-Blow", "Morgan Cage-Breaker", "Reese Blood-Odds", "Cameron Blindside", "Quinn Dead-Ringer" };
+            // Western saloon nicknames shuffled each session so any personality can wear any name.
+            string[] fallbackNames = { "Sam Six-Shot", "Billie Quickdraw", "Jesse Deadeye", "Charlie Cold-Iron", "Frankie Fast-Hand", "Riley Black-Hat", "Casey Trigger" };
             for (int i = fallbackNames.Length - 1; i > 0; i--)
             {
                 int j = Random.Range(0, i + 1);

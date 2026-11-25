@@ -52,18 +52,18 @@ namespace CinematicPoker.Game.Prototype
             AIProfile.Professional
         };
 
-        // Gender-neutral table nicknames dealt out at random each session, so
-        // any personality can wear any of these names. The pool is larger than
+        // Western saloon nicknames dealt out at random each session, so any
+        // personality can wear any of these names. The pool is larger than
         // the table, so each session seats a random subset.
         private static readonly string[] NpcNamePool =
         {
-            "Alex Iron-Fist",
-            "Jordan Dust-Knuckle",
-            "Taylor Low-Blow",
-            "Morgan Cage-Breaker",
-            "Reese Blood-Odds",
-            "Cameron Blindside",
-            "Quinn Dead-Ringer"
+            "Sam Six-Shot",
+            "Billie Quickdraw",
+            "Jesse Deadeye",
+            "Charlie Cold-Iron",
+            "Frankie Fast-Hand",
+            "Riley Black-Hat",
+            "Casey Trigger"
         };
 
         // Kenney mini-character models (CC0) matched to the roster above.
