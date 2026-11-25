@@ -15,8 +15,9 @@ Written for agents and humans picking up work with no prior context.
 3. **UI contracts get acceptance checks** — static assertions on Razor, CSS,
    assets, and handler names (`tools/toolbar-acceptance.test.mjs`) catch wiring
    regressions without Playwright.
-4. **CI runs the full harness** — no merge to `main` (web deploy) without
-   `tools/run-harness.sh` passing.
+4. **CI runs the full harness** — every pull request runs
+   `.github/workflows/regression-tests.yml`; merges to `main` also hit this
+   gate via deploy workflows before GitHub Pages ships.
 
 ## Layers
 
@@ -42,9 +43,15 @@ Order of execution:
 2. Every `tools/*.test.mjs` (discovered in filename order)
 3. `tools/collect-previews.test.sh`
 
-GitHub Actions (`deploy-web.yml`, `deploy-preview.yml`) call this script
-instead of engine-only `dotnet test`. The Android workflow still runs the full
-`DotNet` solution (includes the simulation project).
+| Workflow | When |
+|----------|------|
+| `regression-tests.yml` | **Every pull request** (required check; see PR status) |
+| `deploy-web.yml` / `deploy-preview.yml` | Harness again before Pages deploy |
+| `android-apk.yml` | Full `dotnet test DotNet` when Unity assets change |
+
+PR authors should wait for **Regression tests / Regression harness** green
+before requesting review. The Android workflow still runs the full `DotNet`
+solution (includes the simulation project) on asset changes only.
 
 ## When to add tests
 
