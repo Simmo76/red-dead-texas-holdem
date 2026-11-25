@@ -2904,6 +2904,48 @@ html.scene-street.resume-play .boot-screen {
     max-width: min(92vw, 560px);
 }
 
+/* How to Play — tall portrait art; scroll inside the frame on small screens. */
+.rules-art-panel {
+    width: min(96vw, 580px);
+    max-width: min(96vw, 580px);
+    max-height: calc(100dvh - 12px);
+    overflow: hidden;
+}
+
+.rules-art-scroller {
+    max-height: calc(100dvh - 12px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(216, 178, 92, 0.55) rgba(0, 0, 0, 0.25);
+}
+
+.rules-art-scroller::-webkit-scrollbar {
+    width: 8px;
+}
+
+.rules-art-scroller::-webkit-scrollbar-thumb {
+    background: rgba(216, 178, 92, 0.55);
+    border-radius: 999px;
+}
+
+.rules-art-scroller::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 999px;
+}
+
+.rules-art-img {
+    width: 100%;
+    height: auto;
+    max-height: none;
+}
+
+.rules-art-panel .rules-art-hitclose {
+    z-index: 3;
+}
+
 .overlay-art-img,
 .overlay-art-frame {
     display: block;

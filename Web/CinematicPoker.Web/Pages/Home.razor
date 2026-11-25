@@ -866,12 +866,14 @@
     @if (_rulesOpen)
     {
         <div class="overlay overlay-art" @onclick="CloseRules">
-            <div class="overlay-art-panel overlay-art-panel--portrait" role="dialog" aria-label="How to play"
+            <div class="overlay-art-panel overlay-art-panel--portrait rules-art-panel" role="dialog" aria-label="How to play"
                  @onclick:stopPropagation="true">
-                <img class="overlay-art-img" src="img/how-to-play.png"
-                     srcset="img/how-to-play@2x.png 2x"
-                     alt="How to play Texas Hold'em" />
-                <button type="button" class="overlay-art-hitclose" @onclick="CloseRules" aria-label="Close how to play"></button>
+                <div class="rules-art-scroller">
+                    <img class="overlay-art-img rules-art-img" src="img/how-to-play.png?v=2"
+                         srcset="img/how-to-play@2x.png 2x"
+                         alt="How to play Texas Hold'em" />
+                </div>
+                <button type="button" class="overlay-art-hitclose rules-art-hitclose" @onclick="CloseRules" aria-label="Close how to play"></button>
             </div>
         </div>
     }
