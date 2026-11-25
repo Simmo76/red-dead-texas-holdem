@@ -1,5 +1,11 @@
 What to test in this build:
 
+New — framed hand rankings chart (PR #340)
+• Top bar → HANDS. The rankings overlay should show the gold-framed saloon chart (not the old plain panel with a separate CLOSE chip).
+• Tap CLOSE on the gold plaque at the bottom of the chart (and tap the dimmer outside). Both should dismiss.
+• Pinch or scroll to zoom the chart; pan when zoomed. CLOSE should still work and must not get “stuck” inside a drag.
+• Phone portrait and landscape: the full frame fits on screen without chopping the title or the bottom plaque.
+
 New — scene-mapped NPC nicknames (PR #338)
 • Start a table in SALOON — western names on nameplates (Sam Six-Shot, Charlie Cold-Iron, etc.).
 • Mid-session SETTINGS → SCENE → OCTAGON (page reloads). Same seats should show fighter names (Alex Iron-Fist, Jordan Dust-Knuckle, etc.) on the new bodies.

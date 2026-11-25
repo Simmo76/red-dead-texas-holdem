@@ -77,6 +77,8 @@ window.pokerHandsZoom = (function () {
 
   function onPointerDown(e) {
     if (!viewport || e.button > 0) return;
+    // CLOSE sits on the chart art. Leave it out of pinch, pan, and double-tap zoom.
+    if (e.target.closest && e.target.closest('button, a')) return;
     viewport.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     moved = false;
