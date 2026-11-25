@@ -1,5 +1,8 @@
 What to test in this build:
 
+New — HUD card box (PR #332)
+• Top-right panel clears toolbar pills; resting cards slightly larger; tap still magnifies (portrait + landscape).
+
 New — table-win certificate export (PR #331)
 • Win the table (or ?winpreview=1 after dealing). Export Certificate on the WINNER TAKES ALL screen — the PNG must show the session haul/stats, not the last hand’s CERTIFIED VICTOR card still behind the dimmer.
 
@@ -37,4 +40,4 @@ Also verify (recent builds)
 • Uncontested / fold-win coach: board + holes on felt and dock, not holes alone.
 • Victory certificate: POKER COACH and WHY YOU WON on the plaque; ONE THING TO TRY only inside the coach panel (not the same “favourable price” line every hand).
 • Opponent win banner names the winner; coach WHAT HAPPENED matches who took the pot.
-• Win gallery carousel, export certificate, saloon/octagon switch, landscape HUD insets, dealer/SB/BB chips on nameplates.
+• Win gallery, saloon/octagon switch, landscape HUD insets, dealer/SB/BB chips on nameplates.
