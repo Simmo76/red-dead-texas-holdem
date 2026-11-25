@@ -40,15 +40,16 @@ export const WESTERN_LOOKS = [
 // (sRGB ratio ^ 2.2). Keep in sync with bake_cowgirl_npc.py SKIN_BASE.
 export const GIRL_SKIN_TONES = [
   { id: 'caucasian', skin: [1.0, 1.0, 1.0], hair: [1.0, 1.0, 1.0] },
-  { id: 'asian', skin: [1.07, 1.08, 0.86], hair: [0.35, 0.33, 0.33] },
-  { id: 'tan', skin: [0.68, 0.50, 0.35], hair: [0.55, 0.48, 0.42] },
-  { id: 'black', skin: [0.33, 0.20, 0.13], hair: [0.30, 0.28, 0.28] },
-  { id: 'dark', skin: [0.15, 0.085, 0.055], hair: [0.25, 0.23, 0.23] },
+  { id: 'asian', skin: [0.72, 0.58, 0.45], hair: [1.0, 1.0, 1.0] },
+  { id: 'tan', skin: [0.48, 0.34, 0.22], hair: [1.0, 1.0, 1.0] },
+  { id: 'black', skin: [0.24, 0.13, 0.08], hair: [1.0, 1.0, 1.0] },
+  { id: 'dark', skin: [0.14, 0.07, 0.045], hair: [1.0, 1.0, 1.0] },
 ];
 export const TABLE_SKIN_TONES = GIRL_SKIN_TONES;
 
-const LIGHT_SKIN_IDS = new Set(['caucasian', 'asian']);
-const DARK_SKIN_IDS = new Set(['tan', 'black', 'dark']);
+const LIGHT_SKIN_IDS = new Set(['caucasian']);
+const DARK_SKIN_IDS = new Set(['asian', 'tan', 'black', 'dark']);
+const PLAYER_DARK_SKIN_IDS = new Set(['black', 'dark']);
 
 export function isLightSkinTone(id) {
   return LIGHT_SKIN_IDS.has(id);
@@ -71,22 +72,36 @@ function pickFromPool(pool) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// Every session mixes lighter and darker skin tones (~50/50 with jitter).
-// Repeating a tone across seats is fine; the two Cowboy Girls still get
-// distinct tones via ensureSaloonWomen.
+// Your seat when a new session starts: light (caucasian) or dark (black/dark).
+export function pickPlayerStartingSkinTone() {
+  const light = TABLE_SKIN_TONES.find((t) => t.id === 'caucasian');
+  if (Math.random() < 0.5) return cloneSkinTone(light);
+  const darkPool = TABLE_SKIN_TONES.filter((t) => PLAYER_DARK_SKIN_IDS.has(t.id));
+  return cloneSkinTone(pickFromPool(darkPool));
+}
+
+export function isPlayerStartingSkinTone(id) {
+  return id === 'caucasian' || PLAYER_DARK_SKIN_IDS.has(id);
+}
+
+// NPC seats mix lighter and darker skin tones (~50/50 with jitter). Seat 0
+// uses pickPlayerStartingSkinTone. Repeating a tone across seats is fine;
+// the two Cowboy Girls still get distinct tones via ensureSaloonWomen.
 export function assignBalancedSkinTones(lineup) {
   if (!lineup || !lineup.length) return lineup;
   const n = lineup.length;
-  let darkCount = Math.floor(n / 2);
+  const playerTone = pickPlayerStartingSkinTone();
+  const npcN = n - 1;
+  let darkCount = Math.floor(npcN / 2);
   if (Math.random() < 0.5) darkCount += Math.random() < 0.5 ? 1 : -1;
-  darkCount = Math.max(1, Math.min(n - 1, darkCount));
-  const lightCount = n - darkCount;
+  darkCount = Math.max(1, Math.min(npcN - 1, darkCount));
+  const lightCount = npcN - darkCount;
   const lightPool = TABLE_SKIN_TONES.filter((t) => isLightSkinTone(t.id));
   const darkPool = TABLE_SKIN_TONES.filter((t) => isDarkSkinTone(t.id));
-  const tones = [];
-  for (let i = 0; i < lightCount; i++) tones.push(cloneSkinTone(pickFromPool(lightPool)));
-  for (let i = 0; i < darkCount; i++) tones.push(cloneSkinTone(pickFromPool(darkPool)));
-  shuffle(tones);
+  const npcTones = [];
+  for (let i = 0; i < lightCount; i++) npcTones.push(cloneSkinTone(pickFromPool(lightPool)));
+  for (let i = 0; i < darkCount; i++) npcTones.push(cloneSkinTone(pickFromPool(darkPool)));
+  const tones = [playerTone, ...shuffle(npcTones)];
   return lineup.map((pick, i) => ({
     ...pick,
     look: pick.look ? { ...pick.look } : null,
@@ -120,7 +135,7 @@ export function ensureTableSkinTones(lineup) {
   return lineup.map((pick, i) => ({
     ...pick,
     look: pick.look ? { ...pick.look } : null,
-    skinTone: locked[i] || fresh[i].skinTone,
+    skinTone: locked[i] || (i === 0 ? pickPlayerStartingSkinTone() : fresh[i].skinTone),
   }));
 }
 
