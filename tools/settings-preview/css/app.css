@@ -1001,7 +1001,8 @@ html.scene-street.resume-play .boot-screen {
    never overlap. */
 .hud-hand-rail {
     position: absolute;
-    top: calc(56px + env(safe-area-inset-top));
+    /* A few px below the toolbar pill row so the board border never tucks under it. */
+    top: calc(59px + env(safe-area-inset-top));
     right: calc(18px + env(safe-area-inset-right));
     display: flex;
     flex-direction: column;
@@ -1069,7 +1070,7 @@ html.scene-street.resume-play .boot-screen {
 .hud-card-cue-row { align-items: center; }
 
 .hud-card {
-    width: 49px;
+    width: 53px;
     height: auto;
     border-radius: 3px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
@@ -1102,8 +1103,8 @@ html.scene-street.resume-play .boot-screen {
    min() terms keep the five-card row and both rows on-screen. */
 .hud-board.expanded .hud-card {
     /* Never below the collapsed 49px, never past the viewport edges. */
-    width: max(49px, min(306px, calc((100vw - 370px) * 0.546), calc((100vh - 285px) * 0.983), calc((100vh - 315px) * 0.936), calc((100vw - 60px) / 5), calc((100vh - 80px) * 0.655)));
-    width: max(49px, min(306px, calc((100vw - 370px) * 0.546), calc((100dvh - 285px) * 0.983), calc((100dvh - 315px) * 0.936), calc((100vw - 60px) / 5), calc((100dvh - 80px) * 0.655)));
+    width: max(53px, min(306px, calc((100vw - 370px) * 0.546), calc((100vh - 285px) * 0.983), calc((100vh - 315px) * 0.936), calc((100vw - 60px) / 5), calc((100vh - 80px) * 0.655)));
+    width: max(53px, min(306px, calc((100vw - 370px) * 0.546), calc((100dvh - 285px) * 0.983), calc((100dvh - 315px) * 0.936), calc((100vw - 60px) / 5), calc((100dvh - 80px) * 0.655)));
 }
 
 /* Width grows down and to the left from the original top-right corner. */
@@ -3510,10 +3511,10 @@ html.scene-street.resume-play .boot-screen {
     .hud-pot { font-size: 15px; padding: 6px 14px; }
     .hud-stack { font-size: 20px; padding: 7px 14px; }
     .hud-stack-icon { width: 20px; height: 20px; flex-basis: 20px; }
-    .hud-hand-rail { top: calc(86px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 6px; }
+    .hud-hand-rail { top: calc(89px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 6px; }
     .hud-board { gap: 4px; padding: 4px 5px; }
     .hud-row { gap: 3px; }
-    .hud-card { width: 38px; }
+    .hud-card { width: 41px; }
     /* 1.3x larger expanded panel, clamped so five cards never overflow a narrow screen. */
     .hud-board.expanded .hud-row { gap: 2px; }
     .hud-board.expanded .hud-card { width: min(196px, calc((100vw - 40px) * 0.546), calc((100vw - 24px) / 5)); }
@@ -3617,10 +3618,10 @@ html.scene-street.resume-play .boot-screen {
     .hud-stack-icon { width: 22px; height: 22px; flex-basis: 22px; }
     /* Clear the first chip row (6px pad + 32px button + gap). SETTINGS lives
        on that row, so the hand window must start below it. */
-    .hud-hand-rail { top: 48px; right: max(8px, env(safe-area-inset-right, 0px)); gap: 6px; }
+    .hud-hand-rail { top: 51px; right: max(8px, env(safe-area-inset-right, 0px)); gap: 6px; }
     html.notch-left .hud-hand-rail { right: 8px; }
     .hud-board { gap: 4px; padding: 4px 5px; }
-    .hud-card { width: 40px; }
+    .hud-card { width: 43px; }
     /* Enlarged: start below the (possibly wrapped) top-bar buttons at 1.3x
        the old close-up size; the last min() term keeps both rows on-screen. */
     .board-expanded-rail .hud-board.expanded {
@@ -3628,8 +3629,8 @@ html.scene-street.resume-play .boot-screen {
     }
     .hud-board.expanded .hud-card {
         /* Never below the collapsed 40px, never past the viewport edges. */
-        width: max(73px, min(246px, calc((100vw - 350px) * 0.546), calc((100vh - 230px) * 0.983), calc((100vh - 300px) * 0.936), calc((100vh - 85px) * 0.655)));
-        width: max(73px, min(246px, calc((100vw - 350px) * 0.546), calc((100dvh - 230px) * 0.983), calc((100dvh - 300px) * 0.936), calc((100dvh - 85px) * 0.655)));
+        width: max(56px, min(246px, calc((100vw - 350px) * 0.546), calc((100vh - 230px) * 0.983), calc((100vh - 300px) * 0.936), calc((100vh - 85px) * 0.655)));
+        width: max(56px, min(246px, calc((100vw - 350px) * 0.546), calc((100dvh - 230px) * 0.983), calc((100dvh - 300px) * 0.936), calc((100dvh - 85px) * 0.655)));
     }
     .banner { font-size: 18px; top: 18%; }
     .banner-amount { font-size: 36px; }
