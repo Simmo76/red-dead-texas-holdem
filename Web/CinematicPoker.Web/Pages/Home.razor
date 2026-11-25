@@ -1367,6 +1367,7 @@
         public string tableScene;
         public string[] saloonNpcNames;
         public string[] streetNpcNames;
+        public string saloonCoachId;
         public int handNumber;
         public int dealerSeat;
         public List<WebSeatSnapshot> seats = new();
@@ -2118,6 +2119,11 @@
             }
             else
                 RebuildSceneNpcNameMapsFromSeats(saved.seats, savedScene);
+            if (!string.IsNullOrEmpty(saved.saloonCoachId)
+                && SaloonCoachRoster.Any(c => c.Id == saved.saloonCoachId))
+                _saloonCoachId = saved.saloonCoachId;
+            else
+                PickSaloonCoachForNewGame();
             foreach (WebSeatSnapshot seat in saved.seats.OrderBy(s => s.seat))
             {
                 if (seat.seat == 0)
@@ -2182,6 +2188,7 @@
             tableScene = _tableScene,
             saloonNpcNames = _saloonNpcNames.ToArray(),
             streetNpcNames = _streetNpcNames.ToArray(),
+            saloonCoachId = _saloonCoachId,
             handNumber = _game.HandNumber,
             dealerSeat = _game.DealerSeat,
             // A finished hand has nothing left to resume; the saved stacks
