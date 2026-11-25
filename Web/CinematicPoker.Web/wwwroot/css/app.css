@@ -3244,80 +3244,60 @@ html.scene-street.resume-play .boot-screen {
 
 /* ----------------------------------------------------------- how to play */
 
-.rules-box {
-    max-width: min(560px, calc(100vw - 32px));
-    max-height: calc(100vh - 24px);
-    max-height: calc(100dvh - 24px);
-    overflow: hidden;
-    padding: 24px 28px 20px;
-    gap: 16px;
-    text-align: left;
-}
-
-.rules-box .overlay-title {
-    text-align: center;
-}
-
-.rules-scroll {
+/* The plaque is painted art (transparent outside the gold frame). It has
+   to sit above the title splash (z-index 60) when ?rulespreview=1 opens it
+   before TAP TO PLAY. The art is tall, so a short landscape phone scrolls
+   it instead of shrinking the type to fit. */
+.overlay.rules-overlay {
+    z-index: 80;
+    display: grid;
+    justify-items: center;
+    align-items: center;
+    align-items: safe center;
     overflow-y: auto;
-    max-height: calc(100dvh - 160px);
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding-right: 4px;
     -webkit-overflow-scrolling: touch;
+    padding: max(8px, env(safe-area-inset-top, 0px)) 12px
+        max(8px, env(safe-area-inset-bottom, 0px));
 }
 
-.rules-lede {
+.rules-box {
+    position: relative;
+    width: min(480px, calc(100vw - 24px));
     margin: 0;
-    color: var(--text);
-    font-size: 15px;
-    line-height: 1.45;
-    letter-spacing: 0.2px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
 }
 
-.rules-section {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+.rules-art {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+    -webkit-user-drag: none;
+    user-select: none;
+    filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.65));
 }
 
-.rules-heading {
+/* Invisible hit target over the painted CLOSE plaque. */
+.rules-close {
+    position: absolute;
+    left: 30%;
+    width: 42%;
+    bottom: 2%;
+    height: 9%;
     margin: 0;
-    color: var(--gold);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 2px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    cursor: pointer;
 }
 
-.rules-list,
-.rules-steps {
-    margin: 0;
-    padding-left: 1.2em;
-    color: var(--text-dim);
-    font-size: 14px;
-    line-height: 1.5;
-    letter-spacing: 0.15px;
-}
-
-.rules-list li + li,
-.rules-steps li + li {
-    margin-top: 6px;
-}
-
-.rules-list strong,
-.rules-steps strong,
-.rules-copy strong {
-    color: var(--text);
-    font-weight: 700;
-}
-
-.rules-copy {
-    margin: 0;
-    color: var(--text-dim);
-    font-size: 14px;
-    line-height: 1.5;
-    letter-spacing: 0.15px;
+.rules-close:focus-visible {
+    outline: 2px solid #ffe7a3;
+    outline-offset: 2px;
 }
 
 /* ------------------------------------------------------------- settings */
@@ -3748,10 +3728,6 @@ html.scene-street.resume-play .boot-screen {
         padding: 0;
         gap: 0;
     }
-    .rules-box { padding: 16px 18px 14px; gap: 12px; }
-    .rules-scroll { max-height: calc(100dvh - 120px); gap: 12px; }
-    .rules-lede { font-size: 13px; }
-    .rules-list, .rules-steps, .rules-copy { font-size: 13px; }
     .settings-rows { gap: 6px; }
     .settings-save { padding: 9px 16px; font-size: 12px; }
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
