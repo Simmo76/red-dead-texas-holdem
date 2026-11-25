@@ -247,7 +247,7 @@ namespace CinematicPoker.Web.Pages
             if (_coachRecorder == null) return;
             var names = new Dictionary<int, string>();
             foreach (var player in _game.Players)
-                names[player.Seat] = player.Seat == 0 ? PlayerName : player.Name;
+                names[player.Seat] = player.Seat == 0 ? PlayerName : NameOf(player.Seat);
             _coachRecorder.Observe(evt, Round, names);
         }
 

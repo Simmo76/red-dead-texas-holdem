@@ -30,7 +30,7 @@ function assert(cond, msg) {
 assert(!shouldRemap('Sam Six-Shot', 'saloon'), 'keep western on saloon restore');
 assert(!shouldRemap('Jordan Dust-Knuckle', 'street'), 'keep fighter on octagon restore');
 assert(shouldRemap('Jordan Dust-Knuckle', 'saloon'), 'remap fighter on saloon restore');
-assert(!shouldRemap('Sam Six-Shot', 'street'), 'keep western after mid-session switch to octagon');
+// Mid-session scene switches use dual name maps, not restore remapping.
 assert(shouldRemap('Nickey 2-guns', 'saloon'), 'remap retired name');
 assert(shouldRemap('', 'street'), 'remap empty');
 

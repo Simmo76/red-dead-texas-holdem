@@ -1181,7 +1181,75 @@
     private static bool IsOctagonNpcName(string name) =>
         Array.Exists(OctagonNpcNamePool, n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
 
-    // Restore keeps cross-scene names (saloon roster carried into octagon).
+    // Each seat keeps a western handle and a fighter handle for the session.
+    // Switching saloon ↔ octagon swaps only which one the HUD and scene show
+    // (same idea as cinematic-poker-table-cast-v1 for 3D bodies).
+    private string[] _saloonNpcNames = new string[5];
+    private string[] _streetNpcNames = new string[5];
+
+    private void ClearSceneNpcNameMaps()
+    {
+        Array.Clear(_saloonNpcNames, 0, _saloonNpcNames.Length);
+        Array.Clear(_streetNpcNames, 0, _streetNpcNames.Length);
+    }
+
+    private static bool SceneNpcNamesComplete(string[] names) =>
+        names is { Length: 5 } && names.All(n => !string.IsNullOrEmpty(n));
+
+    private void DealDualSceneNpcNames()
+    {
+        string[] saloon = ShuffledNpcNames("saloon");
+        string[] street = ShuffledNpcNames("street");
+        for (int i = 0; i < Roster.Length; i++)
+        {
+            _saloonNpcNames[i] = saloon[i];
+            _streetNpcNames[i] = street[i];
+        }
+    }
+
+    private string[] NpcNamesForScene(string scene) =>
+        scene == "street" ? _streetNpcNames : _saloonNpcNames;
+
+    private string NpcDisplayName(int seat)
+    {
+        if (seat <= 0 || seat > Roster.Length || _game == null) return null;
+        string[] names = NpcNamesForScene(_tableScene);
+        int idx = seat - 1;
+        return idx < names.Length ? names[idx] : null;
+    }
+
+    // Older snapshots only stored one roster name per seat; rebuild the dual
+    // maps so a scene switch can still swap handles after restore.
+    private void RebuildSceneNpcNameMapsFromSeats(IReadOnlyList<WebSeatSnapshot> seats, string savedScene)
+    {
+        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (WebSeatSnapshot seat in seats)
+        {
+            if (seat.seat <= 0 || seat.seat > Roster.Length) continue;
+            int idx = seat.seat - 1;
+            string name = seat.name;
+            if (string.IsNullOrEmpty(name) || ShouldRemapRestoredNpcName(name, savedScene)) continue;
+            if (savedScene == "saloon")
+                _saloonNpcNames[idx] = name;
+            else
+                _streetNpcNames[idx] = name;
+            taken.Add(name);
+        }
+        foreach (string scene in new[] { "saloon", "street" })
+        {
+            string[] pool = ShuffledNpcNames(scene);
+            string[] map = NpcNamesForScene(scene);
+            int next = 0;
+            for (int idx = 0; idx < Roster.Length; idx++)
+            {
+                if (!string.IsNullOrEmpty(map[idx])) continue;
+                while (next < pool.Length && !taken.Add(pool[next]))
+                    next++;
+                map[idx] = next < pool.Length ? pool[next++] : $"Player {idx + 1}";
+            }
+        }
+    }
+
     // Retired handles and fighter-only names on a saloon save are remapped.
     private static bool ShouldRemapRestoredNpcName(string name, string savedScene)
     {
@@ -1297,6 +1365,8 @@
         public bool effectsOff;
         public bool ambienceOff;
         public string tableScene;
+        public string[] saloonNpcNames;
+        public string[] streetNpcNames;
         public int handNumber;
         public int dealerSeat;
         public List<WebSeatSnapshot> seats = new();
@@ -2003,6 +2073,7 @@
 
     private void ClearWebSession()
     {
+        ClearSceneNpcNameMaps();
         try { _ = JS.InvokeVoidAsync("pokerSession.clear"); }
         catch (JSException) { }
         catch (InvalidOperationException) { }
@@ -2039,9 +2110,14 @@
             if (saved.tableScene == "street" || saved.tableScene == "saloon")
                 _tableScene = saved.tableScene;
             string savedScene = string.IsNullOrEmpty(saved.tableScene) ? "saloon" : saved.tableScene;
-            string[] freshNames = ShuffledNpcNames(savedScene);
-            int nextFresh = 0;
-            var takenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            ClearSceneNpcNameMaps();
+            if (saved.saloonNpcNames is { Length: 5 } && saved.streetNpcNames is { Length: 5 })
+            {
+                Array.Copy(saved.saloonNpcNames, _saloonNpcNames, 5);
+                Array.Copy(saved.streetNpcNames, _streetNpcNames, 5);
+            }
+            else
+                RebuildSceneNpcNameMapsFromSeats(saved.seats, savedScene);
             foreach (WebSeatSnapshot seat in saved.seats.OrderBy(s => s.seat))
             {
                 if (seat.seat == 0)
@@ -2052,16 +2128,10 @@
                     continue;
                 }
 
-                string npcName = seat.name;
-                bool keepName = !string.IsNullOrEmpty(npcName)
-                    && !ShouldRemapRestoredNpcName(npcName, savedScene)
-                    && !string.Equals(npcName, PlayerName, StringComparison.OrdinalIgnoreCase);
-                if (!keepName || !takenNames.Add(npcName))
-                {
-                    while (nextFresh < freshNames.Length && !takenNames.Add(freshNames[nextFresh]))
-                        nextFresh++;
-                    npcName = nextFresh < freshNames.Length ? freshNames[nextFresh++] : $"Player {seat.seat}";
-                }
+                int idx = seat.seat - 1;
+                string npcName = idx >= 0 && idx < Roster.Length
+                    ? NpcNamesForScene(savedScene)[idx]
+                    : seat.name ?? $"Player {seat.seat}";
 
                 AIProfile profile = WithDifficulty(Roster[seat.seat - 1]());
                 var npc = new AIPlayer(
@@ -2110,6 +2180,8 @@
             effectsOff = !_backgroundOn,
             ambienceOff = !_backgroundOn,
             tableScene = _tableScene,
+            saloonNpcNames = _saloonNpcNames.ToArray(),
+            streetNpcNames = _streetNpcNames.ToArray(),
             handNumber = _game.HandNumber,
             dealerSeat = _game.DealerSeat,
             // A finished hand has nothing left to resume; the saved stacks
@@ -2123,7 +2195,7 @@
             {
                 seat = player.Seat,
                 id = player.Id,
-                name = player.Name,
+                name = player.Seat == 0 ? player.Name : NameOf(player.Seat),
                 stack = roundSeat?.Stack ?? player.Stack,
                 eliminated = player.Status == PlayerStatus.Eliminated,
                 tilt = player is AIPlayer ai ? ai.Tilt.Tilt : 0.2,
@@ -2158,7 +2230,8 @@
         if (!_hosting && !_isGuest) _seatNames.Clear();
         var rules = TableRules.Default;
         var players = new List<PokerPlayer> { new HumanPlayer("human", PlayerName, seat: 0, stack: rules.StartingStack) };
-        string[] npcNames = ShuffledNpcNames();
+        DealDualSceneNpcNames();
+        string[] npcNames = NpcNamesForScene(_tableScene);
         for (int i = 0; i < Roster.Length; i++)
         {
             players.Add(new AIPlayer($"npc{i}", npcNames[i], seat: i + 1, stack: rules.StartingStack,
@@ -2295,7 +2368,9 @@
     private List<PokerPlayer> CreateNpcRoster()
     {
         var npcs = new List<PokerPlayer>();
-        string[] npcNames = ShuffledNpcNames();
+        if (!SceneNpcNamesComplete(_saloonNpcNames) || !SceneNpcNamesComplete(_streetNpcNames))
+            DealDualSceneNpcNames();
+        string[] npcNames = NpcNamesForScene(_tableScene);
         for (int i = 0; i < Roster.Length; i++)
         {
             npcs.Add(new AIPlayer($"npc{i}", npcNames[i], seat: i + 1, stack: TableRules.Default.StartingStack,
@@ -4431,7 +4506,9 @@
         if (_game == null) return false;
         foreach (PokerPlayer p in _game.Players)
         {
-            if (p.Seat != 0 && string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))
+            if (p.Seat == 0) continue;
+            string shown = NpcDisplayName(p.Seat) ?? p.Name;
+            if (string.Equals(shown, name, StringComparison.OrdinalIgnoreCase))
                 return true;
         }
         return false;
@@ -5020,11 +5097,20 @@
     // engine's name: those are unique by construction, so a stale overlay
     // entry left by an earlier friends table can never dress a second seat
     // in a name the fresh shuffle dealt to someone else.
-    private string NameOf(int seat) =>
-        _seatNames.TryGetValue(seat, out string shown) && !string.IsNullOrEmpty(shown)
-            && (_isGuest || IsRemote(seat))
-            ? shown
-            : _game.GetPlayer(seat).Name;
+    private string NameOf(int seat)
+    {
+        if (_game == null) return "Player";
+        if (seat > 0 && !_isGuest && !IsRemote(seat))
+        {
+            string mapped = NpcDisplayName(seat);
+            if (!string.IsNullOrEmpty(mapped))
+                return mapped;
+        }
+        if (_seatNames.TryGetValue(seat, out string shown) && !string.IsNullOrEmpty(shown)
+            && (_isGuest || IsRemote(seat)))
+            return shown;
+        return _game.GetPlayer(seat).Name;
+    }
 
     // The engine's player record is immutable, so a mid-session rename from
     // the settings panel only changes what this HUD shows for the human seat.
@@ -5765,6 +5851,8 @@
         if (_coachOpen) await CloseCoach(false);
         _tableScene = next;
         GameLog.Info("ui", $"table scene -> {next}");
+        if (_game != null)
+            await PersistWebSession();
         try { await JS.InvokeVoidAsync("pokerScene.setTableScene", next); }
         catch (JSException) { }
     }
