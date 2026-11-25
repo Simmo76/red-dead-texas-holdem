@@ -864,11 +864,11 @@
         <div class="overlay" @onclick="CloseHandRankings">
             <div class="overlay-box hands-box" @onclick:stopPropagation="true">
                 <div class="hands-zoom" @ref="_handsZoomRef" title="Pinch or scroll to zoom, drag to pan">
-                    <img class="hands-chart" src="img/hand-rankings.jpg"
-                         alt="Poker hand rankings from best to worst: royal flush, straight flush, four of a kind, full house, flush, straight, three of a kind, two pair, pair, high card" />
-                </div>
-                <div class="overlay-actions">
-                    <button class="act small" @onclick="CloseHandRankings">CLOSE</button>
+                    <div class="hands-chart">
+                        <img src="img/hand-rankings.jpg?v=2"
+                             alt="Poker hand rankings from best to worst: royal flush, straight flush, four of a kind, full house, flush, straight, three of a kind, two pair, pair, high card" />
+                        <button type="button" class="hands-close" @onclick="CloseHandRankings" aria-label="Close">Close</button>
+                    </div>
                 </div>
             </div>
         </div>

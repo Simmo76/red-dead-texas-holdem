@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Hand rankings — Dead Man's Hand</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background:
+        radial-gradient(ellipse at 50% 40%, rgba(80, 42, 18, 0.45), transparent 55%),
+        #140c08;
+    }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 3, 2, 0.78);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hands-box {
+      width: min(1040px, calc(100vw - 20px), calc((100dvh - 20px) * 1.5));
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 18px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+    }
+    .hands-zoom { width: 100%; overflow: hidden; }
+    .hands-chart { position: relative; width: 100%; aspect-ratio: 1536 / 1024; }
+    .hands-chart img { display: block; width: 100%; height: 100%; object-fit: fill; }
+    .hands-close {
+      position: absolute;
+      left: 37.5%;
+      top: 86.4%;
+      width: 25%;
+      height: 9.4%;
+      padding: 0;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: transparent;
+      font-size: 0;
+      cursor: pointer;
+    }
+    .hands-close:hover,
+    .hands-close:focus-visible {
+      box-shadow: inset 0 0 0 2px rgba(255, 236, 170, 0.7);
+      outline: none;
+    }
+    .closed {
+      color: #f3e6c4;
+      font: 22px/1.4 Georgia, serif;
+      letter-spacing: 0.12em;
+      text-align: center;
+      padding: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay" id="overlay">
+    <div class="hands-box">
+      <div class="hands-zoom">
+        <div class="hands-chart">
+          <img src="hand-rankings.jpg" alt="Poker hand rankings from royal flush down to high card" />
+          <button type="button" class="hands-close" id="close" aria-label="Close">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    document.getElementById('close').addEventListener('click', function () {
+      document.getElementById('overlay').innerHTML = '<p class="closed">HAND RANKINGS CLOSED</p>';
+    });
+  </script>
+</body>
+</html>
