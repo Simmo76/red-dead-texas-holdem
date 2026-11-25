@@ -1,5 +1,10 @@
 What to test in this build:
 
+New — Fold, Call, Raise, and All-in plaques (PR #345)
+• On your turn, Fold, Call, Raise, and All-in are the gold-framed plaques (green Call, red Fold, gold Raise, red All-in).
+• Call still shows the amount to call, in a small badge on the plaque.
+• Check and Bet stay the plain buttons. Tap an action and confirm the hand moves on.
+
 New — gold top-bar buttons (PR #344)
 • Rules, Tune, Hands, View, and Settings are the gold plate buttons (icon and word inside the frame).
 • Each still does the same thing: how to play, next song, hand rankings, overhead camera, settings.
