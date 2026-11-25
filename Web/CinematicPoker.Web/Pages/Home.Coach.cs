@@ -123,6 +123,12 @@ namespace CinematicPoker.Web.Pages
             new("damon", "Damon Cage", "img/ui/coach-octagon-damon-128.png"),
             new("kofi", "Kofi Bell", "img/ui/coach-octagon-kofi-128.png"),
             new("silas", "Silas Reed", "img/ui/coach-octagon-silas-128.png"),
+            new("nina", "Nina Vale", "img/ui/coach-octagon-nina-128.png"),
+        };
+
+        private static readonly HashSet<string> OctagonFemaleCoachIds = new(StringComparer.Ordinal)
+        {
+            "nina",
         };
 
         // Picked once per game in BeginCoachSession and kept for every hand.
