@@ -527,14 +527,35 @@
         @if (_awaitingHuman && _legal != null && !_showSlider)
         {
             <div class="actionbar-left">
-                @if (_legal.CanFold) { <button class="act fold" @onclick="() => Act(PlayerAction.Fold())">FOLD</button> }
+                @if (_legal.CanFold)
+                {
+                    <button class="act plaque fold" @onclick="() => Act(PlayerAction.Fold())">
+                        <img src="img/ui/action-fold.png?v=1" alt="Fold" />
+                    </button>
+                }
             </div>
             <div class="actionbar-right">
                 @if (_legal.CanCheck) { <button class="act check" @onclick="() => Act(PlayerAction.Check())">CHECK</button> }
-                @if (_legal.CanCall)  { <button class="act call" @onclick="() => Act(PlayerAction.Call())">CALL $@_legal.CallAmount</button> }
+                @if (_legal.CanCall)
+                {
+                    <button class="act plaque call" @onclick="() => Act(PlayerAction.Call())">
+                        <img src="img/ui/action-call.png?v=1" alt="Call" />
+                        <span class="plaque-amt">$@_legal.CallAmount</span>
+                    </button>
+                }
                 @if (_legal.CanBet)   { <button class="act bet" @onclick="OpenSlider">BET</button> }
-                @if (_legal.CanRaise) { <button class="act bet" @onclick="OpenSlider">RAISE</button> }
-                @if (_legal.CanAllIn) { <button class="act allin" @onclick="() => Act(PlayerAction.AllIn())">ALL-IN</button> }
+                @if (_legal.CanRaise)
+                {
+                    <button class="act plaque bet" @onclick="OpenSlider">
+                        <img src="img/ui/action-raise.png?v=1" alt="Raise" />
+                    </button>
+                }
+                @if (_legal.CanAllIn)
+                {
+                    <button class="act plaque allin" @onclick="() => Act(PlayerAction.AllIn())">
+                        <img src="img/ui/action-allin.png?v=1" alt="All-in" />
+                    </button>
+                }
             </div>
         }
         else if (_awaitingHuman && _legal != null && _showSlider)
