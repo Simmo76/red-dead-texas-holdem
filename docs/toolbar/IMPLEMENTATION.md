@@ -46,7 +46,7 @@ Measure safe-area width; never shrink touch targets below **44×44 CSS px**.
 2. Add SVG assets; reusable `ToolbarButton` component (no new npm dependencies)
 3. Wire existing callbacks; no duplicated game state
 4. Responsive CSS + `env(safe-area-inset-*)`; overflow menu instead of clipping
-5. Run engine tests + `tools/toolbar-acceptance.test.mjs`; deliver screenshots
+5. Run `tools/run-harness.sh` (engine + toolbar acceptance); deliver screenshots
 
 ## Acceptance tests
 

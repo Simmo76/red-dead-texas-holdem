@@ -88,6 +88,12 @@ DotNet/                       Standalone solution compiling the same engine sour
 
 ## Running the tests (no Unity required)
 
+**Full regression harness** (engine + web unit/acceptance checks — same gate as CI):
+
+```bash
+tools/run-harness.sh
+```
+
 The `DotNet/` solution compiles the exact same engine and test sources Unity uses:
 
 ```bash
@@ -96,6 +102,10 @@ dotnet test                          # full suite incl. the 10,000-hand simulati
 dotnet run --project CinematicPoker.Simulation -- 10000 42 60   # soak runner: hands, seed, equity iters
 dotnet run --project CinematicPoker.Simulation -- 1000 42 60 ../docs/hand-analysis/my-log.md   # ordered hand/win markdown log
 ```
+
+Web-layer unit tests (`tools/*.test.mjs`) cover table lineup rules, the mobile
+frame governor, pixel budget, and toolbar wiring. See
+[`docs/testing-and-regression-plan.md`](docs/testing-and-regression-plan.md).
 
 Committed sample logs for spot-checking pot math live in [`docs/hand-analysis/`](docs/hand-analysis/README.md).
 

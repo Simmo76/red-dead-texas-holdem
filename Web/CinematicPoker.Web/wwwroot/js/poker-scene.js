@@ -41,6 +41,13 @@ import {
   countWomen,
   ensureTableSkinTones,
 } from './table-lineup.js?v=2';
+import {
+  sceneBusy as computeSceneBusy,
+  frameBudgetSeconds,
+  shouldRenderFrame,
+  advanceFrameAccum,
+} from './frame-governor.js';
+import { computeCappedPixelRatio } from './pixel-budget.js';
 
 // ---------------------------------------------------------- graphics safe mode
 //
@@ -196,14 +203,14 @@ const COARSE_POINTER = (() => {
 // Backbuffer budget (rendered pixels). MSAA multiplies the real cost, so the
 // lite tiers keep well under what a struggling GPU can page in.
 function cappedPixelRatio(canvas) {
-  const dpr = Math.min(window.devicePixelRatio || 1, GFX_LITE ? 1.5 : COARSE_POINTER ? 1.75 : 2);
-  const w = canvas.clientWidth || 1;
-  const h = canvas.clientHeight || 1;
-  const budget = GFX_ULTRA_LITE ? 1.2e6
-    : GFX_LITE ? 1.8e6
-    : COARSE_POINTER ? 2.2e6
-    : 3.4e6;
-  return Math.max(1, Math.min(dpr, Math.sqrt(budget / (w * h))));
+  return computeCappedPixelRatio({
+    dpr: window.devicePixelRatio || 1,
+    width: canvas.clientWidth || 1,
+    height: canvas.clientHeight || 1,
+    gfxLite: GFX_LITE,
+    gfxUltraLite: GFX_ULTRA_LITE,
+    coarsePointer: COARSE_POINTER,
+  });
 }
 
 const TABLE_TOP = 0.78;        // table surface height (m)
@@ -436,10 +443,8 @@ const state = {
 // the display's native refresh rate (up to 120 fps), which cooks phones.
 // Render at most ACTIVE_FPS while something is happening, and drop to
 // IDLE_FPS once the table has been quiet for IDLE_AFTER_MS. Frame deltas are
-// accumulated, never dropped, so animation speed is unchanged.
-const ACTIVE_FPS = 30;
-const IDLE_FPS = 15;
-const IDLE_AFTER_MS = 2000;
+// accumulated, never dropped, so animation speed is unchanged (see
+// frame-governor.js — covered by tools/frame-governor.test.mjs).
 
 // Wake flag: when input or a game-state change arrives while idling, the very
 // next rAF tick renders instead of waiting out the rest of a 15 fps window,
@@ -452,10 +457,12 @@ function markActivity() {
 }
 
 function sceneBusy() {
-  return !!(state.intro && state.intro.active)
-    || !!(state.zoom && state.zoom.active)
-    || (state.fx && state.fx.length > 0)
-    || performance.now() - state.lastActivity < IDLE_AFTER_MS;
+  return computeSceneBusy({
+    introActive: !!(state.intro && state.intro.active),
+    zoomActive: !!(state.zoom && state.zoom.active),
+    fxCount: state.fx ? state.fx.length : 0,
+    lastActivity: state.lastActivity,
+  }, performance.now());
 }
 
 // Hardware anisotropic-filtering limit, read off the renderer once it exists
@@ -2592,14 +2599,15 @@ async function buildScene(canvas) {
   renderer.setAnimationLoop(() => {
     frameAccum += state.clock.getDelta();
     const presenting = !!(coachControl && coachControl.api.presenting);
-    const budget = 1 / ((presenting || sceneBusy()) ? ACTIVE_FPS : IDLE_FPS);
-    if (!_renderNow && frameAccum < budget) return;
+    const busy = sceneBusy();
+    const budget = frameBudgetSeconds(presenting, busy);
+    if (!shouldRenderFrame(frameAccum, budget, _renderNow)) return;
     _renderNow = false;
     const rawDt = frameAccum;
     // Carry the overshoot so the real rate stays close to the cap instead of
     // beating against the display rate; clamp the carry so one long stall
     // (tab hidden, GC pause) cannot queue a burst of back-to-back frames.
-    frameAccum = Math.min(Math.max(frameAccum - budget, 0), budget);
+    frameAccum = advanceFrameAccum(frameAccum, budget);
     if (presenting) {
       const coachDt = Math.min(rawDt, 0.05);
       if (coachControl.api.ready && coachControl.api.scene()) {

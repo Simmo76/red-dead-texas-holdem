@@ -100,4 +100,4 @@ Closed without merging: [#24](https://github.com/Simmo76/red-dead-texas-holdem/p
 
 ## Current state and roadmap
 
-All engine tests pass (run `dotnet test` in `DotNet/`). The web version auto-deploys from `main`. Next milestone is the Phase 3 "Mates' Kitchen" vertical slice (five believable NPCs at one table staying entertaining for 15–30 minutes), then themed environment packs (Western 1860s, Kalgoorlie Shed, Chicago 1926, Vegas, and others). Monetisation direction: sell environment packs, never chips — see `docs/live-services-and-monetisation-plan.md`.
+All engine tests pass (`tools/run-harness.sh` — engine + web unit/acceptance; see `docs/testing-and-regression-plan.md`). The web version auto-deploys from `main`. Next milestone is the Phase 3 "Mates' Kitchen" vertical slice (five believable NPCs at one table staying entertaining for 15–30 minutes), then themed environment packs (Western 1860s, Kalgoorlie Shed, Chicago 1926, Vegas, and others). Monetisation direction: sell environment packs, never chips — see `docs/live-services-and-monetisation-plan.md`.

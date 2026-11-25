@@ -117,23 +117,49 @@ visually near-identical and shades ~44 % fewer pixels.
 - The two resize call sites (~2794, 2836) call `cappedPixelRatio` again, so
   a capability-based cap inside that one function covers all paths.
 
+## Unit tests (regression harness)
+
+The governor and pixel math live in testable modules so CI catches logic bugs
+without a phone:
+
+| Module | Tests |
+|--------|--------|
+| `wwwroot/js/frame-governor.js` | `tools/frame-governor.test.mjs` — busy/idle detection, 30/15 fps budgets, `renderNow` wake, accum carry + stall clamp |
+| `wwwroot/js/pixel-budget.js` | `tools/pixel-budget.test.mjs` — desktop vs coarse-pointer DPR caps, lite/ultra-lite budgets |
+
+`poker-scene.js` imports these modules; do not duplicate constants in the
+scene file. After any change to Tasks 1–3, run:
+
+```bash
+tools/run-harness.sh
+```
+
+See `docs/testing-and-regression-plan.md` for the full harness layout.
+
 ## Acceptance criteria
 
-1. With dev tools open on a desktop browser, an fps counter (temporary
+### Automated (CI)
+
+1. `tools/run-harness.sh` passes (engine + frame-governor + pixel-budget +
+   existing web acceptance tests).
+
+### Manual smoke (after automated green)
+
+2. With dev tools open on a desktop browser, an fps counter (temporary
    `console.log` once per second, or the Performance panel) shows ≤ 30 fps
    during a hand and ≤ 15 fps when idle ≥ 2 s; a click/tap or a new game
    event returns it to 30 immediately (no perceptible input lag).
-2. Card-deal, chip, zoom and celebration animations play at normal speed
+3. Card-deal, chip, zoom and celebration animations play at normal speed
    (no slow motion, no fast forward) — i.e. deltas are accumulated, not
    dropped.
-3. The opening intro cinematic stays in sync with its audio.
-4. Coach mode (`presenting`) still renders correctly.
-5. On a narrow/phone-sized viewport with `devicePixelRatio ≥ 2`, the canvas
-   backbuffer is ≤ 1.5× (check `renderer.getPixelRatio()` in the console);
-   desktop is unchanged.
-6. A full hand plays cleanly start to finish (fold, call, showdown,
+4. The opening intro cinematic stays in sync with its audio.
+5. Coach mode (`presenting`) still renders correctly.
+6. On a narrow/phone-sized viewport with `devicePixelRatio ≥ 2`, the canvas
+   backbuffer respects the coarse cap (check `renderer.getPixelRatio()` in
+   the console); desktop is unchanged.
+7. A full hand plays cleanly start to finish (fold, call, showdown,
    winner celebration) with no console errors.
-7. `GFX_LITE` tiers still boot and play (force with the localStorage key
+8. `GFX_LITE` tiers still boot and play (force with the localStorage key
    `cinematic-poker-gfx-tier` = `1` or `2`, then reload).
 
 ## Out of scope (deliberately)
