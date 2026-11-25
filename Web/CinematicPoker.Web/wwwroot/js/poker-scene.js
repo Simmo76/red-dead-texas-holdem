@@ -409,6 +409,8 @@ const state = {
   potChips: null,
   cardHold: null,       // community card being press-and-held (expands 2x)
   fx: [],               // live celebration particle systems
+  dealAnim: null,       // hole-card deal sequence (synced to shuffle/deal audio)
+  playerHoleOnFelt: false, // player pair stays on the felt ring, not CardHold, after deal
   saloon: null,         // backdrop group (saloon or boxing arena)
   tableScene: TABLE_SCENE,
   eyeHeight: EYE_HEIGHT,
@@ -442,6 +444,7 @@ function markActivity() {
 function sceneBusy() {
   return !!(state.intro && state.intro.active)
     || !!(state.zoom && state.zoom.active)
+    || !!(state.dealAnim && state.dealAnim.active)
     || (state.fx && state.fx.length > 0)
     || performance.now() - state.lastActivity < IDLE_AFTER_MS;
 }
@@ -2712,6 +2715,14 @@ async function buildScene(canvas) {
         if (btn.mesh.visible) btn.mesh.position.lerp(btn.target, Math.min(1, dt * 5));
       }
     }
+    if (state.dealAnim && state.dealAnim.active) {
+      if (performance.now() - state.dealAnim.startedAt > 9000) cancelDealAnim();
+      else {
+        releaseScheduledDealCards();
+        tickDealCardGlides(dt);
+        finishDealAnimIfIdle();
+      }
+    }
 
     // The actor's outline glows and throbs: one shared pulse drives the
     // hull's pixel thickness, its opacity, and a dim-ember-to-bright-gold
@@ -3174,6 +3185,255 @@ function launchCelebration() {
 // puts chips in the middle.
 const POT_POS = new THREE.Vector3(-0.06, TABLE_TOP, -0.18);
 
+// ---- hole-card deal from the shoe (hand start) --------------------------------
+
+const DECK_POS = new THREE.Vector3();
+const _dealStart = new THREE.Vector3();
+const _dealEnd = new THREE.Vector3();
+const _dealQuatA = new THREE.Quaternion();
+const _dealQuatB = new THREE.Quaternion();
+const _dealEuler = new THREE.Euler();
+
+function deckWorldPos(dealerSeat) {
+  const ds = Number.isInteger(dealerSeat) && dealerSeat >= 0 ? dealerSeat : 0;
+  DECK_POS.copy(seatPos(ds, TABLE_RADIUS * 0.12));
+  DECK_POS.y = TABLE_TOP + 0.07;
+  return DECK_POS;
+}
+
+const CARD_GLIDE_SPEED = 5; // same ease as dealer/sb/bb pucks on the felt
+
+function holeCardFeltPose(seat, cardIndex, outPos, outQuat) {
+  const w = seat === 0 ? 0.145 : CARD_W * 0.85;
+  const probe = new THREE.Mesh(cardGeometry(w));
+  const basePos = seatPos(seat, TABLE_RADIUS - 0.33);
+  const facing = seatAngle(seat);
+  const yaw = Math.PI / 2 - facing;
+  const tx = -Math.sin(facing);
+  const tz = Math.cos(facing);
+  const offset = (cardIndex === 0 ? -1 : 1) * (w / 2 + 0.006);
+  const px = basePos.x + tx * offset;
+  const pz = basePos.z + tz * offset;
+  if (seat === 0 && state.camera) {
+    const eye = state.camera.position;
+    probe.position.set(px, TABLE_TOP + 0.03, pz);
+    probe.lookAt(eye.x, eye.y, eye.z);
+    probe.rotateZ(cardIndex === 0 ? -0.1 : 0.1);
+  } else {
+    placeTableCard(probe, px, pz, 0, yaw);
+  }
+  outPos.copy(probe.position);
+  outQuat.copy(probe.quaternion);
+}
+
+function layoutPlayerHoleOnFelt() {
+  if (!state.holeCards.length || !state.camera) return;
+  for (let i = 0; i < state.holeCards.length; i++) {
+    const card = state.holeCards[i];
+    if (card.parent && card.parent !== state.scene) card.parent.remove(card);
+    state.scene.add(card);
+    card.scale.setScalar(1);
+    const pos = new THREE.Vector3();
+    const quat = new THREE.Quaternion();
+    holeCardFeltPose(0, i, pos, quat);
+    card.position.copy(pos);
+    card.quaternion.copy(quat);
+    card.visible = true;
+  }
+}
+
+function anyCardDealGliding() {
+  for (const card of state.holeCards) {
+    if (card.userData && card.userData.dealGlide) return true;
+  }
+  for (const seat of state.seats) {
+    for (const card of seat.cards) {
+      if (card.userData && card.userData.dealGlide) return true;
+    }
+  }
+  return false;
+}
+
+function tickDealCardGlides(dt) {
+  const ease = Math.min(1, dt * CARD_GLIDE_SPEED);
+  const step = (card) => {
+    const glide = card.userData && card.userData.dealGlide;
+    if (!glide) return;
+    card.position.lerp(glide.pos, ease);
+    card.quaternion.slerp(glide.quat, ease);
+    if (card.position.distanceToSquared(glide.pos) < 2.5e-5
+        && 1 - card.quaternion.dot(glide.quat) < 0.001) {
+      card.position.copy(glide.pos);
+      card.quaternion.copy(glide.quat);
+      delete card.userData.dealGlide;
+    }
+  };
+  for (const card of state.holeCards) step(card);
+  for (const seat of state.seats) {
+    for (const card of seat.cards) step(card);
+  }
+}
+
+function applyPlayerHoleMaterial(card) {
+  card.material.depthTest = true;
+  card.material.depthWrite = true;
+  card.renderOrder = HELD_CARD_RENDER_ORDER;
+  card.material.stencilWrite = true;
+  card.material.stencilRef = HELD_CARD_STENCIL_REF;
+  card.material.stencilFunc = THREE.AlwaysStencilFunc;
+  card.material.stencilZPass = THREE.ReplaceStencilOp;
+}
+
+function finishDealAnimIfIdle() {
+  const d = state.dealAnim;
+  if (!d || !d.active) return;
+  if (d.scheduled && d.scheduled.length) return;
+  if (d.shuffleLeft > 0) return;
+  if (anyCardDealGliding()) return;
+  d.active = false;
+  state.holeFlat = false;
+  if (state.holeCards.length >= 2) {
+    state.playerHoleOnFelt = true;
+    layoutPlayerHoleOnFelt();
+    d.holeDealt = true;
+  }
+}
+
+function cancelDealAnim() {
+  if (!state.dealAnim) return;
+  for (const card of state.holeCards) {
+    if (card.userData) delete card.userData.dealGlide;
+  }
+  for (const seat of state.seats) {
+    for (const card of seat.cards) {
+      if (card.userData) delete card.userData.dealGlide;
+    }
+  }
+  state.dealAnim.active = false;
+  state.dealAnim.scheduled = [];
+}
+
+function releaseScheduledDealCards() {
+  const d = state.dealAnim;
+  if (!d || !d.scheduled || !d.scheduled.length) return;
+  const now = performance.now();
+  while (d.scheduled.length && d.scheduled[0].at <= now) {
+    const item = d.scheduled.shift();
+    spawnGlidingHoleCard(item.seat, item.cardIndex, item.facePath, d.dealerSeat);
+  }
+}
+
+function spawnDealShuffle(dealerSeat) {
+  const origin = deckWorldPos(dealerSeat);
+  const stack = new THREE.Group();
+  stack.position.copy(origin);
+  state.scene.add(stack);
+  const cards = [];
+  for (let i = 0; i < 4; i++) {
+    const mesh = makeCard('img/cards/back.png', 0.11, true);
+    mesh.position.set((Math.random() - 0.5) * 0.01, i * 0.003, (Math.random() - 0.5) * 0.01);
+    mesh.rotation.set(-0.15 + Math.random() * 0.08, Math.random() * 0.3, (Math.random() - 0.5) * 0.12);
+    stack.add(mesh);
+    cards.push(mesh);
+  }
+  state.dealAnim = state.dealAnim || {};
+  state.dealAnim.shuffleLeft = (state.dealAnim.shuffleLeft || 0) + 1;
+  state.fx.push({
+    kind: 'dealShuffle',
+    group: stack,
+    cards,
+    life: 0.72,
+    age: 0,
+    phase: Math.random() * Math.PI * 2,
+  });
+}
+
+function spawnGlidingHoleCard(seat, cardIndex, facePath, dealerSeat) {
+  if (!state.scene) return;
+  const path = facePath || 'img/cards/back.png';
+  const w = seat === 0 ? 0.145 : CARD_W * 0.85;
+  const mesh = makeCard(path, w, true);
+  const origin = deckWorldPos(dealerSeat);
+  mesh.position.copy(origin);
+  _dealEuler.set(-0.42, seatAngle(dealerSeat), (Math.random() - 0.5) * 0.1, 'YXZ');
+  mesh.quaternion.setFromEuler(_dealEuler);
+  mesh.visible = true;
+
+  const glide = {
+    pos: new THREE.Vector3(),
+    quat: new THREE.Quaternion(),
+  };
+  holeCardFeltPose(seat, cardIndex, glide.pos, glide.quat);
+  mesh.userData.dealGlide = glide;
+
+  if (seat === 0) {
+    if (facePath) {
+      mesh.material.map = texture(facePath);
+      mesh.material.needsUpdate = true;
+    }
+    applyPlayerHoleMaterial(mesh);
+    addZoomGlow(mesh);
+    state.holeCards.push(mesh);
+  } else {
+    const seatObj = state.seats[seat];
+    if (seatObj) {
+      seatObj.cards.push(mesh);
+      seatObj.cardSig = 'backs';
+    }
+  }
+  state.scene.add(mesh);
+  markActivity();
+}
+
+function startHandDealAnim(dealerSeat) {
+  if (!state.ready) return;
+  markActivity();
+  // Close bet-sizing close-up without moving the seat camera (no resetCamera).
+  if (state.betPreview && state.betPreview.group) {
+    state.scene.remove(state.betPreview.group);
+    state.betPreview = null;
+  }
+  const seat0 = state.seats && state.seats[0];
+  if (seat0 && seat0.chips) seat0.chips.visible = true;
+  if (state.zoom && state.zoom.kind === 'bet') {
+    state.zoom.active = false;
+    state.zoom.kind = null;
+  }
+  state.playerHoleOnFelt = false;
+  state.holeFlat = false;
+  clearGroupChildren(state.holeCards, state.scene);
+  for (const seat of state.seats) {
+    clearGroupChildren(seat.cards, state.scene);
+    seat.cardSig = 'none';
+  }
+  state.dealAnim = {
+    active: true,
+    dealerSeat: Number.isInteger(dealerSeat) ? dealerSeat : 0,
+    scheduled: [],
+    shuffleLeft: 0,
+    startedAt: performance.now(),
+  };
+  spawnDealShuffle(state.dealAnim.dealerSeat);
+}
+
+function queueHoleCardDeal(seat, cardIndex, facePath, delayMs) {
+  if (!state.ready) return;
+  const delay = Math.max(0, delayMs || 0);
+  const dealerSeat = state.dealAnim
+    ? state.dealAnim.dealerSeat
+    : 0;
+  if (!state.dealAnim || !state.dealAnim.active) {
+    startHandDealAnim(dealerSeat);
+  }
+  state.dealAnim.scheduled.push({
+    seat,
+    cardIndex,
+    facePath: facePath || null,
+    at: performance.now() + delay,
+  });
+  state.dealAnim.scheduled.sort((a, b) => a.at - b.at);
+}
+
 function spawnChipToss(seatIndex, count = 3) {
   const from = seatPos(seatIndex, TABLE_RADIUS - 0.18);
   for (let i = 0; i < count; i++) {
@@ -3223,6 +3483,26 @@ function updateFx(dt) {
       fx.mesh.position.y += Math.sin(t * Math.PI) * fx.arc;
       if (t < 1) fx.mesh.rotation.x += fx.spin * dt;
       if (fx.age < fx.life + 0.35) continue;
+    } else if (fx.kind === 'dealShuffle') {
+      const t = THREE.MathUtils.clamp(fx.age / fx.life, 0, 1);
+      const deck = deckWorldPos(state.dealAnim ? state.dealAnim.dealerSeat : 0);
+      fx.group.position.set(
+        deck.x + Math.sin(fx.age * 14 + fx.phase) * 0.006 * (1 - t * 0.5),
+        deck.y + Math.sin(fx.age * 18 + fx.phase) * 0.008 * (1 - t),
+        deck.z + Math.cos(fx.age * 12 + fx.phase) * 0.006 * (1 - t * 0.5));
+      fx.group.rotation.y = Math.sin(fx.age * 11 + fx.phase) * 0.35 * (1 - t * 0.6);
+      for (let c = 0; c < fx.cards.length; c++) {
+        const card = fx.cards[c];
+        card.position.x = Math.sin(fx.age * 22 + c * 1.7) * 0.012 * (1 - t);
+        card.rotation.z = Math.sin(fx.age * 16 + c) * 0.08 * (1 - t);
+      }
+      if (fx.age < fx.life) continue;
+      state.scene.remove(fx.group);
+      for (const card of fx.cards) card.material.dispose();
+      if (state.dealAnim) {
+        state.dealAnim.shuffleLeft = Math.max(0, state.dealAnim.shuffleLeft - 1);
+        finishDealAnimIfIdle();
+      }
     } else {
       const emitting = fx.age < fx.duration;
       let alive = false;
@@ -3252,7 +3532,9 @@ function updateFx(dt) {
     state.scene.remove(fx.mesh);
     // Chip tosses borrow the shared pooled chip geometry/material — disposing
     // those would tear the buffers out from under every chip on the table.
-    if (fx.kind !== 'chip') {
+    if (fx.kind === 'dealShuffle') {
+      // group children disposed above
+    } else if (fx.kind !== 'chip') {
       fx.mesh.geometry.dispose();
       fx.mesh.material.dispose();
     }
@@ -3653,7 +3935,16 @@ function heroHoleCardsInHand() {
 }
 
 function updateHole(paths) {
+  if (state.dealAnim && state.dealAnim.active) return;
+  if (state.dealAnim && state.dealAnim.holeDealt
+      && paths.length === state.holeCards.length) {
+    delete state.dealAnim.holeDealt;
+    if (state.playerHoleOnFelt) layoutPlayerHoleOnFelt();
+    else layoutHoleCards();
+    return;
+  }
   clearGroupChildren(state.holeCards, state.scene);
+  state.playerHoleOnFelt = false;
   for (let i = 0; i < paths.length; i++) {
     const card = makeCard(paths[i], 0.145, true);
     // Real depth, drawn with the rest of the opaque scene. When the hero's
@@ -3675,7 +3966,8 @@ function updateHole(paths) {
     addZoomGlow(card);
     state.holeCards.push(card);
   }
-  layoutHoleCards();
+  if (state.playerHoleOnFelt) layoutPlayerHoleOnFelt();
+  else layoutHoleCards();
 }
 
 // Fallback felt spot if the player's hand bones are not ready yet; also used
@@ -3724,6 +4016,15 @@ function positionHandCards() {
   // Only the player's face-up pair needs a per-frame camera aim (and zoom
   // framing); NPC backs sit on the felt.
   if (!state.holeCards.length) return;
+  if (state.dealAnim && state.dealAnim.active) {
+    for (const card of state.holeCards) card.visible = true;
+    return;
+  }
+  if (state.playerHoleOnFelt && !state.holeFlat) {
+    layoutPlayerHoleOnFelt();
+    for (const card of state.holeCards) card.visible = true;
+    return;
+  }
   const handZoom = state.zoom.active && state.zoom.kind === 'hand';
   const boardZoom = state.zoom.active && state.zoom.kind === 'board';
   const betZoom = state.zoom.active && state.zoom.kind === 'bet';
@@ -3737,7 +4038,10 @@ function positionHandCards() {
       placeTableCard(card, (i - (state.holeCards.length - 1) / 2) * spacing, 0.64, 0, 0);
     }
   } else if (!boardZoom && state.holeFlat) {
-    layoutHoleCards(); // back into the character's hands (also resets scale)
+    if (state.playerHoleOnFelt) {
+      state.holeFlat = false;
+      layoutPlayerHoleOnFelt();
+    } else layoutHoleCards(); // back into the character's hands (also resets scale)
   } else if (!state.holeFlat) {
     playerCardAnchor(state.holeAnchor);
     faceHeldCardsTowardCamera(state.holeCards);
@@ -4153,6 +4457,7 @@ window.pokerScene = {
     markActivity();
     this.endBetPreview();
     state.zoom.active = false;
+    state.zoom.kind = null;
     if (state.applyCameraHome) state.applyCameraHome(true);
   },
 
@@ -4400,8 +4705,9 @@ window.pokerScene = {
       const expectedCardCount = seatCardCount(data.seat, visualData);
       const cardsPresent = seat.cards.length === expectedCardCount
         && seat.cards.every(card => card.parent);
-      if (seat.cardSig !== expectedCardSig
-          || !cardsPresent) {
+      if (!(state.dealAnim && state.dealAnim.active)
+          && (seat.cardSig !== expectedCardSig
+          || !cardsPresent)) {
         updateSeatCards(seat, data.seat, visualData);
       }
       // Reconcile against the objects actually attached to the scene, not
@@ -4545,6 +4851,14 @@ window.pokerScene = {
 
   // Fireworks and sparklers when the player takes a pot. Stay on the
   // seated table camera so opponent hole cards remain readable.
+  beginHandDeal(dealerSeat) {
+    startHandDealAnim(dealerSeat);
+  },
+
+  dealHoleCard(seat, cardIndex, facePath, delayMs) {
+    queueHoleCardDeal(seat, cardIndex, facePath, delayMs);
+  },
+
   celebrate() {
     if (!state.ready) return;
     markActivity();

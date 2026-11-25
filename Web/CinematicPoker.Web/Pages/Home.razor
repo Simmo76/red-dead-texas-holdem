@@ -4776,9 +4776,24 @@
                 _shotStatus = null;
                 _pendingFocusSeat = -1;
                 _handHasCompleted = false;
+                _dealRoundIndex = 0;
                 if (_sceneReady)
                 {
-                    try { _ = JS.InvokeVoidAsync("pokerScene.resetCamera"); }
+                    try { _ = JS.InvokeVoidAsync("pokerScene.beginHandDeal", started.DealerSeat); }
+                    catch (JSException) { }
+                }
+                break;
+
+            case CardDealt dealt:
+                if (_sceneReady)
+                {
+                    int cardIdx = Math.Max(0, HoleCardsOf(dealt.Seat).Count - 1);
+                    int delay = DealCardAnimDelay(dealt.Seat, cardIdx);
+                    string face = dealt.Seat == 0 ? CardImage(dealt.Card) : "";
+                    try
+                    {
+                        _ = JS.InvokeVoidAsync("pokerScene.dealHoleCard", dealt.Seat, cardIdx, face, delay);
+                    }
                     catch (JSException) { }
                 }
                 break;
@@ -5813,6 +5828,7 @@
     };
 
     private int _dealSoundIndex;
+    private int _dealRoundIndex;
 
     private void PlaySound(string group, int delayMs = 0)
     {
@@ -5824,7 +5840,7 @@
     private void PlaySoundFor(PokerEvent evt)
     {
         // Your two cards land audibly after the shuffle, not on top of it.
-        if (evt is HandStarted) _dealSoundIndex = 0;
+        if (evt is HandStarted) { _dealSoundIndex = 0; _dealRoundIndex = 0; }
         if (evt is CardDealt dealtCard && dealtCard.Seat == 0)
         {
             PlaySound("place", 700 + _dealSoundIndex++ * 280);
@@ -5846,5 +5862,13 @@
             _ => null
         };
         if (group != null) PlaySound(group);
+    }
+
+    // Hole-card flight delays follow the Kenney shuffle/place SFX: the player’s
+    // pair lines up with PlaySoundFor’s place cues; opponents stagger in deal order.
+    private int DealCardAnimDelay(int seat, int cardIndex)
+    {
+        if (seat == 0) return 700 + cardIndex * 280;
+        return 280 + _dealRoundIndex++ * 120;
     }
 }
