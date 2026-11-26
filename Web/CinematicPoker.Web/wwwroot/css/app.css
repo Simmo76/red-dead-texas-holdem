@@ -3532,129 +3532,342 @@ button.act.plaque .plaque-amt {
 
 .chip-gear { font-size: 16px; line-height: 1; }
 
-.settings-box {
-    max-width: min(440px, calc(100vw - 32px));
-    max-height: calc(100vh - 24px);
-    max-height: calc(100dvh - 24px);
+.settings-overlay {
+    padding: max(8px, env(safe-area-inset-top, 0px)) 8px max(8px, env(safe-area-inset-bottom, 0px));
     overflow-y: auto;
-    padding: 28px 36px;
-    gap: 20px;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Painted panel art with live text and controls layered on top. */
+.settings-box {
+    position: relative;
+    flex-shrink: 0;
+    width: min(560px, calc(100vw - 20px));
+    max-height: none;
+    margin: auto;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    text-align: left;
+}
+
+.settings-panel-art {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+    user-select: none;
+}
+
+.settings-panel-body {
+    position: absolute;
+    inset: 13.5% 13% 10.5% 13%;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 1.2vh, 12px);
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(216, 178, 92, 0.45) transparent;
+}
+
+.settings-title {
+    margin: -4.5% 0 0;
+    padding: 0 8px;
+    font-family: 'Rye', Georgia, serif;
+    font-size: clamp(15px, 2.6vw, 22px);
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    line-height: 1.15;
+    text-align: center;
+    color: #f3d57a;
+    text-shadow:
+        0 1px 0 rgba(0, 0, 0, 0.9),
+        0 0 14px rgba(255, 214, 120, 0.35);
 }
 
 .settings-name {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.settings-name .settings-note {
+    flex: 1 1 100%;
 }
 
 .settings-name-controls {
     display: flex;
-    gap: 10px;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-end;
 }
 
+/* Field PNGs are blank skins — text stays live and editable. */
 .settings-name-input {
     flex: 1;
     width: auto;
     min-width: 0;
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: 15px;
+    letter-spacing: 0.08em;
     text-align: left;
+    color: #f5ead6;
+    background: transparent url('../img/settings/field-normal.png') center / 100% 100% no-repeat;
+    border: none;
+    border-radius: 0;
+    font-family: inherit;
+    outline: none;
 }
 
-.settings-save { padding: 12px 22px; font-size: 14px; }
+.settings-name-input:focus {
+    background-image: url('../img/settings/field-focused.png');
+}
+
+.settings-name-input.settings-field-error {
+    background-image: url('../img/settings/field-error.png');
+}
+
+.settings-name-input::placeholder {
+    color: rgba(216, 198, 160, 0.55);
+}
+
+.settings-name-input:focus-visible {
+    outline: 2px solid #ffe7a3;
+    outline-offset: 2px;
+}
 
 .settings-note {
     margin: 0;
-    color: var(--gold);
-    font-size: 13px;
-    letter-spacing: 0.4px;
+    color: #f0d68e;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    line-height: 1.35;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
 }
+
+.settings-action-note { color: #ffb88a; }
 
 .settings-rows {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: clamp(5px, 0.9vh, 9px);
 }
 
 .settings-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 18px;
+    gap: 12px;
 }
 
-.settings-row .chip-btn { min-width: 150px; }
+.settings-label {
+    flex: 0 0 auto;
+    max-width: 46%;
+    font-family: 'Rye', Georgia, serif;
+    font-size: clamp(10px, 1.85vw, 13px);
+    letter-spacing: 0.08em;
+    color: #d8bc78;
+    text-align: left;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
 
-/* SOUND combo: the button summarises the enabled channels; tapping it folds
-   out a checklist where any mix of channels can be selected. */
-.sound-combo-btn { justify-content: space-between; }
+.settings-selector {
+    flex: 0 1 auto;
+    min-width: min(168px, 48vw);
+    min-height: 44px;
+    padding: 10px 28px 10px 14px;
+    border: none;
+    border-radius: 0;
+    background: transparent url('../img/settings/selector-blank.png') center / 100% 100% no-repeat;
+    color: #f5ead6;
+    font-family: inherit;
+    font-size: clamp(10px, 1.75vw, 12px);
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-align: center;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    touch-action: manipulation;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.settings-selector:hover {
+    filter: brightness(1.1);
+}
+
+.settings-selector:active {
+    transform: translateY(1px);
+    filter: brightness(0.92);
+}
+
+.settings-selector:focus-visible {
+    outline: 2px solid #ffe7a3;
+    outline-offset: 3px;
+}
+
+.settings-selector.active {
+    color: #ffe9a8;
+    filter: brightness(1.08);
+}
+
+.settings-selector:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.settings-select-wrap {
+    flex: 0 1 auto;
+    min-width: min(168px, 48vw);
+}
+
+.settings-native-select {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    text-align-last: center;
+}
+
+.sound-combo-btn {
+    justify-content: center;
+}
 
 .sound-caret {
-    color: var(--gold-dim);
+    flex: 0 0 auto;
+    color: #e6c36a;
     font-size: 10px;
-    margin-left: 6px;
+    margin-left: 2px;
 }
 
 .sound-menu {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin: -4px 0 2px;
-    padding: 10px 12px;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: rgba(12, 9, 5, 0.75);
+    gap: 4px;
+    margin: -2px 0 2px;
+    padding: 8px 10px;
+    border: 1px solid rgba(216, 178, 92, 0.55);
+    border-radius: 8px;
+    background: rgba(18, 11, 6, 0.92);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
 }
 
 .sound-option {
     display: flex;
     align-items: center;
     gap: 10px;
+    min-height: 44px;
     background: none;
     border: none;
-    padding: 6px 4px;
-    color: var(--text-dim);
+    padding: 6px 8px;
+    color: #c9b896;
     font-family: inherit;
     font-size: 12px;
-    letter-spacing: 2px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
     cursor: pointer;
     text-align: left;
     touch-action: manipulation;
+    border-radius: 6px;
 }
 
-.sound-option.on { color: var(--gold); }
+.sound-option:hover,
+.sound-option:focus-visible {
+    background: rgba(216, 178, 92, 0.18);
+    color: #ffe9a8;
+    outline: none;
+}
+
+.sound-option.on { color: #ffe9a8; }
 
 .sound-check {
     flex: 0 0 auto;
-    width: 18px;
-    height: 18px;
-    line-height: 16px;
+    width: 20px;
+    height: 20px;
+    line-height: 18px;
     text-align: center;
-    border: 1px solid var(--gold-dim);
+    border: 1px solid rgba(216, 178, 92, 0.65);
     border-radius: 5px;
-    color: var(--gold);
+    color: #f3d57a;
     font-size: 12px;
 }
 
-.settings-select {
-    min-width: 168px;
-    color: var(--gold);
-    text-align: center;
-    text-align-last: center;
-    appearance: none;
-    -webkit-appearance: none;
-    background-image: linear-gradient(45deg, transparent 50%, var(--gold-dim) 50%),
-        linear-gradient(135deg, var(--gold-dim) 50%, transparent 50%);
-    background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%;
-    background-size: 5px 5px, 5px 5px;
-    background-repeat: no-repeat;
-    padding-right: 28px;
+/* Button PNGs are skins only — keep real buttons underneath for a11y. */
+.settings-plaque {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 4px 6px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    cursor: pointer;
+    line-height: 0;
+    touch-action: manipulation;
+    transition: filter 0.15s ease, transform 0.1s ease;
 }
 
-.settings-label {
-    font-size: 12px;
-    letter-spacing: 2px;
-    color: var(--text-dim);
-    text-align: left;
+.settings-plaque img {
+    display: block;
+    height: clamp(36px, 6.5vw, 44px);
+    width: auto;
+    pointer-events: none;
+    user-select: none;
+}
+
+.settings-plaque-wide img {
+    height: clamp(40px, 7vw, 48px);
+}
+
+.settings-plaque:hover { filter: brightness(1.1); }
+.settings-plaque:active { transform: translateY(1px); filter: brightness(0.94); }
+
+.settings-plaque:focus-visible {
+    outline: 2px solid #ffe7a3;
+    outline-offset: 3px;
+}
+
+.settings-plaque:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(0.2);
+}
+
+.settings-plaque.armed {
+    filter: brightness(1.18) saturate(1.1);
+    box-shadow: 0 0 0 2px rgba(255, 231, 163, 0.55);
+}
+
+.settings-save-plaque img {
+    height: clamp(38px, 6.8vw, 46px);
+}
+
+.settings-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 10px;
+    margin-top: auto;
+    padding-top: 4px;
+}
+
+.settings-action-wide {
+    min-width: min(200px, 55vw);
+    color: #ffe2c8;
+}
+
+.settings-leave {
+    color: #ffe9a8;
 }
 
 /* ------------------------------------------------------------- error ui */
@@ -3955,7 +4168,8 @@ button.act.plaque .plaque-amt {
     .actionbar-left, .actionbar-right { gap: 8px; }
     .slider-panel { gap: 4px; }
     .overlay-box { padding: 22px 30px; gap: 14px; }
-    .settings-box { padding: 16px 24px; gap: 10px; }
+    .settings-box { width: min(500px, calc(100vw - 12px)); }
+    .settings-panel-body { inset: 13% 11.5% 9.5% 11.5%; gap: 5px; }
     .invite-box { padding: 14px 22px; gap: 10px; }
     .invite-blurb { font-size: 12px; }
     .invite-room { padding: 9px 12px; }
@@ -3964,8 +4178,9 @@ button.act.plaque .plaque-amt {
         padding: 0;
         gap: 0;
     }
-    .settings-rows { gap: 6px; }
-    .settings-save { padding: 9px 16px; font-size: 12px; }
+    .settings-rows { gap: 5px; }
+    .settings-plaque img { height: 34px; }
+    .settings-plaque-wide img { height: 38px; }
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
     .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
     .overlay-box.table-win { padding: 24px 28px 22px; gap: 14px; }

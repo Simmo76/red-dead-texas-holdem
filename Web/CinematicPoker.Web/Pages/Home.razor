@@ -758,88 +758,121 @@
 
     @if (_settingsOpen)
     {
-        <div class="overlay" @onclick="CloseSettings">
-            <div class="overlay-box settings-box" @onclick:stopPropagation="true">
-                <div class="overlay-title">SETTINGS</div>
+        <div class="overlay settings-overlay" @onclick="CloseSettings">
+            <div class="settings-box" role="dialog" aria-modal="true" aria-label="Settings" @onclick:stopPropagation="true">
+                <img class="settings-panel-art" src="img/settings/panel.png" width="699" height="696" alt="" draggable="false" />
+                <div class="settings-panel-body">
+                    <h2 class="settings-title">★ SETTINGS ★</h2>
 
-                <div class="settings-name">
-                    <label class="settings-label" for="settings-name-input">YOUR NAME</label>
-                    <div class="settings-name-controls">
-                        <input id="settings-name-input" class="name-input settings-name-input" type="text" maxlength="16"
-                               autocapitalize="words" autocomplete="nickname" autocorrect="off" spellcheck="false"
-                               placeholder="Your name" @bind="_settingsNameDraft" @bind:event="oninput"
-                               @onkeydown="OnSettingsNameKeyDown" />
-                        <button class="act call settings-save" disabled="@(!CanSaveSettingsName)" @onclick="SaveSettingsName">SAVE</button>
-                    </div>
-                    @if (!string.IsNullOrEmpty(_settingsNameNote))
-                    {
-                        <p class="settings-note">@_settingsNameNote</p>
-                    }
-                </div>
-
-                <div class="settings-rows">
-                    <div class="settings-row">
-                        <span class="settings-label">SOUND</span>
-                        <button class="chip-btn sound-combo-btn @(AnyChannelOn ? "active" : "")" @onclick="ToggleSoundMenu">
-                            @SoundSummary<span class="sound-caret">@(_soundMenuOpen ? "\u25b4" : "\u25be")</span>
-                        </button>
-                    </div>
-                    @if (_soundMenuOpen)
-                    {
-                        <div class="sound-menu">
-                            <button class="sound-option @(_musicOn ? "on" : "")" @onclick="@(() => ToggleChannel("music"))">
-                                <span class="sound-check">@(_musicOn ? "\u2713" : "")</span>MUSIC
-                            </button>
-                            <button class="sound-option @(_backgroundOn ? "on" : "")" @onclick="@(() => ToggleChannel("background"))">
-                                <span class="sound-check">@(_backgroundOn ? "\u2713" : "")</span>BACKGROUND
+                    <div class="settings-row settings-name">
+                        <label class="settings-label" for="settings-name-input">YOUR NAME</label>
+                        <div class="settings-name-controls">
+                            <input id="settings-name-input"
+                                   class="settings-name-input @(_settingsNameInvalid ? "settings-field-error" : "")"
+                                   type="text" maxlength="16"
+                                   autocapitalize="words" autocomplete="nickname" autocorrect="off" spellcheck="false"
+                                   placeholder="Your name" aria-invalid="@_settingsNameInvalid"
+                                   @bind="_settingsNameDraft" @bind:event="oninput" @oninput="OnSettingsNameEdited"
+                                   @onkeydown="OnSettingsNameKeyDown" />
+                            <button type="button" class="settings-plaque settings-save-plaque"
+                                    disabled="@(!CanSaveSettingsName)" aria-label="Save name" @onclick="SaveSettingsName">
+                                <img src="img/settings/save.png" width="171" height="67" alt="" draggable="false" />
                             </button>
                         </div>
+                        @if (!string.IsNullOrEmpty(_settingsNameNote))
+                        {
+                            <p class="settings-note" role="status">@_settingsNameNote</p>
+                        }
+                    </div>
+
+                    <div class="settings-rows">
+                        <div class="settings-row">
+                            <span class="settings-label" id="settings-sound-label">SOUND</span>
+                            <button type="button" class="settings-selector sound-combo-btn @(AnyChannelOn ? "active" : "")"
+                                    aria-labelledby="settings-sound-label" aria-expanded="@_soundMenuOpen"
+                                    aria-haspopup="listbox" @onclick="ToggleSoundMenu">
+                                @SoundSummary<span class="sound-caret" aria-hidden="true">@(_soundMenuOpen ? "\u25b4" : "\u25be")</span>
+                            </button>
+                        </div>
+                        @if (_soundMenuOpen)
+                        {
+                            <div class="sound-menu" role="listbox" aria-label="Sound channels">
+                                <button type="button" role="option" aria-selected="@_musicOn"
+                                        class="sound-option @(_musicOn ? "on" : "")" @onclick="@(() => ToggleChannel("music"))">
+                                    <span class="sound-check" aria-hidden="true">@(_musicOn ? "\u2713" : "")</span>MUSIC
+                                </button>
+                                <button type="button" role="option" aria-selected="@_backgroundOn"
+                                        class="sound-option @(_backgroundOn ? "on" : "")" @onclick="@(() => ToggleChannel("background"))">
+                                    <span class="sound-check" aria-hidden="true">@(_backgroundOn ? "\u2713" : "")</span>BACKGROUND
+                                </button>
+                            </div>
+                        }
+                        <div class="settings-row">
+                            <span class="settings-label" id="settings-pace-label">PACE</span>
+                            <button type="button" class="settings-selector @(_quickMode ? "active" : "")"
+                                    aria-labelledby="settings-pace-label" @onclick="ToggleMode">
+                                @(_quickMode ? "QUICK PLAY" : "CINEMATIC")
+                            </button>
+                        </div>
+                        @if (!_isGuest)
+                        {
+                            <div class="settings-row">
+                                <span class="settings-label" id="settings-coach-label">POST-HAND COACH</span>
+                                <button type="button" class="settings-selector" aria-labelledby="settings-coach-label" @onclick="CycleCoachMode">@CoachModeLabel</button>
+                            </div>
+                        }
+                        @if (!_isGuest)
+                        {
+                            <div class="settings-row">
+                                <span class="settings-label" id="settings-difficulty-label">DIFFICULTY</span>
+                                <button type="button" class="settings-selector" aria-labelledby="settings-difficulty-label" @onclick="CycleDifficulty">@DifficultyNames[_difficulty]</button>
+                            </div>
+                        }
+                        <div class="settings-row">
+                            <label class="settings-label" for="settings-scene" id="settings-scene-label">SCENE</label>
+                            <div class="settings-select-wrap">
+                                <select id="settings-scene" class="settings-selector settings-native-select"
+                                        disabled="@_isGuest" aria-labelledby="settings-scene-label" @onchange="OnTableSceneChanged">
+                                    <option value="saloon" selected="@(_tableScene == "saloon")">SALOON</option>
+                                    <option value="street" selected="@(_tableScene == "street")">OCTAGON</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(_logNote))
+                    {
+                        <p class="settings-note" role="status">@_logNote</p>
                     }
-                    <div class="settings-row">
-                        <span class="settings-label">PACE</span>
-                        <button class="chip-btn @(_quickMode ? "active" : "")" @onclick="ToggleMode">
-                            @(_quickMode ? "QUICK PLAY" : "CINEMATIC")
+                    @if (!string.IsNullOrEmpty(_settingsActionNote))
+                    {
+                        <p class="settings-note settings-action-note" role="status">@_settingsActionNote</p>
+                    }
+
+                    <div class="settings-actions">
+                        <button type="button" class="settings-plaque" title="Copy the debug log to the clipboard to paste into Cursor or a bug report"
+                                aria-label="Copy log" @onclick="CopyDebugLog">
+                            <img src="img/settings/copy-log.png" width="292" height="73" alt="" draggable="false" />
+                        </button>
+                        <button type="button" class="settings-plaque" aria-label="Export stats" @onclick="ExportFromSettings">
+                            <img src="img/settings/export-stats.png" width="329" height="73" alt="" draggable="false" />
+                        </button>
+                        @if (_isGuest)
+                        {
+                            <button type="button" class="settings-selector settings-action-wide settings-leave"
+                                    aria-label="Leave table" @onclick="LeaveTable">LEAVE TABLE</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="settings-plaque settings-plaque-wide @(_restartArmed ? "armed" : "")"
+                                    aria-label="Restart game" aria-pressed="@_restartArmed" @onclick="RestartFromSettings">
+                                <img src="img/settings/restart.png" width="328" height="89" alt="" draggable="false" />
+                            </button>
+                        }
+                        <button type="button" class="settings-plaque" aria-label="Close settings" @onclick="CloseSettings">
+                            <img src="img/settings/close.png" width="298" height="89" alt="" draggable="false" />
                         </button>
                     </div>
-                    @if (!_isGuest)
-                    {
-                        <div class="settings-row">
-                            <span class="settings-label">POST-HAND COACH</span>
-                            <button class="chip-btn" @onclick="CycleCoachMode">@CoachModeLabel</button>
-                        </div>
-                    }
-                    @if (!_isGuest)
-                    {
-                        <div class="settings-row">
-                            <span class="settings-label">DIFFICULTY</span>
-                            <button class="chip-btn" @onclick="CycleDifficulty">@DifficultyNames[_difficulty]</button>
-                        </div>
-                    }
-                    <div class="settings-row">
-                        <label class="settings-label" for="settings-scene">SCENE</label>
-                        <select id="settings-scene" class="chip-btn settings-select" disabled="@_isGuest" @onchange="OnTableSceneChanged">
-                            <option value="saloon" selected="@(_tableScene == "saloon")">SALOON</option>
-                            <option value="street" selected="@(_tableScene == "street")">OCTAGON</option>
-                        </select>
-                    </div>
-                </div>
-
-                @if (!string.IsNullOrEmpty(_logNote))
-                {
-                    <p class="settings-note">@_logNote</p>
-                }
-                <div class="overlay-actions">
-                    <button class="act small" @onclick="CopyDebugLog" title="Copy the debug log to the clipboard to paste into Cursor or a bug report">COPY LOG</button>
-                    <button class="act small" @onclick="ExportFromSettings">EXPORT STATS</button>
-                    @if (_isGuest)
-                    {
-                        <button class="act allin settings-restart" @onclick="LeaveTable">LEAVE TABLE</button>
-                    }
-                    else
-                    {
-                        <button class="act allin settings-restart" @onclick="RestartFromSettings">RESTART</button>
-                    }
-                    <button class="act small" @onclick="CloseSettings">CLOSE</button>
                 </div>
             </div>
         </div>
@@ -3073,6 +3106,9 @@
     private bool _settingsOpen;
     private string _settingsNameDraft = "";
     private string _settingsNameNote = "";
+    private bool _settingsNameInvalid;
+    private bool _restartArmed;
+    private string _settingsActionNote = "";
     private string _logNote = "";
 
     // ------------------------------------------------------------ friends beta
@@ -4473,6 +4509,9 @@
     {
         _settingsNameDraft = PlayerName;
         _settingsNameNote = "";
+        _settingsNameInvalid = false;
+        _settingsActionNote = "";
+        _restartArmed = false;
         _logNote = "";
         _soundMenuOpen = false;
         ReleaseRulesZoom();
@@ -4511,6 +4550,9 @@
     {
         _settingsOpen = false;
         _settingsNameNote = "";
+        _settingsNameInvalid = false;
+        _settingsActionNote = "";
+        _restartArmed = false;
         // Settings covers the WebGL canvas full-screen; on phones that can
         // quietly drop GPU textures without a context-loss event. Re-upload
         // maps (and finish a pending SALOON load) so the bar and cowboys
@@ -4525,6 +4567,13 @@
     private async Task OnSettingsNameKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter") await SaveSettingsName();
+    }
+
+    private void OnSettingsNameEdited()
+    {
+        _settingsNameInvalid = false;
+        if (_settingsNameNote.StartsWith("There's already", StringComparison.Ordinal))
+            _settingsNameNote = "";
     }
 
     // A seated NPC already answering to this name mid-session would put two
@@ -4551,12 +4600,14 @@
         string candidate = SanitizeName(_settingsNameDraft);
         if (NpcNameInUse(candidate))
         {
+            _settingsNameInvalid = true;
             _settingsNameNote = $"There's already a {candidate} at this table — pick another name.";
             return;
         }
         _playerName = candidate;
         _settingsNameDraft = _playerName;
         await PersistPlayerName(_playerName);
+        _settingsNameInvalid = false;
         _settingsNameNote = $"Saved — the table knows you as {_playerName}.";
         if (_sceneReady)
         {
@@ -4580,6 +4631,14 @@
 
     private async Task RestartFromSettings()
     {
+        if (!_restartArmed)
+        {
+            _restartArmed = true;
+            _settingsActionNote = "Tap RESTART again to begin a fresh table.";
+            return;
+        }
+        _restartArmed = false;
+        _settingsActionNote = "";
         _settingsOpen = false;
         if (_coachOpen || _coachFlow.ReviewOpen)
             await CloseCoach(false);
