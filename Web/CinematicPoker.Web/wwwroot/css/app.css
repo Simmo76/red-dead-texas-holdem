@@ -2175,6 +2175,17 @@ html.scene-street.resume-play .boot-screen {
     padding-bottom: calc(var(--actionbar-bottom-pad) + max(4px, env(safe-area-inset-bottom, 0px)));
 }
 
+/* Safari / Chrome tab: the address bar cannot be removed from JS. iOS still
+   reports safe-area-inset-bottom here; trim our extra pad so the action row
+   sits closer to TestFlight / Home Screen (display-mode: standalone). */
+@media (display-mode: browser) {
+    :root { --actionbar-bottom-pad: 6px; }
+
+    .actionbar {
+        padding-bottom: calc(var(--actionbar-bottom-pad) + env(safe-area-inset-bottom, 0px));
+    }
+}
+
 .actionbar-left,
 .actionbar-right {
     display: flex;
