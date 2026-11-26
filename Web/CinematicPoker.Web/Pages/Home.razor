@@ -185,7 +185,7 @@
                     }
                     else
                     {
-                        <img class="hud-card facedown" src="img/cards/back.png" alt="" />
+                        <img class="hud-card facedown" src="img/cards/ui/back.png" alt="" />
                     }
                 }
             </div>
@@ -230,7 +230,7 @@
                     }
                     else
                     {
-                        <img class="hud-card facedown" src="img/cards/back.png" alt="" />
+                        <img class="hud-card facedown" src="img/cards/ui/back.png" alt="" />
                     }
                 }
             </div>
@@ -1956,7 +1956,7 @@
                 sb = Round != null && p.Seat == Round.SmallBlindSeat,
                 bb = Round != null && p.Seat == Round.BigBlindSeat,
                 reveal = p.Seat != 0 && _revealed.TryGetValue(p.Seat, out var shown)
-                    ? shown.Select(CardImage).ToArray()
+                    ? shown.Select(SceneCardImage).ToArray()
                     : null,
                 status
             };
@@ -1967,17 +1967,17 @@
             : _shownBoard;
         string[] holeImages;
         if (handReview?.HeroHoleCards is { Count: 2 } reviewHoles)
-            holeImages = reviewHoles.Select(CardImage).ToArray();
+            holeImages = reviewHoles.Select(SceneCardImage).ToArray();
         else if (SeatOf(0) is { Folded: true })
             holeImages = Array.Empty<string>(); // folding mucks your cards during live play
         else
-            holeImages = HoleCardsOf(0).Select(CardImage).ToArray();
+            holeImages = HoleCardsOf(0).Select(SceneCardImage).ToArray();
 
         var snapshot = new
         {
             pot = Round?.PotTotal ?? 0,
             actorSeat,
-            board = boardCards.Select(CardImage).ToArray(),
+            board = boardCards.Select(SceneCardImage).ToArray(),
             hole = holeImages,
             seats
         };
@@ -5798,11 +5798,18 @@
     private IReadOnlyList<Card> HoleCardsOf(int seat) =>
         SeatOf(seat)?.HoleCards ?? (IReadOnlyList<Card>)Array.Empty<Card>();
 
-    // Kenney boardgame pack card faces (CC0) — see ASSET_LICENSES.md.
-    private static string CardImage(Card card)
+    // Kenney boardgame pack (CC0) on the 3D felt — see ASSET_LICENSES.md.
+    private static string SceneCardImage(Card card)
     {
         string rank = card.Rank == Rank.Ten ? "10" : Card.RankSymbol(card.Rank);
         return $"img/cards/{card.Suit.ToString().ToLowerInvariant()}_{rank}.png";
+    }
+
+    // Western playing-card faces for 2D HUD overlays — see ASSET_LICENSES.md.
+    private static string CardImage(Card card)
+    {
+        string rank = card.Rank == Rank.Ten ? "10" : Card.RankSymbol(card.Rank);
+        return $"img/cards/ui/{card.Suit.ToString().ToLowerInvariant()}_{rank}.png";
     }
 
     // -------------------------------------------------------------- backdrop
