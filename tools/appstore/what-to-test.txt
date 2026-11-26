@@ -1,5 +1,11 @@
 What to test in this build:
 
+New — saloon title screen (PR #356)
+• The opening screen is the porch at sunset, with the Dead Man's Hand wordmark (including Texas Hold'em) and the red Tap to Play plaque.
+• Sky and table should show through around the wordmark and the plaque. Neither should sit on a black box.
+• Tap anywhere on that screen to start. The name prompt still appears when this device has no saved name.
+• Octagon’s title screen is unchanged.
+
 New — How to Play rules plaque (PR #353)
 • Top bar → RULES. The overlay should show the new gold-framed How to Play art with a transparent area outside the border (table visible behind the plaque).
 • On a short or landscape screen, scroll or drag vertically at 1× if the plaque is taller than the viewport; pinch or double-tap still zooms.

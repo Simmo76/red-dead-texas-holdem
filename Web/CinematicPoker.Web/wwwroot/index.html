@@ -25,7 +25,7 @@
          vendored in fonts/ so the game needs no network at all — the
          @font-face declarations live at the top of css/app.css. -->
     <link rel="preload" href="fonts/rye-latin.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="css/app.css?v=78" />
+    <link rel="stylesheet" href="css/app.css?v=80" />
     <script>
         // iOS reports the landscape notch inset on both sides. The housing
         // is only on one edge: window.orientation 90 puts it on the left,
@@ -98,6 +98,8 @@
 <body>
     <div id="app">
         <div class="boot-screen">
+            <img class="intro-title-mark" src="img/intro-title.png?v=2" alt="" />
+            <img class="intro-tap-mark" src="img/intro-tap.png?v=1" alt="" />
             <div class="boot-title">DEAD MAN'S HAND</div>
             <div class="boot-subtitle">TEXAS HOLD’EM POKER</div>
             <div class="boot-sub">Shuffling up and dealing…</div>
