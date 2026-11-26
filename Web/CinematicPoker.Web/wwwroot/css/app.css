@@ -3391,8 +3391,8 @@ button.act.plaque .plaque-amt {
 /* ----------------------------------------------------------- how to play */
 
 /* The plaque is painted art (transparent outside the gold frame). It opens
-   only from the Rules button. The whole plaque fits at 1x; pinch, scroll,
-   or double-tap zooms it, same as the hand rankings chart. */
+   only from the Rules button. On short viewports it can extend past the
+   edges; wheel/drag pans at 1×, pinch/double-tap/wheel zooms when it fits. */
 .overlay.rules-overlay {
     z-index: 80;
     display: grid;
@@ -3438,10 +3438,10 @@ button.act.plaque .plaque-amt {
     cursor: grabbing;
 }
 
-/* 1374×1145 art. Cap the width so a short screen still shows the whole plaque. */
+/* 1340×1079 trimmed art. Prefer ~480px width; height may overflow so pan/scroll can reach CLOSE. */
 .rules-zoom-target {
     position: relative;
-    width: min(920px, 100%, calc((100dvh - 24px) * 1.199));
+    width: min(480px, 100%);
     transform-origin: center center;
     will-change: transform;
 }
