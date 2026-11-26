@@ -3438,10 +3438,10 @@ button.act.plaque .plaque-amt {
     cursor: grabbing;
 }
 
-/* 1038×1400 art. Cap the width so a short screen still shows the whole plaque. */
+/* 1374×1145 art. Cap the width so a short screen still shows the whole plaque. */
 .rules-zoom-target {
     position: relative;
-    width: min(480px, 100%, calc((100dvh - 24px) * 0.741));
+    width: min(920px, 100%, calc((100dvh - 24px) * 1.199));
     transform-origin: center center;
     will-change: transform;
 }
