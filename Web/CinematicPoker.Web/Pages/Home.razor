@@ -185,7 +185,7 @@
                     }
                     else
                     {
-                        <img class="hud-card facedown" src="img/cards/ui/back.png" alt="" />
+                        <img class="hud-card facedown" src="@HudCardBackImage" alt="" />
                     }
                 }
             </div>
@@ -230,7 +230,7 @@
                     }
                     else
                     {
-                        <img class="hud-card facedown" src="img/cards/ui/back.png" alt="" />
+                        <img class="hud-card facedown" src="@HudCardBackImage" alt="" />
                     }
                 }
             </div>
@@ -5805,11 +5805,17 @@
         return $"img/cards/{card.Suit.ToString().ToLowerInvariant()}_{rank}.png";
     }
 
+    // Bump when 2D HUD card art changes so iOS WKWebView picks up new PNGs.
+    private const string HudCardAssetVersion = "western350";
+
+    private static string HudCardBackImage =>
+        $"img/cards/ui/back.png?v={HudCardAssetVersion}";
+
     // Western playing-card faces for 2D HUD overlays — see ASSET_LICENSES.md.
     private static string CardImage(Card card)
     {
         string rank = card.Rank == Rank.Ten ? "10" : Card.RankSymbol(card.Rank);
-        return $"img/cards/ui/{card.Suit.ToString().ToLowerInvariant()}_{rank}.png";
+        return $"img/cards/ui/{card.Suit.ToString().ToLowerInvariant()}_{rank}.png?v={HudCardAssetVersion}";
     }
 
     // -------------------------------------------------------------- backdrop
