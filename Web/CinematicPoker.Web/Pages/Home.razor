@@ -569,8 +569,10 @@
                 }
                 @if (_legal.CanAllIn)
                 {
-                    <button class="act plaque allin" @onclick="() => Act(PlayerAction.AllIn())">
+                    var allInChips = ShownStack(0);
+                    <button class="act plaque allin" aria-label="@($"All-in ${allInChips}")" @onclick="() => Act(PlayerAction.AllIn())">
                         <img src="img/ui/action-allin.png?v=1" alt="All-in" />
+                        <span class="plaque-amt">$@allInChips</span>
                     </button>
                 }
             </div>

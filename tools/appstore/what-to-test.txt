@@ -1,5 +1,10 @@
 What to test in this build:
 
+New — all-in stack amount pill (PR #357)
+• On your turn with All-in available, the All-in plaque shows the same gold-bordered pill as Call (bottom-right corner).
+• The pill shows your remaining stack (chips you can commit), and should match the stack readout on the green plate beside Fold.
+• When facing a bet, Call still shows the incremental call amount; All-in shows your full stack when both are offered.
+
 New — saloon title screen (PR #356)
 • The opening screen is the porch at sunset, with the Dead Man's Hand wordmark (including Texas Hold'em) and the red Tap to Play plaque.
 • Sky and table should show through around the wordmark and the plaque. Neither should sit on a black box.
