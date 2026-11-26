@@ -1,8 +1,13 @@
 What to test in this build:
 
+New — larger call amount on the Call plaque (PR #347)
+• On your turn, the dollar amount on Call is a larger pill on the bottom-right corner of the plaque.
+• It may overlap the gold frame. It should not cover the CALL word.
+• Fold, Raise, and All-in are unchanged. Tap Call and confirm the hand continues.
+
 New — Fold, Call, Raise, and All-in plaques (PR #345)
 • On your turn, Fold, Call, Raise, and All-in are the gold-framed plaques (green Call, red Fold, gold Raise, red All-in).
-• Call still shows the amount to call, in a small badge on the plaque.
+• Call shows the amount to call in that bottom-right pill.
 • Check and Bet stay the plain buttons. Tap an action and confirm the hand moves on.
 
 New — gold top-bar buttons (PR #344)

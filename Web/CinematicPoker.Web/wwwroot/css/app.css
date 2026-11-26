@@ -2236,16 +2236,22 @@ button.act.plaque:focus-visible {
     outline-offset: 3px;
 }
 
+button.act.plaque.call {
+    z-index: 2;
+}
+
 button.act.plaque .plaque-amt {
     position: absolute;
-    top: 6px;
-    right: 10px;
+    /* Bottom-right corner. Overlaps the plaque frame, not the CALL word. */
+    top: auto;
+    bottom: -2px;
+    right: -2px;
     padding: 2px 7px 3px;
     border-radius: 999px;
     background: rgba(8, 6, 4, 0.86);
     border: 1px solid #e6c56a;
     color: #f8e7b0;
-    font-size: 12px;
+    font-size: 30px;
     font-weight: bold;
     letter-spacing: 0.4px;
     line-height: 1.2;
@@ -3591,7 +3597,7 @@ button.act.plaque .plaque-amt {
 @media (max-width: 980px) {
     .act { padding: 13px 18px; font-size: 14px; }
     button.act.plaque img { height: 76px; }
-    button.act.plaque .plaque-amt { font-size: 11px; right: 8px; }
+    button.act.plaque .plaque-amt { font-size: 27px; top: auto; bottom: -2px; right: -2px; }
     .actionbar { gap: 10px; }
     .actionbar-left, .actionbar-right { gap: 10px; }
     .brand { font-size: 14px; letter-spacing: 3px; }
@@ -3851,7 +3857,7 @@ button.act.plaque .plaque-amt {
 
     .act { padding: 10px 14px; font-size: 12px; flex: 0 1 auto; }
     button.act.plaque img { height: 58px; }
-    button.act.plaque .plaque-amt { top: 3px; right: 6px; font-size: 10px; padding: 1px 5px 2px; }
+    button.act.plaque .plaque-amt { top: auto; bottom: -4px; right: 0; font-size: 24px; padding: 1px 6px 2px; }
     .actionbar {
         gap: 8px;
         /* Corners of this row sit below the notch, so the side inset no
