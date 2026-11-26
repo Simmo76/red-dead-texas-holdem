@@ -772,7 +772,7 @@
                                    type="text" maxlength="16"
                                    autocapitalize="words" autocomplete="nickname" autocorrect="off" spellcheck="false"
                                    placeholder="Your name" aria-invalid="@_settingsNameInvalid"
-                                   @bind="_settingsNameDraft" @bind:event="oninput" @oninput="OnSettingsNameEdited"
+                                   @bind="_settingsNameDraft" @bind:event="oninput" @bind:after="OnSettingsNameEdited"
                                    @onkeydown="OnSettingsNameKeyDown" />
                             <button type="button" class="settings-plaque settings-save-plaque"
                                     disabled="@(!CanSaveSettingsName)" aria-label="Save name" @onclick="SaveSettingsName">
