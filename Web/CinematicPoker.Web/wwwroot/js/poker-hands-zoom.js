@@ -32,19 +32,36 @@ window.pokerHandsZoom = (function () {
       viewport.classList.toggle('zoomed', scale > 1.01);
   }
 
+  function overflowExtents() {
+    if (!viewport || !target) return { x: 0, y: 0 };
+    var vr = viewport.getBoundingClientRect();
+    return {
+      x: Math.max(0, target.offsetWidth * scale - vr.width),
+      y: Math.max(0, target.offsetHeight * scale - vr.height)
+    };
+  }
+
+  function canPan() {
+    var o = overflowExtents();
+    return scale > 1.01 || o.x > 0.5 || o.y > 0.5;
+  }
+
   function clampPan() {
     if (!viewport || !target) return;
-    if (scale <= 1.01) {
+    var o = overflowExtents();
+    if (scale <= 1.01 && o.x < 0.5 && o.y < 0.5) {
       scale = 1;
       tx = 0;
       ty = 0;
       return;
     }
-    var vr = viewport.getBoundingClientRect();
-    var maxX = Math.max(0, (target.offsetWidth * scale - vr.width) / 2);
-    var maxY = Math.max(0, (target.offsetHeight * scale - vr.height) / 2);
-    tx = Math.min(maxX, Math.max(-maxX, tx));
-    ty = Math.min(maxY, Math.max(-maxY, ty));
+    if (scale <= 1.01) {
+      scale = 1;
+    }
+    var maxX = o.x / 2;
+    var maxY = o.y / 2;
+    tx = maxX < 0.5 ? 0 : Math.min(maxX, Math.max(-maxX, tx));
+    ty = maxY < 0.5 ? 0 : Math.min(maxY, Math.max(-maxY, ty));
   }
 
   function setScaleAt(clientX, clientY, next) {
@@ -92,7 +109,7 @@ window.pokerHandsZoom = (function () {
       pinchMidY = mid.y;
       pinchTx0 = tx;
       pinchTy0 = ty;
-    } else if (pointers.size === 1 && scale > 1.01) {
+    } else if (pointers.size === 1 && canPan()) {
       panId = e.pointerId;
       panLastX = e.clientX;
       panLastY = e.clientY;
@@ -119,7 +136,7 @@ window.pokerHandsZoom = (function () {
       return;
     }
 
-    if (panId === e.pointerId && scale > 1.01) {
+    if (panId === e.pointerId && canPan()) {
       e.preventDefault();
       var dx = e.clientX - panLastX;
       var dy = e.clientY - panLastY;
@@ -138,7 +155,7 @@ window.pokerHandsZoom = (function () {
     pointers.delete(e.pointerId);
     try { viewport.releasePointerCapture(e.pointerId); } catch (err) { /* already released */ }
 
-    if (pointers.size === 1 && scale > 1.01) {
+    if (pointers.size === 1 && canPan()) {
       var remaining = pointers.keys().next().value;
       var pt = pointers.get(remaining);
       panId = remaining;
@@ -181,6 +198,17 @@ window.pokerHandsZoom = (function () {
 
   function onWheel(e) {
     e.preventDefault();
+    var o = overflowExtents();
+    if (scale <= 1.01 && (o.y > 0.5 || o.x > 0.5)) {
+      if (Math.abs(e.deltaY) >= Math.abs(e.deltaX)) {
+        ty -= e.deltaY;
+      } else {
+        tx -= e.deltaX;
+      }
+      clampPan();
+      apply();
+      return;
+    }
     var factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
     setScaleAt(e.clientX, e.clientY, scale * factor);
   }

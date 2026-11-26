@@ -1,5 +1,10 @@
 What to test in this build:
 
+New — How to Play rules plaque (PR #353)
+• Top bar → RULES. The overlay should show the new gold-framed How to Play art with a transparent area outside the border (table visible behind the plaque).
+• On a short or landscape screen, scroll or drag vertically at 1× if the plaque is taller than the viewport; pinch or double-tap still zooms.
+• Tap the painted CLOSE at the bottom (or the dimmer outside) to dismiss.
+
 New — western 2D HUD card faces (PR #350)
 • Board and your hole cards in the bottom HUD should show the new western-style faces (larger, detailed art).
 • Cards on the 3D felt should still look like the old Kenney pack — only the overlay HUD changed.
