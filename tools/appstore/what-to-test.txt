@@ -1,10 +1,10 @@
 What to test in this build:
 
-New — western 2D HUD card faces (PR #350)
-• Board and your hole cards in the bottom HUD should show the new western-style faces (larger, detailed art).
-• Cards on the 3D felt should still look like the old Kenney pack — only the overlay HUD changed.
-• Check victory / showdown banners and coach review thumbnails for the new faces too.
-• Facedown HUD slots still use the Kenney card back until we get a matching back from the same pack.
+New — western 2D HUD card faces (PR #350) — latest TestFlight only
+• Install the newest build in the TestFlight app (not an older one from this morning). Force-quit Dead Man's Hand, then reopen from TestFlight if anything still looks cached.
+• Look at the board + hole-card strip in the bottom HUD (2D overlay), not the 3D cards on the felt — felt cards stay Kenney art on purpose.
+• The HUD faces should be tall western-style art (~568×842). Kenney's small flat icons on the HUD mean you are on an old build or a cached bundle.
+• Victory / showdown banners and coach review thumbnails use the same HUD art. Facedown HUD slots still use the Kenney back until we get a matching back from the pack.
 
 New — HARD AI difficulty restored (PR #349)
 • SETTINGS → DIFFICULTY cycles EASY → NORMAL → HARD (HARD was removed earlier; it is back).

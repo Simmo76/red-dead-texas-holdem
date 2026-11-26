@@ -1,4 +1,4 @@
 # Bump the line below to force a TestFlight build when a change lives
 # outside Mobile/ios-wrapper (the iOS workflow auto-runs only when files
 # under this folder, or the workflow itself, change on main).
-build: 2026-11-26 TestFlight after PR #350 western 2D HUD card faces
+build: 2026-11-26 TestFlight redo PR #350 HUD cards (cache bust for iOS)

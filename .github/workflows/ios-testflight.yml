@@ -34,6 +34,12 @@ on:
       - 'tools/appstore/what-to-test.txt'
       - 'tools/appstore/testflight_notes.py'
 
+# Only one upload at a time — overlapping main pushes (e.g. #349 then #350)
+# used to land two TestFlight builds minutes apart and testers opened the wrong one.
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
 jobs:
   detect:
     name: Decide notes or upload
