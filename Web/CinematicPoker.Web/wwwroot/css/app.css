@@ -2315,7 +2315,8 @@ button.act.plaque:focus-visible {
     outline-offset: 3px;
 }
 
-button.act.plaque.call {
+button.act.plaque.call,
+button.act.plaque.allin {
     z-index: 2;
 }
 
