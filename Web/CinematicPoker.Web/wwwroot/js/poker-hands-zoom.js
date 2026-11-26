@@ -1,6 +1,6 @@
-// Pinch-zoom + pan for the poker hand rankings chart.
-// The page viewport locks scale (user-scalable=no), so the chart needs its
-// own gesture layer. CLOSE stays outside this viewport and is never transformed.
+// Pinch-zoom + pan for the hand rankings chart and the How to Play plaque.
+// The page viewport locks scale (user-scalable=no), so each image needs its
+// own gesture layer. A painted CLOSE button inside the art is left alone.
 window.pokerHandsZoom = (function () {
   var MIN = 1;
   var MAX = 4;
@@ -194,7 +194,7 @@ window.pokerHandsZoom = (function () {
     detach();
     if (!el) return;
     viewport = el;
-    target = el.querySelector('.hands-chart');
+    target = el.querySelector('.hands-chart, .rules-zoom-target');
     if (!target) {
       viewport = null;
       return;

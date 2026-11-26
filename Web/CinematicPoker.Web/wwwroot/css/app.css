@@ -3355,28 +3355,59 @@ button.act.plaque .plaque-amt {
 /* ----------------------------------------------------------- how to play */
 
 /* The plaque is painted art (transparent outside the gold frame). It opens
-   only from the Rules button. The art is tall, so a short landscape phone
-   scrolls it instead of shrinking the type to fit. */
+   only from the Rules button. The whole plaque fits at 1x; pinch, scroll,
+   or double-tap zooms it, same as the hand rankings chart. */
 .overlay.rules-overlay {
     z-index: 80;
     display: grid;
     justify-items: center;
     align-items: center;
     align-items: safe center;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
     padding: max(8px, env(safe-area-inset-top, 0px)) 12px
         max(8px, env(safe-area-inset-bottom, 0px));
 }
 
 .rules-box {
     position: relative;
-    width: min(480px, calc(100vw - 24px));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: min(920px, calc(100vw - 24px));
+    height: calc(100dvh - 16px);
     margin: 0;
     padding: 0;
     background: transparent;
     border: none;
     box-shadow: none;
+}
+
+.rules-zoom {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    touch-action: none;
+    cursor: grab;
+    overscroll-behavior: contain;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.rules-zoom.zoomed,
+.rules-zoom:active {
+    cursor: grabbing;
+}
+
+/* 1038×1400 art. Cap the width so a short screen still shows the whole plaque. */
+.rules-zoom-target {
+    position: relative;
+    width: min(480px, 100%, calc((100dvh - 24px) * 0.741));
+    transform-origin: center center;
+    will-change: transform;
 }
 
 .rules-art {
