@@ -47,6 +47,12 @@ assert(
 
 assert(impl.includes('Acceptance tests'), 'IMPLEMENTATION.md present');
 
+assert(home.includes('CycleDifficulty'), 'Home.razor: difficulty cycle control');
+assert(
+  home.includes('"EASY", "NORMAL", "HARD"') || home.includes('AIDifficulty.Names'),
+  'Home.razor: EASY, NORMAL, and HARD difficulty options',
+);
+
 const widths = [320, 390, 568, 667, 844, 1024];
 assert(widths.length === 6, 'acceptance width list sanity');
 
