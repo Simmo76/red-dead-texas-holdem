@@ -29,6 +29,7 @@ Written for agents and humans picking up work with no prior context.
 | **Web logic** | Table lineup (women/skin rules), frame governor, pixel budget | `node tools/<name>.test.mjs` |
 | **Web UI** | Mobile toolbar markup, tokens, breakpoints, icons | `node tools/toolbar-acceptance.test.mjs` |
 | **Release tooling** | Preview artifact size budget | `bash tools/collect-previews.test.sh` |
+| **Release tooling** | Branch preview includes `main` | `bash tools/branch-preview-ready.sh` |
 | **Manual / smoke** | Full 3D hand, audio, coach overlay, iOS PWA | Local `dotnet run` in `Web/CinematicPoker.Web` |
 
 ## Regression harness (one command)
@@ -57,6 +58,24 @@ Order of execution:
 
 No preview URL is published and no live Pages deploy runs while regression is
 red or still running.
+
+### Branch preview policy (agents)
+
+GitHub Pages branch builds live under
+`https://simmo76.github.io/red-dead-texas-holdem/preview/<slug>/` where
+`<slug>` is the branch name with `/` replaced by `-` (see
+`.github/workflows/deploy-preview.yml`).
+
+Before sharing that link for a `cursor/*` branch:
+
+1. Rebase onto latest `origin/main` and push (`git fetch origin main &&
+   git rebase origin/main && git push --force-with-lease`).
+2. Run `bash tools/branch-preview-ready.sh` (included in `tools/run-harness.sh`).
+   CI fails the harness if the branch tip is behind `origin/main`.
+
+Rationale: preview deploys **only the branch tree**. A branch cut before HUD or
+asset landings on `main` will look outdated (e.g. the old CSS stack pill instead
+of `stack-plaque.png`) even though live `main` is current.
 
 ## When to add tests
 

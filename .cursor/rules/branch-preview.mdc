@@ -1,0 +1,17 @@
+---
+description: GitHub Pages branch previews must track latest main before sharing links
+alwaysApply: true
+---
+
+# Branch preview links
+
+When the user asks for a **preview link** (or "branch build", "try on Pages") for a `cursor/*` branch:
+
+1. **`git fetch origin main`** then **`git rebase origin/main`** on the work branch (resolve conflicts, run targeted tests if needed).
+2. **`git push --force-with-lease`** so CI deploys the rebased head.
+3. Run **`bash tools/branch-preview-ready.sh`** (or full **`tools/run-harness.sh`**, which includes it) and only share the URL when it passes.
+4. Share the preview URL from the script output:
+   `https://simmo76.github.io/red-dead-texas-holdem/preview/<branch-with-slashes-as-dashes>/`
+   Deploy runs after regression via `deploy-preview.yml` (~2–5 minutes); mention that wait if CI is still running.
+
+Do **not** publish a branch preview link on a `cursor/*` tip that is behind `origin/main` — the UI will look stale (e.g. old HUD stack pill instead of `stack-plaque.png`).

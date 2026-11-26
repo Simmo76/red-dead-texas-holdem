@@ -15,7 +15,11 @@ for f in tools/*.test.mjs; do
   node "$f"
 done
 
+echo "== Branch preview policy (cursor/*) =="
+bash tools/branch-preview-ready.sh
+
 echo "== Shell acceptance =="
 bash tools/collect-previews.test.sh
+bash tools/branch-preview-ready.test.sh
 
 echo "Harness: all tiers passed"
