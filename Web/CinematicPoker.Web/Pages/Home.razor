@@ -26,6 +26,14 @@
         <div class="intro-overlay intro-splash @(_introFading ? "fading" : "") @(_namePromptOpen ? "prompting" : "")"
              @onclick="StartIntro" role="button" aria-label="Tap to play">
             <div class="intro-splash-art @(_tableScene == "street" ? "street" : "")">
+                @if (_tableScene != "street")
+                {
+                    <img class="intro-title-mark" src="img/intro-title.png?v=2" alt="" />
+                    @if (!_sceneLoading && !_namePromptOpen)
+                    {
+                        <img class="intro-tap-mark" src="img/intro-tap.png?v=1" alt="" />
+                    }
+                }
                 @if (_sceneLoading && !_namePromptOpen)
                 {
                     @* Play was tapped but the scene (saloon backdrop included) is
@@ -33,10 +41,9 @@
                        the splash or, worse, revealing a background-less table. *@
                     <div class="intro-loading" aria-live="polite">SETTING THE TABLE</div>
                 }
-                else if (!_namePromptOpen)
+                else if (!_namePromptOpen && _tableScene == "street")
                 {
-                    @* Title art + TAP TO PLAY live in the splash image; keep a
-                       pulsing hotspot over the painted CTA so the cue still animates. *@
+                    @* Octagon still paints TAP TO PLAY into its one-sheet. *@
                     <div class="intro-tap-pulse" aria-hidden="true"></div>
                 }
             </div>

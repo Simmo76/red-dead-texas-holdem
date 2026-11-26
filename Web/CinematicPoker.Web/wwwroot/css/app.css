@@ -72,17 +72,17 @@ html, body {
     justify-content: flex-end;
     gap: 10px;
     padding-bottom: max(28px, 8vh);
-    /* Same one-sheet as the Blazor intro so loading never flashes a
-       different title card. Painted title lives in the art. */
+    position: relative;
+    /* Same backdrop as the Blazor intro so loading never flashes a
+       different title card. The wordmark is a separate image. */
     /* Paths are relative to this stylesheet (css/), not the page. */
-    background: #1a0c08 url("../img/intro-splash.jpg?v=3") center / cover no-repeat;
+    background: #1a0c08 url("../img/intro-splash.jpg?v=4") center / cover no-repeat;
 }
 
-/* Desktops narrower than the one-sheet (about 2.16:1) but still wide
-   enough to keep the title: pin the right edge so the painted SETTINGS
-   plate is not sliced in half. Phones match the art and stay centered. */
+/* The octagon one-sheet is wider than 16:9. On desktops that still
+   fit the painting, pin the right edge so its title plate stays whole. */
 @media (max-aspect-ratio: 208/100) and (min-aspect-ratio: 8/5) {
-    .boot-screen { background-position: right center; }
+    html.scene-street .boot-screen { background-position: right center; }
 }
 
 /* Octagon scene keeps its own one-sheet. The class is set from
@@ -100,6 +100,13 @@ html.scene-street.resume-play .boot-screen {
     background-color: #0b0d12;
     justify-content: center;
     padding-bottom: 0;
+}
+
+html.scene-street .boot-screen .intro-title-mark,
+html.scene-street .boot-screen .intro-tap-mark,
+html.resume-play .boot-screen .intro-title-mark,
+html.resume-play .boot-screen .intro-tap-mark {
+    display: none;
 }
 
 .boot-title,
@@ -760,17 +767,15 @@ html.scene-street.resume-play .boot-screen {
     transition: opacity 3s ease;
 }
 
-/* Owner-supplied western one-sheet: title, subtitle and TAP TO PLAY are
-   painted into the art, so the splash is the image itself. The art frame
-   keeps the one-sheet's 1844×853 ratio and covers the viewport, so the
-   pulse below can be positioned against the painted plate rather than
-   the window. */
+/* Saloon splash is two layers: the porch backdrop (intro-splash.jpg) and
+   the wordmark (intro-title.png). Swap either file without repainting
+   the other. The frame keeps the backdrop's 16:9 and covers the viewport. */
 .intro-overlay.intro-splash {
     background: #1a0c08;
 }
 
 /* Beats `.intro-overlay > *` so the frame stays out of the flex flow.
-   Width/height cover the viewport while keeping 1844:853, so 100% 100%
+   Width/height cover the viewport while keeping 16:9, so 100% 100%
    maps the file onto the frame with no extra stretch. */
 .intro-overlay > .intro-splash-art {
     position: absolute;
@@ -778,13 +783,15 @@ html.scene-street.resume-play .boot-screen {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: max(100%, calc(100dvh * 1844 / 853));
-    height: max(100%, calc(100vw * 853 / 1844));
-    background: url("../img/intro-splash.jpg?v=3") center / 100% 100% no-repeat;
+    width: max(100%, calc(100dvh * 16 / 9));
+    height: max(100%, calc(100vw * 9 / 16));
+    background: url("../img/intro-splash.jpg?v=4") center / 100% 100% no-repeat;
 }
 
-/* Same frame as the saloon sheet (both are 1844×853). Only the painting changes. */
+/* Octagon one-sheet is still a single painting at 1844×853. */
 .intro-overlay > .intro-splash-art.street {
+    width: max(100%, calc(100dvh * 1844 / 853));
+    height: max(100%, calc(100vw * 853 / 1844));
     background-image: url("../img/intro-splash-street.jpg?v=2");
 }
 
@@ -799,13 +806,56 @@ html.scene-street.resume-play .boot-screen {
     top: 68.5%;
 }
 
-/* Same right-pin as the boot screen, so SETTINGS stays whole on 16:9. */
+/* Saloon has no painted plate; keep the loader under the wordmark. */
+.intro-splash-art:not(.street) .intro-loading {
+    top: 78%;
+}
+
+/* Same right-pin as the boot screen, so the octagon plate stays whole. */
 @media (max-aspect-ratio: 208/100) and (min-aspect-ratio: 8/5) {
-    .intro-overlay > .intro-splash-art {
+    .intro-overlay > .intro-splash-art.street {
         left: auto;
         right: 0;
         transform: translateY(-50%);
     }
+}
+
+/* Wordmark sits in the sky, above the table. Replace intro-title.png
+   to change the title without touching the backdrop. */
+.intro-title-mark {
+    position: absolute;
+    left: 50%;
+    top: 40%;
+    z-index: 2;
+    width: min(72%, 920px);
+    height: auto;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.5));
+}
+
+/* Separate plaque so the button can be swapped without repainting the title.
+   The whole splash is the hit target; this image is the cue. */
+.intro-tap-mark {
+    position: absolute;
+    left: 50%;
+    top: 76%;
+    z-index: 2;
+    width: min(52%, 640px);
+    height: auto;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45));
+    animation: intro-tap-breathe 1.7s ease-in-out infinite;
+}
+
+@keyframes intro-tap-breathe {
+    0%, 100% { opacity: 0.86; }
+    50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .intro-tap-mark { animation: none; }
 }
 
 /* Name prompt: dim the art so the form stays readable. */
@@ -815,6 +865,7 @@ html.scene-street.resume-play .boot-screen {
     content: "";
     position: absolute;
     inset: 0;
+    z-index: 3;
     background: rgba(6, 3, 2, 0.72);
 }
 

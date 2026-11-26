@@ -1,0 +1,45 @@
+html, body {
+    margin: 0;
+    height: 100%;
+    background: #1a0c08;
+}
+
+.intro-overlay {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: #1a0c08;
+    cursor: pointer;
+}
+
+.intro-splash-art {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: max(100%, calc(100dvh * 16 / 9));
+    height: max(100%, calc(100vw * 9 / 16));
+    background: #1a0c08 url("intro-splash.jpg") center / 100% 100% no-repeat;
+}
+
+.intro-title-mark {
+    position: absolute;
+    left: 50%;
+    top: 40%;
+    width: min(72%, 920px);
+    height: auto;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.5));
+}
+
+.intro-tap-mark {
+    position: absolute;
+    left: 50%;
+    top: 76%;
+    width: min(52%, 640px);
+    height: auto;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45));
+}
