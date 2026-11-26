@@ -2284,6 +2284,8 @@ button.act.plaque .plaque-amt {
     letter-spacing: 0.4px;
     line-height: 1.2;
     pointer-events: none;
+    transform: scale(0.9);
+    transform-origin: bottom right;
 }
 
 /* Fast-forward through the rest of the hand after you've folded. */
