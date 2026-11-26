@@ -1604,7 +1604,7 @@ html.scene-street.resume-play .boot-screen {
 /* The certificate already shows the hole cards, the board and the hand
    that won. The compare strip and the top-right card close-up would only
    sit half-shaded behind the plaque, so the celebration is the certificate.
-   The green stack pill (name + chips) sits in the bottom-left, which the
+   The stack plate (name + chips) sits in the bottom-left, which the
    enlarged plaque covers — hide it until the certificate is dismissed. */
 .game3d.banner-victory .showdown-layer,
 .game3d.banner-victory .hud-hand-rail,
@@ -2178,7 +2178,35 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .actionbar > .hud-stack {
-    flex: 0 0 auto;
+    /* The green plate already paints the chip. Name and stack sit in the
+       open felt to the right of that chip. Fixed size so the plate stays
+       beside Fold instead of stretching across the action bar. */
+    flex: 0 0 266px;
+    width: 266px;
+    min-width: 266px;
+    max-width: 266px;
+    height: 74px;
+    padding: 0 16px 0 78px;
+    gap: 8px;
+    justify-content: flex-start;
+    border: none;
+    border-radius: 0;
+    background: transparent url("../img/ui/stack-plaque.png") center / 100% 100% no-repeat;
+    box-shadow: none;
+}
+
+.actionbar > .hud-stack .hud-stack-icon {
+    display: none;
+}
+
+.actionbar > .hud-stack .hud-stack-name {
+    overflow: visible;
+    max-width: 7em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+.actionbar > .hud-stack b {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
 }
 
 .actionbar-right {
@@ -3670,6 +3698,7 @@ button.act.plaque .plaque-amt {
     .hud-meters { top: calc(90px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); }
     .hud-pot { font-size: 15px; padding: 6px 14px; }
     .hud-stack { font-size: 20px; padding: 7px 14px; }
+    .actionbar > .hud-stack { flex-basis: 223px; width: 223px; min-width: 223px; max-width: 223px; height: 62px; padding: 0 12px 0 66px; font-size: 16px; }
     .hud-stack-icon { width: 20px; height: 20px; flex-basis: 20px; }
     .hud-hand-rail { top: calc(89px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); gap: 6px; }
     .hud-board { gap: 4px; padding: 4px 5px; }
@@ -3725,6 +3754,7 @@ button.act.plaque .plaque-amt {
 
     .act { padding: 12px 14px; font-size: 13px; letter-spacing: 1px; flex: 0 1 auto; }
     button.act.plaque img { height: 68px; }
+    .actionbar > .hud-stack { flex-basis: 230px; width: 230px; min-width: 230px; max-width: 230px; height: 64px; padding: 0 12px 0 68px; font-size: 16px; }
     .actionbar { gap: 8px; }
     .actionbar-left, .actionbar-right { gap: 8px; }
     .name-entry-row { gap: 8px; }
@@ -3776,6 +3806,7 @@ button.act.plaque .plaque-amt {
     .hud-meters { top: calc(84px + env(safe-area-inset-top)); left: 14px; gap: 6px; }
     .hud-pot { font-size: 16px; padding: 6px 14px; }
     .hud-stack { font-size: 22px; padding: 7px 16px; }
+    .actionbar > .hud-stack { flex-basis: 208px; width: 208px; min-width: 208px; max-width: 208px; height: 58px; padding: 0 10px 0 60px; font-size: 15px; }
     .hud-stack-icon { width: 22px; height: 22px; flex-basis: 22px; }
     /* Clear the first chip row (6px pad + 32px button + gap). SETTINGS lives
        on that row, so the hand window must start below it. */

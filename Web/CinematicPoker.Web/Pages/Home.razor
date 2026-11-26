@@ -535,7 +535,12 @@
                 }
             </div>
             <div class="actionbar-right">
-                @if (_legal.CanCheck) { <button class="act check" @onclick="() => Act(PlayerAction.Check())">CHECK</button> }
+                @if (_legal.CanCheck)
+                {
+                    <button class="act plaque check" @onclick="() => Act(PlayerAction.Check())">
+                        <img src="img/ui/action-check.png?v=1" alt="Check" />
+                    </button>
+                }
                 @if (_legal.CanCall)
                 {
                     <button class="act plaque call" @onclick="() => Act(PlayerAction.Call())">
@@ -543,7 +548,12 @@
                         <span class="plaque-amt">$@_legal.CallAmount</span>
                     </button>
                 }
-                @if (_legal.CanBet)   { <button class="act bet" @onclick="OpenSlider">BET</button> }
+                @if (_legal.CanBet)
+                {
+                    <button class="act plaque bet" @onclick="OpenSlider">
+                        <img src="img/ui/action-bet.png?v=1" alt="Bet" />
+                    </button>
+                }
                 @if (_legal.CanRaise)
                 {
                     <button class="act plaque bet" @onclick="OpenSlider">

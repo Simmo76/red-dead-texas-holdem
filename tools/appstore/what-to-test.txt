@@ -1,5 +1,10 @@
 What to test in this build:
 
+New — Check, Bet, and the stack plate (PR #348)
+• When you can check, Check and Bet are the gold-framed plaques (green Check, gold Bet), same style as Fold and All-in.
+• The name and chip count beside Fold sit on the green stack plate, with the chip icon on the left.
+• Tap Bet to open the slider, then Back. Tap Check and confirm the hand moves on.
+
 New — larger call amount on the Call plaque (PR #347)
 • On your turn, the dollar amount on Call is a larger pill on the bottom-right corner of the plaque.
 • It may overlap the gold frame. It should not cover the CALL word.
@@ -8,7 +13,7 @@ New — larger call amount on the Call plaque (PR #347)
 New — Fold, Call, Raise, and All-in plaques (PR #345)
 • On your turn, Fold, Call, Raise, and All-in are the gold-framed plaques (green Call, red Fold, gold Raise, red All-in).
 • Call shows the amount to call in that bottom-right pill.
-• Check and Bet stay the plain buttons. Tap an action and confirm the hand moves on.
+• Check and Bet are the matching plaques. Tap an action and confirm the hand moves on.
 
 New — gold top-bar buttons (PR #344)
 • Rules, Tune, Hands, View, and Settings are the gold plate buttons (icon and word inside the frame).
