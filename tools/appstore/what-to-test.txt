@@ -1,5 +1,11 @@
 What to test in this build:
 
+New — HARD AI difficulty restored (PR #349)
+• SETTINGS → DIFFICULTY cycles EASY → NORMAL → HARD (HARD was removed earlier; it is back).
+• On HARD, NPCs should play noticeably tighter and sharper than NORMAL; EASY should still feel softer.
+• Mid-session difficulty changes should retune live NPCs without RESTART.
+• If you had an old save on HARD, restore should land on HARD again.
+
 New — Check, Bet, and the stack plate (PR #348)
 • When you can check, Check and Bet are the gold-framed plaques (green Check, gold Bet), same style as Fold and All-in.
 • The name and chip count beside Fold sit on the green stack plate, with the chip icon on the left.
