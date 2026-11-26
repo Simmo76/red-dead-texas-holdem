@@ -39,7 +39,14 @@ fetch_for_ancestry() {
   fi
 }
 
-# PR workflows check out a shallow merge commit; compare base vs head SHAs from GitHub.
+ancestor_check() {
+  local base_sha="$1"
+  local head_sha="$2"
+  fetch_for_ancestry "$base_sha" "$head_sha"
+  git merge-base --is-ancestor "$base_sha" "$head_sha"
+}
+
+# GitHub Actions uses fetch-depth: 1; compare explicit SHAs instead of shallow HEAD.
 if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
   base_sha="${GITHUB_BASE_SHA:-}"
   head_sha="${GITHUB_HEAD_SHA:-}"
@@ -47,8 +54,7 @@ if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
     echo "branch-preview-ready: skip (pull_request without base/head sha)"
     exit 0
   fi
-  fetch_for_ancestry "$base_sha" "$head_sha"
-  if git merge-base --is-ancestor "$base_sha" "$head_sha"; then
+  if ancestor_check "$base_sha" "$head_sha"; then
     echo "branch-preview-ready: OK ($branch includes pull-request base $base_sha)"
     echo "preview: $preview_url (after deploy-preview CI)"
     exit 0
@@ -56,13 +62,24 @@ if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
   fail_behind
 fi
 
-if ! git rev-parse --verify origin/main >/dev/null 2>&1; then
-  fetch_for_ancestry
-else
-  fetch_for_ancestry
+if [[ "${GITHUB_EVENT_NAME:-}" == "push" ]]; then
+  head_sha="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+  fetch_for_ancestry "" ""
+  base_sha="$(git rev-parse origin/main)"
+  if ancestor_check "$base_sha" "$head_sha"; then
+    echo "branch-preview-ready: OK ($branch includes origin/main $base_sha)"
+    echo "preview: $preview_url (after deploy-preview CI)"
+    exit 0
+  fi
+  fail_behind
 fi
 
-if ! git merge-base --is-ancestor origin/main HEAD; then
+fetch_for_ancestry
+base_sha="$(git rev-parse origin/main)"
+head_sha="$(git rev-parse HEAD)"
+if ancestor_check "$base_sha" "$head_sha"; then
+  :
+else
   fail_behind
 fi
 
