@@ -571,15 +571,15 @@ namespace CinematicPoker.Web.Pages
 
         private object CoachPayload(CompletedHandRecord hand, bool reduced)
         {
-            string[] board = hand?.FinalBoard?.Select(CardImage).ToArray() ?? Array.Empty<string>();
-            string[] hero = hand?.HeroHoleCards?.Select(CardImage).ToArray() ?? Array.Empty<string>();
+            string[] board = hand?.FinalBoard?.Select(SceneCardImage).ToArray() ?? Array.Empty<string>();
+            string[] hero = hand?.HeroHoleCards?.Select(SceneCardImage).ToArray() ?? Array.Empty<string>();
             var revealed = new List<string[]>();
             if (hand?.RevealedHands != null)
             {
                 foreach (RevealedHand shown in hand.RevealedHands)
                 {
                     if (shown == null || shown.Seat == hand.HeroSeat || shown.HoleCards == null) continue;
-                    revealed.Add(shown.HoleCards.Select(CardImage).ToArray());
+                    revealed.Add(shown.HoleCards.Select(SceneCardImage).ToArray());
                 }
             }
             return new
@@ -598,7 +598,7 @@ namespace CinematicPoker.Web.Pages
             var urls = new List<string>();
             foreach (string code in _coachReview.HighlightCodes)
             {
-                try { urls.Add(CardImage(Card.Parse(code))); }
+                try { urls.Add(SceneCardImage(Card.Parse(code))); }
                 catch (FormatException) { }
             }
             return urls.ToArray();
