@@ -1265,8 +1265,8 @@
 
     // ---------------------------------------------------------- difficulty
 
-    private static readonly string[] DifficultyNames = { "EASY", "NORMAL" };
-    private int _difficulty = 1; // NORMAL
+    private static readonly string[] DifficultyNames = AIDifficulty.Names;
+    private int _difficulty = AIDifficulty.Normal;
 
     private void CycleDifficulty()
     {
@@ -1282,25 +1282,7 @@
         }
     }
 
-    // Scales each personality's competence down on EASY without erasing what
-    // makes them distinct: aggression and tightness stay untouched, only the
-    // "how well do they actually play" parameters move. NORMAL uses the
-    // presets as authored.
-    private AIProfile WithDifficulty(AIProfile p)
-    {
-        if (_difficulty == 0) // EASY: sloppier reads, more mistakes, tilts easily
-        {
-            p.Skill *= 0.45;
-            p.PotOddsAccuracy *= 0.45;
-            p.HandReadingAbility *= 0.45;
-            p.PositionAwareness *= 0.5;
-            p.OpponentAwareness *= 0.5;
-            p.BluffFrequency *= 0.7;
-            p.DecisionNoise = Math.Min(1, p.DecisionNoise + 0.15);
-            p.TiltSensitivity = Math.Min(1, p.TiltSensitivity + 0.2);
-        }
-        return p;
-    }
+    private AIProfile WithDifficulty(AIProfile p) => AIDifficulty.Apply(p, _difficulty);
 
     private static void CopyProfile(AIProfile from, AIProfile into)
     {
@@ -2086,7 +2068,7 @@
                 return;
 
             _playerName = SanitizeName(saved.playerName, allowEmpty: true);
-            _difficulty = Math.Clamp(saved.difficulty, 0, DifficultyNames.Length - 1);
+            _difficulty = AIDifficulty.ClampIndex(saved.difficulty);
             _quickMode = saved.quickMode;
             _musicOn = !(saved.musicOff || saved.muted || saved.musicMuted);
             // Older saves stored voices/effects/ambience separately; they now
