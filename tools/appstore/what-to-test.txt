@@ -1,5 +1,11 @@
 What to test in this build:
 
+New — western 2D HUD card faces (PR #350)
+• Board and your hole cards in the bottom HUD should show the new western-style faces (larger, detailed art).
+• Cards on the 3D felt should still look like the old Kenney pack — only the overlay HUD changed.
+• Check victory / showdown banners and coach review thumbnails for the new faces too.
+• Facedown HUD slots still use the Kenney card back until we get a matching back from the same pack.
+
 New — HARD AI difficulty restored (PR #349)
 • SETTINGS → DIFFICULTY cycles EASY → NORMAL → HARD (HARD was removed earlier; it is back).
 • On HARD, NPCs should play noticeably tighter and sharper than NORMAL; EASY should still feel softer.
