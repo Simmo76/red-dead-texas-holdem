@@ -3014,22 +3014,16 @@ button.act.plaque .plaque-amt {
    painter draws IMG + solid fills, not CSS gradients. */
 .overlay-box.table-win {
     position: relative;
-    overflow: hidden;
-    /* Lock to the panel PNG aspect (972×1503) so object-fit:fill never
-       stretches the gold frame. Size by the smaller of width / height room. */
-    aspect-ratio: 972 / 1503;
-    width: min(440px, calc(100vw - 20px), calc((100dvh - 20px) * 972 / 1503));
+    overflow: visible;
+    /* Size by the smaller of width / height room so the full plaque fits.
+       Panel IMG is in-flow at natural aspect — never stretched. */
+    width: min(420px, calc(100vw - 24px), calc((100dvh - 24px) * 972 / 1503));
     max-width: 100%;
     height: auto;
-    max-height: calc(100dvh - 20px);
-    scrollbar-width: thin;
-    scrollbar-color: var(--gold-dim) transparent;
-    /* % padding is width-relative — clears star crest / side rails / bottom. */
-    padding: 11% 8% 8% 8%;
+    max-height: none;
+    padding: 0;
     gap: 0;
     border: none;
-    /* Transparent so the PNG frame's outer alpha shows the dimmed table.
-       The leather fill is painted by the panel IMG itself. */
     background-color: transparent;
     background-image: none;
     border-radius: 0;
@@ -3038,37 +3032,53 @@ button.act.plaque .plaque-amt {
     box-sizing: border-box;
 }
 
+/* In-flow panel sets the box height from the PNG's native aspect ratio. */
 .overlay-box.table-win > .win-panel-art {
-    position: absolute;
-    inset: 0;
+    position: relative;
+    display: block;
     z-index: 0;
     pointer-events: none;
     width: 100%;
-    height: 100%;
-    object-fit: fill;
+    height: auto;
+    vertical-align: top;
 }
 
-/* Content stack sits in the panel hole carved by the padding.
-   Scroll at 1× if the kit stack is taller than the frame hole; pinch-zoom
-   still pans the whole plaque when zoomed. */
+/* Content overlays the leather hole. Side inset stays modest so painted
+   banners fill the hole; min-width:0 lets flex shrink past PNG intrinsics
+   (otherwise overflow clips nameplate / haul / cards). */
 .overlay-box.table-win > .win-panel-inner {
-    position: relative;
+    position: absolute;
     z-index: 1;
+    left: 5%;
+    right: 5%;
+    top: 9.5%;
+    bottom: 5.5%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    gap: 3px;
-    width: 100%;
-    height: 100%;
+    gap: 4px;
+    width: auto;
+    max-width: 100%;
+    min-width: 0;
     min-height: 0;
     text-align: center;
+    /* overflow-y:auto alone would force overflow-x to auto and clip the
+       card fan — keep both axes clipping only as a last resort by making
+       every child fit (min-width:0 + max-width:100%). */
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     scrollbar-width: thin;
     touch-action: pan-y;
+    box-sizing: border-box;
+}
+
+.overlay-box.table-win > .win-panel-inner > * {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .overlay-box.table-win .overlay-actions {
@@ -3096,7 +3106,8 @@ button.act.plaque .plaque-amt {
     min-width: 0;
     min-height: 0;
     line-height: 0;
-    width: min(100%, 240px);
+    width: 100%;
+    max-width: 100%;
     color: transparent;
     font-size: 0;
     letter-spacing: 0;
@@ -3117,11 +3128,13 @@ button.act.plaque .plaque-amt {
 }
 
 .overlay-box.table-win .win-btn-green {
-    width: min(100%, 260px);
+    width: 100%;
+    max-width: 100%;
 }
 
 .overlay-box.table-win .win-btn-stats {
-    width: min(100%, 220px);
+    width: 92%;
+    max-width: 100%;
 }
 
 .overlay-box.table-win .win-btn:hover {
@@ -3149,15 +3162,18 @@ button.act.plaque .plaque-amt {
     justify-content: center;
     align-items: flex-end;
     width: 100%;
-    min-height: 56px;
+    max-width: 100%;
+    min-height: 48px;
     margin: 0 auto 2px;
+    overflow: visible;
+    flex-shrink: 0;
 }
 
 .win-cards-wrap > .win-rays {
     position: absolute;
     left: 50%;
     bottom: 10%;
-    width: min(70%, 260px);
+    width: min(70%, 220px);
     height: auto;
     transform: translateX(-50%);
     opacity: 0.5;
@@ -3172,15 +3188,17 @@ button.act.plaque .plaque-amt {
     display: flex;
     justify-content: center;
     align-items: flex-end;
+    max-width: 100%;
     overflow: visible;
 }
 
 .win-card {
-    width: clamp(28px, 7vw, 40px);
+    width: clamp(20px, 5vw, 32px);
     height: auto;
-    margin: 0 -6px;
+    margin: 0 -3px;
+    flex: 0 0 auto;
     display: block;
-    border-radius: 5px;
+    border-radius: 4px;
     box-shadow:
         0 6px 14px rgba(0, 0, 0, 0.55),
         0 0 0 1.5px rgba(230, 195, 106, 0.4);
@@ -3188,11 +3206,11 @@ button.act.plaque .plaque-amt {
     animation: win-card-deal 0.5s cubic-bezier(0.2, 1.1, 0.3, 1) both;
 }
 
-.win-card:nth-child(1) { --r: -26deg; --y: 14px; animation-delay: 0.08s; }
-.win-card:nth-child(2) { --r: -13deg; --y: 5px; animation-delay: 0.14s; }
+.win-card:nth-child(1) { --r: -16deg; --y: 8px; animation-delay: 0.08s; }
+.win-card:nth-child(2) { --r: -8deg; --y: 3px; animation-delay: 0.14s; }
 .win-card:nth-child(3) { --r: 0deg; --y: 0px; animation-delay: 0.2s; z-index: 2; }
-.win-card:nth-child(4) { --r: 13deg; --y: 5px; animation-delay: 0.26s; }
-.win-card:nth-child(5) { --r: 26deg; --y: 14px; animation-delay: 0.32s; }
+.win-card:nth-child(4) { --r: 8deg; --y: 3px; animation-delay: 0.26s; }
+.win-card:nth-child(5) { --r: 16deg; --y: 8px; animation-delay: 0.32s; }
 
 @keyframes win-card-deal {
     from { opacity: 0; transform: translateY(24px) rotate(0deg) scale(0.7); }
@@ -3201,15 +3219,19 @@ button.act.plaque .plaque-amt {
 
 .win-eyebrow {
     display: block;
-    width: min(94%, 380px);
+    width: 100%;
+    max-width: 100%;
     height: auto;
     margin: 0 auto;
+    flex-shrink: 0;
 }
 
 .win-nameplate {
     position: relative;
-    width: min(88%, 320px);
+    width: 100%;
+    max-width: 100%;
     margin: 0 auto;
+    flex-shrink: 0;
 }
 
 .win-nameplate-art {
@@ -3224,9 +3246,9 @@ button.act.plaque .plaque-amt {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 10%;
+    padding: 0 8%;
     font-family: 'Rye', Georgia, serif;
-    font-size: clamp(18px, 4vw, 26px);
+    font-size: clamp(16px, 4.2vw, 26px);
     font-weight: 400;
     letter-spacing: 2px;
     color: #f4e6c0;
@@ -3240,18 +3262,22 @@ button.act.plaque .plaque-amt {
 
 .win-title-flourish {
     display: block;
-    width: min(90%, 340px);
+    width: 100%;
+    max-width: 100%;
     height: auto;
     margin: -2px auto 0;
     filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
+    flex-shrink: 0;
 }
 
 .win-star-divider {
     display: block;
-    width: min(64%, 240px);
+    width: min(70%, 240px);
+    max-width: 100%;
     height: auto;
     margin: 0 auto;
     opacity: 0.95;
+    flex-shrink: 0;
 }
 
 /* The haul counts up from $0 in the code-behind; the glow pulse reuses
@@ -3262,17 +3288,21 @@ button.act.plaque .plaque-amt {
     align-items: center;
     gap: 4px;
     width: 100%;
+    max-width: 100%;
+    flex-shrink: 0;
 }
 
 .win-haul-label {
     display: block;
-    width: min(70%, 280px);
+    width: min(78%, 280px);
+    max-width: 100%;
     height: auto;
 }
 
 .win-amount-plate {
     position: relative;
-    width: min(88%, 340px);
+    width: 100%;
+    max-width: 100%;
     margin: 0 auto;
 }
 
@@ -3288,7 +3318,8 @@ button.act.plaque .plaque-amt {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: clamp(26px, 6.5vw, 40px);
+    padding: 0 6%;
+    font-size: clamp(18px, 5.5vw, 36px);
     font-weight: 800;
     letter-spacing: 1px;
     color: #ffe9a8;
@@ -3296,21 +3327,27 @@ button.act.plaque .plaque-amt {
         0 0 22px rgba(255, 220, 120, 0.55),
         0 2px 0 rgba(20, 40, 15, 0.85);
     animation: victory-amount 1.8s ease-in-out infinite;
+    white-space: nowrap;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 .win-stats {
     display: flex;
     justify-content: center;
     align-items: stretch;
-    gap: 4px;
+    gap: 3px;
     width: 100%;
+    max-width: 100%;
     margin-top: 2px;
+    flex-shrink: 0;
+    box-sizing: border-box;
 }
 
 .win-stat {
     position: relative;
     flex: 1 1 0;
-    max-width: 118px;
+    max-width: none;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -3428,26 +3465,24 @@ button.act.plaque .plaque-amt {
    compact everything to keep it on one short screen without scrolling. */
 @media (max-height: 540px) {
     .overlay-box.table-win {
-        width: min(380px, calc(100vw - 16px), calc((100dvh - 16px) * 972 / 1503));
-        padding: 10% 7% 7% 7%;
+        width: min(360px, calc(100vw - 16px), calc((100dvh - 16px) * 972 / 1503));
     }
-    .overlay-box.table-win > .win-panel-inner { gap: 2px; }
-    .win-cards-wrap { min-height: 36px; }
-    .win-card { width: 22px; margin: 0 -3px; }
-    .win-card:nth-child(1), .win-card:nth-child(5) { --y: 6px; }
-    .win-eyebrow { width: min(88%, 280px); }
-    .win-nameplate { width: min(72%, 220px); }
-    .win-nameplate-text { font-size: 13px; letter-spacing: 1px; }
-    .win-title-flourish { width: min(80%, 240px); }
-    .win-star-divider { width: min(50%, 160px); }
-    .win-haul-label { width: min(58%, 180px); }
-    .win-amount-plate { width: min(76%, 240px); }
-    .win-amount { font-size: 18px; }
-    .win-stat { max-width: 88px; }
-    .win-stat-num { font-size: 11px; }
+    .overlay-box.table-win > .win-panel-inner {
+        left: 4.5%;
+        right: 4.5%;
+        top: 9%;
+        bottom: 5%;
+        gap: 2px;
+    }
+    .win-cards-wrap { min-height: 30px; }
+    .win-card { width: 18px; margin: 0 -2px; }
+    .win-card:nth-child(1), .win-card:nth-child(5) { --y: 5px; }
+    .win-nameplate-text { font-size: 12px; letter-spacing: 1px; }
+    .win-star-divider { width: min(55%, 160px); }
+    .win-haul-label { width: min(70%, 180px); }
+    .win-amount { font-size: 16px; }
+    .win-stat-num { font-size: 10px; }
     .win-stat-label { font-size: 6px; }
-    .overlay-box.table-win .win-btn.act { width: min(100%, 180px); }
-    .overlay-box.table-win .win-btn-stats { width: min(100%, 150px); }
     .overlay-box.table-win .restart-btn { min-width: 0; }
 }
 
@@ -4169,14 +4204,11 @@ button.act.plaque .plaque-amt {
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
     .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
     .overlay-box.table-win {
-        width: min(420px, calc(100vw - 20px), calc((100dvh - 20px) * 972 / 1503));
-        padding: 10% 7% 7% 7%;
+        width: min(400px, calc(100vw - 20px), calc((100dvh - 20px) * 972 / 1503));
     }
-    .win-card { width: 34px; }
+    .win-card { width: 32px; }
     .win-nameplate-text { font-size: 20px; }
-    .win-amount-plate { width: min(84%, 300px); }
-    .win-amount { font-size: 28px; }
-    .win-stat { max-width: 100px; }
+    .win-amount { font-size: 26px; }
     .win-stat-num { font-size: 13px; }
 }
 

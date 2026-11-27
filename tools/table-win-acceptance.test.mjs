@@ -84,12 +84,18 @@ assert(
 );
 
 assert(css.includes('.overlay-box.table-win'), 'css: table-win plaque');
-assert(css.includes('aspect-ratio: 972 / 1503'), 'css: panel aspect locked (no stretch)');
+assert(css.includes('972 / 1503'), 'css: panel sized from native aspect (no stretch)');
+assert(css.includes('win-panel-art'), 'css: panel art in flow');
 assert(css.includes('.win-zoom'), 'css: pinch/pan viewport');
 assert(css.includes('.win-panel-art'), 'css: panel art layer');
 assert(css.includes('.win-panel-inner'), 'css: content inset');
+assert(
+  css.includes('.win-panel-inner > *') && css.includes('min-width: 0'),
+  'css: flex children shrink past PNG intrinsics (no horizontal clip)',
+);
 assert(css.includes('.win-cards'), 'css: dead man fan');
 assert(css.includes('.win-nameplate'), 'css: nameplate');
+assert(css.includes('width: 100%') && css.includes('.win-nameplate'), 'css: nameplate fills hole');
 assert(css.includes('.win-amount-plate'), 'css: amount plate');
 assert(css.includes('.win-stat-plaque'), 'css: stat plaques');
 assert(css.includes('.win-btn'), 'css: painted buttons');
