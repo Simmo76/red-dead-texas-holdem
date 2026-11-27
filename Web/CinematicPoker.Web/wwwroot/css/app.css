@@ -2993,7 +2993,7 @@ button.act.plaque .plaque-amt {
     scrollbar-color: var(--gold-dim) transparent;
     /* % padding is width-relative — clears star crest / side rails / bottom
        as the plaque scales, while height grows with the content stack. */
-    padding: 11% 7% 8% 7%;
+    padding: 10% 7% 7% 7%;
     gap: 0;
     border: none;
     /* Transparent so the PNG frame's outer alpha shows the dimmed table.
@@ -3002,8 +3002,8 @@ button.act.plaque .plaque-amt {
     background-image: none;
     border-radius: 0;
     box-shadow: none;
-    width: min(560px, calc(100vw - 16px));
-    max-width: min(560px, calc(100vw - 16px));
+    width: min(480px, calc(100vw - 16px));
+    max-width: min(480px, calc(100vw - 16px));
     animation: win-pop 0.55s cubic-bezier(0.18, 1.35, 0.4, 1) both;
 }
 
@@ -3024,7 +3024,7 @@ button.act.plaque .plaque-amt {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 5px;
     width: 100%;
     text-align: center;
 }
@@ -3032,10 +3032,10 @@ button.act.plaque .plaque-amt {
 .overlay-box.table-win .overlay-actions {
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     width: 100%;
     flex-shrink: 0;
-    margin-top: 6px;
+    margin-top: 2px;
 }
 
 /* Painted buttons — label text is baked into the PNG.
@@ -3054,7 +3054,7 @@ button.act.plaque .plaque-amt {
     min-width: 0;
     min-height: 0;
     line-height: 0;
-    width: min(100%, 300px);
+    width: min(100%, 260px);
     color: transparent;
     font-size: 0;
     letter-spacing: 0;
@@ -3071,11 +3071,11 @@ button.act.plaque .plaque-amt {
 }
 
 .overlay-box.table-win .win-btn-green {
-    width: min(100%, 300px);
+    width: min(100%, 260px);
 }
 
 .overlay-box.table-win .win-btn-stats {
-    width: min(100%, 260px);
+    width: min(100%, 220px);
 }
 
 .overlay-box.table-win .win-btn:hover {
@@ -3099,7 +3099,7 @@ button.act.plaque .plaque-amt {
 
 .win-card-fan {
     display: block;
-    width: min(64%, 260px);
+    width: min(52%, 200px);
     height: auto;
     margin: 0 auto;
     filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.55));
@@ -3108,14 +3108,14 @@ button.act.plaque .plaque-amt {
 
 .win-eyebrow {
     display: block;
-    width: min(96%, 420px);
+    width: min(94%, 380px);
     height: auto;
     margin: 0 auto;
 }
 
 .win-nameplate {
     position: relative;
-    width: min(94%, 400px);
+    width: min(92%, 360px);
     margin: 0 auto;
 }
 
@@ -3147,9 +3147,9 @@ button.act.plaque .plaque-amt {
 
 .win-title-flourish {
     display: block;
-    width: min(94%, 400px);
+    width: min(90%, 340px);
     height: auto;
-    margin: -4px auto 0;
+    margin: -6px auto 0;
     filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
 }
 
@@ -3159,18 +3159,18 @@ button.act.plaque .plaque-amt {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     width: 100%;
 }
 
 .win-haul-label {
     display: block;
-    width: min(78%, 320px);
+    width: min(70%, 280px);
     height: auto;
 }
 
 .win-amount {
-    font-size: clamp(36px, 8vw, 56px);
+    font-size: clamp(30px, 7vw, 46px);
     font-weight: 800;
     color: #ffe9a8;
     text-shadow:
@@ -3183,18 +3183,18 @@ button.act.plaque .plaque-amt {
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    gap: 6px;
+    gap: 4px;
     width: 100%;
-    margin-top: 4px;
+    margin-top: 2px;
 }
 
 .win-stat {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     flex: 1 1 0;
-    max-width: 140px;
+    max-width: 118px;
     min-width: 0;
 }
 
@@ -4029,15 +4029,15 @@ button.act.plaque .plaque-amt {
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
     .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
     .overlay-box.table-win {
-        width: min(540px, calc(100vw - 16px));
-        max-width: min(540px, calc(100vw - 16px));
-        padding: 11% 7% 8% 7%;
+        width: min(460px, calc(100vw - 16px));
+        max-width: min(460px, calc(100vw - 16px));
+        padding: 10% 7% 7% 7%;
     }
-    .win-card-fan { width: min(58%, 240px); }
-    .win-nameplate-text { font-size: 26px; }
-    .win-amount { font-size: 44px; }
-    .win-stat { max-width: 130px; }
-    .win-stat-num { font-size: 16px; }
+    .win-card-fan { width: min(50%, 190px); }
+    .win-nameplate-text { font-size: 22px; }
+    .win-amount { font-size: 36px; }
+    .win-stat { max-width: 110px; }
+    .win-stat-num { font-size: 14px; }
 }
 
 /* ------------------------------------------------------------- post-hand coach */
