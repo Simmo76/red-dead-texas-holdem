@@ -17,6 +17,7 @@ const plaqueAssets = [
   'table-win-panel-alt.png',
   'table-win-card-fan.png',
   'table-win-eyebrow.png',
+  'table-win-nameplate.png',
   'table-win-title-flourish.png',
   'table-win-rays.png',
   'table-win-star-divider.png',
@@ -56,7 +57,8 @@ assert(home.includes('table-win-stat-hands.png'), 'Home.razor: hands stat PNG wi
 assert(home.includes('table-win-btn-gold.png'), 'Home.razor: gold button PNG wired');
 assert(home.includes('table-win-btn-green.png'), 'Home.razor: green button PNG wired');
 assert(home.includes('table-win-btn-stats.png'), 'Home.razor: stats button PNG wired');
-assert(home.includes('win-player-name'), 'Home.razor: player name text');
+assert(home.includes('table-win-nameplate.png'), 'Home.razor: nameplate PNG wired');
+assert(home.includes('win-nameplate-text'), 'Home.razor: player name on nameplate');
 assert(home.includes('win-amount-plate'), 'Home.razor: amount plate wrap');
 assert(home.includes('winpreview=1'), 'Home.razor: ?winpreview=1 test hook');
 assert(home.includes('ShowWinPreview'), 'Home.razor: ShowWinPreview helper');
@@ -70,7 +72,7 @@ assert(css.includes('.overlay-box.table-win'), 'css: table-win plaque');
 assert(css.includes('.win-panel-art'), 'css: panel art layer');
 assert(css.includes('.win-panel-inner'), 'css: content inset');
 assert(css.includes('.win-card-fan'), 'css: card fan');
-assert(css.includes('.win-player-name'), 'css: player name');
+assert(css.includes('.win-nameplate'), 'css: nameplate');
 assert(css.includes('.win-title-wrap'), 'css: title wrap');
 assert(css.includes('.win-rays'), 'css: rays');
 assert(css.includes('.win-amount-plate'), 'css: amount plate');

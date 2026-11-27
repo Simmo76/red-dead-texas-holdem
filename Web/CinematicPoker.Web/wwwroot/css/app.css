@@ -3113,15 +3113,33 @@ button.act.plaque .plaque-amt {
     margin: 0 auto;
 }
 
-.win-player-name {
+.win-nameplate {
+    position: relative;
+    width: min(88%, 320px);
+    margin: 0 auto;
+}
+
+.win-nameplate-art {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.win-nameplate-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10%;
     font-family: 'Rye', Georgia, serif;
     font-size: clamp(18px, 4vw, 26px);
+    font-weight: 400;
     letter-spacing: 2px;
     color: #f4e6c0;
     text-shadow:
         0 2px 0 rgba(0, 0, 0, 0.75),
         0 0 14px rgba(230, 195, 106, 0.35);
-    max-width: 94%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3351,7 +3369,8 @@ button.act.plaque .plaque-amt {
     .overlay-box.table-win > .win-panel-inner { gap: 4px; }
     .win-card-fan { width: min(48%, 160px); }
     .win-eyebrow { width: min(90%, 300px); }
-    .win-player-name { font-size: 14px; letter-spacing: 1px; }
+    .win-nameplate { width: min(78%, 240px); }
+    .win-nameplate-text { font-size: 14px; letter-spacing: 1px; }
     .win-title-wrap { width: min(84%, 260px); }
     .win-haul-label { width: min(64%, 220px); }
     .win-amount-plate { width: min(80%, 260px); }
@@ -4086,7 +4105,7 @@ button.act.plaque .plaque-amt {
         padding: 10% 7% 7% 7%;
     }
     .win-card-fan { width: min(50%, 190px); }
-    .win-player-name { font-size: 22px; }
+    .win-nameplate-text { font-size: 22px; }
     .win-amount-plate { width: min(86%, 320px); }
     .win-amount { font-size: 32px; }
     .win-stat { max-width: 110px; }
