@@ -2982,7 +2982,7 @@ button.act.plaque .plaque-amt {
 
 /* ------------------------------------------- table-win celebration */
 
-/* Winner-takes-all overlay: western wood+gold plaque frame + sunburst.
+/* Winner-takes-all overlay: dark gold kit panel + painted plaques.
    Solid background-color still matters as a fallback — the victory shot
    painter draws IMG + solid fills, not CSS gradients. */
 .overlay-box.table-win {
@@ -2991,13 +2991,13 @@ button.act.plaque .plaque-amt {
     max-height: none;
     scrollbar-width: thin;
     scrollbar-color: var(--gold-dim) transparent;
-    /* % padding is width-relative — clears badge / side rails / bottom V
+    /* % padding is width-relative — clears star crest / side rails / bottom
        as the plaque scales, while height grows with the content stack. */
-    padding: 12% 9% 14% 9%;
+    padding: 11% 7% 8% 7%;
     gap: 0;
     border: none;
     /* Transparent so the PNG frame's outer alpha shows the dimmed table.
-       The parchment fill is painted by the panel IMG itself. */
+       The leather fill is painted by the panel IMG itself. */
     background-color: transparent;
     background-image: none;
     border-radius: 0;
@@ -3007,32 +3007,17 @@ button.act.plaque .plaque-amt {
     animation: win-pop 0.55s cubic-bezier(0.18, 1.35, 0.4, 1) both;
 }
 
-.overlay-box.table-win > .win-panel-art,
-.overlay-box.table-win > .win-sunburst {
+.overlay-box.table-win > .win-panel-art {
     position: absolute;
+    inset: 0;
     z-index: 0;
     pointer-events: none;
-}
-
-.overlay-box.table-win > .win-panel-art {
-    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: fill;
 }
 
-.overlay-box.table-win > .win-sunburst {
-    left: 50%;
-    top: 4%;
-    width: 38%;
-    height: auto;
-    aspect-ratio: 1;
-    transform: translateX(-50%);
-    opacity: 0.4;
-    animation: win-rays-spin 18s linear infinite;
-}
-
-/* Content stack sits in the parchment hole carved by the padding. */
+/* Content stack sits in the panel hole carved by the padding. */
 .overlay-box.table-win > .win-panel-inner {
     position: relative;
     z-index: 1;
@@ -3044,58 +3029,67 @@ button.act.plaque .plaque-amt {
     text-align: center;
 }
 
-.overlay-box.table-win .overlay-title {
-    font-family: 'Rye', Georgia, serif;
-    font-size: clamp(24px, 4.2vw, 34px);
-    font-weight: 400;
-    letter-spacing: 2px;
-    color: #8a5a12;
-    animation: win-title-glow 2.2s ease-in-out infinite;
-}
-
 .overlay-box.table-win .overlay-actions {
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
     width: 100%;
     flex-shrink: 0;
+    margin-top: 6px;
 }
 
-.overlay-box.table-win .win-btn-gold,
-.overlay-box.table-win .win-btn-green {
+/* Painted buttons — label text is baked into the PNG.
+   Reset .act / .call / .big / .restart-btn so plaque chrome isn't padded. */
+.overlay-box.table-win .win-btn.act,
+.overlay-box.table-win .win-btn.act.call,
+.overlay-box.table-win .win-btn.act.big,
+.overlay-box.table-win .win-btn.restart-btn {
     border: none;
+    border-radius: 0;
     box-shadow: none;
+    background: transparent;
     background-color: transparent;
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: 100% 100%;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
-    min-height: 44px;
-    padding: 10px 28px;
-    width: min(100%, 280px);
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
+    line-height: 0;
+    width: min(100%, 300px);
+    color: transparent;
+    font-size: 0;
+    letter-spacing: 0;
+    text-shadow: none;
+    cursor: pointer;
 }
 
-.overlay-box.table-win .win-btn-gold {
-    background-image: url("../img/ui/table-win-btn-gold.png");
-    color: #2a1808;
-    font-weight: 700;
-    text-shadow: 0 1px 0 rgba(255, 230, 170, 0.35);
+.overlay-box.table-win .win-btn img {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+    user-select: none;
 }
 
 .overlay-box.table-win .win-btn-green {
-    background-image: url("../img/ui/table-win-btn-green.png");
-    color: #f7f1e3;
-    font-weight: 800;
-    letter-spacing: 1.5px;
-    min-width: 240px;
+    width: min(100%, 300px);
 }
 
-.overlay-box.table-win .act.small {
-    background: transparent;
-    border: none;
-    color: #6a5840;
-    text-decoration: underline;
-    text-underline-offset: 3px;
+.overlay-box.table-win .win-btn-stats {
+    width: min(100%, 260px);
+}
+
+.overlay-box.table-win .win-btn:hover {
+    filter: brightness(1.08);
+}
+
+.overlay-box.table-win .win-btn:active {
+    transform: translateY(1px);
+}
+
+.overlay-box.table-win .win-btn:disabled {
+    opacity: 0.55;
+    cursor: wait;
+    filter: none;
 }
 
 @keyframes win-pop {
@@ -3103,99 +3097,60 @@ button.act.plaque .plaque-amt {
     to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-@keyframes win-title-glow {
-    0%, 100% { text-shadow: 0 2px 0 rgba(255, 248, 220, 0.85), 0 0 18px rgba(180, 120, 40, 0.25); }
-    50% { text-shadow: 0 2px 0 rgba(255, 248, 220, 0.95), 0 0 28px rgba(200, 140, 50, 0.45); }
-}
-
-@keyframes win-rays-spin {
-    from { transform: translateX(-50%) rotate(0deg); }
-    to { transform: translateX(-50%) rotate(360deg); }
+.win-card-fan {
+    display: block;
+    width: min(64%, 260px);
+    height: auto;
+    margin: 0 auto;
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.55));
+    animation: win-card-deal 0.55s cubic-bezier(0.2, 1.1, 0.3, 1) both;
 }
 
 .win-eyebrow {
+    display: block;
+    width: min(96%, 420px);
+    height: auto;
+    margin: 0 auto;
+}
+
+.win-nameplate {
+    position: relative;
+    width: min(94%, 400px);
+    margin: 0 auto;
+}
+
+.win-nameplate-art {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.win-nameplate-text {
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    margin-bottom: -6px;
-}
-
-.win-star {
-    width: 18px;
-    height: 18px;
-    object-fit: contain;
-    flex-shrink: 0;
-    filter: drop-shadow(0 0 6px rgba(230, 195, 106, 0.55));
-}
-
-.win-eyebrow-text {
-    display: inline-block;
-    white-space: nowrap;
-    font-size: clamp(10px, 2.4vw, 13px);
-    letter-spacing: clamp(2px, 0.55vw, 5px);
-    color: #7a5210;
-    text-shadow: 0 1px 0 rgba(255, 248, 220, 0.8);
-}
-
-.overlay-box.table-win .win-haul-label {
-    color: #6a5840;
-}
-
-.overlay-box.table-win .win-amount {
-    color: #9a6414;
+    padding: 0 10%;
+    font-family: 'Rye', Georgia, serif;
+    font-size: clamp(20px, 4.4vw, 30px);
+    font-weight: 400;
+    letter-spacing: 2px;
+    color: #f4e6c0;
     text-shadow:
-        0 1px 0 rgba(255, 248, 220, 0.9),
-        0 0 22px rgba(180, 120, 40, 0.35);
+        0 2px 0 rgba(0, 0, 0, 0.65),
+        0 0 14px rgba(230, 195, 106, 0.35);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.overlay-box.table-win .win-stat-num {
-    color: #8a5a12;
-}
-
-.overlay-box.table-win .win-stat-label {
-    color: #6a5840;
-}
-
-.overlay-box.table-win .win-stat + .win-stat {
-    border-left-color: rgba(140, 110, 70, 0.35);
-}
-
-/* Dead man's hand from the western card pack, fanned over the plaque.
-   Fan angle/lift live in --r/--y so one keyframe serves all five. */
-.win-cards {
-    display: flex;
-    justify-content: center;
-    align-items: flex-end;
-    min-height: 0;
-    margin: 0;
-    padding-top: 0;
-    overflow: visible;
-    flex-shrink: 0;
-}
-
-.win-card {
-    width: clamp(28px, 7vw, 42px);
-    height: auto;
-    margin: 0 -6px;
+.win-title-flourish {
     display: block;
-    border-radius: 6px;
-    box-shadow:
-        0 8px 18px rgba(0, 0, 0, 0.6),
-        0 0 0 1.5px rgba(230, 195, 106, 0.45);
-    transform: translateY(var(--y, 0px)) rotate(var(--r, 0deg));
-    animation: win-card-deal 0.5s cubic-bezier(0.2, 1.1, 0.3, 1) both;
-}
-
-.win-card:nth-child(1) { --r: -26deg; --y: 16px; animation-delay: 0.08s; }
-.win-card:nth-child(2) { --r: -13deg; --y: 5px; animation-delay: 0.16s; }
-.win-card:nth-child(3) { --r: 0deg; --y: 0px; animation-delay: 0.24s; z-index: 2; }
-.win-card:nth-child(4) { --r: 13deg; --y: 5px; animation-delay: 0.32s; }
-.win-card:nth-child(5) { --r: 26deg; --y: 16px; animation-delay: 0.4s; }
-
-@keyframes win-card-deal {
-    from { opacity: 0; transform: translateY(30px) rotate(0deg) scale(0.6); }
-    to { opacity: 1; transform: translateY(var(--y, 0px)) rotate(var(--r, 0deg)) scale(1); }
+    width: min(94%, 400px);
+    height: auto;
+    margin: -4px auto 0;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
 }
 
 /* The haul counts up from $0 in the code-behind; the glow pulse reuses
@@ -3203,18 +3158,19 @@ button.act.plaque .plaque-amt {
 .win-haul {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-top: -6px;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
 }
 
 .win-haul-label {
-    font-size: 11px;
-    letter-spacing: 4px;
-    color: var(--text-dim);
+    display: block;
+    width: min(78%, 320px);
+    height: auto;
 }
 
 .win-amount {
-    font-size: clamp(40px, 9vw, 60px);
+    font-size: clamp(36px, 8vw, 56px);
     font-weight: 800;
     color: #ffe9a8;
     text-shadow:
@@ -3226,30 +3182,49 @@ button.act.plaque .plaque-amt {
 .win-stats {
     display: flex;
     justify-content: center;
-    margin-top: -6px;
+    align-items: flex-end;
+    gap: 6px;
+    width: 100%;
+    margin-top: 4px;
 }
 
 .win-stat {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 4px;
-    padding: 0 18px;
+    flex: 1 1 0;
+    max-width: 140px;
+    min-width: 0;
 }
 
-.win-stat + .win-stat {
-    border-left: 1px solid rgba(140, 110, 70, 0.4);
+.win-stat-plaque {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.win-stat-divider {
+    width: 3px;
+    height: 72%;
+    align-self: center;
+    object-fit: fill;
+    margin: 0 1px;
+    opacity: 0.85;
 }
 
 .win-stat-num {
-    font-size: 20px;
+    font-size: clamp(14px, 3vw, 18px);
     font-weight: 800;
-    color: var(--gold);
+    letter-spacing: 0.5px;
+    color: #ffe9a8;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+    line-height: 1.1;
 }
 
-.win-stat-label {
-    font-size: 10px;
-    letter-spacing: 2.5px;
-    color: var(--text-dim);
+@keyframes win-card-deal {
+    from { opacity: 0; transform: translateY(18px) scale(0.85); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* Confetti shower behind the plaque. Per-piece size, color, drift, and
@@ -3307,38 +3282,33 @@ button.act.plaque .plaque-amt {
 
 @media (prefers-reduced-motion: reduce) {
     .confetti-piece,
-    .win-sunburst,
-    .overlay-box.table-win .overlay-title,
-    .win-amount {
+    .win-amount,
+    .win-card-fan {
         animation: none;
     }
     .confetti-piece { opacity: 0.85; top: auto; }
-    .win-card { animation-duration: 0.01s; }
 }
 
 /* Landscape phones: the table-win plaque holds a lot of celebration, so
    compact everything to keep it on one short screen without scrolling. */
 @media (max-height: 540px) {
     .overlay-box.table-win {
-        width: min(480px, calc(100vw - 12px));
-        max-width: min(480px, calc(100vw - 12px));
-        padding: 11% 8% 13% 8%;
+        width: min(460px, calc(100vw - 12px));
+        max-width: min(460px, calc(100vw - 12px));
+        padding: 10% 7% 7% 7%;
     }
-    .overlay-box.table-win > .win-panel-inner { gap: 5px; }
-    .overlay-box.table-win .overlay-title { font-size: 18px; }
-    .win-card { width: 26px; margin: 0 -4px; border-radius: 3px; }
-    .win-card:nth-child(1) { --y: 6px; }
-    .win-card:nth-child(5) { --y: 6px; }
-    .win-eyebrow { gap: 6px; }
-    .win-star { width: 12px; height: 12px; }
-    .win-eyebrow-text { font-size: 9px; letter-spacing: 2px; }
-    .win-haul { gap: 1px; }
+    .overlay-box.table-win > .win-panel-inner { gap: 4px; }
+    .win-card-fan { width: min(48%, 160px); }
+    .win-eyebrow { width: min(90%, 300px); }
+    .win-nameplate { width: min(86%, 280px); }
+    .win-nameplate-text { font-size: 16px; letter-spacing: 1px; }
+    .win-title-flourish { width: min(84%, 260px); }
+    .win-haul-label { width: min(64%, 220px); }
     .win-amount { font-size: 24px; }
-    .win-stat { gap: 1px; padding: 0 8px; }
-    .win-stat-num { font-size: 13px; }
-    .win-stat-label { font-size: 8px; }
-    .overlay-box.table-win .win-btn-gold,
-    .overlay-box.table-win .win-btn-green { min-height: 36px; padding: 6px 18px; }
+    .win-stat { max-width: 100px; gap: 2px; }
+    .win-stat-num { font-size: 12px; }
+    .overlay-box.table-win .win-btn.act { width: min(100%, 220px); }
+    .overlay-box.table-win .win-btn-stats { width: min(100%, 190px); }
 }
 
 .restart-btn { min-width: 220px; }
@@ -4059,18 +4029,15 @@ button.act.plaque .plaque-amt {
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
     .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
     .overlay-box.table-win {
-        width: min(520px, calc(100vw - 16px));
-        max-width: min(520px, calc(100vw - 16px));
-        padding: 12% 9% 14% 9%;
+        width: min(540px, calc(100vw - 16px));
+        max-width: min(540px, calc(100vw - 16px));
+        padding: 11% 7% 8% 7%;
     }
-    .overlay-box.table-win .overlay-title { font-size: 24px; letter-spacing: 2px; }
-    .win-cards { min-height: 72px; padding-top: 10px; }
-    .win-card { width: 42px; margin: 0 -7px; }
-    .win-eyebrow { margin-bottom: -6px; }
-    .win-eyebrow-text { font-size: 11px; letter-spacing: 3.5px; }
-    .win-amount { font-size: 36px; }
-    .win-stat { padding: 0 12px; }
-    .win-stat-num { font-size: 17px; }
+    .win-card-fan { width: min(58%, 240px); }
+    .win-nameplate-text { font-size: 26px; }
+    .win-amount { font-size: 44px; }
+    .win-stat { max-width: 130px; }
+    .win-stat-num { font-size: 16px; }
 }
 
 /* ------------------------------------------------------------- post-hand coach */

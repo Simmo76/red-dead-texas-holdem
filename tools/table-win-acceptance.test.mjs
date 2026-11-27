@@ -11,16 +11,22 @@ function assert(cond, msg) {
 }
 
 const ui = join(root, 'Web/CinematicPoker.Web/wwwroot/img/ui');
-const cards = join(root, 'Web/CinematicPoker.Web/wwwroot/img/cards/ui');
 
 const plaqueAssets = [
   'table-win-panel.png',
-  'table-win-sunburst.png',
-  'table-win-star.png',
-  'table-win-star-sm.png',
+  'table-win-panel-alt.png',
+  'table-win-card-fan.png',
   'table-win-eyebrow.png',
+  'table-win-nameplate.png',
+  'table-win-title-flourish.png',
+  'table-win-haul-label.png',
+  'table-win-stat-hands.png',
+  'table-win-stat-rivals.png',
+  'table-win-stat-biggest.png',
+  'table-win-stat-divider.png',
   'table-win-btn-gold.png',
   'table-win-btn-green.png',
+  'table-win-btn-stats.png',
   'table-win-confetti-red.png',
   'table-win-confetti-green.png',
   'table-win-confetti-gold.png',
@@ -32,31 +38,25 @@ for (const name of plaqueAssets) {
   assert(statSync(path).size > 200, `${name} looks empty`);
 }
 
-// Dead man's hand fan — western card pack faces used by the overlay.
-const handCards = [
-  'spades_A.png',
-  'clubs_A.png',
-  'hearts_Q.png',
-  'spades_8.png',
-  'clubs_8.png',
-];
-for (const name of handCards) {
-  assert(existsSync(join(cards, name)), `missing western card: ${name}`);
-}
-
 const home = readFileSync(join(root, 'Web/CinematicPoker.Web/Pages/Home.razor'), 'utf8');
 const css = readFileSync(join(root, 'Web/CinematicPoker.Web/wwwroot/css/app.css'), 'utf8');
 const shot = readFileSync(join(root, 'Web/CinematicPoker.Web/wwwroot/js/poker-screenshot.js'), 'utf8');
 
-assert(home.includes('table-win-panel.png'), 'Home.razor: panel PNG wired');
-assert(home.includes('table-win-sunburst.png'), 'Home.razor: sunburst PNG wired');
-assert(home.includes('table-win-star-sm.png'), 'Home.razor: star PNG wired');
-assert(home.includes('table-win-confetti-red.png'), 'Home.razor: confetti sprites listed');
+assert(home.includes('table-win-panel-alt.png'), 'Home.razor: kit panel PNG wired');
+assert(home.includes('table-win-card-fan.png'), 'Home.razor: card fan PNG wired');
+assert(home.includes('table-win-eyebrow.png'), 'Home.razor: eyebrow PNG wired');
+assert(home.includes('table-win-nameplate.png'), 'Home.razor: nameplate PNG wired');
+assert(home.includes('table-win-title-flourish.png'), 'Home.razor: title flourish PNG wired');
+assert(home.includes('table-win-haul-label.png'), 'Home.razor: haul label PNG wired');
+assert(home.includes('table-win-stat-hands.png'), 'Home.razor: hands stat PNG wired');
+assert(home.includes('table-win-stat-rivals.png'), 'Home.razor: rivals stat PNG wired');
+assert(home.includes('table-win-stat-biggest.png'), 'Home.razor: biggest pot PNG wired');
+assert(home.includes('table-win-btn-gold.png'), 'Home.razor: gold button PNG wired');
+assert(home.includes('table-win-btn-green.png'), 'Home.razor: green button PNG wired');
+assert(home.includes('table-win-btn-stats.png'), 'Home.razor: stats button PNG wired');
 assert(home.includes('win-btn-gold'), 'Home.razor: gold Export Certificate plaque class');
 assert(home.includes('win-btn-green'), 'Home.razor: green Sit New Table plaque class');
-assert(home.includes('WINNER TAKES ALL'), 'Home.razor: eyebrow copy');
-assert(home.includes('img/cards/ui/spades_A.png'), 'Home.razor: western A♠ in fan');
-assert(home.includes('img/cards/ui/clubs_8.png'), 'Home.razor: western 8♣ in fan');
+assert(home.includes('win-nameplate-text'), 'Home.razor: player name on nameplate');
 assert(home.includes('winpreview=1'), 'Home.razor: ?winpreview=1 test hook');
 assert(home.includes('ShowWinPreview'), 'Home.razor: ShowWinPreview helper');
 assert(home.includes('ConfettiSprite'), 'Home.razor: ConfettiSprite helper');
@@ -67,15 +67,17 @@ assert(
 );
 
 assert(css.includes('.overlay-box.table-win'), 'css: table-win plaque');
-assert(css.includes('table-win-btn-gold.png'), 'css: gold button plaque');
-assert(css.includes('table-win-btn-green.png'), 'css: green button plaque');
 assert(css.includes('.win-panel-art'), 'css: panel art layer');
-assert(css.includes('.win-panel-inner'), 'css: parchment content inset');
-assert(home.includes('win-panel-inner'), 'Home.razor: parchment content inset');
-assert(css.includes('.win-sunburst'), 'css: sunburst layer');
-assert(css.includes('.win-star'), 'css: star ornaments');
+assert(css.includes('.win-panel-inner'), 'css: content inset');
+assert(home.includes('win-panel-inner'), 'Home.razor: content inset');
+assert(css.includes('.win-card-fan'), 'css: card fan');
+assert(css.includes('.win-nameplate'), 'css: nameplate');
+assert(css.includes('.win-title-flourish'), 'css: title flourish');
+assert(css.includes('.win-stat-plaque'), 'css: stat plaques');
+assert(css.includes('.win-btn'), 'css: painted buttons');
 assert(css.includes('.confetti-sprite'), 'css: confetti sprite pieces');
 assert(!css.includes('.overlay-box.table-win > .win-rays'), 'css: legacy CSS ray burst removed');
+assert(!home.includes('TableWinSunburstImage'), 'Home.razor: sunburst layer removed (baked into kit panel)');
 
 assert(
   shot.includes(".win-celebration .overlay-box.table-win"),
@@ -85,7 +87,5 @@ assert(
 console.log(
   'table-win-acceptance: OK (' +
     plaqueAssets.length +
-    ' PNGs, ' +
-    handCards.length +
-    ' cards, Razor/CSS/screenshot wiring)',
+    ' PNGs, Razor/CSS/screenshot wiring)',
 );

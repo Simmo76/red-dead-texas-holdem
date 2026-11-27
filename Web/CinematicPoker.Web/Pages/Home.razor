@@ -679,24 +679,16 @@
                     @* Ornate plaque chrome as real PNGs so Export Certificate
                        captures them (the shot painter draws IMG, not CSS bg). *@
                     <img class="win-panel-art" src="@TableWinPanelImage" alt="" aria-hidden="true" />
-                    <img class="win-sunburst" src="@TableWinSunburstImage" alt="" aria-hidden="true" />
                     <div class="win-panel-inner">
-                        <div class="win-eyebrow" aria-hidden="true">
-                            <img class="win-star" src="@TableWinStarImage" alt="" />
-                            <span class="win-eyebrow-text">WINNER TAKES ALL</span>
-                            <img class="win-star" src="@TableWinStarImage" alt="" />
+                        <img class="win-card-fan" src="@TableWinCardFanImage" alt="" aria-hidden="true" />
+                        <img class="win-eyebrow" src="@TableWinEyebrowImage" alt="Winner takes all" />
+                        <div class="win-nameplate">
+                            <img class="win-nameplate-art" src="@TableWinNameplateImage" alt="" aria-hidden="true" />
+                            <span class="win-nameplate-text">@PlayerName</span>
                         </div>
-                        @* Dead man's hand — western card pack flourish. *@
-                        <div class="win-cards" aria-hidden="true">
-                            <img class="win-card" src="img/cards/ui/spades_A.png" alt="" />
-                            <img class="win-card" src="img/cards/ui/clubs_A.png" alt="" />
-                            <img class="win-card" src="img/cards/ui/hearts_Q.png" alt="" />
-                            <img class="win-card" src="img/cards/ui/spades_8.png" alt="" />
-                            <img class="win-card" src="img/cards/ui/clubs_8.png" alt="" />
-                        </div>
-                        <div class="overlay-title">@_sessionOverMessage</div>
+                        <img class="win-title-flourish" src="@TableWinTitleFlourishImage" alt="Takes the table!" />
                         <div class="win-haul">
-                            <div class="win-haul-label">RIDES OFF WITH</div>
+                            <img class="win-haul-label" src="@TableWinHaulLabelImage" alt="Rides off with" />
                             <div class="win-amount">$@_haulShown.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</div>
                         </div>
                         @if (_game != null)
@@ -706,17 +698,19 @@
                             <div class="win-stats">
                                 <div class="win-stat">
                                     <span class="win-stat-num">@handsPlayed</span>
-                                    <span class="win-stat-label">@(handsPlayed == 1 ? "HAND" : "HANDS")</span>
+                                    <img class="win-stat-plaque" src="@TableWinStatHandsImage" alt="Hands" />
                                 </div>
+                                <img class="win-stat-divider" src="@TableWinStatDividerImage" alt="" aria-hidden="true" />
                                 <div class="win-stat">
                                     <span class="win-stat-num">@rivalsBusted</span>
-                                    <span class="win-stat-label">@(rivalsBusted == 1 ? "RIVAL BUSTED" : "RIVALS BUSTED")</span>
+                                    <img class="win-stat-plaque" src="@TableWinStatRivalsImage" alt="Rivals busted" />
                                 </div>
                                 @if (_biggestPotWon > 0)
                                 {
+                                    <img class="win-stat-divider" src="@TableWinStatDividerImage" alt="" aria-hidden="true" />
                                     <div class="win-stat">
                                         <span class="win-stat-num">$@_biggestPotWon.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</span>
-                                        <span class="win-stat-label">BIGGEST POT</span>
+                                        <img class="win-stat-plaque" src="@TableWinStatBiggestImage" alt="Biggest pot" />
                                     </div>
                                 }
                             </div>
@@ -731,21 +725,28 @@
                             {
                                 @if (_humanWon)
                                 {
-                                    <button type="button" class="act victory-shot win-btn-gold" disabled="@_shotBusy"
-                                            @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true">
-                                        Export Certificate
+                                    <button type="button" class="act victory-shot win-btn win-btn-gold" disabled="@_shotBusy"
+                                            @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true"
+                                            aria-label="Export Certificate">
+                                        <img src="@TableWinBtnGoldImage" alt="Export Certificate" />
                                     </button>
                                     @if (!string.IsNullOrEmpty(_shotStatus))
                                     {
                                         <div class="victory-shot-status">@_shotStatus</div>
                                     }
-                                    <button class="act call big restart-btn win-btn-green" @onclick="ContinueGame">SIT NEW TABLE</button>
+                                    <button class="act call big restart-btn win-btn win-btn-green" @onclick="ContinueGame"
+                                            aria-label="Sit new table">
+                                        <img src="@TableWinBtnGreenImage" alt="Sit new table" />
+                                    </button>
                                 }
                                 else
                                 {
                                     <button class="act allin big restart-btn" @onclick="StartSession">RESTART</button>
                                 }
-                                <button class="act small" @onclick="OpenExportPanel">EXPORT STATS</button>
+                                <button type="button" class="act win-btn win-btn-stats" @onclick="OpenExportPanel"
+                                        aria-label="Export stats">
+                                    <img src="@TableWinBtnStatsImage" alt="Export stats" />
+                                </button>
                             }
                             else
                             {
@@ -1430,9 +1431,20 @@
 
     private const string VictoryTrophyImage = "images/victory-trophy.png";
     private const string VictoryGalleryPlaqueImage = "images/victory-gallery-of-wins.png?v=4";
-    private const string TableWinPanelImage = "img/ui/table-win-panel.png?v=2";
-    private const string TableWinSunburstImage = "img/ui/table-win-sunburst.png?v=1";
-    private const string TableWinStarImage = "img/ui/table-win-star-sm.png?v=2";
+    // Dark gold kit panel from the Winner Takes All sprite sheet (sunburst baked in).
+    private const string TableWinPanelImage = "img/ui/table-win-panel-alt.png?v=3";
+    private const string TableWinCardFanImage = "img/ui/table-win-card-fan.png?v=3";
+    private const string TableWinEyebrowImage = "img/ui/table-win-eyebrow.png?v=3";
+    private const string TableWinNameplateImage = "img/ui/table-win-nameplate.png?v=3";
+    private const string TableWinTitleFlourishImage = "img/ui/table-win-title-flourish.png?v=3";
+    private const string TableWinHaulLabelImage = "img/ui/table-win-haul-label.png?v=3";
+    private const string TableWinStatHandsImage = "img/ui/table-win-stat-hands.png?v=3";
+    private const string TableWinStatRivalsImage = "img/ui/table-win-stat-rivals.png?v=3";
+    private const string TableWinStatBiggestImage = "img/ui/table-win-stat-biggest.png?v=3";
+    private const string TableWinStatDividerImage = "img/ui/table-win-stat-divider.png?v=3";
+    private const string TableWinBtnGoldImage = "img/ui/table-win-btn-gold.png?v=3";
+    private const string TableWinBtnGreenImage = "img/ui/table-win-btn-green.png?v=3";
+    private const string TableWinBtnStatsImage = "img/ui/table-win-btn-stats.png?v=3";
     private static readonly string[] TableWinConfettiSprites =
     {
         "img/ui/table-win-confetti-red.png?v=1",
