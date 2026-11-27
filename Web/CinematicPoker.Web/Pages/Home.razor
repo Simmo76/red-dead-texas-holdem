@@ -682,14 +682,18 @@
                     <div class="win-panel-inner">
                         <img class="win-card-fan" src="@TableWinCardFanImage" alt="" aria-hidden="true" />
                         <img class="win-eyebrow" src="@TableWinEyebrowImage" alt="Winner takes all" />
-                        <div class="win-nameplate">
-                            <img class="win-nameplate-art" src="@TableWinNameplateImage" alt="" aria-hidden="true" />
-                            <span class="win-nameplate-text">@PlayerName</span>
+                        <div class="win-player-name">@PlayerName</div>
+                        <div class="win-title-wrap">
+                            <img class="win-rays" src="@TableWinRaysImage" alt="" aria-hidden="true" />
+                            <img class="win-title-flourish" src="@TableWinTitleFlourishImage" alt="Takes the table!" />
                         </div>
-                        <img class="win-title-flourish" src="@TableWinTitleFlourishImage" alt="Takes the table!" />
+                        <img class="win-star-divider" src="@TableWinStarDividerImage" alt="" aria-hidden="true" />
                         <div class="win-haul">
                             <img class="win-haul-label" src="@TableWinHaulLabelImage" alt="Rides off with" />
-                            <div class="win-amount">$@_haulShown.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</div>
+                            <div class="win-amount-plate">
+                                <img class="win-amount-plate-art" src="@TableWinAmountPlateImage" alt="" aria-hidden="true" />
+                                <span class="win-amount">$@_haulShown.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</span>
+                            </div>
                         </div>
                         @if (_game != null)
                         {
@@ -697,20 +701,23 @@
                             int rivalsBusted = _game.Players.Count - 1;
                             <div class="win-stats">
                                 <div class="win-stat">
+                                    <img class="win-stat-plaque" src="@TableWinStatHandsImage" alt="" />
                                     <span class="win-stat-num">@handsPlayed</span>
-                                    <img class="win-stat-plaque" src="@TableWinStatHandsImage" alt="Hands" />
+                                    <span class="win-stat-label">@(handsPlayed == 1 ? "HAND" : "HANDS")</span>
                                 </div>
                                 <img class="win-stat-divider" src="@TableWinStatDividerImage" alt="" aria-hidden="true" />
                                 <div class="win-stat">
+                                    <img class="win-stat-plaque" src="@TableWinStatRivalsImage" alt="" />
                                     <span class="win-stat-num">@rivalsBusted</span>
-                                    <img class="win-stat-plaque" src="@TableWinStatRivalsImage" alt="Rivals busted" />
+                                    <span class="win-stat-label">@(rivalsBusted == 1 ? "RIVAL BUSTED" : "RIVALS BUSTED")</span>
                                 </div>
                                 @if (_biggestPotWon > 0)
                                 {
                                     <img class="win-stat-divider" src="@TableWinStatDividerImage" alt="" aria-hidden="true" />
                                     <div class="win-stat">
+                                        <img class="win-stat-plaque" src="@TableWinStatBiggestImage" alt="" />
                                         <span class="win-stat-num">$@_biggestPotWon.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</span>
-                                        <img class="win-stat-plaque" src="@TableWinStatBiggestImage" alt="Biggest pot" />
+                                        <span class="win-stat-label">BIGGEST POT</span>
                                     </div>
                                 }
                             </div>
@@ -1431,20 +1438,22 @@
 
     private const string VictoryTrophyImage = "images/victory-trophy.png";
     private const string VictoryGalleryPlaqueImage = "images/victory-gallery-of-wins.png?v=4";
-    // Dark gold kit panel from the Winner Takes All sprite sheet (sunburst baked in).
+    // Star-crest panel (standalone) + refreshed kit plaques from the latest sprite sheet.
     private const string TableWinPanelImage = "img/ui/table-win-panel-alt.png?v=4";
-    private const string TableWinCardFanImage = "img/ui/table-win-card-fan.png?v=3";
-    private const string TableWinEyebrowImage = "img/ui/table-win-eyebrow.png?v=3";
-    private const string TableWinNameplateImage = "img/ui/table-win-nameplate.png?v=3";
-    private const string TableWinTitleFlourishImage = "img/ui/table-win-title-flourish.png?v=3";
-    private const string TableWinHaulLabelImage = "img/ui/table-win-haul-label.png?v=3";
-    private const string TableWinStatHandsImage = "img/ui/table-win-stat-hands.png?v=3";
-    private const string TableWinStatRivalsImage = "img/ui/table-win-stat-rivals.png?v=3";
-    private const string TableWinStatBiggestImage = "img/ui/table-win-stat-biggest.png?v=3";
-    private const string TableWinStatDividerImage = "img/ui/table-win-stat-divider.png?v=3";
-    private const string TableWinBtnGoldImage = "img/ui/table-win-btn-gold.png?v=3";
-    private const string TableWinBtnGreenImage = "img/ui/table-win-btn-green.png?v=3";
-    private const string TableWinBtnStatsImage = "img/ui/table-win-btn-stats.png?v=3";
+    private const string TableWinCardFanImage = "img/ui/table-win-card-fan.png?v=5";
+    private const string TableWinEyebrowImage = "img/ui/table-win-eyebrow.png?v=5";
+    private const string TableWinTitleFlourishImage = "img/ui/table-win-title-flourish.png?v=5";
+    private const string TableWinRaysImage = "img/ui/table-win-rays.png?v=5";
+    private const string TableWinStarDividerImage = "img/ui/table-win-star-divider.png?v=5";
+    private const string TableWinHaulLabelImage = "img/ui/table-win-haul-label.png?v=5";
+    private const string TableWinAmountPlateImage = "img/ui/table-win-amount-plate.png?v=5";
+    private const string TableWinStatHandsImage = "img/ui/table-win-stat-hands.png?v=5";
+    private const string TableWinStatRivalsImage = "img/ui/table-win-stat-rivals.png?v=5";
+    private const string TableWinStatBiggestImage = "img/ui/table-win-stat-biggest.png?v=5";
+    private const string TableWinStatDividerImage = "img/ui/table-win-stat-divider.png?v=5";
+    private const string TableWinBtnGoldImage = "img/ui/table-win-btn-gold.png?v=5";
+    private const string TableWinBtnGreenImage = "img/ui/table-win-btn-green.png?v=5";
+    private const string TableWinBtnStatsImage = "img/ui/table-win-btn-stats.png?v=5";
     private static readonly string[] TableWinConfettiSprites =
     {
         "img/ui/table-win-confetti-red.png?v=1",
