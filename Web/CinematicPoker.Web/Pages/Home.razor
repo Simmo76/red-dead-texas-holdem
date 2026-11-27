@@ -680,16 +680,23 @@
                        captures them (the shot painter draws IMG, not CSS bg). *@
                     <img class="win-panel-art" src="@TableWinPanelImage" alt="" aria-hidden="true" />
                     <div class="win-panel-inner">
-                        <img class="win-card-fan" src="@TableWinCardFanImage" alt="" aria-hidden="true" />
+                        <div class="win-cards-wrap" aria-hidden="true">
+                            <img class="win-rays" src="@TableWinRaysImage" alt="" />
+                            @* Dead man's hand — western card pack, same fan as the live win screen. *@
+                            <div class="win-cards">
+                                <img class="win-card" src="img/cards/ui/spades_A.png" alt="" />
+                                <img class="win-card" src="img/cards/ui/clubs_A.png" alt="" />
+                                <img class="win-card" src="img/cards/ui/hearts_Q.png" alt="" />
+                                <img class="win-card" src="img/cards/ui/spades_8.png" alt="" />
+                                <img class="win-card" src="img/cards/ui/clubs_8.png" alt="" />
+                            </div>
+                        </div>
                         <img class="win-eyebrow" src="@TableWinEyebrowImage" alt="Winner takes all" />
                         <div class="win-nameplate">
                             <img class="win-nameplate-art" src="@TableWinNameplateImage" alt="" aria-hidden="true" />
                             <span class="win-nameplate-text">@PlayerName</span>
                         </div>
-                        <div class="win-title-wrap">
-                            <img class="win-rays" src="@TableWinRaysImage" alt="" aria-hidden="true" />
-                            <img class="win-title-flourish" src="@TableWinTitleFlourishImage" alt="Takes the table!" />
-                        </div>
+                        <img class="win-title-flourish" src="@TableWinTitleFlourishImage" alt="Takes the table!" />
                         <img class="win-star-divider" src="@TableWinStarDividerImage" alt="" aria-hidden="true" />
                         <div class="win-haul">
                             <img class="win-haul-label" src="@TableWinHaulLabelImage" alt="Rides off with" />
