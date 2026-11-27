@@ -70,6 +70,9 @@ assert(home.includes('table-win-btn-green.png'), 'Home.razor: green button PNG w
 assert(home.includes('table-win-btn-stats.png'), 'Home.razor: stats button PNG wired');
 assert(home.includes('win-nameplate-text'), 'Home.razor: player name on nameplate');
 assert(home.includes('win-amount-plate'), 'Home.razor: amount plate wrap');
+assert(home.includes('win-zoom'), 'Home.razor: pinch/pan viewport');
+assert(home.includes('win-zoom-target'), 'Home.razor: zoom target class');
+assert(home.includes('AttachWinZoomAsync'), 'Home.razor: win zoom attach');
 assert(home.includes('img/cards/ui/spades_A.png'), 'Home.razor: western A♠ in fan');
 assert(home.includes('img/cards/ui/clubs_8.png'), 'Home.razor: western 8♣ in fan');
 assert(home.includes('winpreview=1'), 'Home.razor: ?winpreview=1 test hook');
@@ -81,6 +84,8 @@ assert(
 );
 
 assert(css.includes('.overlay-box.table-win'), 'css: table-win plaque');
+assert(css.includes('aspect-ratio: 972 / 1503'), 'css: panel aspect locked (no stretch)');
+assert(css.includes('.win-zoom'), 'css: pinch/pan viewport');
 assert(css.includes('.win-panel-art'), 'css: panel art layer');
 assert(css.includes('.win-panel-inner'), 'css: content inset');
 assert(css.includes('.win-cards'), 'css: dead man fan');
@@ -89,6 +94,9 @@ assert(css.includes('.win-amount-plate'), 'css: amount plate');
 assert(css.includes('.win-stat-plaque'), 'css: stat plaques');
 assert(css.includes('.win-btn'), 'css: painted buttons');
 assert(css.includes('.confetti-sprite'), 'css: confetti sprite pieces');
+
+const zoomJs = readFileSync(join(root, 'Web/CinematicPoker.Web/wwwroot/js/poker-hands-zoom.js'), 'utf8');
+assert(zoomJs.includes('win-zoom-target'), 'poker-hands-zoom: win plaque target');
 
 assert(
   shot.includes(".win-celebration .overlay-box.table-win"),

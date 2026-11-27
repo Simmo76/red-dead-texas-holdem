@@ -2923,19 +2923,46 @@ button.act.plaque .plaque-amt {
     animation: overlayfade 0.4s ease-out;
 }
 
-/* Table-win plaques are tall; top-align and scroll the backdrop so the
-   fanned cards and footer actions are never vertically cropped. */
+/* Table-win plaque: fill the safe viewport, pinch/pan via .win-zoom
+   (same gesture layer as Rules / Hands — page scale stays locked). */
 .overlay.win-celebration {
-    align-items: flex-start;
-    padding: max(12px, env(safe-area-inset-top, 0px)) 12px
-        max(12px, env(safe-area-inset-bottom, 0px));
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    align-items: stretch;
+    justify-content: center;
+    padding: max(8px, env(safe-area-inset-top, 0px)) 10px
+        max(8px, env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
+}
+
+.win-zoom {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: none;
+    cursor: grab;
+    overscroll-behavior: contain;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.win-zoom:active {
+    cursor: grabbing;
+}
+
+.win-zoom.zoomed {
+    cursor: grab;
 }
 
 .win-celebration .overlay-box.table-win {
     flex-shrink: 0;
     margin: 0 auto;
+    transform-origin: center center;
+    will-change: transform;
 }
 
 @keyframes overlayfade {
@@ -2987,13 +3014,18 @@ button.act.plaque .plaque-amt {
    painter draws IMG + solid fills, not CSS gradients. */
 .overlay-box.table-win {
     position: relative;
-    overflow: visible;
-    max-height: none;
+    overflow: hidden;
+    /* Lock to the panel PNG aspect (972×1503) so object-fit:fill never
+       stretches the gold frame. Size by the smaller of width / height room. */
+    aspect-ratio: 972 / 1503;
+    width: min(440px, calc(100vw - 20px), calc((100dvh - 20px) * 972 / 1503));
+    max-width: 100%;
+    height: auto;
+    max-height: calc(100dvh - 20px);
     scrollbar-width: thin;
     scrollbar-color: var(--gold-dim) transparent;
-    /* % padding is width-relative — clears star crest / side rails / bottom
-       as the plaque scales, while height grows with the content stack. */
-    padding: 10% 7% 7% 7%;
+    /* % padding is width-relative — clears star crest / side rails / bottom. */
+    padding: 11% 8% 8% 8%;
     gap: 0;
     border: none;
     /* Transparent so the PNG frame's outer alpha shows the dimmed table.
@@ -3002,9 +3034,8 @@ button.act.plaque .plaque-amt {
     background-image: none;
     border-radius: 0;
     box-shadow: none;
-    width: min(480px, calc(100vw - 16px));
-    max-width: min(480px, calc(100vw - 16px));
     animation: win-pop 0.55s cubic-bezier(0.18, 1.35, 0.4, 1) both;
+    box-sizing: border-box;
 }
 
 .overlay-box.table-win > .win-panel-art {
@@ -3024,9 +3055,13 @@ button.act.plaque .plaque-amt {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
+    justify-content: space-between;
+    gap: 3px;
     width: 100%;
+    height: 100%;
+    min-height: 0;
     text-align: center;
+    overflow: hidden;
 }
 
 .overlay-box.table-win .overlay-actions {
@@ -3054,12 +3089,16 @@ button.act.plaque .plaque-amt {
     min-width: 0;
     min-height: 0;
     line-height: 0;
-    width: min(100%, 260px);
+    width: min(100%, 240px);
     color: transparent;
     font-size: 0;
     letter-spacing: 0;
     text-shadow: none;
     cursor: pointer;
+}
+
+.overlay-box.table-win .restart-btn {
+    min-width: 0;
 }
 
 .overlay-box.table-win .win-btn img {
@@ -3382,26 +3421,27 @@ button.act.plaque .plaque-amt {
    compact everything to keep it on one short screen without scrolling. */
 @media (max-height: 540px) {
     .overlay-box.table-win {
-        width: min(460px, calc(100vw - 12px));
-        max-width: min(460px, calc(100vw - 12px));
+        width: min(380px, calc(100vw - 16px), calc((100dvh - 16px) * 972 / 1503));
         padding: 10% 7% 7% 7%;
     }
-    .overlay-box.table-win > .win-panel-inner { gap: 4px; }
-    .win-cards-wrap { min-height: 42px; }
-    .win-card { width: 26px; margin: 0 -4px; }
-    .win-card:nth-child(1), .win-card:nth-child(5) { --y: 8px; }
-    .win-eyebrow { width: min(90%, 300px); }
-    .win-nameplate { width: min(78%, 240px); }
-    .win-nameplate-text { font-size: 14px; letter-spacing: 1px; }
-    .win-title-flourish { width: min(84%, 260px); }
-    .win-haul-label { width: min(64%, 220px); }
-    .win-amount-plate { width: min(80%, 260px); }
-    .win-amount { font-size: 20px; }
-    .win-stat { max-width: 100px; }
-    .win-stat-num { font-size: 12px; }
-    .win-stat-label { font-size: 7px; }
-    .overlay-box.table-win .win-btn.act { width: min(100%, 220px); }
-    .overlay-box.table-win .win-btn-stats { width: min(100%, 190px); }
+    .overlay-box.table-win > .win-panel-inner { gap: 2px; }
+    .win-cards-wrap { min-height: 36px; }
+    .win-card { width: 22px; margin: 0 -3px; }
+    .win-card:nth-child(1), .win-card:nth-child(5) { --y: 6px; }
+    .win-eyebrow { width: min(88%, 280px); }
+    .win-nameplate { width: min(72%, 220px); }
+    .win-nameplate-text { font-size: 13px; letter-spacing: 1px; }
+    .win-title-flourish { width: min(80%, 240px); }
+    .win-star-divider { width: min(50%, 160px); }
+    .win-haul-label { width: min(58%, 180px); }
+    .win-amount-plate { width: min(76%, 240px); }
+    .win-amount { font-size: 18px; }
+    .win-stat { max-width: 88px; }
+    .win-stat-num { font-size: 11px; }
+    .win-stat-label { font-size: 6px; }
+    .overlay-box.table-win .win-btn.act { width: min(100%, 180px); }
+    .overlay-box.table-win .win-btn-stats { width: min(100%, 150px); }
+    .overlay-box.table-win .restart-btn { min-width: 0; }
 }
 
 .restart-btn { min-width: 220px; }
@@ -4122,16 +4162,15 @@ button.act.plaque .plaque-amt {
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
     .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
     .overlay-box.table-win {
-        width: min(460px, calc(100vw - 16px));
-        max-width: min(460px, calc(100vw - 16px));
+        width: min(420px, calc(100vw - 20px), calc((100dvh - 20px) * 972 / 1503));
         padding: 10% 7% 7% 7%;
     }
-    .win-card { width: 36px; }
-    .win-nameplate-text { font-size: 22px; }
-    .win-amount-plate { width: min(86%, 320px); }
-    .win-amount { font-size: 32px; }
-    .win-stat { max-width: 110px; }
-    .win-stat-num { font-size: 14px; }
+    .win-card { width: 34px; }
+    .win-nameplate-text { font-size: 20px; }
+    .win-amount-plate { width: min(84%, 300px); }
+    .win-amount { font-size: 28px; }
+    .win-stat { max-width: 100px; }
+    .win-stat-num { font-size: 13px; }
 }
 
 /* ------------------------------------------------------------- post-hand coach */

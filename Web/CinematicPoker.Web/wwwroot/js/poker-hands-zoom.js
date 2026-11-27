@@ -222,7 +222,7 @@ window.pokerHandsZoom = (function () {
     detach();
     if (!el) return;
     viewport = el;
-    target = el.querySelector('.hands-chart, .rules-zoom-target');
+    target = el.querySelector('.hands-chart, .rules-zoom-target, .win-zoom-target');
     if (!target) {
       viewport = null;
       return;
