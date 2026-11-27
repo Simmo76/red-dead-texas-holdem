@@ -70,6 +70,8 @@ assert(css.includes('.overlay-box.table-win'), 'css: table-win plaque');
 assert(css.includes('table-win-btn-gold.png'), 'css: gold button plaque');
 assert(css.includes('table-win-btn-green.png'), 'css: green button plaque');
 assert(css.includes('.win-panel-art'), 'css: panel art layer');
+assert(css.includes('.win-panel-inner'), 'css: parchment content inset');
+assert(home.includes('win-panel-inner'), 'Home.razor: parchment content inset');
 assert(css.includes('.win-sunburst'), 'css: sunburst layer');
 assert(css.includes('.win-star'), 'css: star ornaments');
 assert(css.includes('.confetti-sprite'), 'css: confetti sprite pieces');

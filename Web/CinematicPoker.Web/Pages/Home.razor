@@ -680,87 +680,102 @@
                        captures them (the shot painter draws IMG, not CSS bg). *@
                     <img class="win-panel-art" src="@TableWinPanelImage" alt="" aria-hidden="true" />
                     <img class="win-sunburst" src="@TableWinSunburstImage" alt="" aria-hidden="true" />
-                    @* Dead man's hand — western card pack, fanned like the pot
-                       was just dragged. Pure flourish, hidden from readers. *@
-                    <div class="win-cards" aria-hidden="true">
-                        <img class="win-card" src="img/cards/ui/spades_A.png" alt="" />
-                        <img class="win-card" src="img/cards/ui/clubs_A.png" alt="" />
-                        <img class="win-card" src="img/cards/ui/hearts_Q.png" alt="" />
-                        <img class="win-card" src="img/cards/ui/spades_8.png" alt="" />
-                        <img class="win-card" src="img/cards/ui/clubs_8.png" alt="" />
-                    </div>
-                    <div class="win-eyebrow" aria-hidden="true">
-                        <img class="win-star" src="@TableWinStarImage" alt="" />
-                        <span class="win-eyebrow-text">WINNER TAKES ALL</span>
-                        <img class="win-star" src="@TableWinStarImage" alt="" />
-                    </div>
-                    <div class="overlay-title">@_sessionOverMessage</div>
-                    <div class="win-haul">
-                        <div class="win-haul-label">RIDES OFF WITH</div>
-                        <div class="win-amount">$@_haulShown.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</div>
-                    </div>
-                    @if (_game != null)
-                    {
-                        int handsPlayed = _winPreviewHands ?? _game.HandNumber;
-                        int rivalsBusted = _game.Players.Count - 1;
-                        <div class="win-stats">
-                            <div class="win-stat">
-                                <span class="win-stat-num">@handsPlayed</span>
-                                <span class="win-stat-label">@(handsPlayed == 1 ? "HAND" : "HANDS")</span>
-                            </div>
-                            <div class="win-stat">
-                                <span class="win-stat-num">@rivalsBusted</span>
-                                <span class="win-stat-label">@(rivalsBusted == 1 ? "RIVAL BUSTED" : "RIVALS BUSTED")</span>
-                            </div>
-                            @if (_biggestPotWon > 0)
-                            {
+                    <div class="win-panel-inner">
+                        <div class="win-eyebrow" aria-hidden="true">
+                            <img class="win-star" src="@TableWinStarImage" alt="" />
+                            <span class="win-eyebrow-text">WINNER TAKES ALL</span>
+                            <img class="win-star" src="@TableWinStarImage" alt="" />
+                        </div>
+                        @* Dead man's hand — western card pack flourish. *@
+                        <div class="win-cards" aria-hidden="true">
+                            <img class="win-card" src="img/cards/ui/spades_A.png" alt="" />
+                            <img class="win-card" src="img/cards/ui/clubs_A.png" alt="" />
+                            <img class="win-card" src="img/cards/ui/hearts_Q.png" alt="" />
+                            <img class="win-card" src="img/cards/ui/spades_8.png" alt="" />
+                            <img class="win-card" src="img/cards/ui/clubs_8.png" alt="" />
+                        </div>
+                        <div class="overlay-title">@_sessionOverMessage</div>
+                        <div class="win-haul">
+                            <div class="win-haul-label">RIDES OFF WITH</div>
+                            <div class="win-amount">$@_haulShown.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</div>
+                        </div>
+                        @if (_game != null)
+                        {
+                            int handsPlayed = _winPreviewHands ?? _game.HandNumber;
+                            int rivalsBusted = _game.Players.Count - 1;
+                            <div class="win-stats">
                                 <div class="win-stat">
-                                    <span class="win-stat-num">$@_biggestPotWon.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</span>
-                                    <span class="win-stat-label">BIGGEST POT</span>
+                                    <span class="win-stat-num">@handsPlayed</span>
+                                    <span class="win-stat-label">@(handsPlayed == 1 ? "HAND" : "HANDS")</span>
                                 </div>
+                                <div class="win-stat">
+                                    <span class="win-stat-num">@rivalsBusted</span>
+                                    <span class="win-stat-label">@(rivalsBusted == 1 ? "RIVAL BUSTED" : "RIVALS BUSTED")</span>
+                                </div>
+                                @if (_biggestPotWon > 0)
+                                {
+                                    <div class="win-stat">
+                                        <span class="win-stat-num">$@_biggestPotWon.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</span>
+                                        <span class="win-stat-label">BIGGEST POT</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        <div class="overlay-actions">
+                            @if (_isGuest)
+                            {
+                                <button class="act call big" @onclick="DismissGuestOverlay">KEEP WATCHING</button>
+                                <button class="act allin big restart-btn" @onclick="LeaveTable">LEAVE TABLE</button>
+                            }
+                            else if (_humanLost || _humanWon)
+                            {
+                                @if (_humanWon)
+                                {
+                                    <button type="button" class="act victory-shot win-btn-gold" disabled="@_shotBusy"
+                                            @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true">
+                                        Export Certificate
+                                    </button>
+                                    @if (!string.IsNullOrEmpty(_shotStatus))
+                                    {
+                                        <div class="victory-shot-status">@_shotStatus</div>
+                                    }
+                                    <button class="act call big restart-btn win-btn-green" @onclick="ContinueGame">SIT NEW TABLE</button>
+                                }
+                                else
+                                {
+                                    <button class="act allin big restart-btn" @onclick="StartSession">RESTART</button>
+                                }
+                                <button class="act small" @onclick="OpenExportPanel">EXPORT STATS</button>
+                            }
+                            else
+                            {
+                                <button class="act call big" @onclick="OpenExportPanel">EXPORT STATS</button>
+                                <button class="act call big" @onclick="StartSession">PLAY AGAIN</button>
                             }
                         </div>
-                    }
+                    </div>
                 }
                 else
                 {
                     <div class="overlay-title">@_sessionOverMessage</div>
-                }
-                <div class="overlay-actions">
-                    @if (_isGuest)
-                    {
-                        <button class="act call big" @onclick="DismissGuestOverlay">KEEP WATCHING</button>
-                        <button class="act allin big restart-btn" @onclick="LeaveTable">LEAVE TABLE</button>
-                    }
-                    else if (_humanLost || _humanWon)
-                    {
-                        @if (_humanWon)
+                    <div class="overlay-actions">
+                        @if (_isGuest)
                         {
-                            <button type="button" class="act victory-shot win-btn-gold" disabled="@_shotBusy"
-                                    @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true">
-                                Export Certificate
-                            </button>
-                            @if (!string.IsNullOrEmpty(_shotStatus))
-                            {
-                                <div class="victory-shot-status">@_shotStatus</div>
-                            }
+                            <button class="act call big" @onclick="DismissGuestOverlay">KEEP WATCHING</button>
+                            <button class="act allin big restart-btn" @onclick="LeaveTable">LEAVE TABLE</button>
                         }
-                        @if (_humanWon)
+                        else if (_humanLost || _humanWon)
                         {
-                            <button class="act call big restart-btn win-btn-green" @onclick="ContinueGame">SIT NEW TABLE</button>
+                            <button class="act allin big restart-btn" @onclick="StartSession">RESTART</button>
+                            <button class="act small" @onclick="OpenExportPanel">EXPORT STATS</button>
                         }
                         else
                         {
-                            <button class="act allin big restart-btn" @onclick="StartSession">RESTART</button>
+                            <button class="act call big" @onclick="OpenExportPanel">EXPORT STATS</button>
+                            <button class="act call big" @onclick="StartSession">PLAY AGAIN</button>
                         }
-                        <button class="act small" @onclick="OpenExportPanel">EXPORT STATS</button>
-                    }
-                    else
-                    {
-                        <button class="act call big" @onclick="OpenExportPanel">EXPORT STATS</button>
-                        <button class="act call big" @onclick="StartSession">PLAY AGAIN</button>
-                    }
-                </div>
+                    </div>
+                }
             </div>
         </div>
     }
@@ -1415,7 +1430,7 @@
 
     private const string VictoryTrophyImage = "images/victory-trophy.png";
     private const string VictoryGalleryPlaqueImage = "images/victory-gallery-of-wins.png?v=4";
-    private const string TableWinPanelImage = "img/ui/table-win-panel.png?v=1";
+    private const string TableWinPanelImage = "img/ui/table-win-panel.png?v=2";
     private const string TableWinSunburstImage = "img/ui/table-win-sunburst.png?v=1";
     private const string TableWinStarImage = "img/ui/table-win-star-sm.png?v=2";
     private static readonly string[] TableWinConfettiSprites =
