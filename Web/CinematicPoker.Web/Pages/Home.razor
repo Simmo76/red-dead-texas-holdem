@@ -701,14 +701,16 @@
                     </div>
                     @if (_game != null)
                     {
+                        int handsPlayed = _winPreviewHands ?? _game.HandNumber;
+                        int rivalsBusted = _game.Players.Count - 1;
                         <div class="win-stats">
                             <div class="win-stat">
-                                <span class="win-stat-num">@_game.HandNumber</span>
-                                <span class="win-stat-label">@(_game.HandNumber == 1 ? "HAND" : "HANDS")</span>
+                                <span class="win-stat-num">@handsPlayed</span>
+                                <span class="win-stat-label">@(handsPlayed == 1 ? "HAND" : "HANDS")</span>
                             </div>
                             <div class="win-stat">
-                                <span class="win-stat-num">@(_game.Players.Count - 1)</span>
-                                <span class="win-stat-label">@(_game.Players.Count == 2 ? "RIVAL BUSTED" : "RIVALS BUSTED")</span>
+                                <span class="win-stat-num">@rivalsBusted</span>
+                                <span class="win-stat-label">@(rivalsBusted == 1 ? "RIVAL BUSTED" : "RIVALS BUSTED")</span>
                             </div>
                             @if (_biggestPotWon > 0)
                             {
@@ -2300,7 +2302,17 @@
         catch (JSException) { }
         catch (InvalidOperationException) { }
 
-        if (_winPreview) ShowWinPreview();
+        if (_winPreview)
+        {
+            // Preview-only: show the painted plaque and leave the deal loop
+            // alone so AnimateHaulAsync is not cancelled mid-count by a live
+            // FinishSession / token bump behind the overlay.
+            ShowWinPreview();
+            _tableCastLocked = false;
+            if (!_isGuest) _ = ReportUsageAsync(_hosting ? "host_table" : "solo");
+            return;
+        }
+
         _tableCastLocked = false;
         if (run) _ = RunLoop(token);
         // Solo (and host-table restarts) never emit a hub "started" line on
@@ -5644,12 +5656,16 @@
             : _banner;
     }
 
+    // Sample hand count for ?winpreview=1 (StartHand never runs there).
+    private int? _winPreviewHands;
+
     private void ShowWinPreview()
     {
         _winPreview = false;
         _sessionOver = true;
         _humanWon = true;
         _biggestPotWon = 1480;
+        _winPreviewHands = 38;
         _sessionOverMessage = $"{PlayerName} takes the table!";
         _ = AnimateHaulAsync(6000);
     }

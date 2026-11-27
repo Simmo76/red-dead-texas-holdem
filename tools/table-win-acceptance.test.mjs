@@ -60,6 +60,11 @@ assert(home.includes('img/cards/ui/clubs_8.png'), 'Home.razor: western 8♣ in f
 assert(home.includes('winpreview=1'), 'Home.razor: ?winpreview=1 test hook');
 assert(home.includes('ShowWinPreview'), 'Home.razor: ShowWinPreview helper');
 assert(home.includes('ConfettiSprite'), 'Home.razor: ConfettiSprite helper');
+assert(home.includes('_winPreviewHands'), 'Home.razor: winpreview sample hand count');
+assert(
+  /if \(_winPreview\)[\s\S]*?ShowWinPreview\(\);[\s\S]*?return;/.test(home),
+  'Home.razor: winpreview skips the live deal loop',
+);
 
 assert(css.includes('.overlay-box.table-win'), 'css: table-win plaque');
 assert(css.includes('table-win-btn-gold.png'), 'css: gold button plaque');
