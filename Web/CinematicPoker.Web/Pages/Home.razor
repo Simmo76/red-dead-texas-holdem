@@ -657,7 +657,7 @@
         <div class="overlay @(_humanWon ? "win-celebration" : "")" role="dialog" aria-label="@_sessionOverMessage">
             @if (_humanWon)
             {
-                @* Gold confetti and card suits rain for the full-table win.
+                @* Painted confetti sprites + suit glyphs for the full-table win.
                    Deterministic per-piece inline styles keep the CSS small. *@
                 <div class="win-confetti" aria-hidden="true">
                     @for (int i = 0; i < ConfettiCount; i++)
@@ -668,7 +668,7 @@
                         }
                         else
                         {
-                            <span class="confetti-piece" style="@ConfettiStyle(i)"></span>
+                            <img class="confetti-piece confetti-sprite" src="@ConfettiSprite(i)" alt="" style="@ConfettiStyle(i)" />
                         }
                     }
                 </div>
@@ -676,17 +676,24 @@
             <div class="overlay-box @(_humanLost ? "game-over" : _humanWon ? "table-win" : "")">
                 @if (_humanWon)
                 {
-                    <div class="win-rays" aria-hidden="true"></div>
-                    @* Dead man's hand — aces and eights, fanned like the pot
+                    @* Ornate plaque chrome as real PNGs so Export Certificate
+                       captures them (the shot painter draws IMG, not CSS bg). *@
+                    <img class="win-panel-art" src="@TableWinPanelImage" alt="" aria-hidden="true" />
+                    <img class="win-sunburst" src="@TableWinSunburstImage" alt="" aria-hidden="true" />
+                    @* Dead man's hand — western card pack, fanned like the pot
                        was just dragged. Pure flourish, hidden from readers. *@
                     <div class="win-cards" aria-hidden="true">
-                        <span class="win-card"><b>A</b><i>♠</i></span>
-                        <span class="win-card"><b>A</b><i>♣</i></span>
-                        <span class="win-card red"><b>Q</b><i>♥</i></span>
-                        <span class="win-card"><b>8</b><i>♠</i></span>
-                        <span class="win-card"><b>8</b><i>♣</i></span>
+                        <img class="win-card" src="img/cards/ui/spades_A.png" alt="" />
+                        <img class="win-card" src="img/cards/ui/clubs_A.png" alt="" />
+                        <img class="win-card" src="img/cards/ui/hearts_Q.png" alt="" />
+                        <img class="win-card" src="img/cards/ui/spades_8.png" alt="" />
+                        <img class="win-card" src="img/cards/ui/clubs_8.png" alt="" />
                     </div>
-                    <div class="win-eyebrow" aria-hidden="true"><span class="win-eyebrow-text">★ WINNER TAKES ALL ★</span></div>
+                    <div class="win-eyebrow" aria-hidden="true">
+                        <img class="win-star" src="@TableWinStarImage" alt="" />
+                        <span class="win-eyebrow-text">WINNER TAKES ALL</span>
+                        <img class="win-star" src="@TableWinStarImage" alt="" />
+                    </div>
                     <div class="overlay-title">@_sessionOverMessage</div>
                     <div class="win-haul">
                         <div class="win-haul-label">RIDES OFF WITH</div>
@@ -727,7 +734,7 @@
                     {
                         @if (_humanWon)
                         {
-                            <button type="button" class="act victory-shot" disabled="@_shotBusy"
+                            <button type="button" class="act victory-shot win-btn-gold" disabled="@_shotBusy"
                                     @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true">
                                 Export Certificate
                             </button>
@@ -738,7 +745,7 @@
                         }
                         @if (_humanWon)
                         {
-                            <button class="act call big restart-btn" @onclick="ContinueGame">SIT NEW TABLE</button>
+                            <button class="act call big restart-btn win-btn-green" @onclick="ContinueGame">SIT NEW TABLE</button>
                         }
                         else
                         {
@@ -1406,6 +1413,15 @@
 
     private const string VictoryTrophyImage = "images/victory-trophy.png";
     private const string VictoryGalleryPlaqueImage = "images/victory-gallery-of-wins.png?v=4";
+    private const string TableWinPanelImage = "img/ui/table-win-panel.png?v=1";
+    private const string TableWinSunburstImage = "img/ui/table-win-sunburst.png?v=1";
+    private const string TableWinStarImage = "img/ui/table-win-star-sm.png?v=1";
+    private static readonly string[] TableWinConfettiSprites =
+    {
+        "img/ui/table-win-confetti-red.png?v=1",
+        "img/ui/table-win-confetti-green.png?v=1",
+        "img/ui/table-win-confetti-gold.png?v=1"
+    };
 
     private const int MaxVictoryWins = 200;
     private readonly List<VictoryWinRecord> _winGallery = new();
@@ -5639,8 +5655,10 @@
     }
 
     private const int ConfettiCount = 27;
-    private static readonly string[] ConfettiColors = { "#e6c36a", "#c0392b", "#57c785", "#f4efe2" };
     private static readonly string[] ConfettiSuits = { "♠", "♥", "♦", "♣" };
+
+    private static string ConfettiSprite(int i) =>
+        TableWinConfettiSprites[i % TableWinConfettiSprites.Length];
 
     // Deterministic scatter from the piece index: no RNG, so the shower
     // looks the same on every render pass of the same overlay.
@@ -5650,11 +5668,10 @@
         int left = (i * 41 + 7) % 100;
         double delay = (i * 73 % 260) / 100.0;
         double duration = 2.8 + (i * 29 % 140) / 100.0;
-        int size = 7 + (i * 31) % 7;
-        string color = ConfettiColors[i % ConfettiColors.Length];
+        int size = 10 + (i * 31) % 10;
         return string.Format(inv,
-            "left:{0}%;animation-delay:{1:0.00}s;animation-duration:{2:0.00}s;width:{3}px;height:{4}px;background-color:{5};",
-            left, delay, duration, size, size + 4, color);
+            "left:{0}%;animation-delay:{1:0.00}s;animation-duration:{2:0.00}s;width:{3}px;height:{4}px;",
+            left, delay, duration, size, size + 6);
     }
 
     private static string ConfettiSuitStyle(int i)
