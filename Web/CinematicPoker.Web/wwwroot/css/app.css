@@ -3015,9 +3015,10 @@ button.act.plaque .plaque-amt {
 .overlay-box.table-win {
     position: relative;
     overflow: visible;
-    /* Size by the smaller of width / height room so the full plaque fits.
-       Panel IMG is in-flow at natural aspect — never stretched. */
-    width: min(420px, calc(100vw - 24px), calc((100dvh - 24px) * 972 / 1503));
+    /* Prefer a wide plaque like the original Winner Takes All modal.
+       Height can exceed the viewport — .win-zoom + inner scroll cover that.
+       Panel IMG stays in-flow at native aspect (never stretched). */
+    width: min(560px, calc(100vw - 16px));
     max-width: 100%;
     height: auto;
     max-height: none;
@@ -3163,8 +3164,8 @@ button.act.plaque .plaque-amt {
     align-items: flex-end;
     width: 100%;
     max-width: 100%;
-    min-height: 48px;
-    margin: 0 auto 2px;
+    min-height: 64px;
+    margin: 0 auto 4px;
     overflow: visible;
     flex-shrink: 0;
 }
@@ -3193,9 +3194,9 @@ button.act.plaque .plaque-amt {
 }
 
 .win-card {
-    width: clamp(20px, 5vw, 32px);
+    width: clamp(28px, 7vw, 48px);
     height: auto;
-    margin: 0 -3px;
+    margin: 0 -6px;
     flex: 0 0 auto;
     display: block;
     border-radius: 4px;
@@ -3206,11 +3207,11 @@ button.act.plaque .plaque-amt {
     animation: win-card-deal 0.5s cubic-bezier(0.2, 1.1, 0.3, 1) both;
 }
 
-.win-card:nth-child(1) { --r: -16deg; --y: 8px; animation-delay: 0.08s; }
-.win-card:nth-child(2) { --r: -8deg; --y: 3px; animation-delay: 0.14s; }
+.win-card:nth-child(1) { --r: -18deg; --y: 10px; animation-delay: 0.08s; }
+.win-card:nth-child(2) { --r: -9deg; --y: 4px; animation-delay: 0.14s; }
 .win-card:nth-child(3) { --r: 0deg; --y: 0px; animation-delay: 0.2s; z-index: 2; }
-.win-card:nth-child(4) { --r: 8deg; --y: 3px; animation-delay: 0.26s; }
-.win-card:nth-child(5) { --r: 16deg; --y: 8px; animation-delay: 0.32s; }
+.win-card:nth-child(4) { --r: 9deg; --y: 4px; animation-delay: 0.26s; }
+.win-card:nth-child(5) { --r: 18deg; --y: 10px; animation-delay: 0.32s; }
 
 @keyframes win-card-deal {
     from { opacity: 0; transform: translateY(24px) rotate(0deg) scale(0.7); }
@@ -3248,7 +3249,7 @@ button.act.plaque .plaque-amt {
     justify-content: center;
     padding: 0 8%;
     font-family: 'Rye', Georgia, serif;
-    font-size: clamp(16px, 4.2vw, 26px);
+    font-size: clamp(18px, 4.5vw, 30px);
     font-weight: 400;
     letter-spacing: 2px;
     color: #f4e6c0;
@@ -3319,7 +3320,7 @@ button.act.plaque .plaque-amt {
     align-items: center;
     justify-content: center;
     padding: 0 6%;
-    font-size: clamp(18px, 5.5vw, 36px);
+    font-size: clamp(22px, 6.5vw, 44px);
     font-weight: 800;
     letter-spacing: 1px;
     color: #ffe9a8;
@@ -3336,10 +3337,10 @@ button.act.plaque .plaque-amt {
     display: flex;
     justify-content: center;
     align-items: stretch;
-    gap: 3px;
+    gap: 8px;
     width: 100%;
     max-width: 100%;
-    margin-top: 2px;
+    margin-top: 4px;
     flex-shrink: 0;
     box-sizing: border-box;
 }
@@ -3382,7 +3383,7 @@ button.act.plaque .plaque-amt {
 
 .win-stat-num {
     top: 18%;
-    font-size: clamp(13px, 2.8vw, 17px);
+    font-size: clamp(14px, 3vw, 20px);
     font-weight: 800;
     letter-spacing: 0.5px;
     color: #f3e6c8;
@@ -3391,7 +3392,7 @@ button.act.plaque .plaque-amt {
 
 .win-stat-label {
     top: 52%;
-    font-size: clamp(7px, 1.6vw, 9px);
+    font-size: clamp(7px, 1.7vw, 10px);
     font-weight: 700;
     letter-spacing: 0.6px;
     color: #e8dcc0;
@@ -3461,27 +3462,26 @@ button.act.plaque .plaque-amt {
     .win-card { animation-duration: 0.01s; }
 }
 
-/* Landscape phones: the table-win plaque holds a lot of celebration, so
-   compact everything to keep it on one short screen without scrolling. */
+/* Short landscape: keep the plaque wide; scroll/pinch for height. */
 @media (max-height: 540px) {
     .overlay-box.table-win {
-        width: min(360px, calc(100vw - 16px), calc((100dvh - 16px) * 972 / 1503));
+        width: min(520px, calc(100vw - 16px));
     }
     .overlay-box.table-win > .win-panel-inner {
-        left: 4.5%;
-        right: 4.5%;
+        left: 5%;
+        right: 5%;
         top: 9%;
         bottom: 5%;
         gap: 2px;
     }
-    .win-cards-wrap { min-height: 30px; }
-    .win-card { width: 18px; margin: 0 -2px; }
-    .win-card:nth-child(1), .win-card:nth-child(5) { --y: 5px; }
-    .win-nameplate-text { font-size: 12px; letter-spacing: 1px; }
+    .win-cards-wrap { min-height: 40px; }
+    .win-card { width: 26px; margin: 0 -4px; }
+    .win-card:nth-child(1), .win-card:nth-child(5) { --y: 6px; }
+    .win-nameplate-text { font-size: 14px; letter-spacing: 1px; }
     .win-star-divider { width: min(55%, 160px); }
     .win-haul-label { width: min(70%, 180px); }
-    .win-amount { font-size: 16px; }
-    .win-stat-num { font-size: 10px; }
+    .win-amount { font-size: 20px; }
+    .win-stat-num { font-size: 11px; }
     .win-stat-label { font-size: 6px; }
     .overlay-box.table-win .restart-btn { min-width: 0; }
 }
@@ -4204,12 +4204,12 @@ button.act.plaque .plaque-amt {
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
     .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
     .overlay-box.table-win {
-        width: min(400px, calc(100vw - 20px), calc((100dvh - 20px) * 972 / 1503));
+        width: min(520px, calc(100vw - 16px));
     }
-    .win-card { width: 32px; }
-    .win-nameplate-text { font-size: 20px; }
-    .win-amount { font-size: 26px; }
-    .win-stat-num { font-size: 13px; }
+    .win-card { width: 36px; }
+    .win-nameplate-text { font-size: 22px; }
+    .win-amount { font-size: 32px; }
+    .win-stat-num { font-size: 14px; }
 }
 
 /* ------------------------------------------------------------- post-hand coach */

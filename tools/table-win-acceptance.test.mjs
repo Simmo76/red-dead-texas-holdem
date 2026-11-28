@@ -84,7 +84,7 @@ assert(
 );
 
 assert(css.includes('.overlay-box.table-win'), 'css: table-win plaque');
-assert(css.includes('972 / 1503'), 'css: panel sized from native aspect (no stretch)');
+assert(css.includes('min(560px'), 'css: wide plaque like original modal');
 assert(css.includes('win-panel-art'), 'css: panel art in flow');
 assert(css.includes('.win-zoom'), 'css: pinch/pan viewport');
 assert(css.includes('.win-panel-art'), 'css: panel art layer');
