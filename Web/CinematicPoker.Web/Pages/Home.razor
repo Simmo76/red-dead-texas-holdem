@@ -1494,9 +1494,7 @@
                 && (_game.Phase == GamePhase.HandInProgress || _pending.Count > 0))
             || (_game.Phase != GamePhase.HandInProgress && _pending.Count > 0));
 
-    // Labels for the single button shown while the result is on screen.
-    private string NextHandButtonLabel => HumanIsBusted ? "CONTINUE" : "NEXT HAND";
-
+    // Title for the single button shown while the result is on screen.
     private string NextHandButtonTitle =>
         HumanIsBusted ? "See game over"
         : _game is { HasHumanWon: true } ? "Continue with your stack"
