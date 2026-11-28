@@ -1,5 +1,16 @@
 What to test in this build:
 
+New — larger Dead Man's Hand title logo (PR #360)
+• Top-left brand mark above the POT readout should look about 1.5× larger than before (taller than the pot pill).
+• On a narrow phone or short landscape screen, the logo still fits in the top bar without crowding Rules / Tune / Hands.
+• Mark stays sharp (not blurry or pixelated).
+
+New — SKIP and NEXT HAND plaques (PR #359)
+• Fold mid-hand: SKIP and NEXT HAND appear as ornate gold-framed plaques (same family as Fold / Call / Raise / All-in), not plain text buttons.
+• After a hand result, NEXT HAND plaque advances to the next deal.
+• If you bust out, CONTINUE stays a text button and still works.
+• Plaques should look right on phone and desktop action bars.
+
 New — all-in stack amount pill (PR #357)
 • On your turn with All-in available, the All-in plaque shows the same gold-bordered pill as Call (bottom-right corner).
 • The pill shows your remaining stack (chips you can commit), and should match the stack readout on the green plate beside Fold.
@@ -10,63 +21,6 @@ New — saloon title screen (PR #356)
 • Sky and table should show through around the wordmark and the plaque. Neither should sit on a black box.
 • Tap anywhere on that screen to start. The name prompt still appears when this device has no saved name.
 • Octagon’s title screen is unchanged.
-
-New — How to Play rules plaque (PR #353)
-• Top bar → RULES. The overlay should show the new gold-framed How to Play art with a transparent area outside the border (table visible behind the plaque).
-• On a short or landscape screen, scroll or drag vertically at 1× if the plaque is taller than the viewport; pinch or double-tap still zooms.
-• Tap the painted CLOSE at the bottom (or the dimmer outside) to dismiss.
-
-New — western 2D HUD card faces (PR #350)
-• Board and your hole cards in the bottom HUD should show the new western-style faces (larger, detailed art).
-• Cards on the 3D felt should still look like the old Kenney pack — only the overlay HUD changed.
-• Check victory / showdown banners and coach review thumbnails for the new faces too.
-• Facedown HUD slots still use the Kenney card back until we get a matching back from the same pack.
-
-New — HARD AI difficulty restored (PR #349)
-• SETTINGS → DIFFICULTY cycles EASY → NORMAL → HARD (HARD was removed earlier; it is back).
-• On HARD, NPCs should play noticeably tighter and sharper than NORMAL; EASY should still feel softer.
-• Mid-session difficulty changes should retune live NPCs without RESTART.
-• If you had an old save on HARD, restore should land on HARD again.
-
-New — Check, Bet, and the stack plate (PR #348)
-• When you can check, Check and Bet are the gold-framed plaques (green Check, gold Bet), same style as Fold and All-in.
-• The name and chip count beside Fold sit on the green stack plate, with the chip icon on the left.
-• Tap Bet to open the slider, then Back. Tap Check and confirm the hand moves on.
-
-New — larger call amount on the Call plaque (PR #347)
-• On your turn, the dollar amount on Call is a larger pill on the bottom-right corner of the plaque.
-• It may overlap the gold frame. It should not cover the CALL word.
-• Fold, Raise, and All-in are unchanged. Tap Call and confirm the hand continues.
-
-New — Fold, Call, Raise, and All-in plaques (PR #345)
-• On your turn, Fold, Call, Raise, and All-in are the gold-framed plaques (green Call, red Fold, gold Raise, red All-in).
-• Call shows the amount to call in that bottom-right pill.
-• Check and Bet are the matching plaques. Tap an action and confirm the hand moves on.
-
-New — gold top-bar buttons (PR #344)
-• Rules, Tune, Hands, View, and Settings are the gold plate buttons (icon and word inside the frame).
-• Each still does the same thing: how to play, next song, hand rankings, overhead camera, settings.
-• On a narrow phone, Tune and Settings move into More.
-
-New — framed hand rankings chart (PR #340)
-• Top bar → HANDS. The rankings overlay should show the gold-framed saloon chart (not the old plain panel with a separate CLOSE chip).
-• Tap CLOSE on the gold plaque at the bottom of the chart (and tap the dimmer outside). Both should dismiss.
-• Pinch or scroll to zoom the chart; pan when zoomed. CLOSE should still work and must not get “stuck” inside a drag.
-• Phone portrait and landscape: the full frame fits on screen without chopping the title or the bottom plaque.
-
-New — saloon and octagon poker coach portraits (PR #341)
-• Start a new game (RESTART or fresh visit): “What would AI do?” medallion shows Jake, Marcus, or Rosa at random in the saloon.
-• Same game across many hands: coach face and name stay the same until RESTART.
-• Switch to Octagon: medallion shows one of Damon, Kofi, Silas, or Nina at random for that game (not the old bald Alex Iron-Fist icon). Back to Saloon: your seated coach portrait returns.
-
-New — scene-mapped NPC nicknames (PR #338)
-• Start a table in SALOON — western names on nameplates (Sam Six-Shot, Charlie Cold-Iron, etc.).
-• Mid-session SETTINGS → SCENE → OCTAGON (page reloads). Same seats should show fighter names (Alex Iron-Fist, Jordan Dust-Knuckle, etc.) on the new bodies.
-• Switch back to SALOON — western names return. Chip stacks and seat positions unchanged.
-• Reload after a switch — names still match the active scene.
-
-New — saloon vs octagon NPC name pools (PR #335)
-• New tables in each scene pull from the correct pool only (western vs fighter); no cross-theme names on first deal.
 
 Also verify
 • Saloon music and >> tune; coach HIGHLIGHT on fold losses; win certificate export.
