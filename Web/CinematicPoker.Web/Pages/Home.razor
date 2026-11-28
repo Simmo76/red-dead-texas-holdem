@@ -764,8 +764,8 @@
                 <div class="settings-panel-body">
                     <h2 class="settings-title">★ SETTINGS ★</h2>
 
-                    <div class="settings-row settings-name">
-                        <label class="settings-label" for="settings-name-input">YOUR NAME</label>
+                    <div class="settings-name">
+                        <label class="settings-label settings-name-label" for="settings-name-input">YOUR NAME</label>
                         <div class="settings-name-controls">
                             <input id="settings-name-input"
                                    class="settings-name-input @(_settingsNameInvalid ? "settings-field-error" : "")"
@@ -779,34 +779,32 @@
                                 <img src="img/settings/save.png" width="171" height="67" alt="" draggable="false" />
                             </button>
                         </div>
-                        @if (!string.IsNullOrEmpty(_settingsNameNote))
-                        {
-                            <p class="settings-note" role="status">@_settingsNameNote</p>
-                        }
                     </div>
 
                     <div class="settings-rows">
-                        <div class="settings-row">
-                            <span class="settings-label" id="settings-sound-label">SOUND</span>
-                            <button type="button" class="settings-selector sound-combo-btn @(AnyChannelOn ? "active" : "")"
-                                    aria-labelledby="settings-sound-label" aria-expanded="@_soundMenuOpen"
-                                    aria-haspopup="listbox" @onclick="ToggleSoundMenu">
-                                @SoundSummary<span class="sound-caret" aria-hidden="true">@(_soundMenuOpen ? "\u25b4" : "\u25be")</span>
-                            </button>
-                        </div>
-                        @if (_soundMenuOpen)
-                        {
-                            <div class="sound-menu" role="listbox" aria-label="Sound channels">
-                                <button type="button" role="option" aria-selected="@_musicOn"
-                                        class="sound-option @(_musicOn ? "on" : "")" @onclick="@(() => ToggleChannel("music"))">
-                                    <span class="sound-check" aria-hidden="true">@(_musicOn ? "\u2713" : "")</span>MUSIC
-                                </button>
-                                <button type="button" role="option" aria-selected="@_backgroundOn"
-                                        class="sound-option @(_backgroundOn ? "on" : "")" @onclick="@(() => ToggleChannel("background"))">
-                                    <span class="sound-check" aria-hidden="true">@(_backgroundOn ? "\u2713" : "")</span>BACKGROUND
+                        <div class="settings-sound-block">
+                            <div class="settings-row">
+                                <span class="settings-label" id="settings-sound-label">SOUND</span>
+                                <button type="button" class="settings-selector sound-combo-btn @(AnyChannelOn ? "active" : "")"
+                                        aria-labelledby="settings-sound-label" aria-expanded="@_soundMenuOpen"
+                                        aria-haspopup="listbox" @onclick="ToggleSoundMenu">
+                                    @SoundSummary<span class="sound-caret" aria-hidden="true">@(_soundMenuOpen ? "\u25b4" : "\u25be")</span>
                                 </button>
                             </div>
-                        }
+                            @if (_soundMenuOpen)
+                            {
+                                <div class="sound-menu sound-menu-pop" role="listbox" aria-label="Sound channels">
+                                    <button type="button" role="option" aria-selected="@_musicOn"
+                                            class="sound-option @(_musicOn ? "on" : "")" @onclick="@(() => ToggleChannel("music"))">
+                                        <span class="sound-check" aria-hidden="true">@(_musicOn ? "\u2713" : "")</span>MUSIC
+                                    </button>
+                                    <button type="button" role="option" aria-selected="@_backgroundOn"
+                                            class="sound-option @(_backgroundOn ? "on" : "")" @onclick="@(() => ToggleChannel("background"))">
+                                        <span class="sound-check" aria-hidden="true">@(_backgroundOn ? "\u2713" : "")</span>BACKGROUND
+                                    </button>
+                                </div>
+                            }
+                        </div>
                         <div class="settings-row">
                             <span class="settings-label" id="settings-pace-label">PACE</span>
                             <button type="button" class="settings-selector @(_quickMode ? "active" : "")"
@@ -840,13 +838,11 @@
                         </div>
                     </div>
 
-                    @if (!string.IsNullOrEmpty(_logNote))
+                    @if (!string.IsNullOrEmpty(_settingsNameNote) || !string.IsNullOrEmpty(_logNote) || !string.IsNullOrEmpty(_settingsActionNote))
                     {
-                        <p class="settings-note" role="status">@_logNote</p>
-                    }
-                    @if (!string.IsNullOrEmpty(_settingsActionNote))
-                    {
-                        <p class="settings-note settings-action-note" role="status">@_settingsActionNote</p>
+                        <p class="settings-note settings-status-line" role="status">
+                            @(!string.IsNullOrEmpty(_settingsNameNote) ? _settingsNameNote : !string.IsNullOrEmpty(_settingsActionNote) ? _settingsActionNote : _logNote)
+                        </p>
                     }
 
                     <div class="settings-actions">
@@ -859,17 +855,17 @@
                         </button>
                         @if (_isGuest)
                         {
-                            <button type="button" class="settings-selector settings-action-wide settings-leave"
+                            <button type="button" class="settings-selector settings-action-main settings-leave"
                                     aria-label="Leave table" @onclick="LeaveTable">LEAVE TABLE</button>
                         }
                         else
                         {
-                            <button type="button" class="settings-plaque settings-plaque-wide @(_restartArmed ? "armed" : "")"
+                            <button type="button" class="settings-plaque settings-plaque-main @(_restartArmed ? "armed" : "")"
                                     aria-label="Restart game" aria-pressed="@_restartArmed" @onclick="RestartFromSettings">
                                 <img src="img/settings/restart.png" width="328" height="89" alt="" draggable="false" />
                             </button>
                         }
-                        <button type="button" class="settings-plaque" aria-label="Close settings" @onclick="CloseSettings">
+                        <button type="button" class="settings-plaque settings-plaque-main" aria-label="Close settings" @onclick="CloseSettings">
                             <img src="img/settings/close.png" width="298" height="89" alt="" draggable="false" />
                         </button>
                     </div>
