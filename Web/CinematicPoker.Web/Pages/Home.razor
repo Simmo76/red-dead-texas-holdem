@@ -846,28 +846,32 @@
                     }
 
                     <div class="settings-actions">
-                        <button type="button" class="settings-plaque" title="Copy the debug log to the clipboard to paste into Cursor or a bug report"
-                                aria-label="Copy log" @onclick="CopyDebugLog">
-                            <img src="img/settings/copy-log.png" width="292" height="73" alt="" draggable="false" />
-                        </button>
-                        <button type="button" class="settings-plaque" aria-label="Export stats" @onclick="ExportFromSettings">
-                            <img src="img/settings/export-stats.png" width="329" height="73" alt="" draggable="false" />
-                        </button>
-                        @if (_isGuest)
-                        {
-                            <button type="button" class="settings-selector settings-action-main settings-leave"
-                                    aria-label="Leave table" @onclick="LeaveTable">LEAVE TABLE</button>
-                        }
-                        else
-                        {
-                            <button type="button" class="settings-plaque settings-plaque-main @(_restartArmed ? "armed" : "")"
-                                    aria-label="Restart game" aria-pressed="@_restartArmed" @onclick="RestartFromSettings">
-                                <img src="img/settings/restart.png" width="328" height="89" alt="" draggable="false" />
+                        <div class="settings-actions-row settings-actions-utility">
+                            <button type="button" class="settings-plaque settings-plaque-utility" title="Copy the debug log to the clipboard to paste into Cursor or a bug report"
+                                    aria-label="Copy log" @onclick="CopyDebugLog">
+                                <img src="img/settings/copy-log.png" width="292" height="73" alt="" draggable="false" />
                             </button>
-                        }
-                        <button type="button" class="settings-plaque settings-plaque-main" aria-label="Close settings" @onclick="CloseSettings">
-                            <img src="img/settings/close.png" width="298" height="89" alt="" draggable="false" />
-                        </button>
+                            <button type="button" class="settings-plaque settings-plaque-utility" aria-label="Export stats" @onclick="ExportFromSettings">
+                                <img src="img/settings/export-stats.png" width="329" height="73" alt="" draggable="false" />
+                            </button>
+                        </div>
+                        <div class="settings-actions-row settings-actions-primary">
+                            @if (_isGuest)
+                            {
+                                <button type="button" class="settings-selector settings-action-main settings-leave"
+                                        aria-label="Leave table" @onclick="LeaveTable">LEAVE TABLE</button>
+                            }
+                            else
+                            {
+                                <button type="button" class="settings-plaque settings-plaque-main @(_restartArmed ? "armed" : "")"
+                                        aria-label="Restart game" aria-pressed="@_restartArmed" @onclick="RestartFromSettings">
+                                    <img src="img/settings/restart.png" width="328" height="89" alt="" draggable="false" />
+                                </button>
+                            }
+                            <button type="button" class="settings-plaque settings-plaque-main" aria-label="Close settings" @onclick="CloseSettings">
+                                <img src="img/settings/close.png" width="298" height="89" alt="" draggable="false" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

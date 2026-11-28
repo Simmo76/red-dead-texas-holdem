@@ -3566,17 +3566,17 @@ button.act.plaque .plaque-amt {
 
 .settings-panel-body {
     position: absolute;
-    inset: 14.5% 11.5% 9.5% 11.5%;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    inset: 14.5% 11.5% 11.5% 11.5%;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+    gap: 2px;
     min-height: 0;
     overflow: hidden;
 }
 
 .settings-title {
-    flex: 0 0 auto;
-    margin: -5.5% 0 2px;
+    grid-row: 1;
+    margin: -5.5% 0 0;
     padding: 0 4px;
     font-family: 'Rye', Georgia, serif;
     font-size: clamp(13px, 2.2vw, 19px);
@@ -3591,11 +3591,12 @@ button.act.plaque .plaque-amt {
 }
 
 .settings-name {
-    flex: 0 0 auto;
+    grid-row: 2;
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 4px;
+    gap: 3px;
+    min-height: 0;
 }
 
 .settings-name-label {
@@ -3616,9 +3617,9 @@ button.act.plaque .plaque-amt {
     flex: 1;
     width: auto;
     min-width: 0;
-    min-height: 40px;
-    padding: 8px 12px;
-    font-size: 14px;
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 13px;
     letter-spacing: 0.08em;
     text-align: left;
     color: #f5ead6;
@@ -3656,19 +3657,20 @@ button.act.plaque .plaque-amt {
 }
 
 .settings-status-line {
-    flex: 0 0 auto;
+    grid-row: 4;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .settings-rows {
-    flex: 1 1 auto;
+    grid-row: 3;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: 3px;
+    justify-content: flex-start;
+    gap: 2px;
     min-height: 0;
+    overflow: hidden;
 }
 
 .settings-sound-block {
@@ -3677,15 +3679,15 @@ button.act.plaque .plaque-amt {
 }
 
 .settings-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 41%) minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    gap: 6px;
+    min-height: 0;
 }
 
 .settings-label {
-    flex: 0 0 auto;
-    max-width: 42%;
+    max-width: none;
     font-family: 'Rye', Georgia, serif;
     font-size: clamp(8px, 1.45vw, 11px);
     letter-spacing: 0.1em;
@@ -3695,10 +3697,10 @@ button.act.plaque .plaque-amt {
 }
 
 .settings-selector {
-    flex: 0 1 auto;
-    min-width: min(148px, 44vw);
-    min-height: 40px;
-    padding: 7px 24px 7px 12px;
+    width: 100%;
+    min-width: 0;
+    min-height: 34px;
+    padding: 5px 22px 5px 10px;
     border: none;
     border-radius: 0;
     background: transparent url('../img/settings/selector-blank.png') center / 100% 100% no-repeat;
@@ -3743,8 +3745,8 @@ button.act.plaque .plaque-amt {
 }
 
 .settings-select-wrap {
-    flex: 0 1 auto;
-    min-width: min(148px, 44vw);
+    min-width: 0;
+    width: 100%;
 }
 
 .settings-native-select {
@@ -3831,8 +3833,8 @@ button.act.plaque .plaque-amt {
     align-items: center;
     justify-content: center;
     min-width: 44px;
-    min-height: 44px;
-    padding: 4px 6px;
+    min-height: 40px;
+    padding: 4px 2px;
     border: none;
     border-radius: 0;
     background: transparent;
@@ -3844,14 +3846,23 @@ button.act.plaque .plaque-amt {
 
 .settings-plaque img {
     display: block;
-    height: clamp(30px, 5.4vh, 36px);
-    width: auto;
+    width: 100%;
+    max-width: 150px;
+    height: auto;
+    max-height: 28px;
+    object-fit: contain;
     pointer-events: none;
     user-select: none;
 }
 
+.settings-plaque-utility img {
+    max-height: 22px;
+    max-width: 132px;
+}
+
 .settings-plaque-main img {
-    height: clamp(34px, 6vh, 42px);
+    max-height: 30px;
+    max-width: 148px;
 }
 
 .settings-plaque:hover { filter: brightness(1.1); }
@@ -3873,23 +3884,46 @@ button.act.plaque .plaque-amt {
     box-shadow: 0 0 0 2px rgba(255, 231, 163, 0.55);
 }
 
+.settings-save-plaque {
+    flex: 0 0 auto;
+    min-width: 72px;
+    min-height: 36px;
+}
+
 .settings-save-plaque img {
-    height: clamp(32px, 5.8vh, 38px);
+    width: auto;
+    max-width: 72px;
+    max-height: 32px;
 }
 
 .settings-actions {
-    flex: 0 0 auto;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    align-items: center;
-    justify-items: center;
-    gap: 4px 8px;
-    margin-top: auto;
+    grid-row: 5;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-self: end;
+    width: 100%;
+    min-height: 0;
     padding-top: 2px;
 }
 
-.settings-action-main {
+.settings-actions-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    justify-items: center;
+    gap: 6px;
     width: 100%;
+}
+
+.settings-actions-row .settings-plaque,
+.settings-actions-row .settings-action-main {
+    width: 100%;
+    max-width: 158px;
+}
+
+.settings-action-main {
+    min-height: 36px;
     min-width: 0;
     color: #ffe2c8;
 }
@@ -4200,7 +4234,7 @@ button.act.plaque .plaque-amt {
         width: min(420px, calc(100vw - 12px));
         max-width: min(420px, calc(100vw - 12px), calc((100dvh - 12px) * 699 / 696));
     }
-    .settings-panel-body { inset: 14% 10.5% 8.5% 10.5%; gap: 2px; }
+    .settings-panel-body { inset: 14% 10.5% 12% 10.5%; gap: 1px; }
     .invite-box { padding: 14px 22px; gap: 10px; }
     .invite-blurb { font-size: 12px; }
     .invite-room { padding: 9px 12px; }
@@ -4209,12 +4243,12 @@ button.act.plaque .plaque-amt {
         padding: 0;
         gap: 0;
     }
-    .settings-rows { gap: 2px; }
-    .settings-selector { min-height: 36px; padding-top: 5px; padding-bottom: 5px; }
-    .settings-name-input { min-height: 36px; font-size: 13px; }
-    .settings-plaque img { height: 28px; }
-    .settings-plaque-main img { height: 32px; }
-    .settings-save-plaque img { height: 30px; }
+    .settings-rows { gap: 1px; }
+    .settings-selector { min-height: 32px; padding-top: 4px; padding-bottom: 4px; font-size: 9px; }
+    .settings-name-input { min-height: 32px; font-size: 12px; }
+    .settings-plaque-utility img { max-height: 18px; }
+    .settings-plaque-main img { max-height: 26px; }
+    .settings-save-plaque img { max-height: 28px; }
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
     .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
     .overlay-box.table-win { padding: 24px 28px 22px; gap: 14px; }
