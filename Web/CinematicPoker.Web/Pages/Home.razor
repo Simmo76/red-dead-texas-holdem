@@ -623,9 +623,10 @@
                                 aria-label="Skip">
                             <img src="img/ui/action-skip.png?v=1" alt="Skip" />
                         </button>
-                        <button class="act ff ff-next" @onclick="SkipToNextHand"
-                                title="Fast-forward to the next hand">
-                            NEXT HAND »
+                        <button class="act plaque ff ff-next" @onclick="SkipToNextHand"
+                                title="Fast-forward to the next hand"
+                                aria-label="Next hand">
+                            <img src="img/ui/action-nexthand.png?v=1" alt="Next hand" />
                         </button>
                     </div>
                 }
@@ -641,10 +642,21 @@
                                 Poker Coach Feedback
                             </button>
                         }
-                        <button class="act ff" @onclick="FastForward"
-                                title="@NextHandButtonTitle">
-                            @NextHandButtonLabel
-                        </button>
+                        @if (HumanIsBusted)
+                        {
+                            <button class="act ff" @onclick="FastForward"
+                                    title="@NextHandButtonTitle">
+                                CONTINUE
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="act plaque ff ff-next" @onclick="FastForward"
+                                    title="@NextHandButtonTitle"
+                                    aria-label="Next hand">
+                                <img src="img/ui/action-nexthand.png?v=1" alt="Next hand" />
+                            </button>
+                        }
                     </div>
                 }
             }
