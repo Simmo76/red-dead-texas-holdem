@@ -194,9 +194,9 @@ html.resume-play .boot-screen .intro-tap-mark {
 
 .toolbar-logo {
     display: block;
-    height: 44px;
+    height: 66px;
     width: auto;
-    max-width: min(200px, 44vw);
+    max-width: min(300px, 66vw);
     object-fit: contain;
     flex: 0 0 auto;
     pointer-events: none;
@@ -397,15 +397,15 @@ html.resume-play .boot-screen .intro-tap-mark {
 
 @media (max-width: 559px) {
     .gameplay-toolbar .toolbar-logo {
-        height: 34px;
-        max-width: min(130px, 38vw);
+        height: 51px;
+        max-width: min(195px, 57vw);
     }
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
     .gameplay-toolbar .toolbar-logo {
-        height: 34px;
-        max-width: min(145px, 36vw);
+        height: 51px;
+        max-width: min(218px, 54vw);
     }
     .gameplay-toolbar .toolbar-actions {
         gap: 6px;
