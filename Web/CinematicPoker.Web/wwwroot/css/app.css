@@ -2286,9 +2286,9 @@ html.resume-play .boot-screen .intro-tap-mark {
 .act.bet   { background: #8a6a2a; }
 .act.allin { background: #7d2430; }
 
-/* Fold, Call, Raise and All-in use the ornate plaques. The artwork already
-   carries the verb, so the button is the image. Call keeps the price as a
-   badge so the amount stays visible. */
+/* Fold, Call, Raise, All-in, Skip and Next Hand use the ornate plaques.
+   The artwork already carries the verb, so the button is the image. Call
+   keeps the price as a badge so the amount stays visible. */
 button.act.plaque {
     padding: 0;
     border: none;
@@ -2347,8 +2347,10 @@ button.act.plaque .plaque-amt {
     color: var(--gold);
 }
 
-/* One tap straight to the next deal — stands out from the step-wise SKIP. */
-.act.ff-next {
+/* One tap straight to the next deal — stands out from the step-wise SKIP.
+   Text fallback (CONTINUE) keeps the gold panel pulse; plaque art uses a
+   brightness pulse so the glow follows the pill shape. */
+.act.ff-next:not(.plaque) {
     min-width: 188px;
     background: var(--panel);
     border: 1px solid var(--gold);
@@ -2357,7 +2359,7 @@ button.act.plaque .plaque-amt {
     animation: next-hand-pulse 2s ease-in-out infinite;
 }
 
-.act.ff-next:hover {
+.act.ff-next:not(.plaque):hover {
     filter: brightness(1.12);
     box-shadow: 0 0 0 3px rgba(216, 178, 92, 0.45), 0 5px 22px rgba(0, 0, 0, 0.6);
     animation-play-state: paused;
@@ -2366,6 +2368,14 @@ button.act.plaque .plaque-amt {
 .act.ff-next:focus-visible {
     outline: 2px solid #fff3c4;
     outline-offset: 3px;
+}
+
+button.act.plaque.ff-next {
+    animation: next-hand-plaque-pulse 2s ease-in-out infinite;
+}
+
+button.act.plaque.ff-next:hover {
+    animation-play-state: paused;
 }
 
 @keyframes next-hand-pulse {
@@ -2377,8 +2387,14 @@ button.act.plaque .plaque-amt {
     }
 }
 
+@keyframes next-hand-plaque-pulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.14); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .act.ff-next { animation: none; }
+    .act.ff-next:not(.plaque),
+    button.act.plaque.ff-next { animation: none; }
 }
 
 .act.small {
