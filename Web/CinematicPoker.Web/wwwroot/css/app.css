@@ -3532,129 +3532,414 @@ button.act.plaque .plaque-amt {
 
 .chip-gear { font-size: 16px; line-height: 1; }
 
+.settings-overlay {
+    padding: max(6px, env(safe-area-inset-top, 0px)) 8px max(6px, env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
+}
+
+/* Painted panel — sized like the legacy overlay so landscape fits without scrolling. */
 .settings-box {
-    max-width: min(440px, calc(100vw - 32px));
-    max-height: calc(100vh - 24px);
-    max-height: calc(100dvh - 24px);
-    overflow-y: auto;
-    padding: 28px 36px;
-    gap: 20px;
+    --settings-panel-ar: 699 / 696;
+    position: relative;
+    flex-shrink: 0;
+    width: min(440px, calc(100vw - 20px));
+    max-width: min(440px, calc(100vw - 20px), calc((100dvh - 20px) * var(--settings-panel-ar)));
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-top, 0px)) - max(8px, env(safe-area-inset-bottom, 0px)));
+    aspect-ratio: var(--settings-panel-ar);
+    margin: auto;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    text-align: left;
+    overflow: hidden;
+}
+
+.settings-panel-art {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    pointer-events: none;
+    user-select: none;
+}
+
+.settings-panel-body {
+    position: absolute;
+    inset: 13.5% 11.5% 11.5% 11.5%;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    gap: 2px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Live title sits in the blank red plaque on panel.png (do not stack title.png). */
+.settings-title {
+    position: absolute;
+    z-index: 2;
+    top: 1.2%;
+    left: 22%;
+    right: 22%;
+    height: 10%;
+    margin: 0;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Rye', Georgia, serif;
+    font-size: clamp(14px, 3.4vw, 22px);
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-align: center;
+    color: #f3d57a;
+    text-shadow:
+        0 1px 0 rgba(0, 0, 0, 0.95),
+        0 0 12px rgba(255, 214, 120, 0.4);
+    pointer-events: none;
 }
 
 .settings-name {
+    grid-row: 1;
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
+    gap: 3px;
+    min-height: 0;
+}
+
+.settings-name-label {
+    max-width: none;
+    font-size: clamp(9px, 1.6vw, 11px);
+    letter-spacing: 0.14em;
 }
 
 .settings-name-controls {
     display: flex;
-    gap: 10px;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
 }
 
+/* Field PNGs are blank skins — text stays live and editable. */
 .settings-name-input {
     flex: 1;
     width: auto;
     min-width: 0;
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 13px;
+    letter-spacing: 0.08em;
     text-align: left;
+    color: #f5ead6;
+    background: transparent url('../img/settings/field-normal.png') center / 100% 100% no-repeat;
+    border: none;
+    border-radius: 0;
+    font-family: inherit;
+    outline: none;
 }
 
-.settings-save { padding: 12px 22px; font-size: 14px; }
+.settings-name-input:focus {
+    background-image: url('../img/settings/field-focused.png');
+}
+
+.settings-name-input.settings-field-error {
+    background-image: url('../img/settings/field-error.png');
+}
+
+.settings-name-input::placeholder {
+    color: rgba(216, 198, 160, 0.55);
+}
+
+.settings-name-input:focus-visible {
+    outline: 2px solid #ffe7a3;
+    outline-offset: 2px;
+}
 
 .settings-note {
     margin: 0;
-    color: var(--gold);
-    font-size: 13px;
-    letter-spacing: 0.4px;
+    color: #f0d68e;
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    line-height: 1.25;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
+.settings-status-line {
+    grid-row: 3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .settings-rows {
+    grid-row: 2;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    justify-content: flex-start;
+    gap: 2px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.settings-sound-block {
+    position: relative;
+    flex: 0 0 auto;
 }
 
 .settings-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 41%) minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
-    gap: 18px;
+    gap: 6px;
+    min-height: 0;
 }
 
-.settings-row .chip-btn { min-width: 150px; }
+.settings-label {
+    max-width: none;
+    font-family: 'Rye', Georgia, serif;
+    font-size: clamp(8px, 1.45vw, 11px);
+    letter-spacing: 0.1em;
+    color: #d8bc78;
+    text-align: left;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
 
-/* SOUND combo: the button summarises the enabled channels; tapping it folds
-   out a checklist where any mix of channels can be selected. */
-.sound-combo-btn { justify-content: space-between; }
+.settings-selector {
+    width: 100%;
+    min-width: 0;
+    min-height: 34px;
+    padding: 5px 22px 5px 10px;
+    border: none;
+    border-radius: 0;
+    background: transparent url('../img/settings/selector-blank.png') center / 100% 100% no-repeat;
+    color: #f5ead6;
+    font-family: inherit;
+    font-size: clamp(9px, 1.55vw, 11px);
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-align: center;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    touch-action: manipulation;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.settings-selector:hover {
+    filter: brightness(1.1);
+}
+
+.settings-selector:active {
+    transform: translateY(1px);
+    filter: brightness(0.92);
+}
+
+.settings-selector:focus-visible {
+    outline: 2px solid #ffe7a3;
+    outline-offset: 3px;
+}
+
+.settings-selector.active {
+    color: #ffe9a8;
+    filter: brightness(1.08);
+}
+
+.settings-selector:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.settings-select-wrap {
+    min-width: 0;
+    width: 100%;
+}
+
+.settings-native-select {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    text-align-last: center;
+}
+
+.sound-combo-btn {
+    justify-content: center;
+}
 
 .sound-caret {
-    color: var(--gold-dim);
+    flex: 0 0 auto;
+    color: #e6c36a;
     font-size: 10px;
-    margin-left: 6px;
+    margin-left: 2px;
 }
 
 .sound-menu {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin: -4px 0 2px;
-    padding: 10px 12px;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: rgba(12, 9, 5, 0.75);
+    gap: 3px;
+    padding: 6px 8px;
+    border: 1px solid rgba(216, 178, 92, 0.55);
+    border-radius: 8px;
+    background: rgba(18, 11, 6, 0.92);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+
+.sound-menu-pop {
+    position: absolute;
+    z-index: 6;
+    right: 0;
+    top: calc(100% - 3px);
+    min-width: min(168px, 46vw);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.55);
 }
 
 .sound-option {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    min-height: 40px;
     background: none;
     border: none;
-    padding: 6px 4px;
-    color: var(--text-dim);
+    padding: 6px 8px;
+    color: #c9b896;
     font-family: inherit;
     font-size: 12px;
-    letter-spacing: 2px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
     cursor: pointer;
     text-align: left;
     touch-action: manipulation;
+    border-radius: 6px;
 }
 
-.sound-option.on { color: var(--gold); }
+.sound-option:hover,
+.sound-option:focus-visible {
+    background: rgba(216, 178, 92, 0.18);
+    color: #ffe9a8;
+    outline: none;
+}
+
+.sound-option.on { color: #ffe9a8; }
 
 .sound-check {
     flex: 0 0 auto;
-    width: 18px;
-    height: 18px;
-    line-height: 16px;
+    width: 20px;
+    height: 20px;
+    line-height: 18px;
     text-align: center;
-    border: 1px solid var(--gold-dim);
+    border: 1px solid rgba(216, 178, 92, 0.65);
     border-radius: 5px;
-    color: var(--gold);
+    color: #f3d57a;
     font-size: 12px;
 }
 
-.settings-select {
-    min-width: 168px;
-    color: var(--gold);
-    text-align: center;
-    text-align-last: center;
-    appearance: none;
-    -webkit-appearance: none;
-    background-image: linear-gradient(45deg, transparent 50%, var(--gold-dim) 50%),
-        linear-gradient(135deg, var(--gold-dim) 50%, transparent 50%);
-    background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%;
-    background-size: 5px 5px, 5px 5px;
-    background-repeat: no-repeat;
-    padding-right: 28px;
+/* Button PNGs are skins only — keep real buttons underneath for a11y. */
+.settings-plaque {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 40px;
+    padding: 4px 2px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    cursor: pointer;
+    line-height: 0;
+    touch-action: manipulation;
+    transition: filter 0.15s ease, transform 0.1s ease;
 }
 
-.settings-label {
-    font-size: 12px;
-    letter-spacing: 2px;
-    color: var(--text-dim);
-    text-align: left;
+.settings-plaque img {
+    display: block;
+    width: 100%;
+    max-width: 150px;
+    height: auto;
+    max-height: 28px;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+}
+
+.settings-plaque-utility img {
+    max-height: 22px;
+    max-width: 132px;
+}
+
+.settings-plaque-main img {
+    max-height: 30px;
+    max-width: 148px;
+}
+
+.settings-plaque:hover { filter: brightness(1.1); }
+.settings-plaque:active { transform: translateY(1px); filter: brightness(0.94); }
+
+.settings-plaque:focus-visible {
+    outline: 2px solid #ffe7a3;
+    outline-offset: 3px;
+}
+
+.settings-plaque:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(0.2);
+}
+
+.settings-plaque.armed {
+    filter: brightness(1.18) saturate(1.1);
+    box-shadow: 0 0 0 2px rgba(255, 231, 163, 0.55);
+}
+
+.settings-save-plaque {
+    flex: 0 0 auto;
+    min-width: 72px;
+    min-height: 36px;
+}
+
+.settings-save-plaque img {
+    width: auto;
+    max-width: 72px;
+    max-height: 32px;
+}
+
+.settings-actions {
+    grid-row: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-self: end;
+    width: 100%;
+    min-height: 0;
+    padding-top: 2px;
+}
+
+.settings-actions-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    justify-items: center;
+    gap: 6px;
+    width: 100%;
+}
+
+.settings-actions-row .settings-plaque,
+.settings-actions-row .settings-action-main {
+    width: 100%;
+    max-width: 158px;
+}
+
+.settings-action-main {
+    min-height: 36px;
+    min-width: 0;
+    color: #ffe2c8;
+}
+
+.settings-leave {
+    color: #ffe9a8;
 }
 
 /* ------------------------------------------------------------- error ui */
@@ -3955,7 +4240,12 @@ button.act.plaque .plaque-amt {
     .actionbar-left, .actionbar-right { gap: 8px; }
     .slider-panel { gap: 4px; }
     .overlay-box { padding: 22px 30px; gap: 14px; }
-    .settings-box { padding: 16px 24px; gap: 10px; }
+    .settings-box {
+        width: min(420px, calc(100vw - 12px));
+        max-width: min(420px, calc(100vw - 12px), calc((100dvh - 12px) * 699 / 696));
+    }
+    .settings-panel-body { inset: 13% 10.5% 12% 10.5%; gap: 1px; }
+    .settings-title { font-size: clamp(13px, 2.8vw, 18px); }
     .invite-box { padding: 14px 22px; gap: 10px; }
     .invite-blurb { font-size: 12px; }
     .invite-room { padding: 9px 12px; }
@@ -3964,8 +4254,12 @@ button.act.plaque .plaque-amt {
         padding: 0;
         gap: 0;
     }
-    .settings-rows { gap: 6px; }
-    .settings-save { padding: 9px 16px; font-size: 12px; }
+    .settings-rows { gap: 1px; }
+    .settings-selector { min-height: 32px; padding-top: 4px; padding-bottom: 4px; font-size: 9px; }
+    .settings-name-input { min-height: 32px; font-size: 12px; }
+    .settings-plaque-utility img { max-height: 18px; }
+    .settings-plaque-main img { max-height: 26px; }
+    .settings-save-plaque img { max-height: 28px; }
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
     .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
     .overlay-box.table-win { padding: 24px 28px 22px; gap: 14px; }
