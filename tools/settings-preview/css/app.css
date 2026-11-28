@@ -2850,47 +2850,120 @@ html.scene-street.resume-play .boot-screen {
 
 /* ------------------------------------------- table-win celebration */
 
-/* Winner-takes-all overlay: gold-rimmed plaque that pops in over a
-   confetti shower, with a spinning ray burst behind the content. The
-   solid background-color (not just the gradient) matters — the victory
-   screenshot compositor only paints solid colors and text. */
+/* Winner-takes-all overlay: western wood+gold plaque frame + sunburst.
+   Solid background-color still matters as a fallback — the victory shot
+   painter draws IMG + solid fills, not CSS gradients. */
 .overlay-box.table-win {
     position: relative;
     overflow: visible;
     max-height: none;
     scrollbar-width: thin;
     scrollbar-color: var(--gold-dim) transparent;
-    padding: 20px 56px 28px;
-    gap: 22px;
-    border: 2px solid var(--gold);
-    background-color: #241709;
-    background-image: radial-gradient(130% 100% at 50% 0%, rgba(216, 178, 92, 0.16), rgba(0, 0, 0, 0) 55%);
-    box-shadow:
-        0 24px 80px rgba(0, 0, 0, 0.75),
-        0 0 60px rgba(216, 178, 92, 0.22),
-        inset 0 0 0 1px rgba(255, 230, 160, 0.12);
-    max-width: min(560px, calc(100vw - 24px));
+    /* % padding is width-relative — clears badge / side rails / bottom V
+       as the plaque scales, while height grows with the content stack. */
+    padding: 12% 9% 14% 9%;
+    gap: 0;
+    border: none;
+    /* Transparent so the PNG frame's outer alpha shows the dimmed table.
+       The parchment fill is painted by the panel IMG itself. */
+    background-color: transparent;
+    background-image: none;
+    border-radius: 0;
+    box-shadow: none;
+    width: min(560px, calc(100vw - 16px));
+    max-width: min(560px, calc(100vw - 16px));
     animation: win-pop 0.55s cubic-bezier(0.18, 1.35, 0.4, 1) both;
 }
 
-/* Content rides above the ray burst. */
-.overlay-box.table-win > * {
+.overlay-box.table-win > .win-panel-art,
+.overlay-box.table-win > .win-sunburst {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.overlay-box.table-win > .win-panel-art {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+}
+
+.overlay-box.table-win > .win-sunburst {
+    left: 50%;
+    top: 4%;
+    width: 38%;
+    height: auto;
+    aspect-ratio: 1;
+    transform: translateX(-50%);
+    opacity: 0.4;
+    animation: win-rays-spin 18s linear infinite;
+}
+
+/* Content stack sits in the parchment hole carved by the padding. */
+.overlay-box.table-win > .win-panel-inner {
     position: relative;
     z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    text-align: center;
 }
 
 .overlay-box.table-win .overlay-title {
     font-family: 'Rye', Georgia, serif;
-    font-size: clamp(28px, 5vw, 42px);
+    font-size: clamp(24px, 4.2vw, 34px);
     font-weight: 400;
     letter-spacing: 2px;
-    color: var(--gold);
+    color: #8a5a12;
     animation: win-title-glow 2.2s ease-in-out infinite;
 }
 
 .overlay-box.table-win .overlay-actions {
     flex-direction: column;
     align-items: center;
+    gap: 6px;
+    width: 100%;
+    flex-shrink: 0;
+}
+
+.overlay-box.table-win .win-btn-gold,
+.overlay-box.table-win .win-btn-green {
+    border: none;
+    box-shadow: none;
+    background-color: transparent;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 100% 100%;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+    min-height: 44px;
+    padding: 10px 28px;
+    width: min(100%, 280px);
+}
+
+.overlay-box.table-win .win-btn-gold {
+    background-image: url("../img/ui/table-win-btn-gold.png");
+    color: #2a1808;
+    font-weight: 700;
+    text-shadow: 0 1px 0 rgba(255, 230, 170, 0.35);
+}
+
+.overlay-box.table-win .win-btn-green {
+    background-image: url("../img/ui/table-win-btn-green.png");
+    color: #f7f1e3;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    min-width: 240px;
+}
+
+.overlay-box.table-win .act.small {
+    background: transparent;
+    border: none;
+    color: #6a5840;
+    text-decoration: underline;
+    text-underline-offset: 3px;
 }
 
 @keyframes win-pop {
@@ -2899,22 +2972,8 @@ html.scene-street.resume-play .boot-screen {
 }
 
 @keyframes win-title-glow {
-    0%, 100% { text-shadow: 0 3px 18px rgba(0, 0, 0, 0.9), 0 0 24px rgba(216, 178, 92, 0.3); }
-    50% { text-shadow: 0 3px 18px rgba(0, 0, 0, 0.9), 0 0 44px rgba(255, 224, 130, 0.75); }
-}
-
-.overlay-box.table-win > .win-rays {
-    position: absolute;
-    z-index: 0;
-    left: 50%;
-    top: -120px;
-    width: 460px;
-    height: 460px;
-    pointer-events: none;
-    background: repeating-conic-gradient(rgba(216, 178, 92, 0.13) 0deg 8deg, transparent 8deg 24deg);
-    -webkit-mask-image: radial-gradient(closest-side, #000 20%, transparent 72%);
-    mask-image: radial-gradient(closest-side, #000 20%, transparent 72%);
-    animation: win-rays-spin 16s linear infinite;
+    0%, 100% { text-shadow: 0 2px 0 rgba(255, 248, 220, 0.85), 0 0 18px rgba(180, 120, 40, 0.25); }
+    50% { text-shadow: 0 2px 0 rgba(255, 248, 220, 0.95), 0 0 28px rgba(200, 140, 50, 0.45); }
 }
 
 @keyframes win-rays-spin {
@@ -2923,7 +2982,19 @@ html.scene-street.resume-play .boot-screen {
 }
 
 .win-eyebrow {
-    margin-bottom: -10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: -6px;
+}
+
+.win-star {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 6px rgba(230, 195, 106, 0.55));
 }
 
 .win-eyebrow-text {
@@ -2931,48 +3002,58 @@ html.scene-street.resume-play .boot-screen {
     white-space: nowrap;
     font-size: clamp(10px, 2.4vw, 13px);
     letter-spacing: clamp(2px, 0.55vw, 5px);
-    color: #e6c36a;
-    text-shadow: 0 0 12px rgba(230, 195, 106, 0.4);
+    color: #7a5210;
+    text-shadow: 0 1px 0 rgba(255, 248, 220, 0.8);
 }
 
-/* Dead man's hand fanned over the plaque, dealt card by card. The final
-   fan angle/lift live in --r/--y so one keyframe serves all five. */
+.overlay-box.table-win .win-haul-label {
+    color: #6a5840;
+}
+
+.overlay-box.table-win .win-amount {
+    color: #9a6414;
+    text-shadow:
+        0 1px 0 rgba(255, 248, 220, 0.9),
+        0 0 22px rgba(180, 120, 40, 0.35);
+}
+
+.overlay-box.table-win .win-stat-num {
+    color: #8a5a12;
+}
+
+.overlay-box.table-win .win-stat-label {
+    color: #6a5840;
+}
+
+.overlay-box.table-win .win-stat + .win-stat {
+    border-left-color: rgba(140, 110, 70, 0.35);
+}
+
+/* Dead man's hand from the western card pack, fanned over the plaque.
+   Fan angle/lift live in --r/--y so one keyframe serves all five. */
 .win-cards {
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    min-height: 96px;
-    margin-bottom: 4px;
-    padding-top: 14px;
+    min-height: 0;
+    margin: 0;
+    padding-top: 0;
     overflow: visible;
+    flex-shrink: 0;
 }
 
 .win-card {
-    width: 46px;
-    height: 64px;
-    margin: 0 -7px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1px;
-    background-color: #f7f1e3;
-    border: 1px solid #2a1c10;
+    width: clamp(28px, 7vw, 42px);
+    height: auto;
+    margin: 0 -6px;
+    display: block;
     border-radius: 6px;
-    color: #1d1408;
-    font-weight: 800;
-    font-size: 16px;
-    line-height: 1;
     box-shadow:
-        0 6px 14px rgba(0, 0, 0, 0.55),
-        0 0 0 1.5px rgba(230, 195, 106, 0.55);
+        0 8px 18px rgba(0, 0, 0, 0.6),
+        0 0 0 1.5px rgba(230, 195, 106, 0.45);
     transform: translateY(var(--y, 0px)) rotate(var(--r, 0deg));
     animation: win-card-deal 0.5s cubic-bezier(0.2, 1.1, 0.3, 1) both;
 }
-
-.win-card b { font-weight: 800; }
-.win-card i { font-style: normal; font-size: 15px; }
-.win-card.red { color: #b02e24; }
 
 .win-card:nth-child(1) { --r: -26deg; --y: 16px; animation-delay: 0.08s; }
 .win-card:nth-child(2) { --r: -13deg; --y: 5px; animation-delay: 0.16s; }
@@ -3068,6 +3149,12 @@ html.scene-street.resume-play .boot-screen {
     animation-name: confetti-fall-sway;
 }
 
+.confetti-piece.confetti-sprite {
+    border-radius: 0;
+    object-fit: contain;
+    background: none;
+}
+
 .confetti-piece.confetti-suit {
     background: none;
     border-radius: 0;
@@ -3088,7 +3175,7 @@ html.scene-street.resume-play .boot-screen {
 
 @media (prefers-reduced-motion: reduce) {
     .confetti-piece,
-    .win-rays,
+    .win-sunburst,
     .overlay-box.table-win .overlay-title,
     .win-amount {
         animation: none;
@@ -3100,23 +3187,26 @@ html.scene-street.resume-play .boot-screen {
 /* Landscape phones: the table-win plaque holds a lot of celebration, so
    compact everything to keep it on one short screen without scrolling. */
 @media (max-height: 540px) {
-    .overlay-box.table-win { padding: 14px 30px 12px; gap: 9px; }
-    .overlay-box.table-win .overlay-title { font-size: 22px; }
-    .win-cards { min-height: 58px; padding-top: 8px; margin-bottom: 2px; }
-    .win-card { width: 32px; height: 44px; font-size: 11px; margin: 0 -5px; border-radius: 4px; }
-    .win-card i { font-size: 10px; }
-    .win-card:nth-child(1) { --y: 10px; }
-    .win-card:nth-child(5) { --y: 10px; }
-    .win-eyebrow { margin-bottom: -4px; }
-    .win-eyebrow-text { font-size: 10px; letter-spacing: 3px; }
-    .win-haul { gap: 2px; margin-top: -4px; }
-    .win-amount { font-size: 30px; }
-    .win-stats { margin-top: -4px; }
-    .win-stat { gap: 2px; padding: 0 12px; }
-    .win-stat-num { font-size: 15px; }
-    .win-stat-label { font-size: 9px; }
-    .overlay-box.table-win .overlay-actions { gap: 8px; }
-    .overlay-box.table-win .overlay-blurb { margin: -6px 0 0; font-size: 11px; }
+    .overlay-box.table-win {
+        width: min(480px, calc(100vw - 12px));
+        max-width: min(480px, calc(100vw - 12px));
+        padding: 11% 8% 13% 8%;
+    }
+    .overlay-box.table-win > .win-panel-inner { gap: 5px; }
+    .overlay-box.table-win .overlay-title { font-size: 18px; }
+    .win-card { width: 26px; margin: 0 -4px; border-radius: 3px; }
+    .win-card:nth-child(1) { --y: 6px; }
+    .win-card:nth-child(5) { --y: 6px; }
+    .win-eyebrow { gap: 6px; }
+    .win-star { width: 12px; height: 12px; }
+    .win-eyebrow-text { font-size: 9px; letter-spacing: 2px; }
+    .win-haul { gap: 1px; }
+    .win-amount { font-size: 24px; }
+    .win-stat { gap: 1px; padding: 0 8px; }
+    .win-stat-num { font-size: 13px; }
+    .win-stat-label { font-size: 8px; }
+    .overlay-box.table-win .win-btn-gold,
+    .overlay-box.table-win .win-btn-green { min-height: 36px; padding: 6px 18px; }
 }
 
 .restart-btn { min-width: 220px; }
@@ -3789,8 +3879,7 @@ html.scene-street.resume-play .boot-screen {
     .overlay-box.table-win { padding: 24px 28px 22px; gap: 14px; }
     .overlay-box.table-win .overlay-title { font-size: 26px; letter-spacing: 2px; }
     .win-cards { min-height: 72px; padding-top: 10px; }
-    .win-card { width: 38px; height: 53px; font-size: 13px; margin: 0 -6px; }
-    .win-card i { font-size: 12px; }
+    .win-card { width: 42px; margin: 0 -7px; }
     .win-eyebrow { margin-bottom: -6px; }
     .win-eyebrow-text { font-size: 11px; letter-spacing: 3.5px; }
     .win-amount { font-size: 36px; }

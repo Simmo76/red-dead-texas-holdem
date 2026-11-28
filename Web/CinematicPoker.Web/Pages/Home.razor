@@ -657,7 +657,7 @@
         <div class="overlay @(_humanWon ? "win-celebration" : "")" role="dialog" aria-label="@_sessionOverMessage">
             @if (_humanWon)
             {
-                @* Gold confetti and card suits rain for the full-table win.
+                @* Painted confetti sprites + suit glyphs for the full-table win.
                    Deterministic per-piece inline styles keep the CSS small. *@
                 <div class="win-confetti" aria-hidden="true">
                     @for (int i = 0; i < ConfettiCount; i++)
@@ -668,91 +668,124 @@
                         }
                         else
                         {
-                            <span class="confetti-piece" style="@ConfettiStyle(i)"></span>
+                            <img class="confetti-piece confetti-sprite" src="@ConfettiSprite(i)" alt="" style="@ConfettiStyle(i)" />
                         }
                     }
                 </div>
-            }
-            <div class="overlay-box @(_humanLost ? "game-over" : _humanWon ? "table-win" : "")">
-                @if (_humanWon)
-                {
-                    <div class="win-rays" aria-hidden="true"></div>
-                    @* Dead man's hand — aces and eights, fanned like the pot
-                       was just dragged. Pure flourish, hidden from readers. *@
-                    <div class="win-cards" aria-hidden="true">
-                        <span class="win-card"><b>A</b><i>♠</i></span>
-                        <span class="win-card"><b>A</b><i>♣</i></span>
-                        <span class="win-card red"><b>Q</b><i>♥</i></span>
-                        <span class="win-card"><b>8</b><i>♠</i></span>
-                        <span class="win-card"><b>8</b><i>♣</i></span>
-                    </div>
-                    <div class="win-eyebrow" aria-hidden="true"><span class="win-eyebrow-text">★ WINNER TAKES ALL ★</span></div>
-                    <div class="overlay-title">@_sessionOverMessage</div>
-                    <div class="win-haul">
-                        <div class="win-haul-label">RIDES OFF WITH</div>
-                        <div class="win-amount">$@_haulShown.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</div>
-                    </div>
-                    @if (_game != null)
-                    {
-                        <div class="win-stats">
-                            <div class="win-stat">
-                                <span class="win-stat-num">@_game.HandNumber</span>
-                                <span class="win-stat-label">@(_game.HandNumber == 1 ? "HAND" : "HANDS")</span>
+                @* Pinch/pan viewport — page scale is locked (user-scalable=no), so
+                   the plaque needs the same gesture layer as Rules / Hands. *@
+                <div class="win-zoom" @ref="_winZoomRef" title="Pinch to zoom, drag to pan, scroll to move">
+                    <div class="overlay-box table-win win-zoom-target">
+                        @* Ornate plaque chrome as real PNGs so Export Certificate
+                           captures them (the shot painter draws IMG, not CSS bg). *@
+                        <img class="win-panel-art" src="@TableWinPanelImage" alt="" aria-hidden="true" />
+                        <div class="win-panel-inner">
+                            <div class="win-cards-wrap" aria-hidden="true">
+                                <img class="win-rays" src="@TableWinRaysImage" alt="" />
+                                @* Dead man's hand — western card pack, same fan as the live win screen. *@
+                                <div class="win-cards">
+                                    <img class="win-card" src="img/cards/ui/spades_A.png" alt="" />
+                                    <img class="win-card" src="img/cards/ui/clubs_A.png" alt="" />
+                                    <img class="win-card" src="img/cards/ui/hearts_Q.png" alt="" />
+                                    <img class="win-card" src="img/cards/ui/spades_8.png" alt="" />
+                                    <img class="win-card" src="img/cards/ui/clubs_8.png" alt="" />
+                                </div>
                             </div>
-                            <div class="win-stat">
-                                <span class="win-stat-num">@(_game.Players.Count - 1)</span>
-                                <span class="win-stat-label">@(_game.Players.Count == 2 ? "RIVAL BUSTED" : "RIVALS BUSTED")</span>
+                            <img class="win-eyebrow" src="@TableWinEyebrowImage" alt="Winner takes all" />
+                            <div class="win-nameplate">
+                                <img class="win-nameplate-art" src="@TableWinNameplateImage" alt="" aria-hidden="true" />
+                                <span class="win-nameplate-text">@PlayerName</span>
                             </div>
-                            @if (_biggestPotWon > 0)
+                            <img class="win-title-flourish" src="@TableWinTitleFlourishImage" alt="Takes the table!" />
+                            <img class="win-star-divider" src="@TableWinStarDividerImage" alt="" aria-hidden="true" />
+                            <div class="win-haul">
+                                <img class="win-haul-label" src="@TableWinHaulLabelImage" alt="Rides off with" />
+                                <div class="win-amount-plate">
+                                    <img class="win-amount-plate-art" src="@TableWinAmountPlateImage" alt="" aria-hidden="true" />
+                                    <span class="win-amount">$@_haulShown.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</span>
+                                </div>
+                            </div>
+                            @if (_game != null)
                             {
-                                <div class="win-stat">
-                                    <span class="win-stat-num">$@_biggestPotWon.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</span>
-                                    <span class="win-stat-label">BIGGEST POT</span>
+                                int handsPlayed = _winPreviewHands ?? _game.HandNumber;
+                                int rivalsBusted = _game.Players.Count - 1;
+                                <div class="win-stats">
+                                    <div class="win-stat">
+                                        <img class="win-stat-plaque" src="@TableWinStatHandsImage" alt="" />
+                                        <span class="win-stat-num">@handsPlayed</span>
+                                        <span class="win-stat-label">@(handsPlayed == 1 ? "HAND" : "HANDS")</span>
+                                    </div>
+                                    <img class="win-stat-divider" src="@TableWinStatDividerImage" alt="" aria-hidden="true" />
+                                    <div class="win-stat">
+                                        <img class="win-stat-plaque" src="@TableWinStatRivalsImage" alt="" />
+                                        <span class="win-stat-num">@rivalsBusted</span>
+                                        <span class="win-stat-label">@(rivalsBusted == 1 ? "RIVAL BUSTED" : "RIVALS BUSTED")</span>
+                                    </div>
+                                    @if (_biggestPotWon > 0)
+                                    {
+                                        <img class="win-stat-divider" src="@TableWinStatDividerImage" alt="" aria-hidden="true" />
+                                        <div class="win-stat">
+                                            <img class="win-stat-plaque" src="@TableWinStatBiggestImage" alt="" />
+                                            <span class="win-stat-num">$@_biggestPotWon.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)</span>
+                                            <span class="win-stat-label">BIGGEST POT</span>
+                                        </div>
+                                    }
                                 </div>
                             }
+                            <div class="overlay-actions">
+                                @if (_isGuest)
+                                {
+                                    <button class="act call big" @onclick="DismissGuestOverlay">KEEP WATCHING</button>
+                                    <button class="act allin big restart-btn" @onclick="LeaveTable">LEAVE TABLE</button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="act victory-shot win-btn win-btn-gold" disabled="@_shotBusy"
+                                            @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true"
+                                            aria-label="Export Certificate">
+                                        <img src="@TableWinBtnGoldImage" alt="Export Certificate" />
+                                    </button>
+                                    @if (!string.IsNullOrEmpty(_shotStatus))
+                                    {
+                                        <div class="victory-shot-status">@_shotStatus</div>
+                                    }
+                                    <button class="act call big restart-btn win-btn win-btn-green" @onclick="ContinueGame"
+                                            aria-label="Sit new table">
+                                        <img src="@TableWinBtnGreenImage" alt="Sit new table" />
+                                    </button>
+                                    <button type="button" class="act win-btn win-btn-stats" @onclick="OpenExportPanel"
+                                            aria-label="Export stats">
+                                        <img src="@TableWinBtnStatsImage" alt="Export stats" />
+                                    </button>
+                                }
+                            </div>
                         </div>
-                    }
-                }
-                else
-                {
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="overlay-box @(_humanLost ? "game-over" : "")">
                     <div class="overlay-title">@_sessionOverMessage</div>
-                }
-                <div class="overlay-actions">
-                    @if (_isGuest)
-                    {
-                        <button class="act call big" @onclick="DismissGuestOverlay">KEEP WATCHING</button>
-                        <button class="act allin big restart-btn" @onclick="LeaveTable">LEAVE TABLE</button>
-                    }
-                    else if (_humanLost || _humanWon)
-                    {
-                        @if (_humanWon)
+                    <div class="overlay-actions">
+                        @if (_isGuest)
                         {
-                            <button type="button" class="act victory-shot" disabled="@_shotBusy"
-                                    @onclick="TakeVictoryScreenshot" @onclick:stopPropagation="true">
-                                Export Certificate
-                            </button>
-                            @if (!string.IsNullOrEmpty(_shotStatus))
-                            {
-                                <div class="victory-shot-status">@_shotStatus</div>
-                            }
+                            <button class="act call big" @onclick="DismissGuestOverlay">KEEP WATCHING</button>
+                            <button class="act allin big restart-btn" @onclick="LeaveTable">LEAVE TABLE</button>
                         }
-                        @if (_humanWon)
+                        else if (_humanLost)
                         {
-                            <button class="act call big restart-btn" @onclick="ContinueGame">SIT NEW TABLE</button>
+                            <button class="act allin big restart-btn" @onclick="StartSession">RESTART</button>
+                            <button class="act small" @onclick="OpenExportPanel">EXPORT STATS</button>
                         }
                         else
                         {
-                            <button class="act allin big restart-btn" @onclick="StartSession">RESTART</button>
+                            <button class="act call big" @onclick="OpenExportPanel">EXPORT STATS</button>
+                            <button class="act call big" @onclick="StartSession">PLAY AGAIN</button>
                         }
-                        <button class="act small" @onclick="OpenExportPanel">EXPORT STATS</button>
-                    }
-                    else
-                    {
-                        <button class="act call big" @onclick="OpenExportPanel">EXPORT STATS</button>
-                        <button class="act call big" @onclick="StartSession">PLAY AGAIN</button>
-                    }
+                    </div>
                 </div>
-            </div>
+            }
         </div>
     }
 
@@ -1406,6 +1439,29 @@
 
     private const string VictoryTrophyImage = "images/victory-trophy.png";
     private const string VictoryGalleryPlaqueImage = "images/victory-gallery-of-wins.png?v=4";
+    // Star-crest panel (standalone) + refreshed kit plaques from the latest sprite sheet.
+    private const string TableWinPanelImage = "img/ui/table-win-panel-alt.png?v=4";
+    private const string TableWinCardFanImage = "img/ui/table-win-card-fan.png?v=5";
+    private const string TableWinEyebrowImage = "img/ui/table-win-eyebrow.png?v=5";
+    private const string TableWinNameplateImage = "img/ui/table-win-nameplate.png?v=5";
+    private const string TableWinTitleFlourishImage = "img/ui/table-win-title-flourish.png?v=5";
+    private const string TableWinRaysImage = "img/ui/table-win-rays.png?v=5";
+    private const string TableWinStarDividerImage = "img/ui/table-win-star-divider.png?v=5";
+    private const string TableWinHaulLabelImage = "img/ui/table-win-haul-label.png?v=5";
+    private const string TableWinAmountPlateImage = "img/ui/table-win-amount-plate.png?v=5";
+    private const string TableWinStatHandsImage = "img/ui/table-win-stat-hands.png?v=5";
+    private const string TableWinStatRivalsImage = "img/ui/table-win-stat-rivals.png?v=5";
+    private const string TableWinStatBiggestImage = "img/ui/table-win-stat-biggest.png?v=5";
+    private const string TableWinStatDividerImage = "img/ui/table-win-stat-divider.png?v=5";
+    private const string TableWinBtnGoldImage = "img/ui/table-win-btn-gold.png?v=5";
+    private const string TableWinBtnGreenImage = "img/ui/table-win-btn-green.png?v=5";
+    private const string TableWinBtnStatsImage = "img/ui/table-win-btn-stats.png?v=5";
+    private static readonly string[] TableWinConfettiSprites =
+    {
+        "img/ui/table-win-confetti-red.png?v=1",
+        "img/ui/table-win-confetti-green.png?v=1",
+        "img/ui/table-win-confetti-gold.png?v=1"
+    };
 
     private const int MaxVictoryWins = 200;
     private readonly List<VictoryWinRecord> _winGallery = new();
@@ -1900,6 +1956,10 @@
             await AttachHandsZoomAsync();
         if (_rulesOpen && !_rulesZoomBound)
             await AttachRulesZoomAsync();
+        if (_sessionOver && _humanWon && !_winZoomBound)
+            await AttachWinZoomAsync();
+        else if ((!_sessionOver || !_humanWon) && _winZoomBound)
+            ReleaseWinZoom();
         // One-shot: fly to the winner's cards after the snapshot has put them
         // on the felt. Cleared immediately so later HUD updates do not yank
         // the camera back if the player has already looked around.
@@ -2258,6 +2318,7 @@
         _haulAnimToken++;
         _haulShown = 0;
         _biggestPotWon = 0;
+        _winPreviewHands = null;
         _pendingFocusSeat = -1;
         _sessionOver = false;
         _humanLost = false;
@@ -2284,7 +2345,17 @@
         catch (JSException) { }
         catch (InvalidOperationException) { }
 
-        if (_winPreview) ShowWinPreview();
+        if (_winPreview)
+        {
+            // Preview-only: show the painted plaque and leave the deal loop
+            // alone so AnimateHaulAsync is not cancelled mid-count by a live
+            // FinishSession / token bump behind the overlay.
+            ShowWinPreview();
+            _tableCastLocked = false;
+            if (!_isGuest) _ = ReportUsageAsync(_hosting ? "host_table" : "solo");
+            return;
+        }
+
         _tableCastLocked = false;
         if (run) _ = RunLoop(token);
         // Solo (and host-table restarts) never emit a hub "started" line on
@@ -2336,6 +2407,7 @@
             return;
         }
 
+        ReleaseWinZoom();
         _sessionOver = false;
         _humanLost = false;
         _humanWon = false;
@@ -3006,9 +3078,12 @@
     private bool _handRankingsOpen;
     private ElementReference _handsZoomRef;
     private bool _handsZoomBound;
+    private ElementReference _winZoomRef;
+    private bool _winZoomBound;
 
     private void OpenHandRankings()
     {
+        ReleaseWinZoom();
         ReleaseRulesZoom();
         _rulesOpen = false;
         _handsZoomBound = false;
@@ -3017,6 +3092,7 @@
 
     private async Task AttachRulesZoomAsync()
     {
+        ReleaseWinZoom();
         try
         {
             await JS.InvokeVoidAsync("pokerHandsZoom.attach", _rulesZoomRef);
@@ -3037,6 +3113,7 @@
 
     private async Task AttachHandsZoomAsync()
     {
+        ReleaseWinZoom();
         try
         {
             await JS.InvokeVoidAsync("pokerHandsZoom.attach", _handsZoomRef);
@@ -3050,6 +3127,29 @@
     {
         if (!_handsZoomBound) return;
         _handsZoomBound = false;
+        try { _ = JS.InvokeVoidAsync("pokerHandsZoom.detach"); }
+        catch (InvalidOperationException) { }
+        catch (JSException) { }
+    }
+
+    private async Task AttachWinZoomAsync()
+    {
+        // Hands/Rules share the same singleton — release them first.
+        ReleaseHandsZoom();
+        ReleaseRulesZoom();
+        try
+        {
+            await JS.InvokeVoidAsync("pokerHandsZoom.attach", _winZoomRef);
+            _winZoomBound = true;
+        }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+    }
+
+    private void ReleaseWinZoom()
+    {
+        if (!_winZoomBound) return;
+        _winZoomBound = false;
         try { _ = JS.InvokeVoidAsync("pokerHandsZoom.detach"); }
         catch (InvalidOperationException) { }
         catch (JSException) { }
@@ -4204,6 +4304,7 @@
         _haulAnimToken++;
         _haulShown = 0;
         _biggestPotWon = 0;
+        _winPreviewHands = null;
         _pendingFocusSeat = -1;
         _sessionOver = false;
         _humanLost = false;
@@ -4398,6 +4499,7 @@
 
     private void DismissGuestOverlay()
     {
+        ReleaseWinZoom();
         _sessionOver = false;
         _guestOverDismissed = true;
     }
@@ -5563,6 +5665,12 @@
         if (_shotBusy) return;
         _shotBusy = true;
         _shotStatus = null;
+        // Export at 1× — a live pinch transform would skew the plaque paint.
+        if (_winZoomBound)
+        {
+            ReleaseWinZoom();
+            await AttachWinZoomAsync();
+        }
         try
         {
             string result = await JS.InvokeAsync<string>("pokerShot.save");
@@ -5628,19 +5736,25 @@
             : _banner;
     }
 
+    // Sample hand count for ?winpreview=1 (StartHand never runs there).
+    private int? _winPreviewHands;
+
     private void ShowWinPreview()
     {
         _winPreview = false;
         _sessionOver = true;
         _humanWon = true;
         _biggestPotWon = 1480;
+        _winPreviewHands = 38;
         _sessionOverMessage = $"{PlayerName} takes the table!";
         _ = AnimateHaulAsync(6000);
     }
 
     private const int ConfettiCount = 27;
-    private static readonly string[] ConfettiColors = { "#e6c36a", "#c0392b", "#57c785", "#f4efe2" };
     private static readonly string[] ConfettiSuits = { "♠", "♥", "♦", "♣" };
+
+    private static string ConfettiSprite(int i) =>
+        TableWinConfettiSprites[i % TableWinConfettiSprites.Length];
 
     // Deterministic scatter from the piece index: no RNG, so the shower
     // looks the same on every render pass of the same overlay.
@@ -5650,11 +5764,10 @@
         int left = (i * 41 + 7) % 100;
         double delay = (i * 73 % 260) / 100.0;
         double duration = 2.8 + (i * 29 % 140) / 100.0;
-        int size = 7 + (i * 31) % 7;
-        string color = ConfettiColors[i % ConfettiColors.Length];
+        int size = 10 + (i * 31) % 10;
         return string.Format(inv,
-            "left:{0}%;animation-delay:{1:0.00}s;animation-duration:{2:0.00}s;width:{3}px;height:{4}px;background-color:{5};",
-            left, delay, duration, size, size + 4, color);
+            "left:{0}%;animation-delay:{1:0.00}s;animation-duration:{2:0.00}s;width:{3}px;height:{4}px;",
+            left, delay, duration, size, size + 6);
     }
 
     private static string ConfettiSuitStyle(int i)

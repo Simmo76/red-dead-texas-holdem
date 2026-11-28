@@ -2923,19 +2923,46 @@ button.act.plaque .plaque-amt {
     animation: overlayfade 0.4s ease-out;
 }
 
-/* Table-win plaques are tall; top-align and scroll the backdrop so the
-   fanned cards and footer actions are never vertically cropped. */
+/* Table-win plaque: fill the safe viewport, pinch/pan via .win-zoom
+   (same gesture layer as Rules / Hands — page scale stays locked). */
 .overlay.win-celebration {
-    align-items: flex-start;
-    padding: max(12px, env(safe-area-inset-top, 0px)) 12px
-        max(12px, env(safe-area-inset-bottom, 0px));
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    align-items: stretch;
+    justify-content: center;
+    padding: max(8px, env(safe-area-inset-top, 0px)) 10px
+        max(8px, env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
+}
+
+.win-zoom {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: none;
+    cursor: grab;
+    overscroll-behavior: contain;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.win-zoom:active {
+    cursor: grabbing;
+}
+
+.win-zoom.zoomed {
+    cursor: grab;
 }
 
 .win-celebration .overlay-box.table-win {
     flex-shrink: 0;
     margin: 0 auto;
+    transform-origin: center center;
+    will-change: transform;
 }
 
 @keyframes overlayfade {
@@ -2982,47 +3009,147 @@ button.act.plaque .plaque-amt {
 
 /* ------------------------------------------- table-win celebration */
 
-/* Winner-takes-all overlay: gold-rimmed plaque that pops in over a
-   confetti shower, with a spinning ray burst behind the content. The
-   solid background-color (not just the gradient) matters — the victory
-   screenshot compositor only paints solid colors and text. */
+/* Winner-takes-all overlay: dark gold kit panel + painted plaques.
+   Solid background-color still matters as a fallback — the victory shot
+   painter draws IMG + solid fills, not CSS gradients. */
 .overlay-box.table-win {
     position: relative;
     overflow: visible;
+    /* Prefer a wide plaque like the original Winner Takes All modal.
+       Height can exceed the viewport — .win-zoom + inner scroll cover that.
+       Panel IMG stays in-flow at native aspect (never stretched). */
+    width: min(560px, calc(100vw - 16px));
+    max-width: 100%;
+    height: auto;
     max-height: none;
-    scrollbar-width: thin;
-    scrollbar-color: var(--gold-dim) transparent;
-    padding: 20px 56px 28px;
-    gap: 22px;
-    border: 2px solid var(--gold);
-    background-color: #241709;
-    background-image: radial-gradient(130% 100% at 50% 0%, rgba(216, 178, 92, 0.16), rgba(0, 0, 0, 0) 55%);
-    box-shadow:
-        0 24px 80px rgba(0, 0, 0, 0.75),
-        0 0 60px rgba(216, 178, 92, 0.22),
-        inset 0 0 0 1px rgba(255, 230, 160, 0.12);
-    max-width: min(560px, calc(100vw - 24px));
+    padding: 0;
+    gap: 0;
+    border: none;
+    background-color: transparent;
+    background-image: none;
+    border-radius: 0;
+    box-shadow: none;
     animation: win-pop 0.55s cubic-bezier(0.18, 1.35, 0.4, 1) both;
+    box-sizing: border-box;
 }
 
-/* Content rides above the ray burst. */
-.overlay-box.table-win > * {
+/* In-flow panel sets the box height from the PNG's native aspect ratio. */
+.overlay-box.table-win > .win-panel-art {
     position: relative;
-    z-index: 1;
+    display: block;
+    z-index: 0;
+    pointer-events: none;
+    width: 100%;
+    height: auto;
+    vertical-align: top;
 }
 
-.overlay-box.table-win .overlay-title {
-    font-family: 'Rye', Georgia, serif;
-    font-size: clamp(28px, 5vw, 42px);
-    font-weight: 400;
-    letter-spacing: 2px;
-    color: var(--gold);
-    animation: win-title-glow 2.2s ease-in-out infinite;
+/* Content overlays the leather hole. Side inset stays modest so painted
+   banners fill the hole; min-width:0 lets flex shrink past PNG intrinsics
+   (otherwise overflow clips nameplate / haul / cards). */
+.overlay-box.table-win > .win-panel-inner {
+    position: absolute;
+    z-index: 1;
+    left: 5%;
+    right: 5%;
+    top: 9.5%;
+    bottom: 5.5%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    width: auto;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 0;
+    text-align: center;
+    /* overflow-y:auto alone would force overflow-x to auto and clip the
+       card fan — keep both axes clipping only as a last resort by making
+       every child fit (min-width:0 + max-width:100%). */
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    touch-action: pan-y;
+    box-sizing: border-box;
+}
+
+.overlay-box.table-win > .win-panel-inner > * {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .overlay-box.table-win .overlay-actions {
     flex-direction: column;
     align-items: center;
+    gap: 6px;
+    width: 100%;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* Painted buttons — label text is baked into the PNG.
+   Reset .act / .call / .big / .restart-btn so plaque chrome isn't padded. */
+.overlay-box.table-win .win-btn.act,
+.overlay-box.table-win .win-btn.act.call,
+.overlay-box.table-win .win-btn.act.big,
+.overlay-box.table-win .win-btn.restart-btn {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    background-color: transparent;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
+    line-height: 0;
+    width: 100%;
+    max-width: 100%;
+    color: transparent;
+    font-size: 0;
+    letter-spacing: 0;
+    text-shadow: none;
+    cursor: pointer;
+}
+
+.overlay-box.table-win .restart-btn {
+    min-width: 0;
+}
+
+.overlay-box.table-win .win-btn img {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+    user-select: none;
+}
+
+.overlay-box.table-win .win-btn-green {
+    width: 100%;
+    max-width: 100%;
+}
+
+.overlay-box.table-win .win-btn-stats {
+    width: 92%;
+    max-width: 100%;
+}
+
+.overlay-box.table-win .win-btn:hover {
+    filter: brightness(1.08);
+}
+
+.overlay-box.table-win .win-btn:active {
+    transform: translateY(1px);
+}
+
+.overlay-box.table-win .win-btn:disabled {
+    opacity: 0.55;
+    cursor: wait;
+    filter: none;
 }
 
 @keyframes win-pop {
@@ -3030,91 +3157,128 @@ button.act.plaque .plaque-amt {
     to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-@keyframes win-title-glow {
-    0%, 100% { text-shadow: 0 3px 18px rgba(0, 0, 0, 0.9), 0 0 24px rgba(216, 178, 92, 0.3); }
-    50% { text-shadow: 0 3px 18px rgba(0, 0, 0, 0.9), 0 0 44px rgba(255, 224, 130, 0.75); }
-}
-
-.overlay-box.table-win > .win-rays {
-    position: absolute;
-    z-index: 0;
-    left: 50%;
-    top: -120px;
-    width: 460px;
-    height: 460px;
-    pointer-events: none;
-    background: repeating-conic-gradient(rgba(216, 178, 92, 0.13) 0deg 8deg, transparent 8deg 24deg);
-    -webkit-mask-image: radial-gradient(closest-side, #000 20%, transparent 72%);
-    mask-image: radial-gradient(closest-side, #000 20%, transparent 72%);
-    animation: win-rays-spin 16s linear infinite;
-}
-
-@keyframes win-rays-spin {
-    from { transform: translateX(-50%) rotate(0deg); }
-    to { transform: translateX(-50%) rotate(360deg); }
-}
-
-.win-eyebrow {
-    margin-bottom: -10px;
-}
-
-.win-eyebrow-text {
-    display: inline-block;
-    white-space: nowrap;
-    font-size: clamp(10px, 2.4vw, 13px);
-    letter-spacing: clamp(2px, 0.55vw, 5px);
-    color: #e6c36a;
-    text-shadow: 0 0 12px rgba(230, 195, 106, 0.4);
-}
-
-/* Dead man's hand fanned over the plaque, dealt card by card. The final
-   fan angle/lift live in --r/--y so one keyframe serves all five. */
-.win-cards {
+.win-cards-wrap {
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    min-height: 96px;
-    margin-bottom: 4px;
-    padding-top: 14px;
+    width: 100%;
+    max-width: 100%;
+    min-height: 64px;
+    margin: 0 auto 4px;
+    overflow: visible;
+    flex-shrink: 0;
+}
+
+.win-cards-wrap > .win-rays {
+    position: absolute;
+    left: 50%;
+    bottom: 10%;
+    width: min(70%, 220px);
+    height: auto;
+    transform: translateX(-50%);
+    opacity: 0.5;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    z-index: 0;
+}
+
+.win-cards {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    max-width: 100%;
     overflow: visible;
 }
 
 .win-card {
-    width: 46px;
-    height: 64px;
-    margin: 0 -7px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1px;
-    background-color: #f7f1e3;
-    border: 1px solid #2a1c10;
-    border-radius: 6px;
-    color: #1d1408;
-    font-weight: 800;
-    font-size: 16px;
-    line-height: 1;
+    width: clamp(28px, 7vw, 48px);
+    height: auto;
+    margin: 0 -6px;
+    flex: 0 0 auto;
+    display: block;
+    border-radius: 4px;
     box-shadow:
         0 6px 14px rgba(0, 0, 0, 0.55),
-        0 0 0 1.5px rgba(230, 195, 106, 0.55);
+        0 0 0 1.5px rgba(230, 195, 106, 0.4);
     transform: translateY(var(--y, 0px)) rotate(var(--r, 0deg));
     animation: win-card-deal 0.5s cubic-bezier(0.2, 1.1, 0.3, 1) both;
 }
 
-.win-card b { font-weight: 800; }
-.win-card i { font-style: normal; font-size: 15px; }
-.win-card.red { color: #b02e24; }
-
-.win-card:nth-child(1) { --r: -26deg; --y: 16px; animation-delay: 0.08s; }
-.win-card:nth-child(2) { --r: -13deg; --y: 5px; animation-delay: 0.16s; }
-.win-card:nth-child(3) { --r: 0deg; --y: 0px; animation-delay: 0.24s; z-index: 2; }
-.win-card:nth-child(4) { --r: 13deg; --y: 5px; animation-delay: 0.32s; }
-.win-card:nth-child(5) { --r: 26deg; --y: 16px; animation-delay: 0.4s; }
+.win-card:nth-child(1) { --r: -18deg; --y: 10px; animation-delay: 0.08s; }
+.win-card:nth-child(2) { --r: -9deg; --y: 4px; animation-delay: 0.14s; }
+.win-card:nth-child(3) { --r: 0deg; --y: 0px; animation-delay: 0.2s; z-index: 2; }
+.win-card:nth-child(4) { --r: 9deg; --y: 4px; animation-delay: 0.26s; }
+.win-card:nth-child(5) { --r: 18deg; --y: 10px; animation-delay: 0.32s; }
 
 @keyframes win-card-deal {
-    from { opacity: 0; transform: translateY(30px) rotate(0deg) scale(0.6); }
+    from { opacity: 0; transform: translateY(24px) rotate(0deg) scale(0.7); }
     to { opacity: 1; transform: translateY(var(--y, 0px)) rotate(var(--r, 0deg)) scale(1); }
+}
+
+.win-eyebrow {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+    flex-shrink: 0;
+}
+
+.win-nameplate {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    flex-shrink: 0;
+}
+
+.win-nameplate-art {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.win-nameplate-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8%;
+    font-family: 'Rye', Georgia, serif;
+    font-size: clamp(18px, 4.5vw, 30px);
+    font-weight: 400;
+    letter-spacing: 2px;
+    color: #f4e6c0;
+    text-shadow:
+        0 2px 0 rgba(0, 0, 0, 0.75),
+        0 0 14px rgba(230, 195, 106, 0.35);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.win-title-flourish {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    margin: -2px auto 0;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
+    flex-shrink: 0;
+}
+
+.win-star-divider {
+    display: block;
+    width: min(70%, 240px);
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+    opacity: 0.95;
+    flex-shrink: 0;
 }
 
 /* The haul counts up from $0 in the code-behind; the glow pulse reuses
@@ -3122,53 +3286,117 @@ button.act.plaque .plaque-amt {
 .win-haul {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-top: -6px;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    max-width: 100%;
+    flex-shrink: 0;
 }
 
 .win-haul-label {
-    font-size: 11px;
-    letter-spacing: 4px;
-    color: var(--text-dim);
+    display: block;
+    width: min(78%, 280px);
+    max-width: 100%;
+    height: auto;
+}
+
+.win-amount-plate {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.win-amount-plate-art {
+    display: block;
+    width: 100%;
+    height: auto;
 }
 
 .win-amount {
-    font-size: clamp(40px, 9vw, 60px);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6%;
+    font-size: clamp(22px, 6.5vw, 44px);
     font-weight: 800;
+    letter-spacing: 1px;
     color: #ffe9a8;
     text-shadow:
-        0 0 30px rgba(255, 220, 120, 0.55),
-        0 2px 0 rgba(60, 40, 10, 0.55);
+        0 0 22px rgba(255, 220, 120, 0.55),
+        0 2px 0 rgba(20, 40, 15, 0.85);
     animation: victory-amount 1.8s ease-in-out infinite;
+    white-space: nowrap;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 .win-stats {
     display: flex;
     justify-content: center;
-    margin-top: -6px;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 4px;
+    flex-shrink: 0;
+    box-sizing: border-box;
 }
 
 .win-stat {
+    position: relative;
+    flex: 1 1 0;
+    max-width: none;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 0 18px;
+    align-items: center;
+    justify-content: center;
 }
 
-.win-stat + .win-stat {
-    border-left: 1px solid rgba(140, 110, 70, 0.4);
+.win-stat-plaque {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.win-stat-divider {
+    width: 3px;
+    height: 72%;
+    align-self: center;
+    object-fit: fill;
+    margin: 0 1px;
+    opacity: 0.85;
+}
+
+.win-stat-num,
+.win-stat-label {
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    text-align: center;
+    pointer-events: none;
+    line-height: 1.05;
 }
 
 .win-stat-num {
-    font-size: 20px;
+    top: 18%;
+    font-size: clamp(14px, 3vw, 20px);
     font-weight: 800;
-    color: var(--gold);
+    letter-spacing: 0.5px;
+    color: #f3e6c8;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
 }
 
 .win-stat-label {
-    font-size: 10px;
-    letter-spacing: 2.5px;
-    color: var(--text-dim);
+    top: 52%;
+    font-size: clamp(7px, 1.7vw, 10px);
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: #e8dcc0;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
 }
 
 /* Confetti shower behind the plaque. Per-piece size, color, drift, and
@@ -3200,6 +3428,12 @@ button.act.plaque .plaque-amt {
     animation-name: confetti-fall-sway;
 }
 
+.confetti-piece.confetti-sprite {
+    border-radius: 0;
+    object-fit: contain;
+    background: none;
+}
+
 .confetti-piece.confetti-suit {
     background: none;
     border-radius: 0;
@@ -3220,35 +3454,36 @@ button.act.plaque .plaque-amt {
 
 @media (prefers-reduced-motion: reduce) {
     .confetti-piece,
-    .win-rays,
-    .overlay-box.table-win .overlay-title,
-    .win-amount {
+    .win-amount,
+    .win-card {
         animation: none;
     }
     .confetti-piece { opacity: 0.85; top: auto; }
     .win-card { animation-duration: 0.01s; }
 }
 
-/* Landscape phones: the table-win plaque holds a lot of celebration, so
-   compact everything to keep it on one short screen without scrolling. */
+/* Short landscape: keep the plaque wide; scroll/pinch for height. */
 @media (max-height: 540px) {
-    .overlay-box.table-win { padding: 14px 30px 12px; gap: 9px; }
-    .overlay-box.table-win .overlay-title { font-size: 22px; }
-    .win-cards { min-height: 58px; padding-top: 8px; margin-bottom: 2px; }
-    .win-card { width: 32px; height: 44px; font-size: 11px; margin: 0 -5px; border-radius: 4px; }
-    .win-card i { font-size: 10px; }
-    .win-card:nth-child(1) { --y: 10px; }
-    .win-card:nth-child(5) { --y: 10px; }
-    .win-eyebrow { margin-bottom: -4px; }
-    .win-eyebrow-text { font-size: 10px; letter-spacing: 3px; }
-    .win-haul { gap: 2px; margin-top: -4px; }
-    .win-amount { font-size: 30px; }
-    .win-stats { margin-top: -4px; }
-    .win-stat { gap: 2px; padding: 0 12px; }
-    .win-stat-num { font-size: 15px; }
-    .win-stat-label { font-size: 9px; }
-    .overlay-box.table-win .overlay-actions { gap: 8px; }
-    .overlay-box.table-win .overlay-blurb { margin: -6px 0 0; font-size: 11px; }
+    .overlay-box.table-win {
+        width: min(520px, calc(100vw - 16px));
+    }
+    .overlay-box.table-win > .win-panel-inner {
+        left: 5%;
+        right: 5%;
+        top: 9%;
+        bottom: 5%;
+        gap: 2px;
+    }
+    .win-cards-wrap { min-height: 40px; }
+    .win-card { width: 26px; margin: 0 -4px; }
+    .win-card:nth-child(1), .win-card:nth-child(5) { --y: 6px; }
+    .win-nameplate-text { font-size: 14px; letter-spacing: 1px; }
+    .win-star-divider { width: min(55%, 160px); }
+    .win-haul-label { width: min(70%, 180px); }
+    .win-amount { font-size: 20px; }
+    .win-stat-num { font-size: 11px; }
+    .win-stat-label { font-size: 6px; }
+    .overlay-box.table-win .restart-btn { min-width: 0; }
 }
 
 .restart-btn { min-width: 220px; }
@@ -3968,16 +4203,13 @@ button.act.plaque .plaque-amt {
     .settings-save { padding: 9px 16px; font-size: 12px; }
     .overlay-box.game-over { padding: 28px 36px; gap: 18px; }
     .overlay-box.game-over .overlay-title { font-size: 32px; letter-spacing: 8px; }
-    .overlay-box.table-win { padding: 24px 28px 22px; gap: 14px; }
-    .overlay-box.table-win .overlay-title { font-size: 26px; letter-spacing: 2px; }
-    .win-cards { min-height: 72px; padding-top: 10px; }
-    .win-card { width: 38px; height: 53px; font-size: 13px; margin: 0 -6px; }
-    .win-card i { font-size: 12px; }
-    .win-eyebrow { margin-bottom: -6px; }
-    .win-eyebrow-text { font-size: 11px; letter-spacing: 3.5px; }
-    .win-amount { font-size: 36px; }
-    .win-stat { padding: 0 12px; }
-    .win-stat-num { font-size: 17px; }
+    .overlay-box.table-win {
+        width: min(520px, calc(100vw - 16px));
+    }
+    .win-card { width: 36px; }
+    .win-nameplate-text { font-size: 22px; }
+    .win-amount { font-size: 32px; }
+    .win-stat-num { font-size: 14px; }
 }
 
 /* ------------------------------------------------------------- post-hand coach */

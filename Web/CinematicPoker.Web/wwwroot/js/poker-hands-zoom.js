@@ -96,6 +96,17 @@ window.pokerHandsZoom = (function () {
     if (!viewport || e.button > 0) return;
     // CLOSE sits on the chart art. Leave it out of pinch, pan, and double-tap zoom.
     if (e.target.closest && e.target.closest('button, a')) return;
+    // Winner plaque: at 1× let the inner stack scroll natively; pinch (2nd
+    // pointer) and zoomed pan still go through the gesture layer.
+    if (
+      scale <= 1.01 &&
+      pointers.size === 0 &&
+      e.target.closest &&
+      e.target.closest('.win-panel-inner')
+    ) {
+      var inner = e.target.closest('.win-panel-inner');
+      if (inner && inner.scrollHeight > inner.clientHeight + 1) return;
+    }
     viewport.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     moved = false;
@@ -222,7 +233,7 @@ window.pokerHandsZoom = (function () {
     detach();
     if (!el) return;
     viewport = el;
-    target = el.querySelector('.hands-chart, .rules-zoom-target');
+    target = el.querySelector('.hands-chart, .rules-zoom-target, .win-zoom-target');
     if (!target) {
       viewport = null;
       return;
