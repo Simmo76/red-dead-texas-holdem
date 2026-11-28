@@ -618,9 +618,10 @@
                        the action one tap at a time, or jump straight to the
                        next hand. *@
                     <div class="actionbar-right">
-                        <button class="act ff" @onclick="FastForward"
-                                title="Skip to the next action">
-                            SKIP »
+                        <button class="act plaque ff" @onclick="FastForward"
+                                title="Skip to the next action"
+                                aria-label="Skip">
+                            <img src="img/ui/action-skip.png?v=1" alt="Skip" />
                         </button>
                         <button class="act ff ff-next" @onclick="SkipToNextHand"
                                 title="Fast-forward to the next hand">
