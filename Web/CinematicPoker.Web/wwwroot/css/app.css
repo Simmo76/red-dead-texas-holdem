@@ -3566,32 +3566,42 @@ button.act.plaque .plaque-amt {
 
 .settings-panel-body {
     position: absolute;
-    inset: 14.5% 11.5% 11.5% 11.5%;
+    inset: 13.5% 11.5% 11.5% 11.5%;
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
     gap: 2px;
     min-height: 0;
     overflow: hidden;
 }
 
+/* Live title sits in the blank red plaque on panel.png (do not stack title.png). */
 .settings-title {
-    grid-row: 1;
-    margin: -5.5% 0 0;
-    padding: 0 4px;
+    position: absolute;
+    z-index: 2;
+    top: 1.2%;
+    left: 22%;
+    right: 22%;
+    height: 10%;
+    margin: 0;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-family: 'Rye', Georgia, serif;
-    font-size: clamp(13px, 2.2vw, 19px);
+    font-size: clamp(14px, 3.4vw, 22px);
     font-weight: 400;
-    letter-spacing: 0.1em;
-    line-height: 1.05;
+    letter-spacing: 0.12em;
+    line-height: 1;
     text-align: center;
     color: #f3d57a;
     text-shadow:
-        0 1px 0 rgba(0, 0, 0, 0.9),
-        0 0 14px rgba(255, 214, 120, 0.35);
+        0 1px 0 rgba(0, 0, 0, 0.95),
+        0 0 12px rgba(255, 214, 120, 0.4);
+    pointer-events: none;
 }
 
 .settings-name {
-    grid-row: 2;
+    grid-row: 1;
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -3657,14 +3667,14 @@ button.act.plaque .plaque-amt {
 }
 
 .settings-status-line {
-    grid-row: 4;
+    grid-row: 3;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .settings-rows {
-    grid-row: 3;
+    grid-row: 2;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -3897,7 +3907,7 @@ button.act.plaque .plaque-amt {
 }
 
 .settings-actions {
-    grid-row: 5;
+    grid-row: 4;
     display: flex;
     flex-direction: column;
     gap: 3px;
@@ -4234,7 +4244,8 @@ button.act.plaque .plaque-amt {
         width: min(420px, calc(100vw - 12px));
         max-width: min(420px, calc(100vw - 12px), calc((100dvh - 12px) * 699 / 696));
     }
-    .settings-panel-body { inset: 14% 10.5% 12% 10.5%; gap: 1px; }
+    .settings-panel-body { inset: 13% 10.5% 12% 10.5%; gap: 1px; }
+    .settings-title { font-size: clamp(13px, 2.8vw, 18px); }
     .invite-box { padding: 14px 22px; gap: 10px; }
     .invite-blurb { font-size: 12px; }
     .invite-room { padding: 9px 12px; }
